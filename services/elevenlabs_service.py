@@ -9,6 +9,32 @@ import boto3
 # a real cache (Redis) if this needs to survive restarts later.
 _audio_cache = {}
 
+# Separate cache for voice sample preview URLs — these are static per voice
+# and never change, so once fetched there's no reason to ever ask again.
+_voice_preview_cache = {}
+
+
+def get_voice_preview_url(voice_id: str) -> str:
+    """
+    Returns ElevenLabs' free built-in sample clip for a voice — the same
+    preview audio you hear browsing their voice library. This hits their
+    voice-info endpoint, NOT the text-to-speech endpoint, so it costs no
+    credits and generates no new audio — just retrieves an existing file.
+    """
+    if voice_id in _voice_preview_cache:
+        return _voice_preview_cache[voice_id]
+
+    resp = requests.get(
+        f"https://api.elevenlabs.io/v1/voices/{voice_id}",
+        headers={"xi-api-key": os.environ["ELEVENLABS_API_KEY"]},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    preview_url = resp.json()["preview_url"]
+
+    _voice_preview_cache[voice_id] = preview_url
+    return preview_url
+
 
 def generate_audio_url(message: str, voice_id: str = None) -> str:
     """

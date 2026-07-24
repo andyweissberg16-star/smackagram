@@ -64,6 +64,17 @@ def get_voice_options():
     return jsonify(voice_options.list_voice_options())
 
 
+@app.route("/api/voice-sample/<voice_key>")
+def voice_sample(voice_key):
+    """
+    Free preview of what a voice sounds like — ElevenLabs' own static
+    sample clip, not a generated one. No credits used, no rate limit needed.
+    """
+    voice_id = voice_options.get_voice_id(voice_key)
+    preview_url = elevenlabs_service.get_voice_preview_url(voice_id)
+    return jsonify({"preview_url": preview_url})
+
+
 @app.route("/api/preview-audio", methods=["POST"])
 def preview_audio():
     """

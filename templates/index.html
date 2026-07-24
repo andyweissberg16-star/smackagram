@@ -269,9 +269,13 @@
 
     <div style="margin-top:14px;">
       <label for="voiceSelect" style="display:block; font-size:12px; color:var(--chalk-dim); margin-bottom:6px;">Voice</label>
-      <select id="voiceSelect" style="background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:10px 12px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; width:100%; max-width:280px;">
-        <option value="default">Loading voices...</option>
-      </select>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <select id="voiceSelect" style="background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:10px 12px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; max-width:280px; flex:1;">
+          <option value="default">Loading voices...</option>
+        </select>
+        <button id="voiceSampleBtn" class="btn btn-ghost" type="button" style="white-space:nowrap;">Preview voice</button>
+      </div>
+      <audio id="voiceSampleAudio" style="display:none;"></audio>
     </div>
 
     <div style="display:flex; align-items:center; gap:12px; margin-top:12px;">
@@ -369,6 +373,28 @@ document.getElementById('previewBtn').addEventListener('click', async () => {
     // leave the default option in place if this fails
   }
 })();
+document.getElementById('voiceSampleBtn').addEventListener('click', async () => {
+  const voiceKey = document.getElementById('voiceSelect').value;
+  const btn = document.getElementById('voiceSampleBtn');
+  const audioEl = document.getElementById('voiceSampleAudio');
+
+  btn.textContent = 'Loading...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch(`/api/voice-sample/${voiceKey}`);
+    const data = await resp.json();
+    if (data.preview_url) {
+      audioEl.src = data.preview_url;
+      audioEl.play();
+    }
+  } catch (err) {
+    // fail quietly — this is just a sample preview, not critical
+  } finally {
+    btn.textContent = 'Preview voice';
+    btn.disabled = false;
+  }
+});
 </script>
 
 <section class="halftone" style="background:var(--ink-2);">
