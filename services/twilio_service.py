@@ -2,9 +2,6 @@ import os
 from twilio.rest import Client
 from twilio.twiml.voice_response import VoiceResponse
 
-# Lazy client — built on first real use, not at import time. This lets the
-# app boot and serve pages even before Twilio keys are filled in; you'll
-# only hit an error if you actually try to place a call without real keys.
 _client = None
 
 
@@ -16,30 +13,21 @@ def _get_client():
 
 
 def place_prank_call(order_or_smackagram_id: int, recipient_phone: str, record: bool = True) -> str:
-    """
-    Fires the actual outbound call. Twilio hits our /call-instructions
-    endpoint the moment the call connects, which returns the TwiML script.
-    Returns the Twilio call SID for tracking.
-
-    Kept intentionally minimal — record/status_callback/machine_detection at
-    call-creation time all hit "trial accounts have limited parameter access"
-    errors. Recording instead happens via <Record> inside the TwiML script
-    itself (see build_twiml), which trial accounts do support.
-    """
     base_url = os.environ["BASE_URL"]
+    to_number = recipient_phone.strip()
+    from_number = os.environ["TWILIO_PHONE_NUMBER"].strip()
+
+    print(f"[twilio] Placing call — to={to_number!r} from={from_number!r}")
+
     call = _get_client().calls.create(
-        to=recipient_phone,
-        from_=os.environ["TWILIO_PHONE_NUMBER"],
+        to=to_number,
+        from_=from_number,
         url=f"{base_url}/call-instructions/{order_or_smackagram_id}",
     )
     return call.sid
 
 
 def build_twiml(audio_url: str, record: bool = True, record_callback_url: str = None) -> str:
-    """
-    The actual call script. Discloses recording (FL is two-party consent),
-    plays the message, optionally records via <Record>, hangs up.
-    """
     response = VoiceResponse()
     response.say(
         "Heads up — this call may be recorded. Here's your message.",
