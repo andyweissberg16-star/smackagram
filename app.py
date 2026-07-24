@@ -23,8 +23,11 @@ db.init_app(app)
 
 @app.before_request
 def require_site_password():
-    if request.path == "/webhook/stripe":
-        return  # Stripe can't log in — this route verifies itself via signature instead
+    # Stripe and Twilio hit these routes directly and can not log in with a
+    # username/password.
+    exempt_prefixes = ("/webhook/stripe", "/call-instructions/", "/call-status/", "/recording-ready/")
+    if request.path.startswith(exempt_prefixes):
+        return
 
     site_password = os.environ.get("SITE_PASSWORD")
     if not site_password:
