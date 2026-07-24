@@ -23,6 +23,7 @@ class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     scenario_id = db.Column(db.Integer, db.ForeignKey("scenarios.id"))
     custom_message = db.Column(db.Text, nullable=True)   # if using "write your own"
+    voice_key = db.Column(db.String(40), default="default")  # which ElevenLabs voice to use
     recipient_name = db.Column(db.String(120))
     recipient_phone = db.Column(db.String(20))
     consent_confirmed = db.Column(db.Boolean, default=False)

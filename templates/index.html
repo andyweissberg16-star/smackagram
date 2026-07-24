@@ -395,6 +395,102 @@ document.getElementById('voiceSampleBtn').addEventListener('click', async () => 
     btn.disabled = false;
   }
 });
+let selectedPriceCents = 200;
+
+function openOrderModal(priceCents) {
+  selectedPriceCents = priceCents;
+  const generatedText = document.getElementById('trashTalkOutput').value.trim();
+  if (generatedText) {
+    document.getElementById('orderMessage').value = generatedText;
+  }
+  const generatorVoice = document.getElementById('voiceSelect').value;
+  const orderVoiceSelect = document.getElementById('orderVoice');
+  if (orderVoiceSelect.options.length && generatorVoice) {
+    orderVoiceSelect.value = generatorVoice;
+  }
+  document.getElementById('orderError').style.display = 'none';
+  document.getElementById('orderModal').style.display = 'flex';
+}
+
+document.getElementById('sendItBundle').addEventListener('click', () => openOrderModal(200));
+document.getElementById('sendItCallOnly').addEventListener('click', () => openOrderModal(100));
+
+document.getElementById('closeModalBtn').addEventListener('click', () => {
+  document.getElementById('orderModal').style.display = 'none';
+});
+
+document.getElementById('orderSubmitBtn').addEventListener('click', async () => {
+  const message = document.getElementById('orderMessage').value.trim();
+  const voiceKey = document.getElementById('orderVoice').value;
+  const recipientName = document.getElementById('orderRecipientName').value.trim();
+  const recipientPhone = document.getElementById('orderRecipientPhone').value.trim();
+  const consent = document.getElementById('orderConsent').checked;
+  const errorEl = document.getElementById('orderError');
+  const btn = document.getElementById('orderSubmitBtn');
+
+  errorEl.style.display = 'none';
+
+  if (!message || !recipientName || !recipientPhone) {
+    errorEl.textContent = 'Please fill in the message, name, and phone number.';
+    errorEl.style.display = 'block';
+    return;
+  }
+  if (!consent) {
+    errorEl.textContent = 'Please confirm you know this person before continuing.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  btn.textContent = 'Redirecting to payment...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/orders', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        custom_message: message,
+        voice_key: voiceKey,
+        recipient_name: recipientName,
+        recipient_phone: recipientPhone,
+        consent_confirmed: consent,
+        include_recording: selectedPriceCents === 200
+      })
+    });
+    const data = await resp.json();
+    if (data.checkout_url) {
+      window.location.href = data.checkout_url;
+    } else {
+      errorEl.textContent = data.error || 'Something went wrong — try again.';
+      errorEl.style.display = 'block';
+      btn.textContent = 'Continue to payment';
+      btn.disabled = false;
+    }
+  } catch (err) {
+    errorEl.textContent = 'Something went wrong — try again.';
+    errorEl.style.display = 'block';
+    btn.textContent = 'Continue to payment';
+    btn.disabled = false;
+  }
+});
+
+// populate the order modal's voice dropdown from the same source as the generator's
+(async () => {
+  try {
+    const resp = await fetch('/api/voice-options');
+    const voices = await resp.json();
+    const select = document.getElementById('orderVoice');
+    select.innerHTML = '';
+    voices.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.key;
+      opt.textContent = v.label;
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    // leave default option in place
+  }
+})();
 </script>
 
 <section class="halftone" style="background:var(--ink-2);">
@@ -472,7 +568,7 @@ document.getElementById('voiceSampleBtn').addEventListener('click', async () => 
         <div class="feat">✓ Call delivered</div>
         <div class="feat">✓ Reaction recorded</div>
         <div class="feat">✓ Downloadable + shareable</div>
-        <button class="btn btn-flare" style="width:100%; margin-top:16px;">Send it</button>
+        <button id="sendItBundle" class="btn btn-flare" style="width:100%; margin-top:16px;">Send it</button>
       </div>
       <div class="price-card">
         <p class="section-sub" style="margin:0;">Call only</p>
@@ -480,7 +576,7 @@ document.getElementById('voiceSampleBtn').addEventListener('click', async () => 
         <div class="feat">✓ Call delivered</div>
         <div class="feat no">✗ No recording</div>
         <div class="feat no">✗ Nothing to share</div>
-        <button class="btn btn-ghost" style="width:100%; margin-top:16px;">Send it</button>
+        <button id="sendItCallOnly" class="btn btn-ghost" style="width:100%; margin-top:16px;">Send it</button>
       </div>
     </div>
   </div>
@@ -503,6 +599,38 @@ document.getElementById('voiceSampleBtn').addEventListener('click', async () => 
     <span>Terms</span><span>Privacy</span><span>Opt out</span><span>Support</span>
   </div>
 </footer>
+
+<div id="orderModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:100; align-items:center; justify-content:center; padding:20px;">
+  <div style="background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:28px; max-width:440px; width:100%; max-height:90vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+      <p style="font-family:'Anton',sans-serif; font-size:20px;">Send this smack</p>
+      <button id="closeModalBtn" style="background:none; border:none; color:var(--chalk-dim); font-size:22px; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+
+    <div id="orderError" style="display:none; background:var(--flare-dim); border:1px solid var(--flare); color:var(--flare); padding:10px 12px; border-radius:2px; font-size:13px; margin-bottom:14px;"></div>
+
+    <label style="display:block; font-size:12px; color:var(--chalk-dim); margin-bottom:6px;">Message</label>
+    <textarea id="orderMessage" placeholder="Your smack talk line..." style="width:100%; min-height:80px; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:10px 12px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; margin-bottom:14px; resize:vertical;"></textarea>
+
+    <label style="display:block; font-size:12px; color:var(--chalk-dim); margin-bottom:6px;">Voice</label>
+    <select id="orderVoice" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:10px 12px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; margin-bottom:14px;">
+      <option value="default">Loading voices...</option>
+    </select>
+
+    <label style="display:block; font-size:12px; color:var(--chalk-dim); margin-bottom:6px;">Recipient's name</label>
+    <input id="orderRecipientName" type="text" placeholder="Mike" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:10px 12px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; margin-bottom:14px;">
+
+    <label style="display:block; font-size:12px; color:var(--chalk-dim); margin-bottom:6px;">Recipient's phone number</label>
+    <input id="orderRecipientPhone" type="tel" placeholder="+1 555 555 5555" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:10px 12px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; margin-bottom:14px;">
+
+    <label style="display:flex; gap:8px; align-items:flex-start; font-size:12px; color:var(--chalk-dim); margin-bottom:18px; cursor:pointer;">
+      <input id="orderConsent" type="checkbox" style="margin-top:2px;">
+      <span>I know this person and this is a prank between friends. I understand the call may be recorded.</span>
+    </label>
+
+    <button id="orderSubmitBtn" class="btn btn-flare" style="width:100%;">Continue to payment</button>
+  </div>
+</div>
 
 </body>
 </html>

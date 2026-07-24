@@ -23,6 +23,9 @@ db.init_app(app)
 
 @app.before_request
 def require_site_password():
+    if request.path == "/webhook/stripe":
+        return  # Stripe can't log in — this route verifies itself via signature instead
+
     site_password = os.environ.get("SITE_PASSWORD")
     if not site_password:
         return  # gate disabled — site is public
@@ -51,25 +54,75 @@ def create_order():
     data = request.json
     price = 200 if data.get("include_recording", True) else 100
 
+    if not data.get("consent_confirmed"):
+        return jsonify({"error": "Consent confirmation required"}), 400
+
     order = Order(
         scenario_id=data.get("scenario_id"),
         custom_message=data.get("custom_message"),
+        voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
         recipient_name=data["recipient_name"],
         recipient_phone=data["recipient_phone"],
-        consent_confirmed=data["consent_confirmed"],
+        consent_confirmed=True,
         price_cents=price,
         includes_recording=data.get("include_recording", True),
     )
-
-    if not order.consent_confirmed:
-        return jsonify({"error": "Consent confirmation required"}), 400
-
-    intent = stripe_service.create_immediate_payment_intent(price)
-    order.stripe_payment_intent_id = intent.id
     db.session.add(order)
+    db.session.commit()  # commit first so order.id exists for the checkout metadata
+
+    session = stripe_service.create_checkout_session(
+        order_id=order.id,
+        amount_cents=price,
+        base_url=os.environ.get("BASE_URL", request.url_root.rstrip("/")),
+    )
+    order.stripe_payment_intent_id = session.id
     db.session.commit()
 
-    return jsonify({"order_id": order.id, "client_secret": intent.client_secret})
+    return jsonify({"checkout_url": session.url})
+
+
+@app.route("/order-success")
+def order_success():
+    session_id = request.args.get("session_id")
+    return render_template("order_success.html", session_id=session_id)
+
+
+@app.route("/webhook/stripe", methods=["POST"])
+def stripe_webhook():
+    payload = request.data
+    sig_header = request.headers.get("Stripe-Signature")
+    webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
+
+    try:
+        event = stripe_service.verify_webhook(payload, sig_header, webhook_secret)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    if event["type"] == "checkout.session.completed":
+        session = event["data"]["object"]
+        order_id = int(session["metadata"]["order_id"])
+        order = Order.query.get(order_id)
+
+        if order and order.payment_status != "captured":
+            order.payment_status = "captured"
+            db.session.commit()
+
+            # Fire the actual call. Wrapped in try/except so a Twilio issue
+            # (e.g. not configured yet) doesn't crash the webhook — Stripe
+            # needs a fast 200 response regardless, and the payment is
+            # already safely recorded either way.
+            try:
+                audio_url = resolve_audio_url(order)
+                call_sid = twilio_service.place_prank_call(order.id, order.recipient_phone, record=True)
+                order.twilio_call_sid = call_sid
+                order.call_status = "ringing"
+                db.session.commit()
+            except Exception as e:
+                order.call_status = "failed"
+                db.session.commit()
+                print(f"Call failed for order {order.id}: {e}")
+
+    return jsonify({"received": True})
 
 
 @app.route("/api/generate-trash-talk", methods=["POST"])
@@ -138,7 +191,8 @@ def call_instructions(record_id):
 def resolve_audio_url(record):
     """Pre-recorded clip, or generate TTS on the fly for custom messages."""
     if record.custom_message:
-        return elevenlabs_service.generate_audio_url(record.custom_message)
+        voice_id = voice_options.get_voice_id(getattr(record, "voice_key", None) or voice_options.DEFAULT_VOICE_KEY)
+        return elevenlabs_service.generate_audio_url(record.custom_message, voice_id=voice_id)
     scenario = Scenario.query.get(record.scenario_id)
     return scenario.audio_url
 
