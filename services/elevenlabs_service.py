@@ -10,19 +10,26 @@ import boto3
 _audio_cache = {}
 
 
-def generate_audio_url(message: str) -> str:
+def generate_audio_url(message: str, voice_id: str = None) -> str:
     """
     Sends a custom message to ElevenLabs, gets back an mp3, uploads it to S3,
     and returns a public URL Twilio can fetch and play on the call.
 
     Uses the 'turbo' model — about half the credit cost of the standard
     multilingual model, and plenty good enough for a 15-20 second prank line.
+
+    voice_id defaults to ELEVENLABS_VOICE_ID if not passed — see
+    services/voice_options.py for the list of selectable voice characters.
     """
-    cache_key = hashlib.sha256(message.encode()).hexdigest()
+    if voice_id is None:
+        voice_id = os.environ["ELEVENLABS_VOICE_ID"]
+
+    # cache key includes the voice, since the same text sounds different
+    # (and needs separate storage) per voice
+    cache_key = hashlib.sha256(f"{voice_id}:{message}".encode()).hexdigest()
     if cache_key in _audio_cache:
         return _audio_cache[cache_key]
 
-    voice_id = os.environ["ELEVENLABS_VOICE_ID"]
     s3_bucket = os.environ["AUDIO_S3_BUCKET"]
     s3_region = os.environ.get("AWS_REGION", "us-east-1")
 

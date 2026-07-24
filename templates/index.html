@@ -267,6 +267,13 @@
 
     <textarea id="trashTalkOutput" placeholder="Your generated line shows up here — edit it however you want before sending." style="width:100%; min-height:100px; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; resize:vertical;"></textarea>
 
+    <div style="margin-top:14px;">
+      <label for="voiceSelect" style="display:block; font-size:12px; color:var(--chalk-dim); margin-bottom:6px;">Voice</label>
+      <select id="voiceSelect" style="background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:10px 12px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; width:100%; max-width:280px;">
+        <option value="default">Loading voices...</option>
+      </select>
+    </div>
+
     <div style="display:flex; align-items:center; gap:12px; margin-top:12px;">
       <button id="previewBtn" class="btn btn-ghost">Hear it</button>
       <span id="previewStatus" style="font-size:12px; color:var(--chalk-dim);"></span>
@@ -307,6 +314,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
 
 document.getElementById('previewBtn').addEventListener('click', async () => {
   const text = document.getElementById('trashTalkOutput').value.trim();
+  const voiceKey = document.getElementById('voiceSelect').value;
   const btn = document.getElementById('previewBtn');
   const status = document.getElementById('previewStatus');
   const audioEl = document.getElementById('previewAudio');
@@ -324,7 +332,7 @@ document.getElementById('previewBtn').addEventListener('click', async () => {
     const resp = await fetch('/api/preview-audio', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({text: text})
+      body: JSON.stringify({text: text, voice_key: voiceKey})
     });
     const data = await resp.json();
 
@@ -345,6 +353,22 @@ document.getElementById('previewBtn').addEventListener('click', async () => {
     btn.disabled = false;
   }
 });
+(async () => {
+  try {
+    const resp = await fetch('/api/voice-options');
+    const voices = await resp.json();
+    const select = document.getElementById('voiceSelect');
+    select.innerHTML = '';
+    voices.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.key;
+      opt.textContent = v.label;
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    // leave the default option in place if this fails
+  }
+})();
 </script>
 
 <section class="halftone" style="background:var(--ink-2);">

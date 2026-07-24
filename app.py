@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
 
 from models import db, Scenario, Order, Smackagram
-from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter
+from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options
 from scheduler import start_scheduler
 
 load_dotenv()
@@ -59,6 +59,11 @@ def generate_trash_talk():
     return jsonify({"generated_text": line})
 
 
+@app.route("/api/voice-options")
+def get_voice_options():
+    return jsonify(voice_options.list_voice_options())
+
+
 @app.route("/api/preview-audio", methods=["POST"])
 def preview_audio():
     """
@@ -78,7 +83,10 @@ def preview_audio():
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
-    audio_url = elevenlabs_service.generate_audio_url(text)
+    voice_key = request.json.get("voice_key", voice_options.DEFAULT_VOICE_KEY)
+    voice_id = voice_options.get_voice_id(voice_key)
+
+    audio_url = elevenlabs_service.generate_audio_url(text, voice_id=voice_id)
     rate_limiter.record_hit(identifier)
 
     return jsonify({
