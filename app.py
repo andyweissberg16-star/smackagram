@@ -182,7 +182,7 @@ def preview_audio():
     })
 
 
-@app.route("/call-instructions/<int:record_id>")
+@app.route("/call-instructions/<int:record_id>", methods=["GET", "POST"])
 def call_instructions(record_id):
     """Twilio hits this the moment the call connects."""
     order = Order.query.get(record_id) or Smackagram.query.get(record_id)
