@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smackagram — Talk smack. Get it on tape.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D;
+    --ink-2:#1A1A1A;
+    --chalk:#F5F5F3;
+    --chalk-dim:#9A9A96;
+    --flare:#E8142C;
+    --flare-dim:#3A0810;
+    --turf:#39FF6A;
+    --gold:#FFD400;
+    --cyan:#F5F5F3;
+    --line:rgba(245,245,243,0.10);
+    --line-strong:rgba(245,245,243,0.24);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--ink);
+    color:var(--chalk);
+    font-family:'Inter',sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .display{font-family:'Anton',sans-serif; text-transform:uppercase; letter-spacing:0.5px; font-weight:400;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .wrap{max-width:1080px; margin:0 auto; padding:0 24px;}
+
+  /* NAV */
+  nav{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:22px 24px; border-bottom:1px solid var(--line);
+  }
+  .logo{font-family:'Anton',sans-serif; font-size:22px; letter-spacing:0.5px;}
+  .logo span{color:var(--flare); text-shadow:0 0 12px rgba(232,20,44,0.7);}
+  .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+  .btn{
+    font-family:'Inter',sans-serif; font-weight:600; font-size:14px;
+    padding:11px 22px; border-radius:2px; border:none; cursor:pointer;
+    text-transform:uppercase; letter-spacing:0.5px;
+  }
+  .btn-flare{background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(232,20,44,0.5);}
+  .btn-ghost{background:transparent; color:var(--chalk); border:1px solid var(--line-strong);}
+
+  /* TICKER */
+  .ticker-bar{background:var(--flare); overflow:hidden; white-space:nowrap; padding:8px 0;}
+  .ticker-track{display:inline-block; animation:scroll 28s linear infinite;}
+  .ticker-track span{font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:#fff; margin-right:48px; text-transform:uppercase; letter-spacing:0.5px;}
+  @keyframes scroll{ from{transform:translateX(0);} to{transform:translateX(-50%);} }
+
+  /* HERO */
+  .hero{
+    padding:80px 24px 60px; display:grid; grid-template-columns:1.1fr 0.9fr; gap:48px; align-items:center;
+  }
+  .eyebrow{color:var(--cyan); font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; letter-spacing:1px; margin-bottom:16px; text-transform:uppercase; text-shadow:0 0 10px rgba(47,155,255,0.6);}
+  h1{font-size:clamp(38px,6vw,64px); line-height:0.98; margin-bottom:20px;}
+  h1 .flare{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.6);}
+  .sub{color:var(--chalk-dim); font-size:17px; max-width:440px; margin-bottom:32px;}
+  .hero-ctas{display:flex; gap:12px;}
+
+  /* SCORECARD (signature element) */
+  .scorecard{
+    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:4px;
+    padding:0; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,0.4);
+  }
+  .scorecard-head{
+    background:var(--flare); padding:14px 20px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .scorecard-head span{font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:#fff; letter-spacing:0.5px;}
+  .scorecard-body{padding:24px 20px;}
+  .sc-row{display:flex; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--line);}
+  .sc-row:last-child{border-bottom:none;}
+  .sc-label{font-size:12px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; font-family:'JetBrains Mono',monospace;}
+  .sc-val{font-size:13px; font-weight:600;}
+  .sc-verdict{
+    margin-top:18px; padding:14px; background:var(--flare-dim); border:1px solid var(--turf); border-radius:2px;
+    text-align:center; box-shadow:0 0 20px rgba(57,255,136,0.2);
+  }
+  .sc-verdict p{font-family:'Anton',sans-serif; color:var(--turf); font-size:18px; letter-spacing:0.5px; text-shadow:0 0 10px rgba(57,255,136,0.6);}
+  .sc-verdict small{color:var(--chalk-dim); font-size:11px; font-family:'JetBrains Mono',monospace;}
+
+  /* PLAY BY PLAY (how it works) */
+  section{padding:64px 24px;}
+  .section-title{font-family:'Anton',sans-serif; font-size:32px; margin-bottom:8px;}
+  .section-sub{color:var(--chalk-dim); font-size:14px; margin-bottom:40px;}
+  .downs{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
+  .down{border:1px solid var(--line); border-radius:4px; padding:22px 18px; position:relative;}
+  .down-tag{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare); font-weight:700; letter-spacing:1px; margin-bottom:14px;}
+  .down h3{font-size:16px; margin-bottom:8px; font-weight:600;}
+  .down p{font-size:13px; color:var(--chalk-dim);}
+
+  /* SCENARIOS */
+  .card-row{display:flex; gap:14px; overflow-x:auto; padding-bottom:8px;}
+  .player-card{
+    min-width:180px; background:var(--ink-2); border:1px solid var(--line); border-radius:4px;
+    padding:18px; flex-shrink:0;
+  }
+  .power{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--gold); margin-bottom:12px; letter-spacing:0.5px;}
+  .player-card h4{font-size:15px; margin-bottom:6px; font-weight:600;}
+  .player-card p{font-size:12px; color:var(--chalk-dim);}
+
+  /* PRICING */
+  .pricing{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  .price-card{border:1px solid var(--line); border-radius:4px; padding:28px 24px; position:relative;}
+  .price-card.featured{border:2px solid var(--flare); box-shadow:5px 5px 0 var(--flare), 0 0 30px rgba(232,20,44,0.15);}
+  .badge{position:absolute; top:-12px; left:20px; background:var(--flare); color:#fff; font-size:11px; font-weight:700; padding:4px 10px; text-transform:uppercase; letter-spacing:0.5px; font-family:'JetBrains Mono',monospace;}
+  .price{font-family:'Anton',sans-serif; font-size:44px; margin:10px 0 18px;}
+  .feat{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--chalk-dim); margin-bottom:8px;}
+  .feat.no{color:#5C5A54;}
+
+  /* CTA */
+  .final-cta{text-align:center; background:var(--ink-2); border-radius:6px; padding:60px 24px; margin:0 24px;}
+  .final-cta h2{font-size:34px; margin-bottom:12px;}
+  .final-cta p{color:var(--chalk-dim); margin-bottom:28px;}
+
+  footer{padding:32px 24px; border-top:1px solid var(--line); display:flex; justify-content:space-between; font-size:12px; color:var(--chalk-dim);}
+  footer .flinks{display:flex; gap:20px;}
+
+  .field-lines{
+    position:relative;
+  }
+  /* LEAGUE TABS */
+  .leagues{display:flex; gap:8px; padding:16px 24px 0;}
+  .league-pill{
+    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; letter-spacing:0.5px;
+    padding:7px 14px; border-radius:20px; border:1px solid var(--line-strong); color:var(--chalk-dim);
+  }
+  .league-pill.active{background:var(--flare); border-color:var(--flare); color:#fff; box-shadow:0 0 14px rgba(232,20,44,0.5);}
+
+  /* SCOREBOARD CLOCK */
+  .clock{
+    font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; color:var(--gold);
+    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:2px; padding:6px 12px;
+    display:flex; align-items:center; gap:8px; text-shadow:0 0 8px rgba(255,212,0,0.6);
+  }
+  .clock .dot{width:6px; height:6px; border-radius:50%; background:var(--flare); animation:pulse 1.4s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:0.25;}}
+
+  /* JERSEY NUMBER */
+  .jersey{
+    width:40px; height:40px; background:var(--flare); color:#fff; font-family:'Anton',sans-serif;
+    font-size:17px; display:flex; align-items:center; justify-content:center; margin-bottom:14px;
+    clip-path:polygon(20% 0%,80% 0%,100% 20%,100% 100%,0% 100%,0% 20%);
+    box-shadow:0 0 16px rgba(232,20,44,0.45);
+  }
+
+  /* CARD TEAM STRIPE */
+  .player-card{border-top:3px solid var(--flare); box-shadow:0 0 18px rgba(232,20,44,0.12);}
+  .player-card:nth-child(2){border-top-color:var(--cyan); box-shadow:0 0 18px rgba(47,155,255,0.12);}
+  .player-card:nth-child(3){border-top-color:var(--turf); box-shadow:0 0 18px rgba(57,255,136,0.12);}
+  .player-card:nth-child(4){border-top-color:var(--gold); box-shadow:0 0 18px rgba(255,212,0,0.12);}
+
+  .ball-icon{width:16px; height:16px; display:inline-block; vertical-align:-3px; margin-right:6px;}
+
+  /* COMIC ACCENTS — matches the logo's illustrated style */
+  .halftone{
+    background-image: radial-gradient(var(--line-strong) 1px, transparent 1px);
+    background-size: 10px 10px;
+  }
+  .btn-flare{
+    background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(232,20,44,0.5);
+    border:2px solid #fff; outline:2px solid var(--ink); outline-offset:-1px;
+  }
+  .burst{
+    position:absolute; top:-14px; right:24px; background:var(--gold); color:var(--ink);
+    font-family:'Anton',sans-serif; font-size:13px; padding:8px 14px;
+    transform:rotate(-6deg); border:2px solid var(--ink); letter-spacing:0.5px;
+    box-shadow:3px 3px 0 var(--ink);
+  }
+  .comic-border{
+    border:2px solid var(--chalk); box-shadow:4px 4px 0 var(--flare);
+  }
+
+  @media(max-width:760px){
+    .hero{grid-template-columns:1fr;}
+    .downs{grid-template-columns:1fr 1fr;}
+    .pricing{grid-template-columns:1fr;}
+    nav{flex-wrap:wrap; gap:12px;}
+    .nav-links{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+  <div class="nav-links">
+    <span>How it works</span>
+    <span>Scenarios</span>
+    <span>Sign in</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:16px;">
+    <div class="clock"><span class="dot"></span>Q4 · 00:12</div>
+    <button class="btn btn-flare">Send a smack</button>
+  </div>
+</nav>
+
+<div class="leagues">
+  <span class="league-pill active">NFL</span>
+  <span class="league-pill">NBA</span>
+  <span class="league-pill">MLB</span>
+  <span class="league-pill">NHL</span>
+  <span class="league-pill">NCAAF</span>
+</div>
+
+<div class="ticker-bar">
+  <div class="ticker-track">
+    <span>COWBOYS FANS — 214 SMACKS SENT TODAY</span>
+    <span>EAGLES JUST GOT RUNG UP AFTER THE 4TH QUARTER COLLAPSE</span>
+    <span>LIVE — SUNDAY SLATE SMACK VOLUME UP 3X</span>
+    <span>COWBOYS FANS — 214 SMACKS SENT TODAY</span>
+    <span>EAGLES JUST GOT RUNG UP AFTER THE 4TH QUARTER COLLAPSE</span>
+    <span>LIVE — SUNDAY SLATE SMACK VOLUME UP 3X</span>
+  </div>
+</div>
+
+<div class="wrap field-lines">
+  <div style="text-align:center; padding:32px 24px 8px; position:relative; z-index:1;">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram — let the smack begin" style="max-width:520px; width:90%; height:auto;">
+  </div>
+
+  <section class="hero" style="padding-left:0; padding-right:0; padding-top:16px; position:relative; z-index:1;">
+    <div>
+      <p class="eyebrow">Their team just lost</p>
+      <h1>Talk smack.<br>Get it <span class="flare">on tape.</span></h1>
+      <p class="sub">Send a prank call to any sports fan who needs to hear it. Two bucks. Delivered in a minute. Recorded so you can relive it forever.</p>
+      <div class="hero-ctas">
+        <button class="btn btn-flare">Send a smack — $2</button>
+        <button class="btn btn-ghost">Hear a sample</button>
+      </div>
+    </div>
+
+    <div class="scorecard comic-border" style="position:relative;">
+      <div class="burst">DELIVERED!</div>
+      <div class="scorecard-head">
+        <span>SMACK RECEIPT</span>
+        <span>#04471</span>
+      </div>
+      <div class="scorecard-body">
+        <div class="sc-row"><span class="sc-label">Target</span><span class="sc-val">Mike — Eagles fan</span></div>
+        <div class="sc-row"><span class="sc-label">Scenario</span><span class="sc-val">4th quarter choke</span></div>
+        <div class="sc-row"><span class="sc-label">Answered</span><span class="sc-val">0:04 in</span></div>
+        <div class="sc-row"><span class="sc-label">Duration</span><span class="sc-val">0:38</span></div>
+        <div class="sc-verdict">
+          <p>DELIVERED</p>
+          <small>RECORDING READY TO DOWNLOAD</small>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="halftone" style="background:var(--ink-2);">
+  <div class="wrap">
+    <p class="section-title">Four downs to a smack</p>
+    <p class="section-sub">First and goal. Here's the drive.</p>
+    <div class="downs">
+      <div class="down">
+        <div class="jersey">1</div>
+        <p class="down-tag">1ST DOWN</p>
+        <h3>Pick a scenario</h3>
+        <p>Choose from the library, or write your own line and we'll read it.</p>
+      </div>
+      <div class="down">
+        <div class="jersey">2</div>
+        <p class="down-tag">2ND DOWN</p>
+        <h3>Enter their number</h3>
+        <p>You confirm you know them. This isn't for strangers.</p>
+      </div>
+      <div class="down">
+        <div class="jersey">3</div>
+        <p class="down-tag">3RD DOWN</p>
+        <h3>We make the call</h3>
+        <p>Phone rings, they answer, the smack talk starts.</p>
+      </div>
+      <div class="down">
+        <div class="jersey">4</div>
+        <p class="down-tag">4TH DOWN</p>
+        <h3>You get the tape</h3>
+        <p>Their reaction, recorded and ready to download or share.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="section-title">Trending scenarios</p>
+    <p class="section-sub">New ones added every game week.</p>
+    <div class="card-row">
+      <div class="player-card">
+        <p class="power"><svg class="ball-icon" viewBox="0 0 24 24" fill="none" stroke="#FFD400" stroke-width="1.6"><ellipse cx="12" cy="12" rx="10" ry="6" transform="rotate(-30 12 12)"/><path d="M7 13l10-6M8.5 15.5l1-1.7M14.5 8.5l1-1.7" transform="rotate(-30 12 12)"/></svg>POWER 94</p>
+        <h4>4th quarter choke</h4>
+        <p>Angry announcer voice, blow-by-blow recap of the meltdown.</p>
+      </div>
+      <div class="player-card">
+        <p class="power"><svg class="ball-icon" viewBox="0 0 24 24" fill="none" stroke="#FFD400" stroke-width="1.6"><ellipse cx="12" cy="12" rx="10" ry="6" transform="rotate(-30 12 12)"/><path d="M7 13l10-6M8.5 15.5l1-1.7M14.5 8.5l1-1.7" transform="rotate(-30 12 12)"/></svg>POWER 88</p>
+        <h4>Rival fan rage bait</h4>
+        <p>For the group chat trash talker in your life.</p>
+      </div>
+      <div class="player-card">
+        <p class="power"><svg class="ball-icon" viewBox="0 0 24 24" fill="none" stroke="#FFD400" stroke-width="1.6"><ellipse cx="12" cy="12" rx="10" ry="6" transform="rotate(-30 12 12)"/><path d="M7 13l10-6M8.5 15.5l1-1.7M14.5 8.5l1-1.7" transform="rotate(-30 12 12)"/></svg>POWER 81</p>
+        <h4>Refs robbed us</h4>
+        <p>Full conspiracy theorist energy, unhinged and proud.</p>
+      </div>
+      <div class="player-card">
+        <p class="power">POWER —</p>
+        <h4>Write your own</h4>
+        <p>Type it, we'll read it back word for word.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="background:var(--ink-2);">
+  <div class="wrap">
+    <p class="section-title">Stuck on what to say?</p>
+    <p class="section-sub">Type the team you want roasted. We'll write the smack talk.</p>
+
+    <input id="teamInput" type="text" placeholder="Team to trash talk (e.g. Eagles)" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; margin-bottom:14px;">
+
+    <button id="generateBtn" class="btn btn-flare" style="margin-bottom:14px;">Generate smack talk</button>
+
+    <textarea id="trashTalkOutput" placeholder="Your generated line shows up here — edit it however you want before sending." style="width:100%; min-height:100px; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; resize:vertical;"></textarea>
+  </div>
+</section>
+
+<script>
+document.getElementById('generateBtn').addEventListener('click', async () => {
+  const team = document.getElementById('teamInput').value.trim();
+  const output = document.getElementById('trashTalkOutput');
+  const btn = document.getElementById('generateBtn');
+
+  if (!team) {
+    output.placeholder = "Type a team first.";
+    return;
+  }
+
+  btn.textContent = 'Writing...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/generate-trash-talk', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({team: team})
+    });
+    const data = await resp.json();
+    output.value = data.generated_text;
+  } catch (err) {
+    output.value = "Couldn't generate right now — try again.";
+  } finally {
+    btn.textContent = 'Generate smack talk';
+    btn.disabled = false;
+  }
+});
+</script>
+
+<section style="background:var(--ink-2);">
+  <div class="wrap">
+    <p class="section-title">Pick your play</p>
+    <p class="section-sub">No tokens, no subscriptions. Just pay per smack.</p>
+    <div class="pricing">
+      <div class="price-card featured">
+        <span class="badge">Most popular</span>
+        <p class="section-sub" style="margin:0;">Call + recording</p>
+        <p class="price">$2</p>
+        <div class="feat">✓ Call delivered</div>
+        <div class="feat">✓ Reaction recorded</div>
+        <div class="feat">✓ Downloadable + shareable</div>
+        <button class="btn btn-flare" style="width:100%; margin-top:16px;">Send it</button>
+      </div>
+      <div class="price-card">
+        <p class="section-sub" style="margin:0;">Call only</p>
+        <p class="price">$1</p>
+        <div class="feat">✓ Call delivered</div>
+        <div class="feat no">✗ No recording</div>
+        <div class="feat no">✗ Nothing to share</div>
+        <button class="btn btn-ghost" style="width:100%; margin-top:16px;">Send it</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="final-cta field-lines">
+    <div style="position:relative; z-index:1;">
+      <p class="mono" style="color:var(--gold); font-size:12px; letter-spacing:1px; margin-bottom:14px;">FINAL SCORE: YOU 2 — THEM 0</p>
+      <h2 class="display" style="font-family:'Anton',sans-serif;">Ready to make their day worse?</h2>
+      <p>Two bucks gets you the call plus proof it happened.</p>
+      <button class="btn btn-flare">Get started</button>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>© 2026 Smackagram</span>
+  <div class="flinks">
+    <span>Terms</span><span>Privacy</span><span>Opt out</span><span>Support</span>
+  </div>
+</footer>
+
+</body>
+</html>
