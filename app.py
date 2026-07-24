@@ -16,6 +16,26 @@ app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-me")
 db.init_app(app)
 
 
+# ---------- Site-wide password gate ----------
+# Set SITE_PASSWORD in Render to lock the whole site behind a simple prompt
+# while it's still in development. Leave SITE_PASSWORD unset/blank to make
+# the site fully public again (e.g. once you're ready to launch for real).
+
+@app.before_request
+def require_site_password():
+    site_password = os.environ.get("SITE_PASSWORD")
+    if not site_password:
+        return  # gate disabled — site is public
+
+    auth = request.authorization
+    if not auth or auth.password != site_password:
+        return Response(
+            "Authentication required.",
+            401,
+            {"WWW-Authenticate": 'Basic realm="Smackagram"'},
+        )
+
+
 # ---------- Pages ----------
 
 @app.route("/")
