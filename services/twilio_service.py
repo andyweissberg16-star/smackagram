@@ -12,10 +12,17 @@ def _get_client():
     return _client
 
 
+def _to_e164(number: str) -> str:
+    number = number.strip()
+    if not number.startswith("+"):
+        number = "+" + number
+    return number
+
+
 def place_prank_call(order_or_smackagram_id: int, recipient_phone: str, record: bool = True) -> str:
     base_url = os.environ["BASE_URL"]
-    to_number = recipient_phone.strip()
-    from_number = os.environ["TWILIO_PHONE_NUMBER"].strip()
+    to_number = _to_e164(recipient_phone)
+    from_number = _to_e164(os.environ["TWILIO_PHONE_NUMBER"])
 
     print(f"[twilio] Placing call — to={to_number!r} from={from_number!r}")
 
