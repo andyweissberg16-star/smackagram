@@ -14,6 +14,14 @@ VOICE_OPTIONS = {
         "label": "Loud, confident, cocky",
         "voice_id": "DGzg6RaUqxGRTHSBjfgF",
     },
+    "sexy_female": {
+        "label": "Sexy female",
+        "voice_id": "eVItLK1UvXctxuaRV2Oq",
+    },
+    "young_kid": {
+        "label": "Young kid",
+        "voice_id": "XjGYkUkzth8BPs29fmcV",
+    },
 }
 
 DEFAULT_VOICE_KEY = "default"
