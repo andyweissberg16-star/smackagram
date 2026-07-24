@@ -20,27 +20,25 @@ def place_prank_call(order_or_smackagram_id: int, recipient_phone: str, record: 
     Fires the actual outbound call. Twilio hits our /call-instructions
     endpoint the moment the call connects, which returns the TwiML script.
     Returns the Twilio call SID for tracking.
+
+    Kept intentionally minimal — record/status_callback/machine_detection at
+    call-creation time all hit "trial accounts have limited parameter access"
+    errors. Recording instead happens via <Record> inside the TwiML script
+    itself (see build_twiml), which trial accounts do support.
     """
     base_url = os.environ["BASE_URL"]
     call = _get_client().calls.create(
         to=recipient_phone,
         from_=os.environ["TWILIO_PHONE_NUMBER"],
         url=f"{base_url}/call-instructions/{order_or_smackagram_id}",
-        status_callback=f"{base_url}/call-status/{order_or_smackagram_id}",
-        status_callback_event=["completed"],
-        record=record,
-        recording_status_callback=f"{base_url}/recording-ready/{order_or_smackagram_id}" if record else None,
-        # machine_detection removed — Twilio trial accounts don't support AMD.
-        # Add machine_detection="DetectMessageEnd" back once the account is
-        # upgraded off trial, to distinguish voicemail from a live answer.
     )
     return call.sid
 
 
-def build_twiml(audio_url: str) -> str:
+def build_twiml(audio_url: str, record: bool = True, record_callback_url: str = None) -> str:
     """
     The actual call script. Discloses recording (FL is two-party consent),
-    plays the message, hangs up.
+    plays the message, optionally records via <Record>, hangs up.
     """
     response = VoiceResponse()
     response.say(
@@ -48,6 +46,13 @@ def build_twiml(audio_url: str) -> str:
         voice="Polly.Matthew",
     )
     response.play(audio_url)
+
+    if record:
+        record_kwargs = {"max_length": 60, "play_beep": False}
+        if record_callback_url:
+            record_kwargs["recording_status_callback"] = record_callback_url
+        response.record(**record_kwargs)
+
     response.pause(length=1)
     response.hangup()
     return str(response)

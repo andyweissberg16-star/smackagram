@@ -184,7 +184,10 @@ def call_instructions(record_id):
     """Twilio hits this the moment the call connects."""
     order = Order.query.get(record_id) or Smackagram.query.get(record_id)
     audio_url = resolve_audio_url(order)
-    twiml = twilio_service.build_twiml(audio_url)
+    should_record = getattr(order, "includes_recording", True)
+    base_url = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
+    callback_url = f"{base_url}/recording-ready/{record_id}" if should_record else None
+    twiml = twilio_service.build_twiml(audio_url, record=should_record, record_callback_url=callback_url)
     return Response(twiml, mimetype="text/xml")
 
 
