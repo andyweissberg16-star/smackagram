@@ -287,6 +287,8 @@
 </section>
 
 <script>
+document.addEventListener('DOMContentLoaded', () => {
+
 document.getElementById('generateBtn').addEventListener('click', async () => {
   const team = document.getElementById('teamInput').value.trim();
   const output = document.getElementById('trashTalkOutput');
@@ -491,6 +493,8 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
     // leave default option in place
   }
 })();
+
+}); // end DOMContentLoaded
 </script>
 
 <section class="halftone" style="background:var(--ink-2);">
