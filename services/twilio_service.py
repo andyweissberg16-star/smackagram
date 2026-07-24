@@ -30,7 +30,9 @@ def place_prank_call(order_or_smackagram_id: int, recipient_phone: str, record: 
         status_callback_event=["completed"],
         record=record,
         recording_status_callback=f"{base_url}/recording-ready/{order_or_smackagram_id}" if record else None,
-        machine_detection="DetectMessageEnd",  # so we can handle voicemail vs. live answer differently later
+        # machine_detection removed — Twilio trial accounts don't support AMD.
+        # Add machine_detection="DetectMessageEnd" back once the account is
+        # upgraded off trial, to distinguish voicemail from a live answer.
     )
     return call.sid
 
