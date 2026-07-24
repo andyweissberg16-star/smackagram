@@ -1,7 +1,13 @@
 import os
 import uuid
+import hashlib
 import requests
 import boto3
+
+# In-memory cache: identical text won't regenerate audio (and won't burn
+# ElevenLabs credits) twice. Resets on redeploy — fine for now, move to
+# a real cache (Redis) if this needs to survive restarts later.
+_audio_cache = {}
 
 
 def generate_audio_url(message: str) -> str:
@@ -12,6 +18,10 @@ def generate_audio_url(message: str) -> str:
     Uses the 'turbo' model — about half the credit cost of the standard
     multilingual model, and plenty good enough for a 15-20 second prank line.
     """
+    cache_key = hashlib.sha256(message.encode()).hexdigest()
+    if cache_key in _audio_cache:
+        return _audio_cache[cache_key]
+
     voice_id = os.environ["ELEVENLABS_VOICE_ID"]
     s3_bucket = os.environ["AUDIO_S3_BUCKET"]
     s3_region = os.environ.get("AWS_REGION", "us-east-1")
@@ -41,7 +51,8 @@ def generate_audio_url(message: str) -> str:
         Key=filename,
         Body=resp.content,
         ContentType="audio/mpeg",
-        ACL="public-read",
     )
 
-    return f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/{filename}"
+    url = f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/{filename}"
+    _audio_cache[cache_key] = url
+    return url
