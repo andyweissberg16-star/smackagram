@@ -33,7 +33,11 @@ def _api_key() -> str:
 
 def _get(sport: str, endpoint: str) -> dict | list:
     path = SPORT_PATHS[sport]
-    url = f"{BASE}/{path}/scores/json/{endpoint}"
+    # Soccer's feed lives under a different URL segment than every other
+    # sport ("stats" instead of "scores") — this is why soccer alone kept
+    # 401ing even after the subscription/key issues were fixed elsewhere.
+    feed_segment = "stats" if sport == "soccer" else "scores"
+    url = f"{BASE}/{path}/{feed_segment}/json/{endpoint}"
     resp = requests.get(url, params={"key": _api_key()}, timeout=10)
     print(f"[sportsdata] GET {url} -> {resp.status_code}, body starts: {resp.text[:300]!r}")
     resp.raise_for_status()
