@@ -1,6 +1,7 @@
 import os
 import requests
 from datetime import datetime, timedelta, timezone
+from services import team_aliases
 
 # SportsDataIO — paid, documented, SLA-backed sports data provider.
 # Replaces the earlier free ESPN integration, which worked but was
@@ -39,10 +40,15 @@ def _get(sport: str, endpoint: str) -> dict | list:
     return resp.json()
 
 
-def get_upcoming_games(sport: str = "nfl", hours_ahead: int = 48) -> list[dict]:
+def get_upcoming_games(sport: str = "nfl", hours_ahead: int = 48, team_query: str = None) -> list[dict]:
     """
     Returns games kicking off within the given window — powers the
     "load a smackagram" game picker, which only shows games inside 48h.
+
+    If team_query is given, only returns games involving a team matching
+    that search (checked against SportsDataIO's raw code plus known city/
+    nickname aliases — see team_aliases.py — so "yankees" or "New York
+    Yankees" both correctly match "NYY").
 
     SportsDataIO's GamesByDate takes a single date, not a range, so we
     query today and tomorrow (covers a 48h window) and filter by the
@@ -75,12 +81,50 @@ def get_upcoming_games(sport: str = "nfl", hours_ahead: int = 48) -> list[dict]:
             if start > cutoff:
                 continue
 
+            status = event.get("Status", "")
+            home_score = event.get("HomeScore") if event.get("HomeScore") is not None else event.get("HomeTeamRuns")
+            away_score = event.get("AwayScore") if event.get("AwayScore") is not None else event.get("AwayTeamRuns")
+
+            home_code = event.get("HomeTeam") or ""
+            away_code = event.get("AwayTeam") or ""
+
+            if team_query:
+                if not (team_aliases.matches_search(sport, home_code, team_query)
+                        or team_aliases.matches_search(sport, away_code, team_query)):
+                    continue
+
+            # Human-readable "where things stand" string for in-progress
+            # games — differs by sport (innings vs quarters vs periods)
+            period_display = None
+            if status.lower() == "inprogress":
+                if sport == "mlb":
+                    inning = event.get("Inning")
+                    half = event.get("InningHalf")
+                    if inning:
+                        half_word = "Top" if half == "T" else "Bottom" if half == "B" else ""
+                        period_display = f"{half_word} {inning}".strip()
+                elif sport == "nhl":
+                    period = event.get("Period")
+                    if period:
+                        period_display = f"Period {period}"
+                else:
+                    quarter = event.get("Quarter") or event.get("Period")
+                    if quarter:
+                        period_display = f"Q{quarter}" if str(quarter).isdigit() else str(quarter)
+
             games.append({
                 "game_id": game_id,
                 "sport": sport,
-                "home_team": event.get("HomeTeamName") or event.get("HomeTeam"),
-                "away_team": event.get("AwayTeamName") or event.get("AwayTeam"),
+                "home_team": event.get("HomeTeamName") or home_code,
+                "away_team": event.get("AwayTeamName") or away_code,
+                "home_team_code": home_code,
+                "away_team_code": away_code,
                 "start_time": start.isoformat(),
+                "status": status,
+                "is_live": status.lower() == "inprogress",
+                "home_score": home_score,
+                "away_score": away_score,
+                "period_display": period_display,
             })
             seen_ids.add(game_id)
 

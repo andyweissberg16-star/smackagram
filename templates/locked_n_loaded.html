@@ -97,6 +97,7 @@
     border:2px solid #fff; outline:2px solid var(--ink); outline-offset:-1px;
     animation:cta-pulse 2s ease-in-out infinite;
   }
+  @keyframes live-pulse-dot{0%,100%{opacity:1; transform:scale(1);} 50%{opacity:0.4; transform:scale(1.3);}}
   @keyframes cta-pulse{
     0%,100%{box-shadow:0 0 20px rgba(232,20,44,0.5), 4px 4px 0 var(--ink);}
     50%{box-shadow:0 0 32px rgba(232,20,44,0.85), 0 0 8px rgba(232,20,44,0.6), 4px 4px 0 var(--ink);}
@@ -139,7 +140,7 @@
   <div class="card">
     <p class="step-label">Step 1</p>
     <h3>Pick a game</h3>
-    <p class="card-sub">Only games kicking off in the next 48 hours show up here.</p>
+    <p class="card-sub">Pick the league, then search for your team — if their game's live right now, you'll see the current score.</p>
 
     <div class="sport-tabs" id="sportTabs">
       <button class="sport-tab active" data-sport="nfl">NFL</button>
@@ -153,8 +154,10 @@
       <button class="sport-tab" data-sport="soccer">SOCCER</button>
     </div>
 
+    <input id="teamSearchInput" type="text" placeholder="Search for a team — ex. Yankees, Cowboys, Lakers..." style="margin-bottom:16px;">
+
     <div class="game-list" id="gameList">
-      <p class="game-empty">Loading games...</p>
+      <p class="game-empty">Search for a team above to see their upcoming or live game.</p>
     </div>
   </div>
 
@@ -241,27 +244,63 @@ function hideError() {
   document.getElementById('errorBox').style.display = 'none';
 }
 
-async function loadGames(sport) {
+let searchDebounceTimer = null;
+
+function renderGameOption(g) {
+  const el = document.createElement('div');
+  el.className = 'game-option';
+
+  if (g.is_live) {
+    // Live scoreboard treatment — this is the moment that should entice a
+    // buyer to send it: seeing their target team actually losing right now
+    const homeLosing = g.home_score < g.away_score;
+    const awayLosing = g.away_score < g.home_score;
+    el.style.borderColor = 'var(--flare)';
+    el.style.background = 'rgba(232,20,44,0.08)';
+    el.innerHTML = `
+      <div style="width:100%;">
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+          <span style="width:7px; height:7px; border-radius:50%; background:var(--flare); box-shadow:0 0 6px var(--flare); display:inline-block; animation:live-pulse-dot 1.3s ease-in-out infinite;"></span>
+          <span class="mono" style="font-size:10px; color:var(--flare); font-weight:700; letter-spacing:0.5px;">LIVE — ${g.period_display || 'IN PROGRESS'}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="matchup" style="${awayLosing ? 'color:var(--flare);' : ''}">${g.away_team}</span>
+          <span class="mono" style="font-size:18px; font-weight:700; ${awayLosing ? 'color:var(--flare);' : ''}">${g.away_score ?? '-'}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="matchup" style="${homeLosing ? 'color:var(--flare);' : ''}">${g.home_team}</span>
+          <span class="mono" style="font-size:18px; font-weight:700; ${homeLosing ? 'color:var(--flare);' : ''}">${g.home_score ?? '-'}</span>
+        </div>
+      </div>`;
+  } else {
+    const kickoff = new Date(g.start_time).toLocaleString(undefined, {weekday:'short', hour:'numeric', minute:'2-digit', timeZoneName:'short'});
+    el.innerHTML = `<div><div class="matchup">${g.away_team} @ ${g.home_team}</div><div class="kickoff">${kickoff}</div></div>`;
+  }
+
+  el.addEventListener('click', () => selectGame(g, el));
+  return el;
+}
+
+async function searchGames(sport, teamQuery) {
   const listEl = document.getElementById('gameList');
-  listEl.innerHTML = '<p class="game-empty">Loading games...</p>';
+
+  if (!teamQuery) {
+    listEl.innerHTML = '<p class="game-empty">Search for a team above to see their upcoming or live game.</p>';
+    return;
+  }
+
+  listEl.innerHTML = '<p class="game-empty">Searching...</p>';
   try {
-    const resp = await fetch(`/api/games/upcoming?sport=${sport}`);
+    const resp = await fetch(`/api/games/upcoming?sport=${sport}&team=${encodeURIComponent(teamQuery)}`);
     const games = await resp.json();
     if (!games.length) {
-      listEl.innerHTML = '<p class="game-empty">No games in the next 48 hours for this league.</p>';
+      listEl.innerHTML = '<p class="game-empty">No game found for that team in the next 48 hours.</p>';
       return;
     }
     listEl.innerHTML = '';
-    games.forEach(g => {
-      const el = document.createElement('div');
-      el.className = 'game-option';
-      const kickoff = new Date(g.start_time).toLocaleString(undefined, {weekday:'short', hour:'numeric', minute:'2-digit', timeZoneName:'short'});
-      el.innerHTML = `<div><div class="matchup">${g.away_team} @ ${g.home_team}</div><div class="kickoff">${kickoff}</div></div>`;
-      el.addEventListener('click', () => selectGame(g, el));
-      listEl.appendChild(el);
-    });
+    games.forEach(g => listEl.appendChild(renderGameOption(g)));
   } catch (err) {
-    listEl.innerHTML = '<p class="game-empty">Couldn\'t load games — try again.</p>';
+    listEl.innerHTML = '<p class="game-empty">Couldn\'t search right now — try again.</p>';
   }
 }
 
@@ -303,7 +342,13 @@ document.getElementById('sportTabs').addEventListener('click', (e) => {
   document.getElementById('teamCard').style.display = 'none';
   document.getElementById('modeCard').style.display = 'none';
   document.getElementById('recipientCard').style.display = 'none';
-  loadGames(selectedSport);
+  searchGames(selectedSport, document.getElementById('teamSearchInput').value.trim());
+});
+
+document.getElementById('teamSearchInput').addEventListener('input', (e) => {
+  clearTimeout(searchDebounceTimer);
+  const query = e.target.value.trim();
+  searchDebounceTimer = setTimeout(() => searchGames(selectedSport, query), 350);
 });
 
 document.querySelectorAll('.mode-tab').forEach(tab => {
@@ -392,7 +437,6 @@ document.getElementById('armBtn').addEventListener('click', async () => {
   }
 });
 
-loadGames(selectedSport);
 loadVoices();
 </script>
 </body>

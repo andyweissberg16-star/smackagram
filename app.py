@@ -269,9 +269,10 @@ def locked_n_loaded_success():
 
 @app.route("/api/games/upcoming")
 def upcoming_games():
-    """Powers the game picker — only games within 48h. ?sport=nfl|nba|mlb|nhl|ncaaf"""
+    """Powers the game picker — only games within 48h. ?sport=nfl|nba|mlb|nhl|ncaaf&team=yankees"""
     sport = request.args.get("sport", "nfl")
-    return jsonify(sports_service.get_upcoming_games(sport=sport, hours_ahead=48))
+    team_query = request.args.get("team", "").strip() or None
+    return jsonify(sports_service.get_upcoming_games(sport=sport, hours_ahead=48, team_query=team_query))
 
 
 @app.route("/api/smackagrams", methods=["POST"])
