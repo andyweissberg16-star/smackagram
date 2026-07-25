@@ -33,6 +33,16 @@ def get_slap_sfx_url():
     return f"{base_url}/static/slap.mp3"
 
 
+def get_tagline_url():
+    """
+    The closing tagline — a real uploaded mp3, volume-matched to the slap
+    sound, served as a static file. No longer generated via ElevenLabs on
+    every call/preview, so this costs nothing and never varies.
+    """
+    base_url = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
+    return f"{base_url}/static/tagline.mp3"
+
+
 # ---------- Site-wide password gate ----------
 # Set SITE_PASSWORD in Render to lock the whole site behind a simple prompt
 # while it's still in development. Leave SITE_PASSWORD unset/blank to make
@@ -200,7 +210,7 @@ def preview_audio():
 
     message_url = elevenlabs_service.generate_audio_url(text, voice_id=voice_id)
     sfx_url = get_slap_sfx_url()
-    tagline_url = elevenlabs_service.generate_audio_url(generator_constants.CLOSING_TAGLINE, voice_id=voice_id)
+    tagline_url = get_tagline_url()
     rate_limiter.record_hit(identifier)
 
     return jsonify({
@@ -261,7 +271,7 @@ def resolve_audio_url(record):
         message_url = scenario.audio_url
 
     sfx_url = get_slap_sfx_url()
-    tagline_url = elevenlabs_service.generate_audio_url(generator_constants.CLOSING_TAGLINE, voice_id=voice_id)
+    tagline_url = get_tagline_url()
 
     return [message_url, sfx_url, tagline_url]
 
