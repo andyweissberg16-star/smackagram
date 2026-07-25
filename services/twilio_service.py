@@ -35,7 +35,7 @@ def place_prank_call(order_or_smackagram_id: int, recipient_phone: str, record: 
     return call.sid
 
 
-def build_twiml(audio_urls, record: bool = True, record_callback_url: str = None) -> str:
+def build_twiml(audio_urls, record: bool = True, record_callback_url: str = None, record_action_url: str = None) -> str:
     if isinstance(audio_urls, str):
         audio_urls = [audio_urls]
 
@@ -48,9 +48,11 @@ def build_twiml(audio_urls, record: bool = True, record_callback_url: str = None
         response.play(url)
 
     if record:
-        record_kwargs = {"max_length": 20, "play_beep": False}
+        record_kwargs = {"max_length": 55, "play_beep": False, "timeout": 0}
         if record_callback_url:
             record_kwargs["recording_status_callback"] = record_callback_url
+        if record_action_url:
+            record_kwargs["action"] = record_action_url
         response.record(**record_kwargs)
 
     response.pause(length=1)

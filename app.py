@@ -15,24 +15,18 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:/
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-me")
 db.init_app(app)
 
+_pending_call_audio = {}
 
-# ---------- Site-wide password gate ----------
-# Set SITE_PASSWORD in Render to lock the whole site behind a simple prompt
-# while it's still in development. Leave SITE_PASSWORD unset/blank to make
-# the site fully public again (e.g. once you're ready to launch for real).
 
 @app.before_request
 def require_site_password():
-    # Stripe and Twilio hit these routes directly and can't log in with a
-    # username/password — Stripe verifies itself via signature, Twilio's
-    # callbacks are unauthenticated by nature (that's how Twilio itself works).
-    exempt_prefixes = ("/webhook/stripe", "/call-instructions/", "/call-status/", "/recording-ready/")
+    exempt_prefixes = ("/webhook/stripe", "/call-instructions/", "/call-status/", "/recording-ready/", "/recording-done/")
     if request.path.startswith(exempt_prefixes):
         return
 
     site_password = os.environ.get("SITE_PASSWORD")
     if not site_password:
-        return  # gate disabled — site is public
+        return
 
     auth = request.authorization
     if not auth or auth.password != site_password:
@@ -43,15 +37,11 @@ def require_site_password():
         )
 
 
-# ---------- Pages ----------
-
 @app.route("/")
 def home():
     scenarios = Scenario.query.filter_by(active=True).all()
     return render_template("index.html", scenarios=scenarios)
 
-
-# ---------- Immediate "send it now" flow ----------
 
 @app.route("/api/orders", methods=["POST"])
 def create_order():
@@ -72,7 +62,7 @@ def create_order():
         includes_recording=data.get("include_recording", True),
     )
     db.session.add(order)
-    db.session.commit()  # commit first so order.id exists for the checkout metadata
+    db.session.commit()
 
     session = stripe_service.create_checkout_session(
         order_id=order.id,
@@ -111,12 +101,9 @@ def stripe_webhook():
             order.payment_status = "captured"
             db.session.commit()
 
-            # Fire the actual call. Wrapped in try/except so a Twilio issue
-            # (e.g. not configured yet) doesn't crash the webhook — Stripe
-            # needs a fast 200 response regardless, and the payment is
-            # already safely recorded either way.
             try:
-                audio_url = resolve_audio_url(order)
+                audio_urls = resolve_audio_url(order)
+                _pending_call_audio[order.id] = audio_urls
                 call_sid = twilio_service.place_prank_call(order.id, order.recipient_phone, record=True)
                 order.twilio_call_sid = call_sid
                 order.call_status = "ringing"
@@ -143,10 +130,6 @@ def get_voice_options():
 
 @app.route("/api/voice-sample/<voice_key>")
 def voice_sample(voice_key):
-    """
-    Free preview of what a voice sounds like — ElevenLabs' own static
-    sample clip, not a generated one. No credits used, no rate limit needed.
-    """
     voice_id = voice_options.get_voice_id(voice_key)
     preview_url = elevenlabs_service.get_voice_preview_url(voice_id)
     return jsonify({"preview_url": preview_url})
@@ -154,11 +137,6 @@ def voice_sample(voice_key):
 
 @app.route("/api/preview-audio", methods=["POST"])
 def preview_audio():
-    """
-    Free preview — lets someone hear a generated line before buying.
-    Rate-limited per IP since this costs real ElevenLabs credits with
-    no purchase required.
-    """
     identifier = request.headers.get("X-Forwarded-For", request.remote_addr)
 
     if rate_limiter.is_rate_limited(identifier):
@@ -187,22 +165,28 @@ def preview_audio():
 
 @app.route("/call-instructions/<int:record_id>", methods=["GET", "POST"])
 def call_instructions(record_id):
-    """Twilio hits this the moment the call connects."""
     order = Order.query.get(record_id) or Smackagram.query.get(record_id)
-    audio_url = resolve_audio_url(order)
+
+    audio_urls = _pending_call_audio.pop(record_id, None) or resolve_audio_url(order)
+
     should_record = getattr(order, "includes_recording", True)
     base_url = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
     callback_url = f"{base_url}/recording-ready/{record_id}" if should_record else None
-    twiml = twilio_service.build_twiml(audio_url, record=should_record, record_callback_url=callback_url)
+    action_url = f"{base_url}/recording-done/{record_id}" if should_record else None
+    twiml = twilio_service.build_twiml(
+        audio_urls, record=should_record,
+        record_callback_url=callback_url, record_action_url=action_url,
+    )
+    return Response(twiml, mimetype="text/xml")
+
+
+@app.route("/recording-done/<int:record_id>", methods=["GET", "POST"])
+def recording_done(record_id):
+    twiml = "<Response><Hangup/></Response>"
     return Response(twiml, mimetype="text/xml")
 
 
 def resolve_audio_url(record):
-    """
-    Builds the full audio sequence for a call: the message (pre-recorded
-    clip or generated TTS), the slap sound effect, then the tagline —
-    played back-to-back as separate clips, not stitched into one file.
-    """
     voice_id = voice_options.get_voice_id(getattr(record, "voice_key", None) or voice_options.DEFAULT_VOICE_KEY)
 
     if record.custom_message:
@@ -217,11 +201,8 @@ def resolve_audio_url(record):
     return [message_url, sfx_url, tagline_url]
 
 
-# ---------- Locked-and-loaded smackagrams ----------
-
 @app.route("/api/games/upcoming")
 def upcoming_games():
-    """Powers the game picker — only games within 48h. ?sport=nfl|nba|mlb|nhl|ncaaf"""
     sport = request.args.get("sport", "nfl")
     return jsonify(sports_service.get_upcoming_games(sport=sport, hours_ahead=48))
 
@@ -263,8 +244,6 @@ def arm_smackagram():
     })
 
 
-# ---------- Twilio status callbacks ----------
-
 @app.route("/call-status/<int:record_id>", methods=["POST"])
 def call_status(record_id):
     status = request.form.get("CallStatus")
@@ -291,5 +270,5 @@ with app.app_context():
     db.create_all()
 
 if __name__ == "__main__":
-    start_scheduler()  # local dev only — production runs this as a separate worker, see README
+    start_scheduler()
     app.run(debug=True)
