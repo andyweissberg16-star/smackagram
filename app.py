@@ -359,6 +359,14 @@ def recording_ready(record_id):
 with app.app_context():
     db.create_all()
 
+# CRITICAL: start_scheduler() must run unconditionally here, not just
+# inside `if __name__ == "__main__"` — that block never executes under
+# gunicorn (which imports this file as a module rather than running it as
+# a script), so the background job that resolves locked-and-loaded
+# smackagrams was never actually running in production. Safe to start here
+# since Render is configured with WEB_CONCURRENCY=1 (a single process), so
+# this won't create duplicate scheduler instances.
+start_scheduler(app)
+
 if __name__ == "__main__":
-    start_scheduler()  # local dev only — production runs this as a separate worker, see README
     app.run(debug=True)

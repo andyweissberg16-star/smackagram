@@ -13,6 +13,7 @@ def check_armed_smackagrams():
     release (cancel hold, no charge).
     """
     armed = Smackagram.query.filter_by(status="armed").all()
+    print(f"[scheduler] check_armed_smackagrams running — {len(armed)} armed smackagram(s) to check")
     if not armed:
         return
 
@@ -80,8 +81,20 @@ def check_armed_smackagrams():
         db.session.commit()
 
 
-def start_scheduler():
+def start_scheduler(app):
+    """
+    Takes the Flask app instance so the scheduled job can push an
+    application context before touching the database — APScheduler runs
+    jobs in a background thread, which has no Flask app context by
+    default, and Flask-SQLAlchemy's db.session requires one or every
+    query raises "working outside of application context".
+    """
+    def run_with_context():
+        with app.app_context():
+            check_armed_smackagrams()
+
     scheduler = BackgroundScheduler()
-    scheduler.add_job(check_armed_smackagrams, "interval", minutes=3)
+    scheduler.add_job(run_with_context, "interval", minutes=3)
     scheduler.start()
+    print("[scheduler] started — checking armed smackagrams every 3 minutes")
     return scheduler
