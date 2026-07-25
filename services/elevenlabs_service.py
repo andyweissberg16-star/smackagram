@@ -1,6 +1,7 @@
 import os
 import uuid
 import hashlib
+import subprocess
 import requests
 import boto3
 
@@ -83,6 +84,41 @@ def get_voice_preview_url(voice_id: str) -> str:
     return preview_url
 
 
+
+# Loudness target matched to the static slap.mp3/tagline.mp3 files (measured
+# via ffmpeg loudnorm analysis) so all three clips in a call/preview sound
+# equally loud, instead of the AI-generated voice being noticeably quieter.
+TARGET_LUFS = -8.1
+
+
+def _normalize_loudness(audio_bytes: bytes) -> bytes:
+    """
+    Runs generated audio through ffmpeg loudness normalization to match
+    TARGET_LUFS. If ffmpeg isn't available on the server for any reason,
+    fails safe by returning the original, unnormalized audio rather than
+    breaking the call — you'd just be back to the volume mismatch, not a
+    broken feature.
+    """
+    try:
+        process = subprocess.run(
+            [
+                "ffmpeg", "-i", "pipe:0",
+                "-af", f"loudnorm=I={TARGET_LUFS}:TP=-1.0:LRA=7",
+                "-f", "mp3", "pipe:1",
+            ],
+            input=audio_bytes,
+            capture_output=True,
+            timeout=15,
+        )
+        if process.returncode != 0 or not process.stdout:
+            print(f"[elevenlabs] loudness normalization failed, using original audio: {process.stderr[:300]}")
+            return audio_bytes
+        return process.stdout
+    except Exception as e:
+        print(f"[elevenlabs] loudness normalization error, using original audio: {e}")
+        return audio_bytes
+
+
 def generate_audio_url(message: str, voice_id: str = None) -> str:
     """
     Sends a custom message to ElevenLabs, gets back an mp3, uploads it to S3,
@@ -124,12 +160,14 @@ def generate_audio_url(message: str, voice_id: str = None) -> str:
     )
     resp.raise_for_status()
 
+    normalized_audio = _normalize_loudness(resp.content)
+
     filename = f"tts/{uuid.uuid4()}.mp3"
     s3 = boto3.client("s3", region_name=s3_region)
     s3.put_object(
         Bucket=s3_bucket,
         Key=filename,
-        Body=resp.content,
+        Body=normalized_audio,
         ContentType="audio/mpeg",
     )
 
