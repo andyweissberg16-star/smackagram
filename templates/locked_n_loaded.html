@@ -143,6 +143,12 @@
   }
 
   footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim); border-top:1px solid var(--line);}
+
+  .side-mascot{
+    position:fixed; left:16px; bottom:0; height:70vh; max-height:520px; width:auto;
+    z-index:5; pointer-events:none; filter:drop-shadow(4px 0 0 var(--flare));
+  }
+  @media(max-width:1300px){ .side-mascot{display:none;} }
 </style>
 </head>
 <body>
@@ -151,6 +157,8 @@
   <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
   <a href="/" class="back-link">&larr; Back to home</a>
 </nav>
+
+<img src="{{ url_for('static', filename='mascot_sidebar.png') }}" alt="" class="side-mascot">
 
 <div style="width:100%; overflow:hidden; line-height:0;">
   <img src="{{ url_for('static', filename='locked-hero.png') }}" alt="Locked and Loaded — load it now, let the score do the rest" style="width:100%; height:auto; display:block;">

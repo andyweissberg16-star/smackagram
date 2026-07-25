@@ -3,7 +3,7 @@ from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from models import db, Smackagram, Scenario
-from services import sports_service, stripe_service, twilio_service, trash_talk_service, call_audio_service
+from services import sports_service, stripe_service, twilio_service, trash_talk_service, call_audio_service, content_moderation
 
 
 def check_armed_smackagrams():
@@ -63,7 +63,23 @@ def check_armed_smackagrams():
                             sensitivity=s.sensitivity,
                         )
                     # else mode == "custom" — s.custom_message was already
-                    # written by the buyer at arm-time, nothing to generate
+                    # written by the buyer at arm-time, nothing to generate,
+                    # and was already checked for safety at arm-time.
+
+                    # Safety backstop — even though AI-generated content has
+                    # guardrails baked into its own prompt, this is the same
+                    # check applied to every user-typed message elsewhere,
+                    # run here as defense-in-depth before anything gets
+                    # charged or dialed. Every generator, present or future,
+                    # should have its final output pass through this same
+                    # gate at the point of actually sending/charging.
+                    safety = content_moderation.check_message_safety(s.custom_message)
+                    if not safety["safe"]:
+                        stripe_service.release_hold(s.stripe_payment_intent_id)
+                        s.status = "failed"
+                        print(f"[safety] Locked smackagram {s.id} blocked at fire-time — reason: {safety['reason']}")
+                        s.resolved_at = datetime.utcnow()
+                        continue
 
                     stripe_service.capture_hold(s.stripe_payment_intent_id)
                     audio_urls = call_audio_service.resolve_audio_url(s, base_url)

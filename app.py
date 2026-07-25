@@ -218,6 +218,14 @@ def preview_audio():
     if not text:
         return jsonify({"error": "No text provided"}), 400
 
+    # Check BEFORE this text ever reaches ElevenLabs — someone previewing a
+    # line shouldn't be able to get dangerous content synthesized into audio
+    # at all, regardless of whether they ever actually complete an order.
+    safety = content_moderation.check_message_safety(text)
+    if not safety["safe"]:
+        print(f"[safety] blocked preview attempt — reason: {safety['reason']}")
+        return jsonify({"error": "This message can't be previewed — it may contain threatening, sexual, or harassing content. Please revise it."}), 400
+
     voice_key = request.json.get("voice_key", voice_options.DEFAULT_VOICE_KEY)
     voice_id = voice_options.get_voice_id(voice_key)
 
