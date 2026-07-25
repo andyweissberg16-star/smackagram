@@ -51,13 +51,29 @@
   .sport-tab:hover{border-color:var(--flare); color:var(--chalk);}
   .sport-tab.active{background:var(--flare); border-color:var(--flare); color:#fff; box-shadow:0 0 14px rgba(232,20,44,0.5);}
 
-  .sensitivity-btn{
-    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; letter-spacing:0.3px;
-    padding:10px 6px; border-radius:2px; border:2px solid var(--line-strong); color:var(--chalk-dim);
-    cursor:pointer; background:var(--ink); text-align:center; transition:all 0.15s ease;
+  .sensitivity-row{
+    display:flex; align-items:center; gap:10px; padding:10px 0;
+    border-bottom:1px solid var(--line-strong); cursor:pointer;
   }
-  .sensitivity-btn:hover{border-color:var(--flare); color:var(--chalk);}
-  .sensitivity-btn.active{background:var(--flare); border-color:var(--flare); color:#fff; box-shadow:0 0 14px rgba(232,20,44,0.5);}
+  .sensitivity-row:last-child{border-bottom:none;}
+  .sensitivity-checkbox{
+    width:16px; height:16px; accent-color:var(--flare); cursor:pointer; flex-shrink:0;
+  }
+  .sensitivity-label{
+    font-size:14px; color:var(--chalk-dim); flex:1; transition:color 0.15s ease;
+  }
+  .sensitivity-row.checked .sensitivity-label{color:var(--chalk); font-weight:600;}
+  .sensitivity-info-btn{
+    width:16px; height:16px; border-radius:50%; border:1px solid var(--chalk-dim); background:transparent;
+    color:var(--chalk-dim); font-size:10px; font-family:'JetBrains Mono',monospace; line-height:1;
+    cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .sensitivity-info-btn:hover{border-color:var(--flare); color:var(--flare);}
+  .sensitivity-desc{
+    color:var(--chalk-dim); font-size:12px; margin:0 0 8px 26px;
+    padding-bottom:4px; display:none;
+  }
+  .sensitivity-desc.show{display:block;}
 
   .game-list{display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto;}
   .game-option{
@@ -201,15 +217,9 @@
         <span>Nothing to write — once the game ends, we'll pull the real box score and headlines and write a roast referencing what actually happened.</span>
       </div>
 
-      <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px; position:relative;">
-        <label style="margin:0;">How aggressive</label>
-        <button type="button" id="sensitivityInfoBtnLL" aria-label="What do these levels mean?" style="width:16px; height:16px; border-radius:50%; border:1px solid var(--chalk-dim); background:transparent; color:var(--chalk-dim); font-size:10px; font-family:'JetBrains Mono',monospace; line-height:1; cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center;">i</button>
-        <div id="sensitivityInfoPanelLL" style="display:none; position:absolute; top:24px; left:0; z-index:10; background:var(--ink-2); border:2px solid var(--chalk); border-radius:2px; padding:14px; width:280px; box-shadow:4px 4px 0 var(--flare);">
-          <p style="color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
-        </div>
-      </div>
-      <div id="sensitivitySelectorLL" style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px;">
-        <p style="grid-column:1/-1; color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
+      <label style="display:block; margin-bottom:10px;">How aggressive</label>
+      <div id="sensitivitySelectorLL" style="margin-bottom:16px;">
+        <p style="color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
       </div>
     </div>
 
@@ -461,7 +471,6 @@ let selectedSensitivityLL = 4;
 
 async function loadSensitivityLevelsLL() {
   const container = document.getElementById('sensitivitySelectorLL');
-  const panel = document.getElementById('sensitivityInfoPanelLL');
   try {
     const resp = await fetch('/api/sensitivity-levels');
     const levels = await resp.json();
@@ -469,38 +478,61 @@ async function loadSensitivityLevelsLL() {
     container.innerHTML = '';
     Object.keys(levels).sort((a, b) => a - b).forEach(key => {
       const level = parseInt(key);
-      const btn = document.createElement('div');
-      btn.className = 'sensitivity-btn' + (level === selectedSensitivityLL ? ' active' : '');
-      btn.textContent = levels[key].label;
-      btn.addEventListener('click', () => {
-        selectedSensitivityLL = level;
-        document.querySelectorAll('#sensitivitySelectorLL .sensitivity-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-      container.appendChild(btn);
-    });
 
-    panel.innerHTML = Object.keys(levels).sort((a, b) => a - b).map(key =>
-      `<p style="color:var(--chalk); font-size:12px; margin:0 0 8px;"><strong>${levels[key].label}</strong> — ${levels[key].description}</p>`
-    ).join('');
+      const row = document.createElement('div');
+      row.className = 'sensitivity-row' + (level === selectedSensitivityLL ? ' checked' : '');
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'sensitivity-checkbox';
+      checkbox.checked = level === selectedSensitivityLL;
+
+      const label = document.createElement('span');
+      label.className = 'sensitivity-label';
+      label.textContent = levels[key].label;
+
+      const infoBtn = document.createElement('button');
+      infoBtn.type = 'button';
+      infoBtn.className = 'sensitivity-info-btn';
+      infoBtn.textContent = 'i';
+      infoBtn.setAttribute('aria-label', `What does ${levels[key].label} mean?`);
+
+      const desc = document.createElement('p');
+      desc.className = 'sensitivity-desc';
+      desc.textContent = levels[key].description;
+
+      const selectThis = () => {
+        selectedSensitivityLL = level;
+        document.querySelectorAll('#sensitivitySelectorLL .sensitivity-checkbox').forEach(cb => cb.checked = false);
+        document.querySelectorAll('#sensitivitySelectorLL .sensitivity-row').forEach(r => r.classList.remove('checked'));
+        checkbox.checked = true;
+        row.classList.add('checked');
+      };
+
+      row.addEventListener('click', (e) => {
+        if (e.target === infoBtn) return;
+        selectThis();
+      });
+      checkbox.addEventListener('click', (e) => e.stopPropagation());
+      infoBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        desc.classList.toggle('show');
+      });
+
+      const rowWrap = document.createElement('div');
+      rowWrap.appendChild(row);
+      row.appendChild(checkbox);
+      row.appendChild(label);
+      row.appendChild(infoBtn);
+      rowWrap.appendChild(desc);
+
+      container.appendChild(rowWrap);
+    });
   } catch (err) {
-    container.innerHTML = '<p style="grid-column:1/-1; color:var(--chalk-dim); font-size:12px; margin:0;">Couldn\'t load options.</p>';
+    container.innerHTML = '<p style="color:var(--chalk-dim); font-size:12px; margin:0;">Couldn\'t load options.</p>';
   }
 }
 loadSensitivityLevelsLL();
-
-document.getElementById('sensitivityInfoBtnLL').addEventListener('click', (e) => {
-  e.stopPropagation();
-  const panel = document.getElementById('sensitivityInfoPanelLL');
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-});
-document.addEventListener('click', (e) => {
-  const panel = document.getElementById('sensitivityInfoPanelLL');
-  const btn = document.getElementById('sensitivityInfoBtnLL');
-  if (panel.style.display === 'block' && !panel.contains(e.target) && e.target !== btn) {
-    panel.style.display = 'none';
-  }
-});
 
 loadVoices();
 </script>
