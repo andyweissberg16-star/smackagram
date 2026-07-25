@@ -234,9 +234,13 @@
     </div>
 
     <label for="voiceSelectLL">Voice</label>
-    <select id="voiceSelectLL">
-      <option value="default">Loading voices...</option>
-    </select>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <select id="voiceSelectLL" style="flex:1;">
+        <option value="default">Loading voices...</option>
+      </select>
+      <button id="voiceSampleBtnLL" class="btn btn-ghost" type="button" style="white-space:nowrap; width:auto; padding:10px 16px;">Preview voice</button>
+    </div>
+    <audio id="voiceSampleAudioLL" style="display:none;"></audio>
   </div>
 
   <div class="card" id="recipientCard" style="display:none;">
@@ -310,24 +314,25 @@ function renderGameOption(g) {
 
   if (g.is_live) {
     // Live scoreboard treatment — this is the moment that should entice a
-    // buyer to send it: seeing their target team actually losing right now
+    // buyer to send it: seeing their target team actually losing right now.
+    // IMPORTANT: no border/background styling here — that's reserved
+    // entirely for the .selected class, so "this game is live" and "this
+    // game is selected" never visually conflict with each other.
     const homeLosing = g.home_score < g.away_score;
     const awayLosing = g.away_score < g.home_score;
-    el.style.borderColor = 'var(--flare)';
-    el.style.background = 'rgba(232,20,44,0.08)';
     el.innerHTML = `
       <div style="width:100%;">
         <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
           <span style="width:7px; height:7px; border-radius:50%; background:var(--flare); box-shadow:0 0 6px var(--flare); display:inline-block; animation:live-pulse-dot 1.3s ease-in-out infinite;"></span>
           <span class="mono" style="font-size:10px; color:var(--flare); font-weight:700; letter-spacing:0.5px;">LIVE — ${g.period_display || 'IN PROGRESS'}</span>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:baseline; gap:10px; margin-bottom:2px;">
           <span class="matchup" style="${awayLosing ? 'color:var(--flare);' : ''}">${g.away_team}</span>
-          <span class="mono" style="font-size:18px; font-weight:700; ${awayLosing ? 'color:var(--flare);' : ''}">${g.away_score ?? '-'}</span>
+          <span class="mono" style="font-size:16px; font-weight:700; ${awayLosing ? 'color:var(--flare);' : ''}">${g.away_score ?? '-'}</span>
         </div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:baseline; gap:10px;">
           <span class="matchup" style="${homeLosing ? 'color:var(--flare);' : ''}">${g.home_team}</span>
-          <span class="mono" style="font-size:18px; font-weight:700; ${homeLosing ? 'color:var(--flare);' : ''}">${g.home_score ?? '-'}</span>
+          <span class="mono" style="font-size:16px; font-weight:700; ${homeLosing ? 'color:var(--flare);' : ''}">${g.home_score ?? '-'}</span>
         </div>
       </div>`;
   } else {
@@ -433,6 +438,29 @@ async function loadVoices() {
     });
   } catch (err) {}
 }
+
+document.getElementById('voiceSampleBtnLL').addEventListener('click', async () => {
+  const voiceKey = document.getElementById('voiceSelectLL').value;
+  const btn = document.getElementById('voiceSampleBtnLL');
+  const audioEl = document.getElementById('voiceSampleAudioLL');
+
+  btn.textContent = 'Loading...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch(`/api/voice-sample/${voiceKey}`);
+    const data = await resp.json();
+    if (data.preview_url) {
+      audioEl.src = data.preview_url;
+      audioEl.play();
+    }
+  } catch (err) {
+    // fail quietly — this is just a sample preview, not critical
+  } finally {
+    btn.textContent = 'Preview voice';
+    btn.disabled = false;
+  }
+});
 
 document.getElementById('armBtn').addEventListener('click', async () => {
   hideError();

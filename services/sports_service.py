@@ -138,8 +138,8 @@ def get_upcoming_games(sport: str = "nfl", hours_ahead: int = 48, team_query: st
             games.append({
                 "game_id": game_id,
                 "sport": sport,
-                "home_team": event.get("HomeTeamName") or home_code,
-                "away_team": event.get("AwayTeamName") or away_code,
+                "home_team": event.get("HomeTeamName") or team_aliases.get_display_name(sport, home_code),
+                "away_team": event.get("AwayTeamName") or team_aliases.get_display_name(sport, away_code),
                 "home_team_code": home_code,
                 "away_team_code": away_code,
                 "start_time": start.isoformat(),
@@ -196,8 +196,8 @@ def get_game_result(game_id: str, sport: str = "nfl") -> dict | None:
             if home_score == away_score:
                 return {"status": "tie"}
 
-            home_name = event.get("HomeTeamName") or event.get("HomeTeam")
-            away_name = event.get("AwayTeamName") or event.get("AwayTeam")
+            home_name = event.get("HomeTeamName") or team_aliases.get_display_name(sport, event.get("HomeTeam", ""))
+            away_name = event.get("AwayTeamName") or team_aliases.get_display_name(sport, event.get("AwayTeam", ""))
 
             if home_score > away_score:
                 winner, loser = home_name, away_name
@@ -249,8 +249,8 @@ def get_game_summary(game_id: str, sport: str = "nfl") -> dict:
             if event_id != str(game_id):
                 continue
 
-            home_name = event.get("HomeTeamName") or event.get("HomeTeam")
-            away_name = event.get("AwayTeamName") or event.get("AwayTeam")
+            home_name = event.get("HomeTeamName") or team_aliases.get_display_name(sport, event.get("HomeTeam", ""))
+            away_name = event.get("AwayTeamName") or team_aliases.get_display_name(sport, event.get("AwayTeam", ""))
             home_score = event.get("HomeScore")
             away_score = event.get("AwayScore")
 

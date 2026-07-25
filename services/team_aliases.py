@@ -158,3 +158,60 @@ def matches_search(sport: str, team_code: str, query: str) -> bool:
 
     aliases = TEAM_ALIASES.get(sport, {}).get(team_code, [])
     return any(query in alias for alias in aliases)
+
+
+# Properly-capitalized nickname for display purposes — SportsDataIO's raw
+# feed only gives abbreviations ("SF", "LAA"), not friendly names, so this
+# is what actually shows up anywhere a team name is displayed on-screen
+# (search results, "who has to lose" cards, the scoreboard, etc).
+DISPLAY_NAMES = {
+    "nfl": {
+        "ARI": "Cardinals", "ATL": "Falcons", "BAL": "Ravens", "BUF": "Bills",
+        "CAR": "Panthers", "CHI": "Bears", "CIN": "Bengals", "CLE": "Browns",
+        "DAL": "Cowboys", "DEN": "Broncos", "DET": "Lions", "GB": "Packers",
+        "HOU": "Texans", "IND": "Colts", "JAX": "Jaguars", "KC": "Chiefs",
+        "LAC": "Chargers", "LAR": "Rams", "LV": "Raiders", "MIA": "Dolphins",
+        "MIN": "Vikings", "NE": "Patriots", "NO": "Saints", "NYG": "Giants",
+        "NYJ": "Jets", "PHI": "Eagles", "PIT": "Steelers", "SEA": "Seahawks",
+        "SF": "49ers", "TB": "Buccaneers", "TEN": "Titans", "WSH": "Commanders",
+    },
+    "nba": {
+        "ATL": "Hawks", "BOS": "Celtics", "BKN": "Nets", "CHA": "Hornets",
+        "CHI": "Bulls", "CLE": "Cavaliers", "DAL": "Mavericks", "DEN": "Nuggets",
+        "DET": "Pistons", "GSW": "Warriors", "HOU": "Rockets", "IND": "Pacers",
+        "LAC": "Clippers", "LAL": "Lakers", "MEM": "Grizzlies", "MIA": "Heat",
+        "MIL": "Bucks", "MIN": "Timberwolves", "NOP": "Pelicans", "NYK": "Knicks",
+        "OKC": "Thunder", "ORL": "Magic", "PHI": "76ers", "PHX": "Suns",
+        "POR": "Trail Blazers", "SAC": "Kings", "SAS": "Spurs", "TOR": "Raptors",
+        "UTA": "Jazz", "WAS": "Wizards",
+    },
+    "mlb": {
+        "ARI": "Diamondbacks", "ATL": "Braves", "BAL": "Orioles", "BOS": "Red Sox",
+        "CHC": "Cubs", "CWS": "White Sox", "CIN": "Reds", "CLE": "Guardians",
+        "COL": "Rockies", "DET": "Tigers", "HOU": "Astros", "KC": "Royals",
+        "LAA": "Angels", "LAD": "Dodgers", "MIA": "Marlins", "MIL": "Brewers",
+        "MIN": "Twins", "NYM": "Mets", "NYY": "Yankees", "OAK": "Athletics",
+        "PHI": "Phillies", "PIT": "Pirates", "SD": "Padres", "SF": "Giants",
+        "SEA": "Mariners", "STL": "Cardinals", "TB": "Rays", "TEX": "Rangers",
+        "TOR": "Blue Jays", "WSH": "Nationals",
+    },
+    "nhl": {
+        "ANA": "Ducks", "ARI": "Coyotes", "BOS": "Bruins", "BUF": "Sabres",
+        "CGY": "Flames", "CAR": "Hurricanes", "CHI": "Blackhawks", "COL": "Avalanche",
+        "CBJ": "Blue Jackets", "DAL": "Stars", "DET": "Red Wings", "EDM": "Oilers",
+        "FLA": "Panthers", "LA": "Kings", "MIN": "Wild", "MTL": "Canadiens",
+        "NSH": "Predators", "NJ": "Devils", "NYI": "Islanders", "NYR": "Rangers",
+        "OTT": "Senators", "PHI": "Flyers", "PIT": "Penguins", "SJ": "Sharks",
+        "SEA": "Kraken", "STL": "Blues", "TB": "Lightning", "TOR": "Maple Leafs",
+        "VAN": "Canucks", "VGK": "Golden Knights", "WSH": "Capitals", "WPG": "Jets",
+    },
+}
+
+
+def get_display_name(sport: str, team_code: str) -> str:
+    """
+    Returns the friendly team name (e.g. "Giants") for display anywhere on
+    screen. Falls back to the raw code if this sport/team isn't in the
+    table (college sports, soccer, etc. — those show the code as-is).
+    """
+    return DISPLAY_NAMES.get(sport, {}).get(team_code, team_code)
