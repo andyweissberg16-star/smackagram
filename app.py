@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
 
 from models import db, Scenario, Order, Smackagram
-from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service
+from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation
 from scheduler import start_scheduler
 
 load_dotenv()
@@ -69,9 +69,15 @@ def create_order():
     if not data.get("consent_confirmed"):
         return jsonify({"error": "Consent confirmation required"}), 400
 
+    custom_message = data.get("custom_message", "")
+    safety = content_moderation.check_message_safety(custom_message)
+    if not safety["safe"]:
+        print(f"[safety] blocked order attempt — reason: {safety['reason']}")
+        return jsonify({"error": "This message can't be sent — it may contain threatening, sexual, or harassing content. Please revise it."}), 400
+
     order = Order(
         scenario_id=data.get("scenario_id"),
-        custom_message=data.get("custom_message"),
+        custom_message=custom_message,
         voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
         recipient_name=data["recipient_name"],
         recipient_phone=data["recipient_phone"],
@@ -310,6 +316,12 @@ def arm_smackagram():
 
     if mode == "custom" and not data.get("custom_message", "").strip():
         return jsonify({"error": "Custom message can't be empty"}), 400
+
+    if mode == "custom":
+        safety = content_moderation.check_message_safety(data.get("custom_message", ""))
+        if not safety["safe"]:
+            print(f"[safety] blocked smackagram arm attempt — reason: {safety['reason']}")
+            return jsonify({"error": "This message can't be sent — it may contain threatening, sexual, or harassing content. Please revise it."}), 400
 
     sensitivity = data.get("sensitivity", trash_talk_service.DEFAULT_SENSITIVITY)
     if sensitivity not in trash_talk_service.SENSITIVITY_LEVELS:
