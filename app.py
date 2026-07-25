@@ -24,23 +24,15 @@ db.init_app(app)
 _pending_call_audio = {}
 
 
-def get_slap_sfx_url():
+def get_outro_url():
     """
-    The signature slap sound — a real uploaded mp3 served as a static file,
-    not AI-generated. Instant, free, and always exactly the same sound.
-    """
-    base_url = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
-    return f"{base_url}/static/slap.mp3"
-
-
-def get_tagline_url():
-    """
-    The closing tagline — a real uploaded mp3, volume-matched to the slap
-    sound, served as a static file. No longer generated via ElevenLabs on
-    every call/preview, so this costs nothing and never varies.
+    The signature slap sound + closing tagline, combined into a single mp3
+    and served as a static file. No longer generated via ElevenLabs on every
+    call/preview, so this costs nothing and never varies. Loudness-matched
+    to the message audio's normalization target (see elevenlabs_service.py).
     """
     base_url = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
-    return f"{base_url}/static/tagline.mp3"
+    return f"{base_url}/static/outro.mp3"
 
 
 # ---------- Site-wide password gate ----------
@@ -209,12 +201,11 @@ def preview_audio():
     voice_id = voice_options.get_voice_id(voice_key)
 
     message_url = elevenlabs_service.generate_audio_url(text, voice_id=voice_id)
-    sfx_url = get_slap_sfx_url()
-    tagline_url = get_tagline_url()
+    outro_url = get_outro_url()
     rate_limiter.record_hit(identifier)
 
     return jsonify({
-        "audio_sequence": [message_url, sfx_url, tagline_url],
+        "audio_sequence": [message_url, outro_url],
         "previews_remaining": rate_limiter.previews_remaining(identifier),
     })
 
@@ -270,10 +261,9 @@ def resolve_audio_url(record):
         scenario = Scenario.query.get(record.scenario_id)
         message_url = scenario.audio_url
 
-    sfx_url = get_slap_sfx_url()
-    tagline_url = get_tagline_url()
+    outro_url = get_outro_url()
 
-    return [message_url, sfx_url, tagline_url]
+    return [message_url, outro_url]
 
 
 # ---------- Locked-and-loaded smackagrams ----------
