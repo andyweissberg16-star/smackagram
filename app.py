@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 from models import db, Scenario, Order, Smackagram
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation
-from scheduler import start_scheduler
+from scheduler import check_armed_smackagrams
 
 load_dotenv()
 
@@ -34,7 +34,7 @@ def require_site_password():
     # Stripe and Twilio hit these routes directly and can't log in with a
     # username/password — Stripe verifies itself via signature, Twilio's
     # callbacks are unauthenticated by nature (that's how Twilio itself works).
-    exempt_prefixes = ("/webhook/stripe", "/call-instructions/", "/call-status/", "/recording-ready/", "/recording-done/", "/static/")
+    exempt_prefixes = ("/webhook/stripe", "/call-instructions/", "/call-status/", "/recording-ready/", "/recording-done/", "/static/", "/api/cron/")
     if request.path.startswith(exempt_prefixes):
         return
 
@@ -391,17 +391,31 @@ def recording_ready(record_id):
     return "", 204
 
 
+@app.route("/api/cron/check-smackagrams", methods=["GET", "POST"])
+def cron_check_smackagrams():
+    """
+    Called by an external scheduler (e.g. cron-job.org, free tier) every
+    3 minutes to resolve any armed locked-and-loaded smackagrams whose
+    game has ended. Replaces an in-process background scheduler that
+    proved unreliable — this runs as a normal HTTP request, the same
+    mechanism every other working feature in this app already uses, so it
+    doesn't depend on a background thread surviving inside the web process.
+
+    Protected by a secret key (not the site password, since the external
+    cron service can't provide login credentials) — pass it as
+    ?key=... matching the CRON_SECRET environment variable.
+    """
+    provided_key = request.args.get("key", "")
+    expected_key = os.environ.get("CRON_SECRET", "")
+    if not expected_key or provided_key != expected_key:
+        return jsonify({"error": "unauthorized"}), 401
+
+    check_armed_smackagrams()
+    return jsonify({"ok": True})
+
+
 with app.app_context():
     db.create_all()
-
-# CRITICAL: start_scheduler() must run unconditionally here, not just
-# inside `if __name__ == "__main__"` — that block never executes under
-# gunicorn (which imports this file as a module rather than running it as
-# a script), so the background job that resolves locked-and-loaded
-# smackagrams was never actually running in production. Safe to start here
-# since Render is configured with WEB_CONCURRENCY=1 (a single process), so
-# this won't create duplicate scheduler instances.
-start_scheduler(app)
 
 if __name__ == "__main__":
     app.run(debug=True)

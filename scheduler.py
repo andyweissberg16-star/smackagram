@@ -1,6 +1,5 @@
 import os
 from datetime import datetime
-from apscheduler.schedulers.background import BackgroundScheduler
 
 from models import db, Smackagram, Scenario
 from services import sports_service, stripe_service, twilio_service, trash_talk_service, call_audio_service, content_moderation
@@ -8,12 +7,20 @@ from services import sports_service, stripe_service, twilio_service, trash_talk_
 
 def check_armed_smackagrams():
     """
-    Runs every few minutes. For every 'armed' smackagram tied to a game
-    that has gone final, decide whether to fire (capture + call) or
-    release (cancel hold, no charge).
+    Called via the /api/cron/check-smackagrams route, which an external
+    scheduler (cron-job.org or similar) hits every 3 minutes. For every
+    'armed' smackagram tied to a game that has gone final, decide whether
+    to fire (capture + call) or release (cancel hold, no charge).
+
+    NOTE: this used to run via an in-process APScheduler background
+    thread, but that proved unreliable on Render's free tier — the
+    recurring job never survived long enough to fire, confirmed through
+    extensive diagnostic testing. Moving this to be triggered by a real
+    HTTP request (same mechanism every other working feature already
+    uses) sidesteps that entirely.
     """
     armed = Smackagram.query.filter_by(status="armed").all()
-    print(f"[scheduler] check_armed_smackagrams running — {len(armed)} armed smackagram(s) to check")
+    print(f"[cron] check_armed_smackagrams running — {len(armed)} armed smackagram(s) to check")
     if not armed:
         return
 
@@ -96,43 +103,3 @@ def check_armed_smackagrams():
             s.resolved_at = datetime.utcnow()
 
         db.session.commit()
-
-
-def start_scheduler(app):
-    """
-    Takes the Flask app instance so the scheduled job can push an
-    application context before touching the database — APScheduler runs
-    jobs in a background thread, which has no Flask app context by
-    default, and Flask-SQLAlchemy's db.session requires one or every
-    query raises "working outside of application context".
-    """
-    def run_with_context():
-        print("[scheduler] job invoked — entering app context now")
-        try:
-            with app.app_context():
-                check_armed_smackagrams()
-        except Exception as e:
-            import traceback
-            print(f"[scheduler] JOB CRASHED: {e}")
-            traceback.print_exc()
-
-    scheduler = BackgroundScheduler()
-    # TEMPORARY: 30 seconds instead of 3 minutes — purely for fast diagnostic
-    # testing right now, to quickly confirm whether the recurring job fires
-    # at all, instead of waiting 3+ minutes per uncertain data point. Change
-    # back to minutes=3 once confirmed working.
-    scheduler.add_job(run_with_context, "interval", seconds=30)
-    scheduler.start()
-    print("[scheduler] started — DIAGNOSTIC MODE: checking every 30 seconds")
-
-    # Run once immediately on startup too — don't wait for the first
-    # interval to elapse. This isolates two different possible failures:
-    # if this immediate run works but the recurring one never appears,
-    # the problem is with the interval scheduling itself (e.g. the
-    # process getting recycled before 3 minutes pass). If even THIS
-    # immediate run never prints anything, the problem is inside
-    # check_armed_smackagrams or run_with_context itself.
-    print("[scheduler] running an immediate check now (not waiting for the first interval)")
-    run_with_context()
-
-    return scheduler
