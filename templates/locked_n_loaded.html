@@ -37,10 +37,49 @@
   .card{
     background:var(--ink-2); border:2px solid var(--chalk); border-radius:2px; padding:24px;
     margin-bottom:24px; box-shadow:6px 6px 0 var(--flare); position:relative;
+    animation:cardFadeIn 0.35s ease;
   }
+  @keyframes cardFadeIn{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
+  .card.collapsed{padding:16px 24px;}
   .step-label{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; font-weight:700;}
   .card h3{font-family:'Anton',sans-serif; font-size:22px; margin-bottom:6px; text-transform:uppercase;}
   .card-sub{color:var(--chalk-dim); font-size:13px; margin-bottom:18px;}
+
+  /* PROGRESS INDICATOR */
+  .progress-bar{display:flex; align-items:center; justify-content:center; margin-bottom:28px;}
+  .progress-step{
+    width:32px; height:32px; border-radius:50%; border:2px solid var(--line-strong);
+    display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace;
+    font-size:13px; font-weight:700; color:var(--chalk-dim); flex-shrink:0; transition:all 0.2s ease;
+  }
+  .progress-step.active{border-color:var(--flare); color:#fff; background:var(--flare); box-shadow:0 0 14px rgba(232,20,44,0.5);}
+  .progress-step.completed{border-color:var(--flare); color:var(--flare); background:transparent;}
+  .progress-line{width:40px; height:2px; background:var(--line-strong); margin:0 4px; transition:background 0.2s ease;}
+  .progress-line.completed{background:var(--flare);}
+
+  /* COLLAPSED STEP SUMMARY */
+  .step-summary{display:flex; justify-content:space-between; align-items:center; cursor:default;}
+  .step-summary-text{font-size:14px; color:var(--chalk); font-weight:600;}
+  .step-summary-change{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--chalk-dim); text-decoration:underline;
+    cursor:pointer; background:none; border:none; padding:0; text-transform:uppercase; letter-spacing:0.5px;
+  }
+  .step-summary-change:hover{color:var(--flare);}
+
+  /* POPULAR TEAM CHIPS */
+  .popular-teams{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;}
+  .popular-chip{
+    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; letter-spacing:0.3px;
+    padding:6px 12px; border-radius:20px; border:1px solid var(--line-strong); color:var(--chalk-dim);
+    cursor:pointer; background:transparent; transition:all 0.15s ease;
+  }
+  .popular-chip:hover{border-color:var(--flare); color:var(--chalk);}
+
+  /* CONSENT BOX — more visual weight since it matters legally */
+  .consent-box{
+    border:2px solid var(--line-strong); border-radius:2px; padding:14px; margin-bottom:16px; background:var(--ink);
+  }
+  .consent-box .consent-row{margin-bottom:0;}
 
   .sport-tabs{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
   .sport-tab{
@@ -168,38 +207,66 @@
 
 <div class="wrap" style="padding-top:32px;">
 
+  <div class="progress-bar" id="progressBar">
+    <div class="progress-step active" data-step="1"><span>1</span></div>
+    <div class="progress-line"></div>
+    <div class="progress-step" data-step="2"><span>2</span></div>
+    <div class="progress-line"></div>
+    <div class="progress-step" data-step="3"><span>3</span></div>
+    <div class="progress-line"></div>
+    <div class="progress-step" data-step="4"><span>4</span></div>
+  </div>
+
   <div id="errorBox" class="error-box"></div>
 
 
-  <div class="card">
+  <div class="card" id="gameCard">
     <p class="step-label">Step 1</p>
     <h3>Pick a game</h3>
-    <p class="card-sub">Pick the league, then search for your team — if their game's live right now, you'll see the current score.</p>
 
-    <div class="sport-tabs" id="sportTabs">
-      <button class="sport-tab active" data-sport="nfl">NFL</button>
-      <button class="sport-tab" data-sport="nba">NBA</button>
-      <button class="sport-tab" data-sport="mlb">MLB</button>
-      <button class="sport-tab" data-sport="nhl">NHL</button>
-      <button class="sport-tab" data-sport="ncaaf">NCAAF</button>
-      <button class="sport-tab" data-sport="ncaab">NCAAB</button>
-      <button class="sport-tab" data-sport="wnba">WNBA</button>
-      <button class="sport-tab" data-sport="ncaawb">NCAAWB</button>
-      <button class="sport-tab" data-sport="soccer">SOCCER</button>
+    <div id="gameCardSummary" class="step-summary" style="display:none;">
+      <span class="step-summary-text" id="gameCardSummaryText"></span>
+      <button type="button" class="step-summary-change" id="changeGameBtn">Change</button>
     </div>
 
-    <input id="teamSearchInput" type="text" placeholder="Search for a team — ex. Yankees, Cowboys, Lakers..." style="margin-bottom:16px;">
+    <div id="gameCardContent">
+      <p class="card-sub">Pick the league, then search for your team — if their game's live right now, you'll see the current score.</p>
 
-    <div class="game-list" id="gameList">
-      <p class="game-empty">Search for a team above to see their upcoming or live game.</p>
+      <div class="sport-tabs" id="sportTabs">
+        <button class="sport-tab active" data-sport="nfl">NFL</button>
+        <button class="sport-tab" data-sport="nba">NBA</button>
+        <button class="sport-tab" data-sport="mlb">MLB</button>
+        <button class="sport-tab" data-sport="nhl">NHL</button>
+        <button class="sport-tab" data-sport="ncaaf">NCAAF</button>
+        <button class="sport-tab" data-sport="ncaab">NCAAB</button>
+        <button class="sport-tab" data-sport="wnba">WNBA</button>
+        <button class="sport-tab" data-sport="ncaawb">NCAAWB</button>
+        <button class="sport-tab" data-sport="soccer">SOCCER</button>
+      </div>
+
+      <input id="teamSearchInput" type="text" placeholder="Search for a team — ex. Yankees, Cowboys, Lakers..." style="margin-bottom:12px;">
+
+      <div class="popular-teams" id="popularTeams"></div>
+
+      <div class="game-list" id="gameList">
+        <p class="game-empty">Search for a team above to see their upcoming or live game.</p>
+      </div>
     </div>
   </div>
 
   <div class="card" id="teamCard" style="display:none;">
     <p class="step-label">Step 2</p>
     <h3>Who has to lose</h3>
-    <p class="card-sub">We'll only send it if this team loses. If they win, you're not charged.</p>
-    <div class="team-choice" id="teamChoice"></div>
+
+    <div id="teamCardSummary" class="step-summary" style="display:none;">
+      <span class="step-summary-text" id="teamCardSummaryText"></span>
+      <button type="button" class="step-summary-change" id="changeTeamBtn">Change</button>
+    </div>
+
+    <div id="teamCardContent">
+      <p class="card-sub">We'll only send it if this team loses. If they win, you're not charged.</p>
+      <div class="team-choice" id="teamChoice"></div>
+    </div>
   </div>
 
   <div class="card" id="modeCard" style="display:none;">
@@ -253,10 +320,12 @@
     <label for="recipientPhoneLL">Recipient's phone number</label>
     <input id="recipientPhoneLL" type="tel" placeholder="+1 555 555 5555">
 
-    <label class="consent-row">
-      <input id="consentLL" type="checkbox">
-      <span>I know this person and this is a prank between friends. I understand the call may be recorded.</span>
-    </label>
+    <div class="consent-box">
+      <label class="consent-row">
+        <input id="consentLL" type="checkbox">
+        <span>I know this person and this is a prank between friends. I understand the call may be recorded.</span>
+      </label>
+    </div>
 
     <div class="hold-note">
       <span>&#128274;</span>
@@ -367,6 +436,41 @@ async function searchGames(sport, teamQuery) {
   }
 }
 
+const POPULAR_TEAMS = {
+  nfl: ['Cowboys', 'Chiefs', 'Eagles', '49ers', 'Packers'],
+  nba: ['Lakers', 'Warriors', 'Celtics', 'Knicks', 'Bulls'],
+  mlb: ['Yankees', 'Dodgers', 'Red Sox', 'Cubs', 'Giants'],
+  nhl: ['Rangers', 'Bruins', 'Maple Leafs', 'Kings', 'Penguins'],
+};
+
+function renderPopularTeams(sport) {
+  const container = document.getElementById('popularTeams');
+  const teams = POPULAR_TEAMS[sport] || [];
+  container.innerHTML = '';
+  teams.forEach(team => {
+    const chip = document.createElement('div');
+    chip.className = 'popular-chip';
+    chip.textContent = team;
+    chip.addEventListener('click', () => {
+      document.getElementById('teamSearchInput').value = team;
+      searchGames(selectedSport, team);
+    });
+    container.appendChild(chip);
+  });
+}
+
+function updateProgress(step) {
+  document.querySelectorAll('.progress-step').forEach(el => {
+    const s = parseInt(el.dataset.step);
+    el.classList.remove('active', 'completed');
+    if (s < step) el.classList.add('completed');
+    else if (s === step) el.classList.add('active');
+  });
+  document.querySelectorAll('.progress-line').forEach((el, i) => {
+    el.classList.toggle('completed', (i + 1) < step);
+  });
+}
+
 function selectGame(game, el) {
   document.querySelectorAll('.game-option').forEach(o => o.classList.remove('selected'));
   el.classList.add('selected');
@@ -383,9 +487,19 @@ function selectGame(game, el) {
     teamChoice.appendChild(opt);
   });
 
+  // collapse Step 1 into a compact summary
+  document.getElementById('gameCardContent').style.display = 'none';
+  const summary = document.getElementById('gameCardSummary');
+  summary.style.display = 'flex';
+  document.getElementById('gameCardSummaryText').textContent = `${game.away_team} @ ${game.home_team}`;
+  document.getElementById('gameCard').classList.add('collapsed');
+
   document.getElementById('teamCard').style.display = 'block';
   document.getElementById('modeCard').style.display = 'none';
   document.getElementById('recipientCard').style.display = 'none';
+
+  updateProgress(2);
+  setTimeout(() => document.getElementById('teamCard').scrollIntoView({behavior: 'smooth', block: 'start'}), 100);
 }
 
 function selectTeam(team, el) {
@@ -393,9 +507,34 @@ function selectTeam(team, el) {
   el.classList.add('selected');
   selectedTargetTeam = team;
   document.getElementById('targetTeamNote').textContent = team;
+
+  // collapse Step 2 into a compact summary
+  document.getElementById('teamCardContent').style.display = 'none';
+  const summary = document.getElementById('teamCardSummary');
+  summary.style.display = 'flex';
+  document.getElementById('teamCardSummaryText').textContent = `${team} must lose`;
+  document.getElementById('teamCard').classList.add('collapsed');
+
   document.getElementById('modeCard').style.display = 'block';
   document.getElementById('recipientCard').style.display = 'block';
+
+  updateProgress(3);
+  setTimeout(() => document.getElementById('modeCard').scrollIntoView({behavior: 'smooth', block: 'start'}), 100);
 }
+
+document.getElementById('changeGameBtn').addEventListener('click', () => {
+  document.getElementById('gameCardContent').style.display = 'block';
+  document.getElementById('gameCardSummary').style.display = 'none';
+  document.getElementById('gameCard').classList.remove('collapsed');
+  updateProgress(1);
+});
+
+document.getElementById('changeTeamBtn').addEventListener('click', () => {
+  document.getElementById('teamCardContent').style.display = 'block';
+  document.getElementById('teamCardSummary').style.display = 'none';
+  document.getElementById('teamCard').classList.remove('collapsed');
+  updateProgress(2);
+});
 
 document.getElementById('sportTabs').addEventListener('click', (e) => {
   if (!e.target.classList.contains('sport-tab')) return;
@@ -405,8 +544,11 @@ document.getElementById('sportTabs').addEventListener('click', (e) => {
   document.getElementById('teamCard').style.display = 'none';
   document.getElementById('modeCard').style.display = 'none';
   document.getElementById('recipientCard').style.display = 'none';
+  renderPopularTeams(selectedSport);
   searchGames(selectedSport, document.getElementById('teamSearchInput').value.trim());
 });
+
+renderPopularTeams(selectedSport);
 
 document.getElementById('teamSearchInput').addEventListener('input', (e) => {
   clearTimeout(searchDebounceTimer);
