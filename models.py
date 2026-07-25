@@ -64,6 +64,7 @@ class Smackagram(db.Model):
     custom_message = db.Column(db.Text, nullable=True)
     voice_key = db.Column(db.String(40), default="default")
     mode = db.Column(db.String(20), default="custom")  # "custom" (write your own) or "auto_summary" (AI recap after game ends)
+    sensitivity = db.Column(db.Integer, default=4)  # 1 (clean) - 4 (max aggression); only used for auto_summary mode, generated at game-end time
     recipient_name = db.Column(db.String(120))
     recipient_phone = db.Column(db.String(20))
     consent_confirmed = db.Column(db.Boolean, default=False)

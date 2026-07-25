@@ -60,6 +60,7 @@ def check_armed_smackagrams():
                             team=s.target_team,
                             recipient_name=s.recipient_name,
                             key_facts=summary["key_facts"],
+                            sensitivity=s.sensitivity,
                         )
                     # else mode == "custom" — s.custom_message was already
                     # written by the buyer at arm-time, nothing to generate

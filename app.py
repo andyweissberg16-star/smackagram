@@ -159,12 +159,22 @@ def generate_trash_talk():
     data = request.json
     team = data.get("team", "").strip()
     recipient_name = data.get("recipient_name", "").strip()
+    sensitivity = data.get("sensitivity", trash_talk_service.DEFAULT_SENSITIVITY)
 
     if not team or not recipient_name:
         return jsonify({"error": "Both team and recipient name are required"}), 400
 
-    line = trash_talk_service.generate_trash_talk(team=team, recipient_name=recipient_name)
+    if sensitivity not in trash_talk_service.SENSITIVITY_LEVELS:
+        return jsonify({"error": "Invalid sensitivity level"}), 400
+
+    line = trash_talk_service.generate_trash_talk(team=team, recipient_name=recipient_name, sensitivity=sensitivity)
     return jsonify({"generated_text": line})
+
+
+@app.route("/api/sensitivity-levels")
+def get_sensitivity_levels():
+    """Powers the sensitivity selector UI on both generator pages."""
+    return jsonify(trash_talk_service.SENSITIVITY_LEVELS)
 
 
 @app.route("/api/voice-options")
@@ -301,6 +311,10 @@ def arm_smackagram():
     if mode == "custom" and not data.get("custom_message", "").strip():
         return jsonify({"error": "Custom message can't be empty"}), 400
 
+    sensitivity = data.get("sensitivity", trash_talk_service.DEFAULT_SENSITIVITY)
+    if sensitivity not in trash_talk_service.SENSITIVITY_LEVELS:
+        return jsonify({"error": "Invalid sensitivity level"}), 400
+
     smackagram = Smackagram(
         game_id=data["game_id"],
         sport=data.get("sport", "nfl"),
@@ -309,6 +323,7 @@ def arm_smackagram():
         target_team=data["target_team"],
         game_start_time=game_start,
         mode=mode,
+        sensitivity=sensitivity,
         custom_message=data.get("custom_message") if mode == "custom" else None,
         voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
         recipient_name=data["recipient_name"],

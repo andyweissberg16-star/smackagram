@@ -51,6 +51,14 @@
   .sport-tab:hover{border-color:var(--flare); color:var(--chalk);}
   .sport-tab.active{background:var(--flare); border-color:var(--flare); color:#fff; box-shadow:0 0 14px rgba(232,20,44,0.5);}
 
+  .sensitivity-btn{
+    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; letter-spacing:0.3px;
+    padding:10px 6px; border-radius:2px; border:2px solid var(--line-strong); color:var(--chalk-dim);
+    cursor:pointer; background:var(--ink); text-align:center; transition:all 0.15s ease;
+  }
+  .sensitivity-btn:hover{border-color:var(--flare); color:var(--chalk);}
+  .sensitivity-btn.active{background:var(--flare); border-color:var(--flare); color:#fff; box-shadow:0 0 14px rgba(232,20,44,0.5);}
+
   .game-list{display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto;}
   .game-option{
     border:1px solid var(--line-strong); border-radius:2px; padding:12px 14px; cursor:pointer;
@@ -191,6 +199,17 @@
       <div class="hold-note">
         <span>&#9203;</span>
         <span>Nothing to write — once the game ends, we'll pull the real box score and headlines and write a roast referencing what actually happened.</span>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px; position:relative;">
+        <label style="margin:0;">How aggressive</label>
+        <button type="button" id="sensitivityInfoBtnLL" aria-label="What do these levels mean?" style="width:16px; height:16px; border-radius:50%; border:1px solid var(--chalk-dim); background:transparent; color:var(--chalk-dim); font-size:10px; font-family:'JetBrains Mono',monospace; line-height:1; cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center;">i</button>
+        <div id="sensitivityInfoPanelLL" style="display:none; position:absolute; top:24px; left:0; z-index:10; background:var(--ink-2); border:2px solid var(--chalk); border-radius:2px; padding:14px; width:280px; box-shadow:4px 4px 0 var(--flare);">
+          <p style="color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
+        </div>
+      </div>
+      <div id="sensitivitySelectorLL" style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px;">
+        <p style="grid-column:1/-1; color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
       </div>
     </div>
 
@@ -417,6 +436,7 @@ document.getElementById('armBtn').addEventListener('click', async () => {
         mode: selectedMode,
         custom_message: selectedMode === 'custom' ? document.getElementById('customMessageInput').value.trim() : null,
         voice_key: document.getElementById('voiceSelectLL').value,
+        sensitivity: selectedSensitivityLL,
         recipient_name: recipientName,
         recipient_phone: recipientPhone,
         consent_confirmed: true,
@@ -434,6 +454,51 @@ document.getElementById('armBtn').addEventListener('click', async () => {
     showError('Something went wrong — try again.');
     btn.textContent = 'Lock it in — $2 if they lose';
     btn.disabled = false;
+  }
+});
+
+let selectedSensitivityLL = 4;
+
+async function loadSensitivityLevelsLL() {
+  const container = document.getElementById('sensitivitySelectorLL');
+  const panel = document.getElementById('sensitivityInfoPanelLL');
+  try {
+    const resp = await fetch('/api/sensitivity-levels');
+    const levels = await resp.json();
+
+    container.innerHTML = '';
+    Object.keys(levels).sort((a, b) => a - b).forEach(key => {
+      const level = parseInt(key);
+      const btn = document.createElement('div');
+      btn.className = 'sensitivity-btn' + (level === selectedSensitivityLL ? ' active' : '');
+      btn.textContent = levels[key].label;
+      btn.addEventListener('click', () => {
+        selectedSensitivityLL = level;
+        document.querySelectorAll('#sensitivitySelectorLL .sensitivity-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+      container.appendChild(btn);
+    });
+
+    panel.innerHTML = Object.keys(levels).sort((a, b) => a - b).map(key =>
+      `<p style="color:var(--chalk); font-size:12px; margin:0 0 8px;"><strong>${levels[key].label}</strong> — ${levels[key].description}</p>`
+    ).join('');
+  } catch (err) {
+    container.innerHTML = '<p style="grid-column:1/-1; color:var(--chalk-dim); font-size:12px; margin:0;">Couldn\'t load options.</p>';
+  }
+}
+loadSensitivityLevelsLL();
+
+document.getElementById('sensitivityInfoBtnLL').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const panel = document.getElementById('sensitivityInfoPanelLL');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+});
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('sensitivityInfoPanelLL');
+  const btn = document.getElementById('sensitivityInfoBtnLL');
+  if (panel.style.display === 'block' && !panel.contains(e.target) && e.target !== btn) {
+    panel.style.display = 'none';
   }
 });
 
