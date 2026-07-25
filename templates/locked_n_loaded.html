@@ -269,6 +269,25 @@
 </footer>
 
 <script>
+// Sidebar mascot only fades in once scrolled past the hero banner —
+// guarantees it can never visually overlap the hero, regardless of
+// viewport width/height, since it's based on actual measured hero height
+// rather than a guessed CSS breakpoint.
+const sideMascot = document.getElementById('sideMascot');
+const heroBanner = document.getElementById('heroBanner');
+if (sideMascot && heroBanner) {
+  const updateMascotVisibility = () => {
+    const heroBottom = heroBanner.getBoundingClientRect().bottom;
+    if (heroBottom <= 0) {
+      sideMascot.classList.add('visible');
+    } else {
+      sideMascot.classList.remove('visible');
+    }
+  };
+  window.addEventListener('scroll', updateMascotVisibility);
+  updateMascotVisibility();
+}
+
 let selectedSport = 'nfl';
 let selectedGame = null;
 let selectedTargetTeam = null;
