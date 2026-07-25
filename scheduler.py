@@ -107,11 +107,28 @@ def start_scheduler(app):
     query raises "working outside of application context".
     """
     def run_with_context():
-        with app.app_context():
-            check_armed_smackagrams()
+        print("[scheduler] job invoked — entering app context now")
+        try:
+            with app.app_context():
+                check_armed_smackagrams()
+        except Exception as e:
+            import traceback
+            print(f"[scheduler] JOB CRASHED: {e}")
+            traceback.print_exc()
 
     scheduler = BackgroundScheduler()
     scheduler.add_job(run_with_context, "interval", minutes=3)
     scheduler.start()
     print("[scheduler] started — checking armed smackagrams every 3 minutes")
+
+    # Run once immediately on startup too — don't wait for the first
+    # interval to elapse. This isolates two different possible failures:
+    # if this immediate run works but the recurring one never appears,
+    # the problem is with the interval scheduling itself (e.g. the
+    # process getting recycled before 3 minutes pass). If even THIS
+    # immediate run never prints anything, the problem is inside
+    # check_armed_smackagrams or run_with_context itself.
+    print("[scheduler] running an immediate check now (not waiting for the first interval)")
+    run_with_context()
+
     return scheduler
