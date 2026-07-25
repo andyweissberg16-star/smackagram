@@ -85,10 +85,12 @@ def get_voice_preview_url(voice_id: str) -> str:
 
 
 
-# Loudness target matched to the static slap.mp3/tagline.mp3 files (measured
-# via ffmpeg loudnorm analysis) so all three clips in a call/preview sound
-# equally loud, instead of the AI-generated voice being noticeably quieter.
-TARGET_LUFS = -8.1
+# Loudness target — matched to a standard, gentle broadcast level (-16 LUFS
+# is a common streaming/podcast target). The previous -8.1 target was far
+# too hot and, combined with dynamic-mode loudnorm, caused audible pumping/
+# breathing artifacts. linear=true below uses a single flat gain instead of
+# adaptive frame-by-frame correction, which eliminates that pumping entirely.
+TARGET_LUFS = -16
 
 
 def _normalize_loudness(audio_bytes: bytes) -> bytes:
@@ -103,7 +105,7 @@ def _normalize_loudness(audio_bytes: bytes) -> bytes:
         process = subprocess.run(
             [
                 "ffmpeg", "-i", "pipe:0",
-                "-af", f"loudnorm=I={TARGET_LUFS}:TP=-1.0:LRA=7",
+                "-af", f"loudnorm=I={TARGET_LUFS}:TP=-1.5:LRA=7:linear=true",
                 "-f", "mp3", "pipe:1",
             ],
             input=audio_bytes,

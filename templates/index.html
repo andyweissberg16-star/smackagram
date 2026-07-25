@@ -406,18 +406,28 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
   }
 });
 
+let _currentSequence = [];
+let _currentSequenceIndex = 0;
+let _isAdvancingSequence = false;
+let _sequenceJustCompleted = false;
+
 function playSequence(audioEl, urls) {
-  let i = 0;
+  _currentSequence = urls;
+  _currentSequenceIndex = 0;
+  _sequenceJustCompleted = false;
   audioEl.style.display = 'block';
+
   const playNext = () => {
-    if (i >= urls.length) {
+    if (_currentSequenceIndex >= _currentSequence.length) {
       console.log('[smackagram] sequence finished');
+      _sequenceJustCompleted = true;
       return;
     }
-    const url = urls[i];
-    console.log(`[smackagram] playing clip ${i + 1}/${urls.length}:`, url);
+    const url = _currentSequence[_currentSequenceIndex];
+    console.log(`[smackagram] playing clip ${_currentSequenceIndex + 1}/${_currentSequence.length}:`, url);
     audioEl.src = url;
-    i++;
+    _currentSequenceIndex++;
+    _isAdvancingSequence = true;
     const playPromise = audioEl.play();
     if (playPromise && playPromise.catch) {
       playPromise.catch(err => {
@@ -434,6 +444,30 @@ function playSequence(audioEl, urls) {
   };
   playNext();
 }
+
+// Set up once (not inside playSequence, to avoid stacking duplicate
+// listeners on repeated calls). Catches the case where someone uses the
+// native <audio> player's own play/replay button after our sequence has
+// fully finished — without this, it would just replay the last clip
+// (the outro) instead of restarting from the beginning of the trash talk.
+(() => {
+  const audioEl = document.getElementById('previewAudio');
+  if (!audioEl) return;
+  audioEl.addEventListener('play', () => {
+    if (_isAdvancingSequence) {
+      // this play() call came from our own playNext(), not a user click —
+      // consume the flag and do nothing extra
+      _isAdvancingSequence = false;
+      return;
+    }
+    if (_sequenceJustCompleted && _currentSequence.length > 0) {
+      // user clicked native replay after the whole sequence finished —
+      // restart from clip 1 instead of just replaying the last clip
+      audioEl.pause();
+      playSequence(audioEl, _currentSequence);
+    }
+  });
+})();
 
 document.getElementById('previewBtn').addEventListener('click', async () => {
   const text = document.getElementById('trashTalkOutput').value.trim();
