@@ -322,12 +322,28 @@ function playSequence(audioEl, urls) {
   let i = 0;
   audioEl.style.display = 'block';
   const playNext = () => {
-    if (i >= urls.length) return;
-    audioEl.src = urls[i];
+    if (i >= urls.length) {
+      console.log('[smackagram] sequence finished');
+      return;
+    }
+    const url = urls[i];
+    console.log(`[smackagram] playing clip ${i + 1}/${urls.length}:`, url);
+    audioEl.src = url;
     i++;
-    audioEl.play();
+    const playPromise = audioEl.play();
+    if (playPromise && playPromise.catch) {
+      playPromise.catch(err => {
+        console.error('[smackagram] play() rejected:', err);
+      });
+    }
   };
-  audioEl.onended = playNext;
+  audioEl.onended = () => {
+    console.log('[smackagram] clip ended, advancing');
+    playNext();
+  };
+  audioEl.onerror = (e) => {
+    console.error('[smackagram] audio element error:', audioEl.error);
+  };
   playNext();
 }
 
