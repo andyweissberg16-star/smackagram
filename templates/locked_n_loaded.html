@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Locked & Loaded — Smackagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0B0D10; --ink-2:#161A1F; --chalk:#F2F3F5; --chalk-dim:#8B939E;
+    --flare:#FF6A00; --turf:#39FF6A; --gold:#FFD400; --cyan:#2F9BFF;
+    --line:rgba(242,243,245,0.10); --line-strong:rgba(242,243,245,0.22);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .display{font-family:'Anton',sans-serif; text-transform:uppercase; letter-spacing:0.5px;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .wrap{max-width:720px; margin:0 auto; padding:0 24px;}
+
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  nav a{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
+  .logo{font-family:'Anton',sans-serif; font-size:18px;}
+  .logo span{color:var(--flare);}
+
+  .hero{text-align:center; padding:48px 24px 24px;}
+  .hero h1{font-family:'Anton',sans-serif; font-size:clamp(30px,6vw,46px); text-transform:uppercase; margin-bottom:12px;}
+  .hero h1 span{color:var(--flare);}
+  .hero p{color:var(--chalk-dim); font-size:15px; max-width:520px; margin:0 auto;}
+
+  .card{background:var(--ink-2); border:2px solid var(--chalk); border-radius:4px; padding:24px; margin-bottom:20px; box-shadow:5px 5px 0 var(--flare);}
+  .step-label{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; font-weight:700;}
+  .card h3{font-family:'Anton',sans-serif; font-size:20px; margin-bottom:6px; text-transform:uppercase;}
+  .card-sub{color:var(--chalk-dim); font-size:13px; margin-bottom:16px;}
+
+  .sport-tabs{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
+  .sport-tab{
+    font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; letter-spacing:0.5px;
+    padding:8px 16px; border-radius:20px; border:1px solid var(--line-strong); color:var(--chalk-dim);
+    cursor:pointer; background:transparent;
+  }
+  .sport-tab.active{background:var(--flare); border-color:var(--flare); color:#fff;}
+
+  .game-list{display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto;}
+  .game-option{
+    border:1px solid var(--line-strong); border-radius:4px; padding:12px 14px; cursor:pointer;
+    display:flex; justify-content:space-between; align-items:center; transition:all 0.15s ease;
+  }
+  .game-option:hover{border-color:var(--flare);}
+  .game-option.selected{border-color:var(--flare); background:rgba(255,106,0,0.08); box-shadow:0 0 0 1px var(--flare);}
+  .game-option .matchup{font-size:14px; font-weight:600;}
+  .game-option .kickoff{font-size:11px; color:var(--chalk-dim); font-family:'JetBrains Mono',monospace;}
+  .game-empty{color:var(--chalk-dim); font-size:13px; padding:20px; text-align:center;}
+
+  .team-choice{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px;}
+  .team-option{
+    border:2px solid var(--line-strong); border-radius:4px; padding:16px; text-align:center; cursor:pointer;
+    font-weight:600; transition:all 0.15s ease;
+  }
+  .team-option:hover{border-color:var(--flare);}
+  .team-option.selected{border-color:var(--flare); background:rgba(255,106,0,0.1); box-shadow:3px 3px 0 var(--flare);}
+  .team-option small{display:block; color:var(--chalk-dim); font-weight:400; font-size:11px; margin-top:4px; text-transform:uppercase;}
+
+  .mode-tabs{display:flex; gap:10px; margin-bottom:16px;}
+  .mode-tab{
+    flex:1; border:2px solid var(--line-strong); border-radius:4px; padding:14px; text-align:center; cursor:pointer;
+    transition:all 0.15s ease;
+  }
+  .mode-tab.active{border-color:var(--flare); background:rgba(255,106,0,0.08); box-shadow:3px 3px 0 var(--flare);}
+  .mode-tab h4{font-size:14px; margin-bottom:4px;}
+  .mode-tab p{font-size:11px; color:var(--chalk-dim);}
+
+  label{display:block; font-size:12px; color:var(--chalk-dim); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;}
+  input[type=text], input[type=tel], textarea, select{
+    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; margin-bottom:16px;
+  }
+  textarea{min-height:90px; resize:vertical;}
+
+  .btn{font-weight:600; font-size:14px; padding:12px 24px; border-radius:2px; border:none; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; width:100%;}
+  .btn-flare{background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(255,106,0,0.5), 4px 4px 0 var(--ink); border:2px solid #fff;}
+  .btn-ghost{background:transparent; color:var(--chalk); border:1px solid var(--line-strong);}
+
+  .consent-row{display:flex; gap:10px; align-items:flex-start; font-size:12px; color:var(--chalk-dim); margin-bottom:18px; cursor:pointer;}
+  .consent-row input{width:auto; margin:2px 0 0;}
+
+  .hold-note{
+    border:1px solid var(--line-strong); border-radius:4px; padding:12px 14px; margin-bottom:18px;
+    display:flex; gap:10px; align-items:flex-start; font-size:12px; color:var(--chalk-dim);
+  }
+
+  .error-box{background:#3D0E2C; border:1px solid var(--flare); color:var(--flare); padding:10px 12px; border-radius:2px; font-size:13px; margin-bottom:16px; display:none;}
+
+  footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim);}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/"><span class="logo">SMACK<span>AGRAM</span></span></a>
+  <a href="/">&larr; Back to home</a>
+</nav>
+
+<div class="hero">
+  <h1>Locked <span>&amp;</span> Loaded</h1>
+  <p>Set it, walk away, forget about it. Pick a game, pick who loses, and we'll fire the call the second it's official — no charge unless you're right.</p>
+</div>
+
+<div class="wrap">
+
+  <div id="errorBox" class="error-box"></div>
+
+  <!-- Step 1: Pick a game -->
+  <div class="card">
+    <p class="step-label">Step 1</p>
+    <h3>Pick a game</h3>
+    <p class="card-sub">Only games kicking off in the next 48 hours show up here.</p>
+
+    <div class="sport-tabs" id="sportTabs">
+      <button class="sport-tab active" data-sport="nfl">NFL</button>
+      <button class="sport-tab" data-sport="nba">NBA</button>
+      <button class="sport-tab" data-sport="mlb">MLB</button>
+      <button class="sport-tab" data-sport="nhl">NHL</button>
+      <button class="sport-tab" data-sport="ncaaf">NCAAF</button>
+    </div>
+
+    <div class="game-list" id="gameList">
+      <p class="game-empty">Loading games...</p>
+    </div>
+  </div>
+
+  <!-- Step 2: Who has to lose -->
+  <div class="card" id="teamCard" style="display:none;">
+    <p class="step-label">Step 2</p>
+    <h3>Who has to lose</h3>
+    <p class="card-sub">We'll only send it if this team loses. If they win, you're not charged.</p>
+    <div class="team-choice" id="teamChoice"></div>
+  </div>
+
+  <!-- Step 3: Message mode -->
+  <div class="card" id="modeCard" style="display:none;">
+    <p class="step-label">Step 3</p>
+    <h3>Choose your message</h3>
+    <div class="mode-tabs">
+      <div class="mode-tab active" data-mode="custom">
+        <h4>Write your own</h4>
+        <p>Locked in now, sent exactly as written</p>
+      </div>
+      <div class="mode-tab" data-mode="auto_summary">
+        <h4>Auto-generate from recap</h4>
+        <p>Written after the game ends, using real details from how it went</p>
+      </div>
+    </div>
+
+    <div id="customMessageBlock">
+      <label for="customMessageInput">Your message</label>
+      <textarea id="customMessageInput" placeholder="Type what you want said if they lose..."></textarea>
+    </div>
+
+    <div id="autoSummaryBlock" style="display:none;">
+      <div class="hold-note">
+        <span>&#9203;</span>
+        <span>Nothing to write — once the game ends, we'll pull the real box score and headlines and write a roast referencing what actually happened.</span>
+      </div>
+    </div>
+
+    <label for="voiceSelectLL">Voice</label>
+    <select id="voiceSelectLL">
+      <option value="default">Loading voices...</option>
+    </select>
+  </div>
+
+  <!-- Step 4: Recipient -->
+  <div class="card" id="recipientCard" style="display:none;">
+    <p class="step-label">Step 4</p>
+    <h3>Who's receiving this</h3>
+
+    <label for="recipientNameLL">Recipient's name</label>
+    <input id="recipientNameLL" type="text" placeholder="ex. Mike">
+
+    <label for="recipientPhoneLL">Recipient's phone number</label>
+    <input id="recipientPhoneLL" type="tel" placeholder="+1 555 555 5555">
+
+    <label class="consent-row">
+      <input id="consentLL" type="checkbox">
+      <span>I know this person and this is a prank between friends. I understand the call may be recorded.</span>
+    </label>
+
+    <div class="hold-note">
+      <span>&#128274;</span>
+      <span>Your card is authorized for $2 now but not charged. You're only charged if <strong id="targetTeamNote">the selected team</strong> loses. If they win, the hold is released automatically.</span>
+    </div>
+
+    <button id="armBtn" class="btn btn-flare">Lock it in — $2 if they lose</button>
+  </div>
+
+</div>
+
+<footer>
+  Games can only be locked in within 48 hours of kickoff. Holds not captured within 7 days are released automatically.
+</footer>
+
+<script>
+let selectedSport = 'nfl';
+let selectedGame = null;
+let selectedTargetTeam = null;
+let selectedMode = 'custom';
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+function hideError() {
+  document.getElementById('errorBox').style.display = 'none';
+}
+
+async function loadGames(sport) {
+  const listEl = document.getElementById('gameList');
+  listEl.innerHTML = '<p class="game-empty">Loading games...</p>';
+  try {
+    const resp = await fetch(`/api/games/upcoming?sport=${sport}`);
+    const games = await resp.json();
+    if (!games.length) {
+      listEl.innerHTML = '<p class="game-empty">No games in the next 48 hours for this league.</p>';
+      return;
+    }
+    listEl.innerHTML = '';
+    games.forEach(g => {
+      const el = document.createElement('div');
+      el.className = 'game-option';
+      const kickoff = new Date(g.start_time).toLocaleString(undefined, {weekday:'short', hour:'numeric', minute:'2-digit'});
+      el.innerHTML = `<div><div class="matchup">${g.away_team} @ ${g.home_team}</div><div class="kickoff">${kickoff}</div></div>`;
+      el.addEventListener('click', () => selectGame(g, el));
+      listEl.appendChild(el);
+    });
+  } catch (err) {
+    listEl.innerHTML = '<p class="game-empty">Couldn\'t load games — try again.</p>';
+  }
+}
+
+function selectGame(game, el) {
+  document.querySelectorAll('.game-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedGame = game;
+  selectedTargetTeam = null;
+
+  const teamChoice = document.getElementById('teamChoice');
+  teamChoice.innerHTML = '';
+  [game.home_team, game.away_team].forEach(team => {
+    const opt = document.createElement('div');
+    opt.className = 'team-option';
+    opt.innerHTML = `${team}<small>must lose</small>`;
+    opt.addEventListener('click', () => selectTeam(team, opt));
+    teamChoice.appendChild(opt);
+  });
+
+  document.getElementById('teamCard').style.display = 'block';
+  document.getElementById('modeCard').style.display = 'none';
+  document.getElementById('recipientCard').style.display = 'none';
+}
+
+function selectTeam(team, el) {
+  document.querySelectorAll('.team-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedTargetTeam = team;
+  document.getElementById('targetTeamNote').textContent = team;
+  document.getElementById('modeCard').style.display = 'block';
+  document.getElementById('recipientCard').style.display = 'block';
+}
+
+document.getElementById('sportTabs').addEventListener('click', (e) => {
+  if (!e.target.classList.contains('sport-tab')) return;
+  document.querySelectorAll('.sport-tab').forEach(t => t.classList.remove('active'));
+  e.target.classList.add('active');
+  selectedSport = e.target.dataset.sport;
+  document.getElementById('teamCard').style.display = 'none';
+  document.getElementById('modeCard').style.display = 'none';
+  document.getElementById('recipientCard').style.display = 'none';
+  loadGames(selectedSport);
+});
+
+document.querySelectorAll('.mode-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    selectedMode = tab.dataset.mode;
+    document.getElementById('customMessageBlock').style.display = selectedMode === 'custom' ? 'block' : 'none';
+    document.getElementById('autoSummaryBlock').style.display = selectedMode === 'auto_summary' ? 'block' : 'none';
+  });
+});
+
+async function loadVoices() {
+  try {
+    const resp = await fetch('/api/voice-options');
+    const voices = await resp.json();
+    const select = document.getElementById('voiceSelectLL');
+    select.innerHTML = '';
+    voices.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.key;
+      opt.textContent = v.label;
+      select.appendChild(opt);
+    });
+  } catch (err) {}
+}
+
+document.getElementById('armBtn').addEventListener('click', async () => {
+  hideError();
+
+  if (!selectedGame || !selectedTargetTeam) {
+    showError('Pick a game and who has to lose first.');
+    return;
+  }
+  if (selectedMode === 'custom' && !document.getElementById('customMessageInput').value.trim()) {
+    showError('Write your message, or switch to auto-generate.');
+    return;
+  }
+  const recipientName = document.getElementById('recipientNameLL').value.trim();
+  const recipientPhone = document.getElementById('recipientPhoneLL').value.trim();
+  const consent = document.getElementById('consentLL').checked;
+  if (!recipientName || !recipientPhone) {
+    showError('Fill in the recipient\'s name and phone number.');
+    return;
+  }
+  if (!consent) {
+    showError('Please confirm you know this person before continuing.');
+    return;
+  }
+
+  const btn = document.getElementById('armBtn');
+  btn.textContent = 'Locking it in...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/smackagrams', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        game_id: selectedGame.game_id,
+        sport: selectedSport,
+        home_team: selectedGame.home_team,
+        away_team: selectedGame.away_team,
+        target_team: selectedTargetTeam,
+        game_start_time: selectedGame.start_time,
+        mode: selectedMode,
+        custom_message: selectedMode === 'custom' ? document.getElementById('customMessageInput').value.trim() : null,
+        voice_key: document.getElementById('voiceSelectLL').value,
+        recipient_name: recipientName,
+        recipient_phone: recipientPhone,
+        consent_confirmed: true,
+      })
+    });
+    const data = await resp.json();
+    if (data.checkout_url) {
+      window.location.href = data.checkout_url;
+    } else {
+      showError(data.error || 'Something went wrong — try again.');
+      btn.textContent = 'Lock it in — $2 if they lose';
+      btn.disabled = false;
+    }
+  } catch (err) {
+    showError('Something went wrong — try again.');
+    btn.textContent = 'Lock it in — $2 if they lose';
+    btn.disabled = false;
+  }
+});
+
+loadGames(selectedSport);
+loadVoices();
+</script>
+</body>
+</html>

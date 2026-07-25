@@ -63,6 +63,35 @@ def create_checkout_session(order_id: int, amount_cents: int, base_url: str) -> 
     )
 
 
+def create_authorized_checkout_session(smackagram_id: int, amount_cents: int, base_url: str) -> stripe.checkout.Session:
+    """
+    Same hosted-Checkout UX as create_checkout_session, but for locked-and-
+    loaded smackagrams: the card is authorized (funds held) via
+    payment_intent_data.capture_method='manual', NOT charged immediately.
+    We capture or cancel the resulting PaymentIntent later, once the game's
+    outcome is known (see scheduler.py). This means the buyer goes through
+    the exact same familiar checkout flow as a regular order, they just
+    aren't charged until/unless their condition is met.
+    """
+    _configure()
+    return stripe.checkout.Session.create(
+        mode="payment",
+        payment_method_types=["card"],
+        line_items=[{
+            "price_data": {
+                "currency": "usd",
+                "product_data": {"name": "Smackagram — Locked & Loaded"},
+                "unit_amount": amount_cents,
+            },
+            "quantity": 1,
+        }],
+        payment_intent_data={"capture_method": "manual"},
+        metadata={"type": "smackagram", "smackagram_id": str(smackagram_id)},
+        success_url=f"{base_url}/locked-n-loaded/success?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{base_url}/locked-n-loaded",
+    )
+
+
 def verify_webhook(payload: bytes, sig_header: str, webhook_secret: str):
     """Verifies a Stripe webhook actually came from Stripe, not a forged request."""
     return stripe.Webhook.construct_event(payload, sig_header, webhook_secret)

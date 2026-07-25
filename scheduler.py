@@ -1,8 +1,9 @@
+import os
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from models import db, Smackagram, Scenario
-from services import sports_service, stripe_service, twilio_service
+from services import sports_service, stripe_service, twilio_service, trash_talk_service, call_audio_service
 
 
 def check_armed_smackagrams():
@@ -42,16 +43,34 @@ def check_armed_smackagrams():
             continue
 
         loser = result["loser"]
+        base_url = os.environ["BASE_URL"]
 
         for s in matching:
             if s.target_team == loser:
                 # condition met — target team lost, fire the smackagram
-                stripe_service.capture_hold(s.stripe_payment_intent_id)
-                call_sid = twilio_service.place_prank_call(
-                    s.id, s.recipient_phone, record=True
-                )
-                s.twilio_call_sid = call_sid
-                s.status = "fired"
+                try:
+                    if s.mode == "auto_summary":
+                        # generate the recap roast now, using real facts from
+                        # the game that just ended — this is the "set it and
+                        # walk away, get a roast grounded in what actually
+                        # happened" feature
+                        summary = sports_service.get_game_summary(s.game_id, sport=s.sport)
+                        s.custom_message = trash_talk_service.generate_game_recap_roast(
+                            team=s.target_team,
+                            recipient_name=s.recipient_name,
+                            key_facts=summary["key_facts"],
+                        )
+                    # else mode == "custom" — s.custom_message was already
+                    # written by the buyer at arm-time, nothing to generate
+
+                    stripe_service.capture_hold(s.stripe_payment_intent_id)
+                    audio_urls = call_audio_service.resolve_audio_url(s, base_url)
+                    call_sid = twilio_service.place_prank_call(s.id, s.recipient_phone, record=True)
+                    s.twilio_call_sid = call_sid
+                    s.status = "fired"
+                except Exception as e:
+                    s.status = "failed"
+                    print(f"Locked smackagram {s.id} failed to fire: {e}")
             else:
                 # target team won — release the hold, nothing charged
                 stripe_service.release_hold(s.stripe_payment_intent_id)

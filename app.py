@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
 
 from models import db, Scenario, Order, Smackagram
-from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants
+from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service
 from scheduler import start_scheduler
 
 load_dotenv()
@@ -22,17 +22,6 @@ db.init_app(app)
 # whole call from scratch. So we resolve audio BEFORE placing the call, and
 # call-instructions just serves the already-ready URLs instantly.
 _pending_call_audio = {}
-
-
-def get_outro_url():
-    """
-    The signature slap sound + closing tagline, combined into a single mp3
-    and served as a static file. No longer generated via ElevenLabs on every
-    call/preview, so this costs nothing and never varies. Loudness-matched
-    to the message audio's normalization target (see elevenlabs_service.py).
-    """
-    base_url = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
-    return f"{base_url}/static/outro.mp3"
 
 
 # ---------- Site-wide password gate ----------
@@ -123,7 +112,23 @@ def stripe_webhook():
 
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
-        order_id = int(session["metadata"]["order_id"])
+        metadata = session.get("metadata", {})
+
+        if metadata.get("type") == "smackagram":
+            # Locked-and-loaded flow: the card is now authorized (held), not
+            # charged. Swap the stored id from the Checkout Session to the
+            # actual PaymentIntent, since that's what capture_hold()/
+            # release_hold() operate on later, once the game resolves.
+            smackagram_id = int(metadata["smackagram_id"])
+            smackagram = Smackagram.query.get(smackagram_id)
+            # only swap if it still holds the original Checkout Session id
+            # (starts with "cs_") — avoids re-processing a duplicate webhook
+            if smackagram and smackagram.stripe_payment_intent_id == session["id"]:
+                smackagram.stripe_payment_intent_id = session.get("payment_intent")
+                db.session.commit()
+            return jsonify({"received": True})
+
+        order_id = int(metadata["order_id"])
         order = Order.query.get(order_id)
 
         if order and order.payment_status != "captured":
@@ -135,7 +140,7 @@ def stripe_webhook():
             # needs a fast 200 response regardless, and the payment is
             # already safely recorded either way.
             try:
-                audio_urls = resolve_audio_url(order)
+                audio_urls = call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")))
                 _pending_call_audio[order.id] = audio_urls
                 call_sid = twilio_service.place_prank_call(order.id, order.recipient_phone, record=True)
                 order.twilio_call_sid = call_sid
@@ -201,7 +206,7 @@ def preview_audio():
     voice_id = voice_options.get_voice_id(voice_key)
 
     message_url = elevenlabs_service.generate_audio_url(text, voice_id=voice_id)
-    outro_url = get_outro_url()
+    outro_url = call_audio_service.get_outro_url(os.environ.get("BASE_URL", request.url_root.rstrip("/")))
     rate_limiter.record_hit(identifier)
 
     return jsonify({
@@ -221,7 +226,7 @@ def call_instructions(record_id):
 
     # fall back to live resolution only if somehow nothing was pre-cached
     # (e.g. this route got hit directly without going through the webhook)
-    audio_urls = _pending_call_audio.pop(record_id, None) or resolve_audio_url(order)
+    audio_urls = _pending_call_audio.pop(record_id, None) or call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")))
 
     should_record = getattr(order, "includes_recording", True)
     base_url = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
@@ -247,26 +252,20 @@ def recording_done(record_id):
     return Response(twiml, mimetype="text/xml")
 
 
-def resolve_audio_url(record):
-    """
-    Builds the full audio sequence for a call: the message (pre-recorded
-    clip or generated TTS), the slap sound effect, then the tagline —
-    played back-to-back as separate clips, not stitched into one file.
-    """
-    voice_id = voice_options.get_voice_id(getattr(record, "voice_key", None) or voice_options.DEFAULT_VOICE_KEY)
-
-    if record.custom_message:
-        message_url = elevenlabs_service.generate_audio_url(record.custom_message, voice_id=voice_id)
-    else:
-        scenario = Scenario.query.get(record.scenario_id)
-        message_url = scenario.audio_url
-
-    outro_url = get_outro_url()
-
-    return [message_url, outro_url]
-
+# ---------- Locked-and-loaded smackagrams ----------
 
 # ---------- Locked-and-loaded smackagrams ----------
+
+@app.route("/locked-n-loaded")
+def locked_n_loaded_page():
+    return render_template("locked_n_loaded.html")
+
+
+@app.route("/locked-n-loaded/success")
+def locked_n_loaded_success():
+    session_id = request.args.get("session_id")
+    return render_template("locked_n_loaded_success.html", session_id=session_id)
+
 
 @app.route("/api/games/upcoming")
 def upcoming_games():
@@ -277,6 +276,14 @@ def upcoming_games():
 
 @app.route("/api/smackagrams", methods=["POST"])
 def arm_smackagram():
+    """
+    Locks in a smackagram against a future game. Uses the same hosted-
+    Checkout flow as regular orders, but with capture_method='manual' — the
+    card is authorized (held), not charged. It only actually gets charged
+    if the target team loses; otherwise the hold is released with nothing
+    charged. See scheduler.py for the polling job that resolves this once
+    the game ends.
+    """
     data = request.json
 
     game_start = datetime.fromisoformat(data["game_start_time"])
@@ -286,7 +293,12 @@ def arm_smackagram():
     if not data.get("consent_confirmed"):
         return jsonify({"error": "Consent confirmation required"}), 400
 
-    intent = stripe_service.create_authorized_hold(200)
+    mode = data.get("mode", "custom")
+    if mode not in ("custom", "auto_summary"):
+        return jsonify({"error": "Invalid mode"}), 400
+
+    if mode == "custom" and not data.get("custom_message", "").strip():
+        return jsonify({"error": "Custom message can't be empty"}), 400
 
     smackagram = Smackagram(
         game_id=data["game_id"],
@@ -295,21 +307,28 @@ def arm_smackagram():
         away_team=data["away_team"],
         target_team=data["target_team"],
         game_start_time=game_start,
-        scenario_id=data.get("scenario_id"),
-        custom_message=data.get("custom_message"),
+        mode=mode,
+        custom_message=data.get("custom_message") if mode == "custom" else None,
+        voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
         recipient_name=data["recipient_name"],
         recipient_phone=data["recipient_phone"],
         consent_confirmed=True,
-        stripe_payment_intent_id=intent.id,
     )
     db.session.add(smackagram)
+    db.session.commit()  # commit first so smackagram.id exists for the checkout metadata
+
+    session = stripe_service.create_authorized_checkout_session(
+        smackagram_id=smackagram.id,
+        amount_cents=smackagram.price_cents,
+        base_url=os.environ.get("BASE_URL", request.url_root.rstrip("/")),
+    )
+    # store the Checkout Session id for now — the webhook swaps this for the
+    # actual PaymentIntent id once checkout completes, since that's what
+    # capture_hold()/release_hold() actually need
+    smackagram.stripe_payment_intent_id = session.id
     db.session.commit()
 
-    return jsonify({
-        "smackagram_id": smackagram.id,
-        "client_secret": intent.client_secret,
-        "status": "armed",
-    })
+    return jsonify({"checkout_url": session.url})
 
 
 # ---------- Twilio status callbacks ----------

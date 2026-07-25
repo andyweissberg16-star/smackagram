@@ -62,6 +62,8 @@ class Smackagram(db.Model):
     # Scenario + recipient (same shape as Order)
     scenario_id = db.Column(db.Integer, db.ForeignKey("scenarios.id"))
     custom_message = db.Column(db.Text, nullable=True)
+    voice_key = db.Column(db.String(40), default="default")
+    mode = db.Column(db.String(20), default="custom")  # "custom" (write your own) or "auto_summary" (AI recap after game ends)
     recipient_name = db.Column(db.String(120))
     recipient_phone = db.Column(db.String(20))
     consent_confirmed = db.Column(db.Boolean, default=False)
