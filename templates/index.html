@@ -138,9 +138,11 @@
   footer{padding:32px 24px; border-top:1px solid var(--line); display:flex; justify-content:space-between; font-size:12px; color:var(--chalk-dim);}
 
   .side-mascot{
-    position:fixed; left:16px; bottom:0; height:70vh; max-height:520px; width:auto;
-    z-index:5; pointer-events:none; filter:drop-shadow(4px 0 0 var(--flare));
+    position:fixed; left:0; bottom:40px; width:230px; height:auto;
+    z-index:-1; pointer-events:none; filter:drop-shadow(4px 0 0 var(--flare));
+    opacity:0; transition:opacity 0.3s ease;
   }
+  .side-mascot.visible{opacity:1;}
   @media(max-width:1300px){ .side-mascot{display:none;} }
   footer .flinks{display:flex; gap:20px;}
 
@@ -293,7 +295,7 @@
   </div>
 </nav>
 
-<img src="{{ url_for('static', filename='mascot_sidebar.png') }}" alt="" class="side-mascot">
+<img id="sideMascot" src="{{ url_for('static', filename='mascot_sidebar.png') }}" alt="" class="side-mascot">
 
 <div class="leagues">
   <span class="league-pill active">NFL</span>
@@ -315,7 +317,7 @@
 </div>
 
 <div style="width:100%; overflow:hidden; line-height:0;">
-  <img src="{{ url_for('static', filename='hero-mascot.png') }}" alt="Smackagram — let the smack talk begin" style="width:100%; height:auto; display:block;">
+  <img id="heroBanner" src="{{ url_for('static', filename='hero-mascot.png') }}" alt="Smackagram — let the smack talk begin" style="width:100%; height:auto; display:block;">
 </div>
 
 <div class="wrap field-lines">
@@ -456,6 +458,25 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+
+// Sidebar mascot only fades in once scrolled past the hero banner —
+// guarantees it can never visually overlap the hero, regardless of
+// viewport width/height, since it's based on actual measured hero height
+// rather than a guessed CSS breakpoint.
+const sideMascot = document.getElementById('sideMascot');
+const heroBanner = document.getElementById('heroBanner');
+if (sideMascot && heroBanner) {
+  const updateMascotVisibility = () => {
+    const heroBottom = heroBanner.getBoundingClientRect().bottom;
+    if (heroBottom <= 0) {
+      sideMascot.classList.add('visible');
+    } else {
+      sideMascot.classList.remove('visible');
+    }
+  };
+  window.addEventListener('scroll', updateMascotVisibility);
+  updateMascotVisibility();
+}
 
 let selectedSensitivity = 4;
 
