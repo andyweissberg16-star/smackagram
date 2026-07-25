@@ -43,7 +43,7 @@ def require_site_password():
     # Stripe and Twilio hit these routes directly and can't log in with a
     # username/password — Stripe verifies itself via signature, Twilio's
     # callbacks are unauthenticated by nature (that's how Twilio itself works).
-    exempt_prefixes = ("/webhook/stripe", "/call-instructions/", "/call-status/", "/recording-ready/", "/recording-done/")
+    exempt_prefixes = ("/webhook/stripe", "/call-instructions/", "/call-status/", "/recording-ready/", "/recording-done/", "/static/")
     if request.path.startswith(exempt_prefixes):
         return
 
