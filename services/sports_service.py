@@ -33,15 +33,34 @@ def _api_key() -> str:
 
 def _get(sport: str, endpoint: str) -> dict | list:
     path = SPORT_PATHS[sport]
-    # Soccer's feed lives under a different URL segment than every other
-    # sport ("stats" instead of "scores") — this is why soccer alone kept
-    # 401ing even after the subscription/key issues were fixed elsewhere.
-    feed_segment = "stats" if sport == "soccer" else "scores"
-    url = f"{BASE}/{path}/{feed_segment}/json/{endpoint}"
+
+    if sport == "soccer":
+        # Soccer is on API v4 (not v3) — endpoint string is built by the
+        # caller to already include the competition ID in the right spot
+        # (GamesByDate/{competition}/{date}), since that ordering differs
+        # from every other sport here.
+        url = f"https://api.sportsdata.io/v4/soccer/scores/json/{endpoint}"
+    else:
+        url = f"{BASE}/{path}/scores/json/{endpoint}"
+
     resp = requests.get(url, params={"key": _api_key()}, timeout=10)
     print(f"[sportsdata] GET {url} -> {resp.status_code}, body starts: {resp.text[:300]!r}")
     resp.raise_for_status()
     return resp.json()
+
+
+# The free trial only grants soccer access to the UEFA Champions League.
+# MLS, Premier League, etc. require upgrading past the trial. Searches for
+# non-Champions-League teams (like LA Galaxy, an MLS team) won't return
+# results right now — not a bug, just outside what this plan includes.
+SOCCER_TRIAL_COMPETITION_ID = 3
+
+
+def _games_by_date_endpoint(sport: str, date_str: str) -> str:
+    """Builds the correct GamesByDate path — soccer needs the competition ID inserted before the date."""
+    if sport == "soccer":
+        return f"GamesByDate/{SOCCER_TRIAL_COMPETITION_ID}/{date_str}"
+    return f"GamesByDate/{date_str}"
 
 
 def get_upcoming_games(sport: str = "nfl", hours_ahead: int = 48, team_query: str = None) -> list[dict]:
@@ -68,7 +87,7 @@ def get_upcoming_games(sport: str = "nfl", hours_ahead: int = 48, team_query: st
     for d in dates_to_check:
         date_str = d.strftime("%Y-%b-%d").upper()  # SportsDataIO's expected format, e.g. 2026-SEP-10
         try:
-            events = _get(sport, f"GamesByDate/{date_str}")
+            events = _get(sport, _games_by_date_endpoint(sport, date_str))
         except requests.HTTPError as e:
             print(f"[sportsdata] HTTPError for {sport} {date_str}: {e}")
             continue
@@ -151,7 +170,7 @@ def get_game_result(game_id: str, sport: str = "nfl") -> dict | None:
     for d in [today, today - timedelta(days=1)]:
         date_str = d.strftime("%Y-%b-%d").upper()
         try:
-            events = _get(sport, f"GamesByDate/{date_str}")
+            events = _get(sport, _games_by_date_endpoint(sport, date_str))
         except requests.HTTPError as e:
             print(f"[sportsdata] HTTPError for {sport} {date_str}: {e}")
             continue
@@ -220,7 +239,7 @@ def get_game_summary(game_id: str, sport: str = "nfl") -> dict:
     for d in [today, today - timedelta(days=1)]:
         date_str = d.strftime("%Y-%b-%d").upper()
         try:
-            events = _get(sport, f"GamesByDate/{date_str}")
+            events = _get(sport, _games_by_date_endpoint(sport, date_str))
         except requests.HTTPError as e:
             print(f"[sportsdata] HTTPError for {sport} {date_str}: {e}")
             continue
