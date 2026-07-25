@@ -28,11 +28,9 @@ def _api_key() -> str:
 
 def _get(sport: str, endpoint: str) -> dict | list:
     path = SPORT_PATHS[sport]
-    resp = requests.get(
-        f"{BASE}/{path}/scores/json/{endpoint}",
-        params={"key": _api_key()},
-        timeout=10,
-    )
+    url = f"{BASE}/{path}/scores/json/{endpoint}"
+    resp = requests.get(url, params={"key": _api_key()}, timeout=10)
+    print(f"[sportsdata] GET {url} -> {resp.status_code}, body starts: {resp.text[:300]!r}")
     resp.raise_for_status()
     return resp.json()
 
@@ -57,7 +55,8 @@ def get_upcoming_games(sport: str = "nfl", hours_ahead: int = 48) -> list[dict]:
         date_str = d.strftime("%Y-%b-%d").upper()  # SportsDataIO's expected format, e.g. 2026-SEP-10
         try:
             events = _get(sport, f"GamesByDate/{date_str}")
-        except requests.HTTPError:
+        except requests.HTTPError as e:
+            print(f"[sportsdata] HTTPError for {sport} {date_str}: {e}")
             continue
 
         for event in events:
@@ -101,7 +100,8 @@ def get_game_result(game_id: str, sport: str = "nfl") -> dict | None:
         date_str = d.strftime("%Y-%b-%d").upper()
         try:
             events = _get(sport, f"GamesByDate/{date_str}")
-        except requests.HTTPError:
+        except requests.HTTPError as e:
+            print(f"[sportsdata] HTTPError for {sport} {date_str}: {e}")
             continue
 
         for event in events:
@@ -169,7 +169,8 @@ def get_game_summary(game_id: str, sport: str = "nfl") -> dict:
         date_str = d.strftime("%Y-%b-%d").upper()
         try:
             events = _get(sport, f"GamesByDate/{date_str}")
-        except requests.HTTPError:
+        except requests.HTTPError as e:
+            print(f"[sportsdata] HTTPError for {sport} {date_str}: {e}")
             continue
 
         for event in events:
