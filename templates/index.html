@@ -52,7 +52,8 @@
   /* TICKER */
   .ticker-bar{background:var(--flare); overflow:hidden; white-space:nowrap; padding:8px 0;}
   .ticker-track{display:inline-block; animation:scroll 28s linear infinite;}
-  .ticker-track span{font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:#fff; margin-right:48px; text-transform:uppercase; letter-spacing:0.5px;}
+  .ticker-track span{font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:#fff; margin-right:16px; text-transform:uppercase; letter-spacing:0.5px;}
+  .ticker-track span.ticker-bolt{margin-right:16px; font-size:13px; color:var(--gold); text-shadow:0 0 6px rgba(255,212,0,0.8); text-transform:none; letter-spacing:0;}
   @keyframes scroll{ from{transform:translateX(0);} to{transform:translateX(-50%);} }
 
   /* HERO */
@@ -102,10 +103,10 @@
 
   /* PLAY BY PLAY (how it works) */
   section{padding:64px 24px;}
-  .section-title{font-family:'Anton',sans-serif; font-size:32px; margin-bottom:8px;}
+  .section-title{font-family:'Anton',sans-serif; font-size:32px; margin-bottom:8px; text-shadow:2px 2px 0 var(--flare);}
   .section-sub{color:var(--chalk-dim); font-size:14px; margin-bottom:40px;}
   .downs{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
-  .down{border:1px solid var(--line); border-radius:4px; padding:22px 18px; position:relative;}
+  .down{border:2px solid var(--chalk); border-radius:2px; padding:22px 18px; position:relative; background:var(--ink); box-shadow:5px 5px 0 var(--flare);}
   .down-tag{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare); font-weight:700; letter-spacing:1px; margin-bottom:14px;}
   .down h3{font-size:16px; margin-bottom:8px; font-weight:600;}
   .down p{font-size:13px; color:var(--chalk-dim);}
@@ -113,8 +114,8 @@
   /* SCENARIOS */
   .card-row{display:flex; gap:14px; overflow-x:auto; padding-bottom:8px;}
   .player-card{
-    min-width:180px; background:var(--ink-2); border:1px solid var(--line); border-radius:4px;
-    padding:18px; flex-shrink:0;
+    min-width:180px; background:var(--ink-2); border:2px solid var(--chalk); border-radius:2px;
+    padding:18px; flex-shrink:0; box-shadow:5px 5px 0 var(--flare);
   }
   .power{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--gold); margin-bottom:12px; letter-spacing:0.5px;}
   .player-card h4{font-size:15px; margin-bottom:6px; font-weight:600;}
@@ -122,15 +123,15 @@
 
   /* PRICING */
   .pricing{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
-  .price-card{border:1px solid var(--line); border-radius:4px; padding:28px 24px; position:relative;}
-  .price-card.featured{border:2px solid var(--flare); box-shadow:5px 5px 0 var(--flare), 0 0 30px rgba(232,20,44,0.15);}
-  .badge{position:absolute; top:-12px; left:20px; background:var(--flare); color:#fff; font-size:11px; font-weight:700; padding:4px 10px; text-transform:uppercase; letter-spacing:0.5px; font-family:'JetBrains Mono',monospace;}
+  .price-card{border:2px solid var(--chalk); border-radius:2px; padding:28px 24px; position:relative; box-shadow:6px 6px 0 var(--ink-2);}
+  .price-card.featured{border:3px solid var(--flare); box-shadow:7px 7px 0 var(--flare), 0 0 30px rgba(232,20,44,0.25);}
+  .badge{position:absolute; top:-14px; left:20px; background:var(--gold); color:var(--ink); font-size:11px; font-weight:700; padding:5px 12px; text-transform:uppercase; letter-spacing:0.5px; font-family:'JetBrains Mono',monospace; border:2px solid var(--ink); transform:rotate(-4deg); box-shadow:2px 2px 0 var(--ink);}
   .price{font-family:'Anton',sans-serif; font-size:44px; margin:10px 0 18px;}
   .feat{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--chalk-dim); margin-bottom:8px;}
   .feat.no{color:#5C5A54;}
 
   /* CTA */
-  .final-cta{text-align:center; background:var(--ink-2); border-radius:6px; padding:60px 24px; margin:0 24px;}
+  .final-cta{text-align:center; background:var(--ink-2); border-radius:6px; padding:60px 24px; margin:0 24px; border:2px solid var(--line-strong);}
   .final-cta h2{font-size:34px; margin-bottom:12px;}
   .final-cta p{color:var(--chalk-dim); margin-bottom:28px;}
 
@@ -166,20 +167,20 @@
   }
 
   /* CARD TEAM STRIPE */
-  .player-card{border-top:3px solid var(--flare); box-shadow:0 0 18px rgba(232,20,44,0.12);}
-  .player-card:nth-child(2){border-top-color:var(--cyan); box-shadow:0 0 18px rgba(47,155,255,0.12);}
-  .player-card:nth-child(3){border-top-color:var(--turf); box-shadow:0 0 18px rgba(57,255,136,0.12);}
-  .player-card:nth-child(4){border-top-color:var(--gold); box-shadow:0 0 18px rgba(255,212,0,0.12);}
+  .player-card:nth-child(1){box-shadow:5px 5px 0 var(--flare);}
+  .player-card:nth-child(2){box-shadow:5px 5px 0 var(--cyan);}
+  .player-card:nth-child(3){box-shadow:5px 5px 0 var(--turf);}
+  .player-card:nth-child(4){box-shadow:5px 5px 0 var(--gold);}
 
   .ball-icon{width:16px; height:16px; display:inline-block; vertical-align:-3px; margin-right:6px;}
 
   /* COMIC ACCENTS — matches the logo's illustrated style */
   .halftone{
-    background-image: radial-gradient(var(--line-strong) 1px, transparent 1px);
-    background-size: 10px 10px;
+    background-image: radial-gradient(var(--line-strong) 1.5px, transparent 1.5px);
+    background-size: 9px 9px;
   }
   .btn-flare{
-    background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(232,20,44,0.5);
+    background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(232,20,44,0.5), 4px 4px 0 var(--ink);
     border:2px solid #fff; outline:2px solid var(--ink); outline-offset:-1px;
   }
   .burst{
@@ -190,6 +191,51 @@
   }
   .comic-border{
     border:2px solid var(--chalk); box-shadow:4px 4px 0 var(--flare);
+  }
+
+  /* Radiating burst background — pulled from the hero art's action-line style */
+  .burst-bg{
+    position:relative;
+    background-image: repeating-conic-gradient(from 0deg at 50% 50%,
+      rgba(232,20,44,0.08) 0deg 6deg, transparent 6deg 12deg);
+  }
+
+  /* Jagged torn-edge divider between sections, comic-panel style */
+  .zigzag-divider{
+    height:22px; width:100%;
+    background:var(--flare);
+    clip-path: polygon(
+      0% 0%,4% 100%,8% 0%,12% 100%,16% 0%,20% 100%,24% 0%,28% 100%,
+      32% 0%,36% 100%,40% 0%,44% 100%,48% 0%,52% 100%,56% 0%,60% 100%,
+      64% 0%,68% 100%,72% 0%,76% 100%,80% 0%,84% 100%,88% 0%,92% 100%,96% 0%,100% 100%,100% 0%
+    );
+  }
+
+  .star-accent{position:absolute; opacity:0.35; pointer-events:none;}
+
+  /* CUSTOM SCROLLBAR — matches the brand instead of default gray */
+  ::-webkit-scrollbar{width:12px;}
+  ::-webkit-scrollbar-track{background:var(--ink);}
+  ::-webkit-scrollbar-thumb{background:var(--flare); border:2px solid var(--ink); border-radius:6px;}
+  ::-webkit-scrollbar-thumb:hover{background:#ff3b1a;}
+  html{scrollbar-color:var(--flare) var(--ink); scrollbar-width:thin;}
+
+  /* HOVER BOUNCE/TILT — makes cards and buttons feel alive on interaction */
+  .down, .player-card, .price-card{transition:transform 0.15s ease, box-shadow 0.15s ease;}
+  .down:hover, .player-card:hover, .price-card:hover{
+    transform:translate(-2px,-4px) rotate(-0.5deg);
+    box-shadow:7px 9px 0 var(--flare);
+  }
+  .price-card.featured:hover{box-shadow:9px 11px 0 var(--flare), 0 0 30px rgba(232,20,44,0.25);}
+  .btn{transition:transform 0.12s ease;}
+  .btn:hover{transform:scale(1.06) rotate(-1deg);}
+  .btn:active{transform:scale(0.96) rotate(0deg);}
+
+  /* GIANT FAINT BACKGROUND SPLASH TEXT — classic comic panel filler */
+  .bg-splash{
+    position:absolute; font-family:'Anton',sans-serif; color:var(--chalk);
+    opacity:0.035; font-size:clamp(80px,18vw,220px); white-space:nowrap;
+    pointer-events:none; z-index:0; user-select:none; letter-spacing:4px;
   }
 
   @media(max-width:760px){
@@ -225,12 +271,12 @@
 
 <div class="ticker-bar">
   <div class="ticker-track">
-    <span>COWBOYS FANS — 214 SMACKS SENT TODAY</span>
-    <span>EAGLES JUST GOT RUNG UP AFTER THE 4TH QUARTER COLLAPSE</span>
-    <span>LIVE — SUNDAY SLATE SMACK VOLUME UP 3X</span>
-    <span>COWBOYS FANS — 214 SMACKS SENT TODAY</span>
-    <span>EAGLES JUST GOT RUNG UP AFTER THE 4TH QUARTER COLLAPSE</span>
-    <span>LIVE — SUNDAY SLATE SMACK VOLUME UP 3X</span>
+    <span>COWBOYS FANS — 214 SMACKS SENT TODAY</span><span class="ticker-bolt">⚡</span>
+    <span>EAGLES JUST GOT RUNG UP AFTER THE 4TH QUARTER COLLAPSE</span><span class="ticker-bolt">⚡</span>
+    <span>LIVE — SUNDAY SLATE SMACK VOLUME UP 3X</span><span class="ticker-bolt">⚡</span>
+    <span>COWBOYS FANS — 214 SMACKS SENT TODAY</span><span class="ticker-bolt">⚡</span>
+    <span>EAGLES JUST GOT RUNG UP AFTER THE 4TH QUARTER COLLAPSE</span><span class="ticker-bolt">⚡</span>
+    <span>LIVE — SUNDAY SLATE SMACK VOLUME UP 3X</span><span class="ticker-bolt">⚡</span>
   </div>
 </div>
 
@@ -272,8 +318,9 @@
   </div>
 </div>
 
-<section id="how-it-works" class="halftone" style="background:var(--ink-2);">
-  <div class="wrap">
+<section id="how-it-works" class="halftone" style="background:var(--ink-2); position:relative; overflow:hidden;">
+  <p class="bg-splash" style="top:10%; left:-4%; transform:rotate(-8deg);">SMACK!</p>
+  <div class="wrap" style="position:relative; z-index:1;">
     <p class="section-title">Four downs to a smack</p>
     <p class="section-sub">First and goal. Here's the drive.</p>
     <div class="downs">
@@ -304,8 +351,10 @@
     </div>
   </div>
 </section>
-
-<section id="generator">
+<div class="zigzag-divider"></div>
+<section id="generator" style="position:relative; overflow:hidden;">
+  <svg class="star-accent" style="top:12px; right:8%; width:26px; transform:rotate(15deg);" viewBox="0 0 24 24" fill="var(--gold)"><path d="M12 0l2.5 8.5L23 11l-8.5 2.5L12 22l-2.5-8.5L1 11l8.5-2.5z"/></svg>
+  <svg class="star-accent" style="bottom:20px; left:4%; width:18px; transform:rotate(-10deg);" viewBox="0 0 24 24" fill="var(--flare)"><path d="M12 0l2.5 8.5L23 11l-8.5 2.5L12 22l-2.5-8.5L1 11l8.5-2.5z"/></svg>
   <div class="wrap">
     <p class="section-title">Don't know how to trash talk?</p>
     <p class="section-sub">We got you covered. Enter the team and the person's name — we'll write the smack talk for you.</p>
@@ -338,9 +387,10 @@
     <audio id="previewAudio" style="width:100%; margin-top:10px; display:none;" controls></audio>
   </div>
 </section>
-
-<section style="background:var(--ink-2);">
-  <div class="wrap">
+<div class="zigzag-divider"></div>
+<section style="background:var(--ink-2); position:relative; overflow:hidden;">
+  <p class="bg-splash" style="bottom:5%; right:-6%; transform:rotate(6deg);">BOOM!</p>
+  <div class="wrap" style="position:relative; z-index:1;">
     <p class="section-title">Pick your play</p>
     <p class="section-sub">No tokens, no subscriptions. Just pay per smack.</p>
     <div class="pricing">
@@ -680,7 +730,7 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
 
 
 <section>
-  <div class="final-cta field-lines">
+  <div class="final-cta field-lines burst-bg">
     <div style="position:relative; z-index:1;">
       <p class="mono" style="color:var(--gold); font-size:12px; letter-spacing:1px; margin-bottom:14px;">FINAL SCORE: YOU 2 — THEM 0</p>
       <h2 class="display" style="font-family:'Anton',sans-serif;">Ready to make their day worse?</h2>
