@@ -19,7 +19,7 @@ SPORT_PATHS = {
     "ncaaf": "cfb",       # SportsDataIO uses "cfb" for college football
     "ncaab": "cbb",       # college basketball
     "wnba": "wnba",
-    "ncaawb": "wbb",      # college women's basketball
+    "ncaawb": "cwbb",     # college women's basketball — "wbb" returned 404, trying this instead
     "soccer": "soccer",   # note: soccer may need a competition/league ID param — flagged for testing
 }
 
