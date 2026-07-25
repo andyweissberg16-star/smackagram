@@ -16,7 +16,11 @@ SPORT_PATHS = {
     "nba": "nba",
     "mlb": "mlb",
     "nhl": "nhl",
-    "ncaaf": "cfb",  # SportsDataIO uses "cfb" for college football, not "ncaaf"
+    "ncaaf": "cfb",       # SportsDataIO uses "cfb" for college football
+    "ncaab": "cbb",       # college basketball
+    "wnba": "wnba",
+    "ncaawb": "wbb",      # college women's basketball
+    "soccer": "soccer",   # note: soccer may need a competition/league ID param — flagged for testing
 }
 
 BASE = "https://api.sportsdata.io/v3"
