@@ -21,6 +21,7 @@
     --line-strong:rgba(245,245,243,0.24);
   }
   *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
   body{
     background:var(--ink);
     color:var(--chalk);
@@ -56,8 +57,22 @@
 
   /* HERO */
   .hero{
-    padding:80px 24px 60px; display:grid; grid-template-columns:1.1fr 0.9fr; gap:48px; align-items:center;
+    padding:80px 24px 60px; display:flex; justify-content:center; text-align:center;
   }
+  .hero > div{max-width:640px;}
+  .hero-ctas{justify-content:center;}
+  .live-dot{
+    width:9px; height:9px; border-radius:50%; background:var(--flare);
+    box-shadow:0 0 8px var(--flare); animation:live-pulse 1.3s ease-in-out infinite;
+  }
+  @keyframes live-pulse{0%,100%{opacity:1; transform:scale(1);} 50%{opacity:0.4; transform:scale(1.3);}}
+
+  @keyframes cta-pulse{
+    0%,100%{box-shadow:0 0 20px rgba(232,20,44,0.5);}
+    50%{box-shadow:0 0 32px rgba(232,20,44,0.85), 0 0 8px rgba(232,20,44,0.6);}
+  }
+  .hero-ctas .btn-flare{animation:cta-pulse 2s ease-in-out infinite;}
+
   .eyebrow{color:var(--cyan); font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; letter-spacing:1px; margin-bottom:16px; text-transform:uppercase; text-shadow:0 0 10px rgba(47,155,255,0.6);}
   h1{font-size:clamp(38px,6vw,64px); line-height:0.98; margin-bottom:20px;}
   h1 .flare{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.6);}
@@ -178,7 +193,6 @@
   }
 
   @media(max-width:760px){
-    .hero{grid-template-columns:1fr;}
     .downs{grid-template-columns:1fr 1fr;}
     .pricing{grid-template-columns:1fr;}
     nav{flex-wrap:wrap; gap:12px;}
@@ -191,9 +205,9 @@
 <nav>
   <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
   <div class="nav-links">
-    <span>How it works</span>
-    <span>Scenarios</span>
-    <span>Sign in</span>
+    <a href="#how-it-works" style="color:inherit; text-decoration:none;">How it works</a>
+    <a href="#generator" style="color:inherit; text-decoration:none;">Generator</a>
+    <a href="#scenarios" style="color:inherit; text-decoration:none;">Scenarios</a>
   </div>
   <div style="display:flex; align-items:center; gap:16px;">
     <div class="clock"><span class="dot"></span>Q4 · 00:12</div>
@@ -220,48 +234,87 @@
   </div>
 </div>
 
-<div class="wrap field-lines">
-  <div style="text-align:center; padding:32px 24px 8px; position:relative; z-index:1;">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram — let the smack begin" style="max-width:520px; width:90%; height:auto;">
-  </div>
+<div style="width:100%; overflow:hidden; line-height:0;">
+  <img src="{{ url_for('static', filename='hero-mascot.png') }}" alt="Smackagram — let the smack talk begin" style="width:100%; height:auto; display:block;">
+</div>
 
+<div class="wrap field-lines">
   <section class="hero" style="padding-left:0; padding-right:0; padding-top:16px; position:relative; z-index:1;">
     <div>
-      <p class="eyebrow">Their team just lost</p>
-      <h1>Talk smack.<br>Get it <span class="flare">on tape.</span></h1>
-      <p class="sub">Send a prank call to any sports fan who needs to hear it. Two bucks. Delivered in a minute. Recorded so you can relive it forever.</p>
+      <div style="display:inline-flex; align-items:center; gap:8px; margin-bottom:16px;">
+        <span class="live-dot"></span>
+        <span class="eyebrow" style="margin:0;">Live now — game day is here</span>
+      </div>
+      <h1>Their team just choked.<br>Time to <span class="flare">rub it in.</span></h1>
+      <p class="sub">Type a team, our AI roasts their whole season, and we call your friend with it — in a real voice, recorded live. $2. Under a minute. Let's go.</p>
       <div class="hero-ctas">
-        <button class="btn btn-flare">Send a smack — $2</button>
+        <a href="#generator" class="btn btn-flare" style="text-decoration:none; display:inline-block;">Get started</a>
         <button class="btn btn-ghost">Hear a sample</button>
-      </div>
-    </div>
-
-    <div class="scorecard comic-border" style="position:relative;">
-      <div class="burst">DELIVERED!</div>
-      <div class="scorecard-head">
-        <span>SMACK RECEIPT</span>
-        <span>#04471</span>
-      </div>
-      <div class="scorecard-body">
-        <div class="sc-row"><span class="sc-label">Target</span><span class="sc-val">Mike — Eagles fan</span></div>
-        <div class="sc-row"><span class="sc-label">Scenario</span><span class="sc-val">4th quarter choke</span></div>
-        <div class="sc-row"><span class="sc-label">Answered</span><span class="sc-val">0:04 in</span></div>
-        <div class="sc-row"><span class="sc-label">Duration</span><span class="sc-val">0:38</span></div>
-        <div class="sc-verdict">
-          <p>DELIVERED</p>
-          <small>RECORDING READY TO DOWNLOAD</small>
-        </div>
       </div>
     </div>
   </section>
 </div>
 
-<section style="background:var(--ink-2);">
-  <div class="wrap">
-    <p class="section-title">Stuck on what to say?</p>
-    <p class="section-sub">Type the team you want roasted. We'll write the smack talk.</p>
+<div class="wrap">
+  <div style="background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:20px 16px; margin:8px 0 32px; display:grid; grid-template-columns:repeat(3,1fr); text-align:center;">
+    <div>
+      <p class="display" style="font-family:'Anton',sans-serif; font-size:34px; color:var(--flare); text-shadow:0 0 16px rgba(232,20,44,0.5);">2,847</p>
+      <p class="mono" style="font-size:11px; color:var(--chalk-dim); letter-spacing:1px; margin-top:2px;">SMACKS SENT THIS WEEK</p>
+    </div>
+    <div style="border-left:1px solid var(--line-strong); border-right:1px solid var(--line-strong);">
+      <p class="display" style="font-family:'Anton',sans-serif; font-size:34px; color:var(--gold); text-shadow:0 0 16px rgba(255,212,0,0.5);">4</p>
+      <p class="mono" style="font-size:11px; color:var(--chalk-dim); letter-spacing:1px; margin-top:2px;">VOICES TO CHOOSE FROM</p>
+    </div>
+    <div>
+      <p class="display" style="font-family:'Anton',sans-serif; font-size:34px; color:var(--cyan);">60s</p>
+      <p class="mono" style="font-size:11px; color:var(--chalk-dim); letter-spacing:1px; margin-top:2px;">FROM TYPE TO DELIVERED</p>
+    </div>
+  </div>
+</div>
 
-    <input id="teamInput" type="text" placeholder="Team to trash talk (e.g. Eagles)" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; margin-bottom:14px;">
+<section id="how-it-works" class="halftone" style="background:var(--ink-2);">
+  <div class="wrap">
+    <p class="section-title">Four downs to a smack</p>
+    <p class="section-sub">First and goal. Here's the drive.</p>
+    <div class="downs">
+      <div class="down">
+        <div class="jersey">1</div>
+        <p class="down-tag">1ST DOWN</p>
+        <h3>Pick a scenario</h3>
+        <p>Choose from the library, or write your own line and we'll read it.</p>
+      </div>
+      <div class="down">
+        <div class="jersey">2</div>
+        <p class="down-tag">2ND DOWN</p>
+        <h3>Enter their number</h3>
+        <p>You confirm you know them. This isn't for strangers.</p>
+      </div>
+      <div class="down">
+        <div class="jersey">3</div>
+        <p class="down-tag">3RD DOWN</p>
+        <h3>We make the call</h3>
+        <p>Phone rings, they answer, the smack talk starts.</p>
+      </div>
+      <div class="down">
+        <div class="jersey">4</div>
+        <p class="down-tag">4TH DOWN</p>
+        <h3>You get the tape</h3>
+        <p>Their reaction, recorded and ready to download or share.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="generator">
+  <div class="wrap">
+    <p class="section-title">Don't know how to trash talk?</p>
+    <p class="section-sub">We got you covered. Enter the team and the person's name — we'll write the smack talk for you.</p>
+
+    <label for="teamInput" style="display:block; font-size:12px; color:var(--chalk-dim); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Step 1 — Team to trash talk</label>
+    <input id="teamInput" type="text" placeholder="ex. New York Yankees" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; margin-bottom:14px;">
+
+    <label for="recipientNameInput" style="display:block; font-size:12px; color:var(--chalk-dim); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">Step 2 — Who's receiving this</label>
+    <input id="recipientNameInput" type="text" placeholder="ex. Mike" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; margin-bottom:14px;">
 
     <button id="generateBtn" class="btn btn-flare" style="margin-bottom:14px;">Generate smack talk</button>
 
@@ -286,16 +339,47 @@
   </div>
 </section>
 
+<section style="background:var(--ink-2);">
+  <div class="wrap">
+    <p class="section-title">Pick your play</p>
+    <p class="section-sub">No tokens, no subscriptions. Just pay per smack.</p>
+    <div class="pricing">
+      <div class="price-card featured">
+        <span class="badge">Most popular</span>
+        <p class="section-sub" style="margin:0;">Call + recording</p>
+        <p class="price">$2</p>
+        <div class="feat">✓ Call delivered</div>
+        <div class="feat">✓ Reaction recorded</div>
+        <div class="feat">✓ Downloadable + shareable</div>
+        <button id="sendItBundle" class="btn btn-flare" style="width:100%; margin-top:16px;">Send it</button>
+      </div>
+      <div class="price-card">
+        <p class="section-sub" style="margin:0;">Call only</p>
+        <p class="price">$1</p>
+        <div class="feat">✓ Call delivered</div>
+        <div class="feat no">✗ No recording</div>
+        <div class="feat no">✗ Nothing to share</div>
+        <button id="sendItCallOnly" class="btn btn-ghost" style="width:100%; margin-top:16px;">Send it</button>
+      </div>
+    </div>
+  </div>
+</section>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
 document.getElementById('generateBtn').addEventListener('click', async () => {
   const team = document.getElementById('teamInput').value.trim();
+  const recipientName = document.getElementById('recipientNameInput').value.trim();
   const output = document.getElementById('trashTalkOutput');
   const btn = document.getElementById('generateBtn');
 
   if (!team) {
     output.placeholder = "Type a team first.";
+    return;
+  }
+  if (!recipientName) {
+    output.placeholder = "Enter who's receiving this first.";
     return;
   }
 
@@ -306,10 +390,14 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     const resp = await fetch('/api/generate-trash-talk', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({team: team})
+      body: JSON.stringify({team: team, recipient_name: recipientName})
     });
     const data = await resp.json();
-    output.value = data.generated_text;
+    if (data.generated_text) {
+      output.value = data.generated_text;
+    } else {
+      output.value = data.error || "Couldn't generate right now — try again.";
+    }
   } catch (err) {
     output.value = "Couldn't generate right now — try again.";
   } finally {
@@ -432,6 +520,10 @@ function openOrderModal(priceCents) {
   if (generatedText) {
     document.getElementById('orderMessage').value = generatedText;
   }
+  const generatorRecipientName = document.getElementById('recipientNameInput').value.trim();
+  if (generatorRecipientName) {
+    document.getElementById('orderRecipientName').value = generatorRecipientName;
+  }
   const generatorVoice = document.getElementById('voiceSelect').value;
   const orderVoiceSelect = document.getElementById('orderVoice');
   if (orderVoiceSelect.options.length && generatorVoice) {
@@ -523,43 +615,9 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
 
 }); // end DOMContentLoaded
 </script>
-
-<section class="halftone" style="background:var(--ink-2);">
-  <div class="wrap">
-    <p class="section-title">Four downs to a smack</p>
-    <p class="section-sub">First and goal. Here's the drive.</p>
-    <div class="downs">
-      <div class="down">
-        <div class="jersey">1</div>
-        <p class="down-tag">1ST DOWN</p>
-        <h3>Pick a scenario</h3>
-        <p>Choose from the library, or write your own line and we'll read it.</p>
-      </div>
-      <div class="down">
-        <div class="jersey">2</div>
-        <p class="down-tag">2ND DOWN</p>
-        <h3>Enter their number</h3>
-        <p>You confirm you know them. This isn't for strangers.</p>
-      </div>
-      <div class="down">
-        <div class="jersey">3</div>
-        <p class="down-tag">3RD DOWN</p>
-        <h3>We make the call</h3>
-        <p>Phone rings, they answer, the smack talk starts.</p>
-      </div>
-      <div class="down">
-        <div class="jersey">4</div>
-        <p class="down-tag">4TH DOWN</p>
-        <h3>You get the tape</h3>
-        <p>Their reaction, recorded and ready to download or share.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
 <section>
   <div class="wrap">
-    <p class="section-title">Trending scenarios</p>
+    <p class="section-title" id="scenarios">Trending scenarios</p>
     <p class="section-sub">New ones added every game week.</p>
     <div class="card-row">
       <div class="player-card">
@@ -586,32 +644,6 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
   </div>
 </section>
 
-
-<section style="background:var(--ink-2);">
-  <div class="wrap">
-    <p class="section-title">Pick your play</p>
-    <p class="section-sub">No tokens, no subscriptions. Just pay per smack.</p>
-    <div class="pricing">
-      <div class="price-card featured">
-        <span class="badge">Most popular</span>
-        <p class="section-sub" style="margin:0;">Call + recording</p>
-        <p class="price">$2</p>
-        <div class="feat">✓ Call delivered</div>
-        <div class="feat">✓ Reaction recorded</div>
-        <div class="feat">✓ Downloadable + shareable</div>
-        <button id="sendItBundle" class="btn btn-flare" style="width:100%; margin-top:16px;">Send it</button>
-      </div>
-      <div class="price-card">
-        <p class="section-sub" style="margin:0;">Call only</p>
-        <p class="price">$1</p>
-        <div class="feat">✓ Call delivered</div>
-        <div class="feat no">✗ No recording</div>
-        <div class="feat no">✗ Nothing to share</div>
-        <button id="sendItCallOnly" class="btn btn-ghost" style="width:100%; margin-top:16px;">Send it</button>
-      </div>
-    </div>
-  </div>
-</section>
 
 <section>
   <div class="final-cta field-lines">

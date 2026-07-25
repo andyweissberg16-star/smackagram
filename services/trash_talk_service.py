@@ -1,4 +1,5 @@
 import os
+import random
 import anthropic
 
 _client = None
@@ -51,18 +52,38 @@ Hard limits — never cross these:
 - 15-25 seconds of spoken audio — roughly 60-90 words.
 - Do NOT write your own sign-off, closing line, or "smackagram" mention —
   that gets appended automatically after your output. End on the roast itself.
+- Do NOT write a greeting or address the recipient by name — that's already
+  handled separately and prepended before your text. Start directly with the
+  roast content itself (e.g. jump straight into the team's history/stats).
 - Output ONLY the line to be spoken. No preamble, no quotation marks, no labels.
 """
 
+GREETINGS = [
+    "Hey",
+    "Well hello there",
+    "Hi",
+    "Well, well, well",
+    "Yo",
+    "Good day to you",
+]
 
-def generate_trash_talk(team: str) -> str:
+
+def generate_trash_talk(team: str, recipient_name: str) -> str:
     """
-    Generates a ready-to-edit trash talk line roasting the given team.
+    Generates a ready-to-edit trash talk line roasting the given team,
+    always opening with a personalized greeting built in code (not left to
+    the AI, so it's guaranteed consistent every time): a random casual
+    opener + the recipient's name + "I heard you're a [team] fan!" — then
+    the AI-generated roast continues from there.
+
     Returned text goes straight into the custom-message textarea for the
     buyer to tweak. The closing tagline is NOT included in this text — it's
     appended as a separate audio clip (with a sound effect before it) at
     playback time, not baked into the editable message.
     """
+    greeting = random.choice(GREETINGS)
+    opener = f"{greeting}, {recipient_name.strip()}! I heard you're a {team.strip()} fan!"
+
     message = _get_client().messages.create(
         model="claude-sonnet-4-6",
         max_tokens=200,
@@ -72,4 +93,5 @@ def generate_trash_talk(team: str) -> str:
             "content": f"Team to roast: {team}. Write the line.",
         }],
     )
-    return message.content[0].text.strip()
+    roast = message.content[0].text.strip()
+    return f"{opener} {roast}"

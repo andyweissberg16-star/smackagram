@@ -150,7 +150,13 @@ def stripe_webhook():
 @app.route("/api/generate-trash-talk", methods=["POST"])
 def generate_trash_talk():
     data = request.json
-    line = trash_talk_service.generate_trash_talk(team=data["team"])
+    team = data.get("team", "").strip()
+    recipient_name = data.get("recipient_name", "").strip()
+
+    if not team or not recipient_name:
+        return jsonify({"error": "Both team and recipient name are required"}), 400
+
+    line = trash_talk_service.generate_trash_talk(team=team, recipient_name=recipient_name)
     return jsonify({"generated_text": line})
 
 
