@@ -38,6 +38,65 @@ def capture_hold(payment_intent_id: str):
     return stripe.PaymentIntent.capture(payment_intent_id)
 
 
+def create_checkout_session(order_id: int, amount_cents: int, base_url: str) -> stripe.checkout.Session:
+    """
+    Creates a Stripe-hosted checkout page for a smackagram order. Using
+    Stripe's hosted Checkout instead of a custom card form keeps us out of
+    PCI-compliance territory and is far less code to get right.
+    """
+    _configure()
+    label = "Call + recording" if amount_cents == 200 else "Call only"
+    return stripe.checkout.Session.create(
+        mode="payment",
+        payment_method_types=["card"],
+        line_items=[{
+            "price_data": {
+                "currency": "usd",
+                "product_data": {"name": f"Smackagram — {label}"},
+                "unit_amount": amount_cents,
+            },
+            "quantity": 1,
+        }],
+        metadata={"order_id": str(order_id)},
+        success_url=f"{base_url}/order-success?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{base_url}/",
+    )
+
+
+def create_authorized_checkout_session(smackagram_id: int, amount_cents: int, base_url: str) -> stripe.checkout.Session:
+    """
+    Same hosted-Checkout UX as create_checkout_session, but for locked-and-
+    loaded smackagrams: the card is authorized (funds held) via
+    payment_intent_data.capture_method='manual', NOT charged immediately.
+    We capture or cancel the resulting PaymentIntent later, once the game's
+    outcome is known (see scheduler.py). This means the buyer goes through
+    the exact same familiar checkout flow as a regular order, they just
+    aren't charged until/unless their condition is met.
+    """
+    _configure()
+    return stripe.checkout.Session.create(
+        mode="payment",
+        payment_method_types=["card"],
+        line_items=[{
+            "price_data": {
+                "currency": "usd",
+                "product_data": {"name": "Smackagram — Locked & Loaded"},
+                "unit_amount": amount_cents,
+            },
+            "quantity": 1,
+        }],
+        payment_intent_data={"capture_method": "manual"},
+        metadata={"type": "smackagram", "smackagram_id": str(smackagram_id)},
+        success_url=f"{base_url}/locked-n-loaded/success?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{base_url}/locked-n-loaded",
+    )
+
+
+def verify_webhook(payload: bytes, sig_header: str, webhook_secret: str):
+    """Verifies a Stripe webhook actually came from Stripe, not a forged request."""
+    return stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
+
+
 def release_hold(payment_intent_id: str):
     """Target team won (or game postponed/canceled) — release the hold, charge nothing."""
     _configure()

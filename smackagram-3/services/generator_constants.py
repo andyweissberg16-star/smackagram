@@ -4,7 +4,6 @@
 
 CLOSING_TAGLINE = "You've just been smacked by Smackagram. Have a nice day."
 
-
-def append_tagline(generated_text: str) -> str:
-    """Appends the standard sign-off to any generated line."""
-    return f"{generated_text.strip()} {CLOSING_TAGLINE}"
+# The signature sound effect played between the message and the tagline —
+# generated via ElevenLabs Sound Effects, cached, and reused for consistency.
+SLAP_SFX_PROMPT = "LOUD, sharp, high-impact cartoon slap sound effect, extremely punchy and forceful like a hand slapping skin hard, foley-style, close-mic'd, no reverb, maximum volume and clarity"
