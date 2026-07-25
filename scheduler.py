@@ -117,9 +117,13 @@ def start_scheduler(app):
             traceback.print_exc()
 
     scheduler = BackgroundScheduler()
-    scheduler.add_job(run_with_context, "interval", minutes=3)
+    # TEMPORARY: 30 seconds instead of 3 minutes — purely for fast diagnostic
+    # testing right now, to quickly confirm whether the recurring job fires
+    # at all, instead of waiting 3+ minutes per uncertain data point. Change
+    # back to minutes=3 once confirmed working.
+    scheduler.add_job(run_with_context, "interval", seconds=30)
     scheduler.start()
-    print("[scheduler] started — checking armed smackagrams every 3 minutes")
+    print("[scheduler] started — DIAGNOSTIC MODE: checking every 30 seconds")
 
     # Run once immediately on startup too — don't wait for the first
     # interval to elapse. This isolates two different possible failures:
