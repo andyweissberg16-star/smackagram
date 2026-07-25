@@ -318,6 +318,19 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
   }
 });
 
+function playSequence(audioEl, urls) {
+  let i = 0;
+  audioEl.style.display = 'block';
+  const playNext = () => {
+    if (i >= urls.length) return;
+    audioEl.src = urls[i];
+    i++;
+    audioEl.play();
+  };
+  audioEl.onended = playNext;
+  playNext();
+}
+
 document.getElementById('previewBtn').addEventListener('click', async () => {
   const text = document.getElementById('trashTalkOutput').value.trim();
   const voiceKey = document.getElementById('voiceSelect').value;
@@ -344,10 +357,8 @@ document.getElementById('previewBtn').addEventListener('click', async () => {
 
     if (resp.status === 429) {
       status.textContent = data.error;
-    } else if (data.audio_url) {
-      audioEl.src = data.audio_url;
-      audioEl.style.display = 'block';
-      audioEl.play();
+    } else if (data.audio_sequence) {
+      playSequence(audioEl, data.audio_sequence);
       status.textContent = `${data.previews_remaining} free previews left this hour.`;
     } else {
       status.textContent = 'Something went wrong — try again.';

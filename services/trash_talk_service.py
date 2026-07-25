@@ -1,6 +1,5 @@
 import os
 import anthropic
-from services.generator_constants import append_tagline
 
 _client = None
 
@@ -60,7 +59,9 @@ def generate_trash_talk(team: str) -> str:
     """
     Generates a ready-to-edit trash talk line roasting the given team.
     Returned text goes straight into the custom-message textarea for the
-    buyer to tweak before it's sent to ElevenLabs.
+    buyer to tweak. The closing tagline is NOT included in this text — it's
+    appended as a separate audio clip (with a sound effect before it) at
+    playback time, not baked into the editable message.
     """
     message = _get_client().messages.create(
         model="claude-sonnet-4-6",
@@ -71,4 +72,4 @@ def generate_trash_talk(team: str) -> str:
             "content": f"Team to roast: {team}. Write the line.",
         }],
     )
-    return append_tagline(message.content[0].text)
+    return message.content[0].text.strip()

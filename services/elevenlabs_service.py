@@ -13,6 +13,53 @@ _audio_cache = {}
 # and never change, so once fetched there's no reason to ever ask again.
 _voice_preview_cache = {}
 
+# Cache for generated sound effects — same prompt always produces effectively
+# the same sound, generate once per prompt and reuse (saves credits, and the
+# slap sound should stay consistent as a piece of brand identity).
+_sfx_cache = {}
+
+
+def generate_sound_effect(prompt: str, duration_seconds: float = 1.2) -> str:
+    """
+    Generates a short sound effect from a text description using ElevenLabs'
+    Sound Effects endpoint — a different feature from voice TTS, built for
+    exactly this: short stingers/effects like a slap, whoosh, or ding.
+    Requires the API key to have "Sound Effects" access enabled.
+    """
+    if prompt in _sfx_cache:
+        return _sfx_cache[prompt]
+
+    s3_bucket = os.environ["AUDIO_S3_BUCKET"]
+    s3_region = os.environ.get("AWS_REGION", "us-east-1")
+
+    resp = requests.post(
+        "https://api.elevenlabs.io/v1/sound-generation",
+        headers={
+            "xi-api-key": os.environ["ELEVENLABS_API_KEY"],
+            "Content-Type": "application/json",
+        },
+        json={
+            "text": prompt,
+            "duration_seconds": duration_seconds,
+            "prompt_influence": 0.7,
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+
+    filename = f"sfx/{uuid.uuid4()}.mp3"
+    s3 = boto3.client("s3", region_name=s3_region)
+    s3.put_object(
+        Bucket=s3_bucket,
+        Key=filename,
+        Body=resp.content,
+        ContentType="audio/mpeg",
+    )
+
+    url = f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/{filename}"
+    _sfx_cache[prompt] = url
+    return url
+
 
 def get_voice_preview_url(voice_id: str) -> str:
     """

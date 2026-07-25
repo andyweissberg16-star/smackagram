@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
 
 from models import db, Scenario, Order, Smackagram
-from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options
+from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants
 from scheduler import start_scheduler
 
 load_dotenv()
@@ -23,8 +23,9 @@ db.init_app(app)
 
 @app.before_request
 def require_site_password():
-    # Stripe and Twilio hit these routes directly and can not log in with a
-    # username/password.
+    # Stripe and Twilio hit these routes directly and can't log in with a
+    # username/password — Stripe verifies itself via signature, Twilio's
+    # callbacks are unauthenticated by nature (that's how Twilio itself works).
     exempt_prefixes = ("/webhook/stripe", "/call-instructions/", "/call-status/", "/recording-ready/")
     if request.path.startswith(exempt_prefixes):
         return
@@ -173,11 +174,13 @@ def preview_audio():
     voice_key = request.json.get("voice_key", voice_options.DEFAULT_VOICE_KEY)
     voice_id = voice_options.get_voice_id(voice_key)
 
-    audio_url = elevenlabs_service.generate_audio_url(text, voice_id=voice_id)
+    message_url = elevenlabs_service.generate_audio_url(text, voice_id=voice_id)
+    sfx_url = elevenlabs_service.generate_sound_effect(generator_constants.SLAP_SFX_PROMPT)
+    tagline_url = elevenlabs_service.generate_audio_url(generator_constants.CLOSING_TAGLINE, voice_id=voice_id)
     rate_limiter.record_hit(identifier)
 
     return jsonify({
-        "audio_url": audio_url,
+        "audio_sequence": [message_url, sfx_url, tagline_url],
         "previews_remaining": rate_limiter.previews_remaining(identifier),
     })
 
@@ -195,12 +198,23 @@ def call_instructions(record_id):
 
 
 def resolve_audio_url(record):
-    """Pre-recorded clip, or generate TTS on the fly for custom messages."""
+    """
+    Builds the full audio sequence for a call: the message (pre-recorded
+    clip or generated TTS), the slap sound effect, then the tagline —
+    played back-to-back as separate clips, not stitched into one file.
+    """
+    voice_id = voice_options.get_voice_id(getattr(record, "voice_key", None) or voice_options.DEFAULT_VOICE_KEY)
+
     if record.custom_message:
-        voice_id = voice_options.get_voice_id(getattr(record, "voice_key", None) or voice_options.DEFAULT_VOICE_KEY)
-        return elevenlabs_service.generate_audio_url(record.custom_message, voice_id=voice_id)
-    scenario = Scenario.query.get(record.scenario_id)
-    return scenario.audio_url
+        message_url = elevenlabs_service.generate_audio_url(record.custom_message, voice_id=voice_id)
+    else:
+        scenario = Scenario.query.get(record.scenario_id)
+        message_url = scenario.audio_url
+
+    sfx_url = elevenlabs_service.generate_sound_effect(generator_constants.SLAP_SFX_PROMPT)
+    tagline_url = elevenlabs_service.generate_audio_url(generator_constants.CLOSING_TAGLINE, voice_id=voice_id)
+
+    return [message_url, sfx_url, tagline_url]
 
 
 # ---------- Locked-and-loaded smackagrams ----------
