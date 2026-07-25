@@ -19,7 +19,7 @@ _voice_preview_cache = {}
 _sfx_cache = {}
 
 
-def generate_sound_effect(prompt: str, duration_seconds: float = 1.2) -> str:
+def generate_sound_effect(prompt: str, duration_seconds: float = 1.5) -> str:
     """
     Generates a short sound effect from a text description using ElevenLabs'
     Sound Effects endpoint — a different feature from voice TTS, built for
@@ -41,7 +41,7 @@ def generate_sound_effect(prompt: str, duration_seconds: float = 1.2) -> str:
         json={
             "text": prompt,
             "duration_seconds": duration_seconds,
-            "prompt_influence": 0.7,
+            "prompt_influence": 1.0,
         },
         timeout=30,
     )
