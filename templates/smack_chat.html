@@ -151,6 +151,11 @@
         <option value="nba">NBA</option>
         <option value="mlb">MLB</option>
         <option value="nhl">NHL</option>
+        <option value="wnba">WNBA</option>
+        <option value="ncaaf">NCAA Football</option>
+        <option value="ncaab">NCAA Basketball (M)</option>
+        <option value="ncaawb">NCAA Basketball (W)</option>
+        <option value="soccer">Soccer</option>
       </select>
     </div>
     <div class="team-grid" id="teamGrid"></div>
@@ -195,7 +200,7 @@ let allTeamsCache = [];  // flat list across all leagues, for search
 // Fetch every league's teams once up front so search can filter across
 // all of them instantly, without a network round-trip per keystroke.
 async function loadAllTeamsForSearch() {
-  const leagues = ['nfl', 'nba', 'mlb', 'nhl'];
+  const leagues = ['nfl', 'nba', 'mlb', 'nhl', 'wnba', 'ncaaf', 'ncaab', 'ncaawb', 'soccer'];
   try {
     const results = await Promise.all(leagues.map(l => fetch(`/api/chat/teams?league=${l}`).then(r => r.json())));
     allTeamsCache = [];

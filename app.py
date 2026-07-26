@@ -6,7 +6,7 @@ from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
 
 from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating
-from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases
+from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists
 from scheduler import check_armed_smackagrams
 
 load_dotenv()
@@ -451,9 +451,9 @@ def smack_chat_page():
 
 @app.route("/api/chat/teams")
 def chat_teams():
-    """Team list for a league, reusing the same display-name data already built for search/roasting."""
+    """Team list for a Smack Chat league room, from chat_team_lists.py."""
     league = request.args.get("league", "nfl")
-    teams = team_aliases.DISPLAY_NAMES.get(league, {})
+    teams = chat_team_lists.CHAT_LEAGUES.get(league, {})
     return jsonify([{"code": code, "name": name} for code, name in sorted(teams.items(), key=lambda x: x[1])])
 
 
