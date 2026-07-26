@@ -45,58 +45,68 @@
   }
   .team-chip:hover{border-color:var(--flare); color:var(--flare);}
 
-  #roomView{display:none;}
-  .room-header{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;}
-  .room-title{font-family:'Anton',sans-serif; font-size:24px; text-transform:uppercase;}
-  .btn-back{background:none; border:none; color:var(--chalk-dim); cursor:pointer; font-size:13px; text-decoration:underline;}
+  #roomView{display:none; flex-direction:column; height:calc(100vh - 76px); max-width:720px; margin:0 auto;}
 
-  .sort-tabs{display:flex; gap:8px; margin-bottom:16px;}
+  .chat-header{
+    display:flex; align-items:center; gap:14px; padding:14px 24px; border-bottom:1px solid var(--line-strong);
+    flex-shrink:0;
+  }
+  .room-title{font-family:'Anton',sans-serif; font-size:18px; text-transform:uppercase; flex:1;}
+  .btn-back{background:none; border:none; color:var(--chalk-dim); cursor:pointer; font-size:18px; padding:0;}
+  .btn-back:hover{color:var(--flare);}
+
+  .sort-tabs{display:flex; gap:6px;}
   .sort-tab{
     background:transparent; border:1px solid var(--line-strong); color:var(--chalk-dim);
-    padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer;
+    padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; cursor:pointer;
   }
   .sort-tab.active{background:var(--gold); border-color:var(--gold); color:var(--ink);}
 
-  .composer{
-    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:20px; margin-bottom:24px;
+  .messages-area{
+    flex:1; overflow-y:auto; padding:12px 24px; display:flex; flex-direction:column; gap:4px;
   }
-  label{display:block; font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;}
-  input[type=text], textarea{
-    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
-    padding:10px 12px; font-family:'Inter',sans-serif; font-size:14px; border-radius:4px; margin-bottom:12px;
-  }
-  input:focus, textarea:focus{outline:none; border-color:var(--flare);}
-  textarea{resize:vertical; min-height:70px;}
 
-  .btn{
-    font-weight:700; font-size:13px; padding:10px 20px; border-radius:4px; border:none; cursor:pointer;
-    text-transform:uppercase; letter-spacing:0.5px;
-  }
-  .btn-flare{background:var(--flare); color:#fff;}
-  .btn-flare:disabled{opacity:0.5; cursor:not-allowed;}
-  #postError{display:none; color:var(--flare); font-size:12px; margin-bottom:10px;}
-
-  .post{background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:16px 18px; margin-bottom:12px;}
-  .post-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .post{padding:8px 4px; border-bottom:1px solid var(--line);}
+  .post-top{display:flex; align-items:baseline; gap:8px; margin-bottom:2px;}
   .post-name{font-weight:700; font-size:13px; color:var(--gold);}
-  .post-date{font-size:11px; color:var(--chalk-dim);}
-  .post-message{font-size:14px; color:#DCDCD9; margin-bottom:12px;}
-  .post-actions{display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
-  .rating-display{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--gold); font-weight:700;}
-  .rate-btn{background:transparent; border:1px solid var(--line-strong); color:var(--chalk-dim); border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer;}
-  .rate-btn:hover{border-color:var(--gold); color:var(--gold);}
-  .report-link{color:var(--chalk-dim); font-size:11px; cursor:pointer; text-decoration:underline; margin-left:auto;}
+  .post-date{font-size:10px; color:var(--chalk-dim);}
+  .post-message{font-size:13px; color:#DCDCD9; line-height:1.4; margin-bottom:4px;}
+  .post-actions{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .rating-display{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--gold); font-weight:700;}
+  .rate-btn{background:transparent; border:none; color:var(--chalk-dim); font-size:11px; cursor:pointer; text-decoration:underline; padding:0;}
+  .rate-btn:hover{color:var(--gold);}
+  .report-link{color:var(--chalk-dim); font-size:10px; cursor:pointer; text-decoration:underline; margin-left:auto;}
   .funnel-btn{
-    display:inline-block; background:var(--flare); color:#fff; font-size:11px; font-weight:700; padding:6px 12px;
+    display:inline-block; background:var(--flare); color:#fff; font-size:10px; font-weight:700; padding:3px 8px;
     border-radius:4px; text-decoration:none; text-transform:uppercase;
   }
 
-  .rate-picker{display:none; gap:4px; margin-top:8px;}
+  .rate-picker{display:none; gap:3px; margin-top:6px;}
   .rate-picker button{
-    width:26px; height:26px; border-radius:4px; border:1px solid var(--line-strong); background:var(--ink);
-    color:var(--chalk-dim); font-size:11px; cursor:pointer;
+    width:22px; height:22px; border-radius:4px; border:1px solid var(--line-strong); background:var(--ink);
+    color:var(--chalk-dim); font-size:10px; cursor:pointer; padding:0;
   }
   .rate-picker button:hover{border-color:var(--gold); color:var(--gold);}
+
+  .input-bar{
+    flex-shrink:0; border-top:1px solid var(--line-strong); padding:12px 24px; background:var(--ink);
+  }
+  #postError{display:none; color:var(--flare); font-size:11px; margin-bottom:6px;}
+  .input-row{display:flex; gap:8px; align-items:center;}
+  .name-field{
+    width:90px; flex-shrink:0; background:var(--ink-2); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:10px 10px; font-family:'Inter',sans-serif; font-size:12px; border-radius:20px;
+  }
+  .message-field{
+    flex:1; background:var(--ink-2); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:10px 14px; font-family:'Inter',sans-serif; font-size:13px; border-radius:20px;
+  }
+  .name-field:focus, .message-field:focus{outline:none; border-color:var(--flare);}
+  .send-btn{
+    flex-shrink:0; width:38px; height:38px; border-radius:50%; border:none; background:var(--flare); color:#fff;
+    font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .send-btn:disabled{opacity:0.5; cursor:not-allowed;}
 
   .empty-note{color:var(--chalk-dim); font-size:13px; text-align:center; padding:20px 0;}
 
@@ -131,27 +141,26 @@
   </div>
 
   <div id="roomView">
-    <div class="room-header">
+    <div class="chat-header">
+      <button class="btn-back" id="backBtn">&larr;</button>
       <p class="room-title" id="roomTitle"></p>
-      <button class="btn-back" id="backBtn">&larr; Change room</button>
+      <div class="sort-tabs">
+        <button class="sort-tab active" data-sort="new">Newest</button>
+        <button class="sort-tab" data-sort="top">Top</button>
+      </div>
     </div>
 
-    <div class="sort-tabs">
-      <button class="sort-tab active" data-sort="new">Newest</button>
-      <button class="sort-tab" data-sort="top">Top rated</button>
-    </div>
-
-    <div class="composer">
-      <label for="displayNameInput">Your name</label>
-      <input id="displayNameInput" type="text" placeholder="ex. CowboysHater88" maxlength="40">
-      <label for="messageInput">Your smack talk</label>
-      <textarea id="messageInput" placeholder="Say what you came to say..." maxlength="500"></textarea>
-      <div id="postError"></div>
-      <button id="postBtn" class="btn btn-flare">Post it</button>
-    </div>
-
-    <div id="postsFeed">
+    <div id="postsFeed" class="messages-area">
       <p class="empty-note">Loading posts...</p>
+    </div>
+
+    <div class="input-bar">
+      <div id="postError"></div>
+      <div class="input-row">
+        <input id="displayNameInput" type="text" placeholder="Name" maxlength="40" class="name-field">
+        <input id="messageInput" type="text" placeholder="Say what you came to say..." maxlength="500" class="message-field">
+        <button id="postBtn" class="send-btn">&#10148;</button>
+      </div>
     </div>
   </div>
 </div>
@@ -198,11 +207,11 @@ loadTeams();
 function enterRoom(teamCode, teamName) {
   currentTeam = teamCode;
   document.getElementById('browseView').style.display = 'none';
-  document.getElementById('roomView').style.display = 'block';
+  document.getElementById('roomView').style.display = 'flex';
   document.getElementById('roomTitle').textContent = teamName;
-  loadPosts();
+  loadPosts(true);
   if (pollInterval) clearInterval(pollInterval);
-  pollInterval = setInterval(loadPosts, 8000);
+  pollInterval = setInterval(() => loadPosts(), 8000);
 }
 
 document.getElementById('backBtn').addEventListener('click', () => {
@@ -220,12 +229,23 @@ document.querySelectorAll('.sort-tab').forEach(tab => {
   });
 });
 
-async function loadPosts() {
+async function loadPosts(forceScroll) {
   const feed = document.getElementById('postsFeed');
+  const wasNearBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 60;
   try {
     const resp = await fetch(`/api/chat/posts?league=${currentLeague}&team=${currentTeam}&sort=${currentSort}`);
-    const posts = await resp.json();
+    let posts = await resp.json();
+    // API returns newest-first; for the "new" sort, chat convention is
+    // oldest at top, newest at bottom (like any real messaging app), so
+    // flip it here. "top rated" sort stays as-is — highest rated first.
+    if (currentSort === 'new') posts = posts.slice().reverse();
     renderPosts(posts);
+    // Only snap to the bottom on initial load, after posting, or if the
+    // user was already near the bottom — a background poll shouldn't
+    // yank someone's scroll position while they're reading older posts.
+    if (currentSort === 'new' && (forceScroll || wasNearBottom)) {
+      feed.scrollTop = feed.scrollHeight;
+    }
   } catch (err) {
     feed.innerHTML = '<p class="empty-note">Couldn\'t load posts — try again.</p>';
   }
@@ -288,20 +308,20 @@ function renderPosts(posts) {
   });
 }
 
-document.getElementById('postBtn').addEventListener('click', async () => {
+document.getElementById('postBtn').addEventListener('click', submitPost);
+document.getElementById('messageInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitPost();
+});
+
+async function submitPost() {
   const displayName = document.getElementById('displayNameInput').value.trim();
   const message = document.getElementById('messageInput').value.trim();
   const errorEl = document.getElementById('postError');
   const btn = document.getElementById('postBtn');
 
   errorEl.style.display = 'none';
-  if (!message) {
-    errorEl.textContent = 'Type something first.';
-    errorEl.style.display = 'block';
-    return;
-  }
+  if (!message) return;
 
-  btn.textContent = 'Posting...';
   btn.disabled = true;
 
   try {
@@ -316,16 +336,18 @@ document.getElementById('postBtn').addEventListener('click', async () => {
       errorEl.style.display = 'block';
     } else {
       document.getElementById('messageInput').value = '';
-      loadPosts();
+      currentSort = 'new';
+      document.querySelectorAll('.sort-tab').forEach(t => t.classList.remove('active'));
+      document.querySelector('.sort-tab[data-sort="new"]').classList.add('active');
+      loadPosts(true);
     }
   } catch (err) {
     errorEl.textContent = "Couldn't post right now — try again.";
     errorEl.style.display = 'block';
   } finally {
-    btn.textContent = 'Post it';
     btn.disabled = false;
   }
-});
+}
 
 function formatDate(isoString) {
   const d = new Date(isoString);
