@@ -78,20 +78,31 @@
   }
   .msg-user .lock-btn:hover{background:var(--gold); color:var(--ink);}
 
-  .msg-ai{align-self:flex-start; max-width:90%; animation:msgIn 0.25s ease;}
-  .msg-ai .rating-row{display:flex; align-items:center; gap:8px; margin-bottom:6px;}
-  .msg-ai .rating-badge{
+  .msg-ai{align-self:flex-start; max-width:90%; animation:msgIn 0.25s ease; display:flex; flex-direction:column; gap:10px;}
+
+  .critique-block{
+    background:rgba(154,154,150,0.08); border:1px solid var(--line-strong); border-left:3px solid var(--chalk-dim);
+    border-radius:2px; padding:12px 14px;
+  }
+  .critique-block .rating-row{display:flex; align-items:center; gap:8px; margin-bottom:8px;}
+  .critique-block .rating-badge{
     font-family:'JetBrains Mono',monospace; font-weight:700; font-size:13px; color:var(--ink);
-    background:var(--gold); padding:3px 10px; border-radius:20px;
+    background:var(--gold); padding:3px 10px; border-radius:20px; flex-shrink:0;
   }
-  .msg-ai .rating-badge.low{background:var(--chalk-dim);}
-  .msg-ai .rating-badge.high{background:var(--flare); color:#fff;}
-  .msg-ai .coach-label{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px;}
-  .msg-ai .critique{font-size:13px; color:var(--chalk-dim); font-style:italic; margin-bottom:8px; padding-left:2px;}
-  .msg-ai .comeback{
-    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:2px 10px 10px 10px;
-    padding:10px 14px; font-size:14px;
+  .critique-block .rating-badge.low{background:var(--chalk-dim);}
+  .critique-block .rating-badge.high{background:var(--flare); color:#fff;}
+  .critique-block .coach-label{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px;}
+  .critique-block .critique{font-size:13px; color:var(--chalk-dim); font-style:italic; line-height:1.5;}
+
+  .comeback-block{
+    background:var(--ink-2); border:1px solid var(--line-strong); border-left:3px solid var(--flare);
+    border-radius:2px; padding:12px 14px;
   }
+  .comeback-block .comeback-label{
+    font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--flare); text-transform:uppercase;
+    letter-spacing:0.5px; margin-bottom:8px; display:block; font-weight:700;
+  }
+  .comeback-block .comeback{font-size:14px; line-height:1.5;}
 
   @keyframes msgIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
 
@@ -196,12 +207,17 @@ function appendAiMessage(result) {
   const div = document.createElement('div');
   div.className = 'msg-ai';
   div.innerHTML = `
-    <div class="rating-row">
-      <span class="rating-badge ${ratingClass(result.rating)}">${result.rating}/10</span>
-      <span class="coach-label">Coach's take</span>
+    <div class="critique-block">
+      <div class="rating-row">
+        <span class="rating-badge ${ratingClass(result.rating)}">${result.rating}/10</span>
+        <span class="coach-label">Coach's take</span>
+      </div>
+      <div class="critique">${escapeHtml(result.critique)}</div>
     </div>
-    <div class="critique">${escapeHtml(result.critique)}</div>
-    <div class="comeback">${escapeHtml(result.comeback)}</div>
+    <div class="comeback-block">
+      <span class="comeback-label">The comeback</span>
+      <div class="comeback">${escapeHtml(result.comeback)}</div>
+    </div>
   `;
   log.appendChild(div);
   log.scrollTop = log.scrollHeight;
