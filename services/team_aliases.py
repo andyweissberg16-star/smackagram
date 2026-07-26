@@ -39,7 +39,7 @@ TEAM_ALIASES = {
         "SF": ["san francisco", "49ers", "niners", "san francisco 49ers"],
         "TB": ["tampa bay", "buccaneers", "bucs", "tampa bay buccaneers"],
         "TEN": ["tennessee", "titans", "tennessee titans"],
-        "WSH": ["washington", "commanders", "washington commanders"],
+        "WAS": ["washington", "commanders", "washington commanders"],
     },
     "nba": {
         "ATL": ["atlanta", "hawks", "atlanta hawks"],
@@ -181,7 +181,7 @@ DISPLAY_NAMES = {
         "LAC": "Chargers", "LAR": "Rams", "LV": "Raiders", "MIA": "Dolphins",
         "MIN": "Vikings", "NE": "Patriots", "NO": "Saints", "NYG": "Giants",
         "NYJ": "Jets", "PHI": "Eagles", "PIT": "Steelers", "SEA": "Seahawks",
-        "SF": "49ers", "TB": "Buccaneers", "TEN": "Titans", "WSH": "Commanders",
+        "SF": "49ers", "TB": "Buccaneers", "TEN": "Titans", "WAS": "Commanders",
     },
     "nba": {
         "ATL": "Hawks", "BOS": "Celtics", "BKN": "Nets", "CHA": "Hornets",
