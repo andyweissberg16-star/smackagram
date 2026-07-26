@@ -321,7 +321,11 @@
     <input id="recipientPhoneLL" type="tel" placeholder="+1 555 555 5555">
 
     <div class="consent-box">
-      <label class="consent-row">
+      <label class="consent-row" id="ageConfirmRowLL" style="display:none;">
+        <input id="ageConfirmLL" type="checkbox">
+        <span>I confirm the recipient is 18 years of age or older.</span>
+      </label>
+      <label class="consent-row" style="margin-top:10px;">
         <input id="consentLL" type="checkbox">
         <span>I know this person and this is a prank between friends. I understand the call may be recorded.</span>
       </label>
@@ -369,6 +373,24 @@ let selectedSport = 'nfl';
 let selectedGame = null;
 let selectedTargetTeam = null;
 let selectedMode = 'custom';
+
+// 18+ confirmation is required whenever content could be more than
+// "Clean" — for custom-written messages we can't verify the tone at all,
+// so it always shows; for auto-generated recaps it only shows above the
+// Clean sensitivity level.
+function updateAgeCheckboxVisibility() {
+  const row = document.getElementById('ageConfirmRowLL');
+  const checkbox = document.getElementById('ageConfirmLL');
+  if (!row || !checkbox) return;
+
+  const needsConfirmation = selectedMode === 'custom' || selectedSensitivityLL !== 1;
+  if (needsConfirmation) {
+    row.style.display = 'flex';
+  } else {
+    row.style.display = 'none';
+    checkbox.checked = false;
+  }
+}
 
 function showError(msg) {
   const box = document.getElementById('errorBox');
@@ -549,6 +571,7 @@ function selectTeam(team, el) {
 
   document.getElementById('modeCard').style.display = 'block';
   document.getElementById('recipientCard').style.display = 'block';
+  updateAgeCheckboxVisibility();
 
   updateProgress(3);
   setTimeout(() => document.getElementById('modeCard').scrollIntoView({behavior: 'smooth', block: 'start'}), 100);
@@ -613,6 +636,7 @@ document.querySelectorAll('.mode-tab').forEach(tab => {
     selectedMode = tab.dataset.mode;
     document.getElementById('customMessageBlock').style.display = selectedMode === 'custom' ? 'block' : 'none';
     document.getElementById('autoSummaryBlock').style.display = selectedMode === 'auto_summary' ? 'block' : 'none';
+    updateAgeCheckboxVisibility();
   });
 });
 
@@ -669,8 +693,14 @@ document.getElementById('armBtn').addEventListener('click', async () => {
   const recipientPhone = document.getElementById('recipientPhoneLL').value.trim();
   const consent = document.getElementById('consentLL').checked;
   const termsAgree = document.getElementById('termsAgreeLL').checked;
+  const ageRow = document.getElementById('ageConfirmRowLL');
+  const ageConfirmed = document.getElementById('ageConfirmLL').checked;
   if (!recipientName || !recipientPhone) {
     showError('Fill in the recipient\'s name and phone number.');
+    return;
+  }
+  if (ageRow.style.display !== 'none' && !ageConfirmed) {
+    showError('Please confirm the recipient is 18 or older before continuing.');
     return;
   }
   if (!consent) {
@@ -761,6 +791,7 @@ async function loadSensitivityLevelsLL() {
         document.querySelectorAll('#sensitivitySelectorLL .sensitivity-row').forEach(r => r.classList.remove('checked'));
         checkbox.checked = true;
         row.classList.add('checked');
+        updateAgeCheckboxVisibility();
       };
 
       row.addEventListener('click', (e) => {

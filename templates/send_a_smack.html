@@ -207,6 +207,11 @@
     <label>Recipient's phone number</label>
     <input id="orderRecipientPhone" type="tel" placeholder="+1 555 555 5555">
 
+    <label id="orderAgeConfirmRow" style="display:none; gap:8px; align-items:flex-start; font-size:12px; color:var(--chalk-dim); margin-bottom:14px; cursor:pointer; text-transform:none;">
+      <input id="orderAgeConfirm" type="checkbox" style="width:auto; margin:2px 0 0 0;">
+      <span>I confirm the recipient is 18 years of age or older.</span>
+    </label>
+
     <label style="display:flex; gap:8px; align-items:flex-start; font-size:12px; color:var(--chalk-dim); margin-bottom:14px; cursor:pointer; text-transform:none;">
       <input id="orderConsent" type="checkbox" style="width:auto; margin:2px 0 0 0;">
       <span>I know this person and this is a prank between friends. I understand the call may be recorded.</span>
@@ -482,6 +487,18 @@ function openOrderModal(priceCents) {
   if (orderVoiceSelect.options.length && generatorVoice) {
     orderVoiceSelect.value = generatorVoice;
   }
+
+  // 18+ confirmation only applies above "Clean" — Clean-level content
+  // doesn't need it, so the checkbox doesn't even appear in that case.
+  const ageRow = document.getElementById('orderAgeConfirmRow');
+  const ageCheckbox = document.getElementById('orderAgeConfirm');
+  if (selectedSensitivity === 1) {
+    ageRow.style.display = 'none';
+    ageCheckbox.checked = false;
+  } else {
+    ageRow.style.display = 'flex';
+  }
+
   document.getElementById('orderError').style.display = 'none';
   document.getElementById('orderModal').style.display = 'flex';
 }
@@ -500,6 +517,8 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
   const recipientPhone = document.getElementById('orderRecipientPhone').value.trim();
   const consent = document.getElementById('orderConsent').checked;
   const termsAgree = document.getElementById('orderTermsAgree').checked;
+  const ageRow = document.getElementById('orderAgeConfirmRow');
+  const ageConfirmed = document.getElementById('orderAgeConfirm').checked;
   const errorEl = document.getElementById('orderError');
   const btn = document.getElementById('orderSubmitBtn');
 
@@ -507,6 +526,11 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
 
   if (!message || !recipientName || !recipientPhone) {
     errorEl.textContent = 'Please fill in the message, name, and phone number.';
+    errorEl.style.display = 'block';
+    return;
+  }
+  if (ageRow.style.display !== 'none' && !ageConfirmed) {
+    errorEl.textContent = 'Please confirm the recipient is 18 or older before continuing.';
     errorEl.style.display = 'block';
     return;
   }
