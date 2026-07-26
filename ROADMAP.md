@@ -110,6 +110,14 @@ underlying blocker (Postgres + email service needed first).
       from the machine-detection callback today, but there's no
       structured confirmation/alerting system built around it yet
 - [ ] Refunds for undeliverable smackagrams
+- [ ] **New flag (2026-07-26)**: related but distinct case — if a buyer
+      pays the $2 bundle price specifically for the recording, and the
+      call goes to voicemail (so recording is correctly skipped per the
+      VM-recording fix), they were still charged the higher price with
+      nothing to show for the recording portion. Worth deciding whether
+      this should trigger a partial refund/credit, or whether this counts
+      as covered by the general "all sales final" policy since the call
+      itself was still delivered.
 - [~] Log/store records for confirmation — Order/Smackagram DB records
       exist, but not a dedicated delivery-confirmation audit log
 - [ ] Alternative delivery (text/email) for undeliverable smackagrams

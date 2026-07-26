@@ -321,7 +321,16 @@ def call_instructions(record_id):
     # (e.g. this route got hit directly without going through the webhook)
     audio_urls = _pending_call_audio.pop(record_id, None) or call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")))
 
-    should_record = getattr(order, "includes_recording", True)
+    # Never record voicemail greetings/silence — recording is only
+    # meaningful (and only what the buyer paid for) when a real person's
+    # live reaction gets captured. AnsweredBy comes from the
+    # machine_detection='DetectMessageEnd' set at call-creation time, so
+    # by the time we're here it's already resolved.
+    is_machine = bool(answered_by) and answered_by.startswith("machine")
+    should_record = getattr(order, "includes_recording", True) and not is_machine
+    if is_machine and getattr(order, "includes_recording", True):
+        print(f"[twilio] record {record_id} went to voicemail — recording skipped even though it was purchased")
+
     base_url = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
     callback_url = f"{base_url}/recording-ready/{record_id}" if should_record else None
     action_url = f"{base_url}/recording-done/{record_id}" if should_record else None
