@@ -325,6 +325,10 @@
         <input id="consentLL" type="checkbox">
         <span>I know this person and this is a prank between friends. I understand the call may be recorded.</span>
       </label>
+      <label class="consent-row" style="margin-top:10px;">
+        <input id="termsAgreeLL" type="checkbox">
+        <span>I agree to the Terms &amp; Conditions and understand this is for entertainment purposes only.</span>
+      </label>
     </div>
 
     <div class="hold-note">
@@ -664,12 +668,17 @@ document.getElementById('armBtn').addEventListener('click', async () => {
   const recipientName = document.getElementById('recipientNameLL').value.trim();
   const recipientPhone = document.getElementById('recipientPhoneLL').value.trim();
   const consent = document.getElementById('consentLL').checked;
+  const termsAgree = document.getElementById('termsAgreeLL').checked;
   if (!recipientName || !recipientPhone) {
     showError('Fill in the recipient\'s name and phone number.');
     return;
   }
   if (!consent) {
     showError('Please confirm you know this person before continuing.');
+    return;
+  }
+  if (!termsAgree) {
+    showError('Please agree to the Terms & Conditions before continuing.');
     return;
   }
 

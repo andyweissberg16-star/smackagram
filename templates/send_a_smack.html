@@ -207,9 +207,14 @@
     <label>Recipient's phone number</label>
     <input id="orderRecipientPhone" type="tel" placeholder="+1 555 555 5555">
 
-    <label style="display:flex; gap:8px; align-items:flex-start; font-size:12px; color:var(--chalk-dim); margin-bottom:18px; cursor:pointer; text-transform:none;">
+    <label style="display:flex; gap:8px; align-items:flex-start; font-size:12px; color:var(--chalk-dim); margin-bottom:14px; cursor:pointer; text-transform:none;">
       <input id="orderConsent" type="checkbox" style="width:auto; margin:2px 0 0 0;">
       <span>I know this person and this is a prank between friends. I understand the call may be recorded.</span>
+    </label>
+
+    <label style="display:flex; gap:8px; align-items:flex-start; font-size:12px; color:var(--chalk-dim); margin-bottom:18px; cursor:pointer; text-transform:none;">
+      <input id="orderTermsAgree" type="checkbox" style="width:auto; margin:2px 0 0 0;">
+      <span>I agree to the Terms &amp; Conditions and understand this is for entertainment purposes only.</span>
     </label>
 
     <button id="orderSubmitBtn" class="btn btn-flare">Continue to payment</button>
@@ -494,6 +499,7 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
   const recipientName = document.getElementById('orderRecipientName').value.trim();
   const recipientPhone = document.getElementById('orderRecipientPhone').value.trim();
   const consent = document.getElementById('orderConsent').checked;
+  const termsAgree = document.getElementById('orderTermsAgree').checked;
   const errorEl = document.getElementById('orderError');
   const btn = document.getElementById('orderSubmitBtn');
 
@@ -506,6 +512,11 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
   }
   if (!consent) {
     errorEl.textContent = 'Please confirm you know this person before continuing.';
+    errorEl.style.display = 'block';
+    return;
+  }
+  if (!termsAgree) {
+    errorEl.textContent = 'Please agree to the Terms & Conditions before continuing.';
     errorEl.style.display = 'block';
     return;
   }
