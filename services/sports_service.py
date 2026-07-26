@@ -202,8 +202,30 @@ def get_game_result(game_id: str, sport: str = "nfl") -> dict | None:
             if not status.startswith("final") and status != "f/ot":
                 return None  # scheduled, in progress, halftime, etc.
 
-            home_score = event.get("HomeScore")
-            away_score = event.get("AwayScore")
+            # SportsDataIO uses different score field names per sport
+            # (e.g. MLB uses HomeTeamRuns/AwayTeamRuns, not HomeScore/
+            # AwayScore) — this was a real bug: assuming one fixed field
+            # name meant scores always came back None for MLB, so a
+            # "Final" game was silently treated as "still in progress"
+            # forever. Try every known variant instead.
+            home_score = (
+                event.get("HomeScore")
+                if event.get("HomeScore") is not None
+                else event.get("HomeTeamRuns")
+                if event.get("HomeTeamRuns") is not None
+                else event.get("HomeTeamScore")
+                if event.get("HomeTeamScore") is not None
+                else event.get("HomePoints")
+            )
+            away_score = (
+                event.get("AwayScore")
+                if event.get("AwayScore") is not None
+                else event.get("AwayTeamRuns")
+                if event.get("AwayTeamRuns") is not None
+                else event.get("AwayTeamScore")
+                if event.get("AwayTeamScore") is not None
+                else event.get("AwayPoints")
+            )
             if home_score is None or away_score is None:
                 return None
 
@@ -265,8 +287,24 @@ def get_game_summary(game_id: str, sport: str = "nfl") -> dict:
 
             home_name = event.get("HomeTeamName") or team_aliases.get_display_name(sport, event.get("HomeTeam", ""))
             away_name = event.get("AwayTeamName") or team_aliases.get_display_name(sport, event.get("AwayTeam", ""))
-            home_score = event.get("HomeScore")
-            away_score = event.get("AwayScore")
+            home_score = (
+                event.get("HomeScore")
+                if event.get("HomeScore") is not None
+                else event.get("HomeTeamRuns")
+                if event.get("HomeTeamRuns") is not None
+                else event.get("HomeTeamScore")
+                if event.get("HomeTeamScore") is not None
+                else event.get("HomePoints")
+            )
+            away_score = (
+                event.get("AwayScore")
+                if event.get("AwayScore") is not None
+                else event.get("AwayTeamRuns")
+                if event.get("AwayTeamRuns") is not None
+                else event.get("AwayTeamScore")
+                if event.get("AwayTeamScore") is not None
+                else event.get("AwayPoints")
+            )
 
             if home_score is not None and away_score is not None:
                 key_facts.append(f"Final score: {home_name} {home_score} - {away_name} {away_score}")
