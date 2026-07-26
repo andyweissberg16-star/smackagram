@@ -134,9 +134,10 @@
   <a href="/" class="back-link">&larr; Back to home</a>
 </nav>
 
+<img src="{{ url_for('static', filename='smack-chat-hero.png') }}" alt="Smack Chat — the ultimate arena for sports trash talk" style="width:100%; height:auto; display:block;">
+
 <div class="wrap">
   <div class="hero">
-    <h1>Smack <span>Chat</span></h1>
     <p class="sub">Real fans, real trash talk. Pick your team's room and let it fly.</p>
   </div>
 
@@ -155,7 +156,18 @@
         <option value="ncaaf">NCAA Football</option>
         <option value="ncaab">NCAA Basketball (M)</option>
         <option value="ncaawb">NCAA Basketball (W)</option>
-        <option value="soccer">Soccer</option>
+        <option value="soccer_category">Soccer</option>
+      </select>
+    </div>
+
+    <div class="league-select-row" id="soccerSubLeagueRow" style="display:none;">
+      <select id="soccerSubLeagueSelect" class="league-select">
+        <option value="" disabled selected>Select a soccer league</option>
+        <option value="mls">MLS</option>
+        <option value="epl">Premier League</option>
+        <option value="laliga">La Liga</option>
+        <option value="bundesliga">Bundesliga</option>
+        <option value="seriea">Serie A</option>
       </select>
     </div>
     <div class="team-grid" id="teamGrid"></div>
@@ -200,7 +212,7 @@ let allTeamsCache = [];  // flat list across all leagues, for search
 // Fetch every league's teams once up front so search can filter across
 // all of them instantly, without a network round-trip per keystroke.
 async function loadAllTeamsForSearch() {
-  const leagues = ['nfl', 'nba', 'mlb', 'nhl', 'wnba', 'ncaaf', 'ncaab', 'ncaawb', 'soccer'];
+  const leagues = ['nfl', 'nba', 'mlb', 'nhl', 'wnba', 'ncaaf', 'ncaab', 'ncaawb', 'mls', 'epl', 'laliga', 'bundesliga', 'seriea'];
   try {
     const results = await Promise.all(leagues.map(l => fetch(`/api/chat/teams?league=${l}`).then(r => r.json())));
     allTeamsCache = [];
@@ -255,6 +267,22 @@ async function loadTeams(league) {
 }
 
 document.getElementById('leagueSelect').addEventListener('change', (e) => {
+  const selected = e.target.value;
+  const soccerRow = document.getElementById('soccerSubLeagueRow');
+  const teamGrid = document.getElementById('teamGrid');
+
+  if (selected === 'soccer_category') {
+    soccerRow.style.display = 'block';
+    teamGrid.innerHTML = '';
+    document.getElementById('soccerSubLeagueSelect').selectedIndex = 0;
+  } else {
+    soccerRow.style.display = 'none';
+    currentLeague = selected;
+    loadTeams(currentLeague);
+  }
+});
+
+document.getElementById('soccerSubLeagueSelect').addEventListener('change', (e) => {
   currentLeague = e.target.value;
   loadTeams(currentLeague);
 });
