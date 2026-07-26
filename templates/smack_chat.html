@@ -60,6 +60,19 @@
   }
   .team-chip:hover{border-color:var(--flare); color:var(--flare);}
 
+  .chat-count{
+    display:block; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--gold);
+    margin-top:4px; font-weight:700;
+  }
+
+  .general-chat-card{
+    background:var(--ink-2); border:2px solid var(--gold); border-radius:8px; padding:16px 20px;
+    text-align:center; cursor:pointer; margin-bottom:16px; display:flex; align-items:center; justify-content:center; gap:12px;
+  }
+  .general-chat-card:hover{background:rgba(255,212,0,0.08);}
+  .general-chat-label{font-family:'Anton',sans-serif; font-size:15px; text-transform:uppercase; letter-spacing:0.5px; color:var(--gold);}
+  .general-chat-card .chat-count{margin-top:0;}
+
   #roomView{display:none; flex-direction:column; height:calc(100vh - 76px); max-width:720px; margin:0 auto;}
 
   .chat-header{
@@ -147,16 +160,26 @@
 
     <div class="league-select-row">
       <select id="leagueSelect" class="league-select">
-        <option value="" disabled selected>Select a league</option>
+        <option value="" disabled selected>Select a sport</option>
         <option value="nfl">NFL</option>
         <option value="nba">NBA</option>
         <option value="mlb">MLB</option>
         <option value="nhl">NHL</option>
         <option value="wnba">WNBA</option>
-        <option value="ncaaf">NCAA Football</option>
+        <option value="ncaaf_category">NCAA Football</option>
         <option value="ncaab">NCAA Basketball (M)</option>
         <option value="ncaawb">NCAA Basketball (W)</option>
         <option value="soccer_category">Soccer</option>
+      </select>
+    </div>
+
+    <div class="league-select-row" id="ncaafSubLeagueRow" style="display:none;">
+      <select id="ncaafSubLeagueSelect" class="league-select">
+        <option value="" disabled selected>Select a conference</option>
+        <option value="sec">SEC</option>
+        <option value="bigten">Big Ten</option>
+        <option value="big12">Big 12</option>
+        <option value="acc">ACC</option>
       </select>
     </div>
 
@@ -170,6 +193,7 @@
         <option value="seriea">Serie A</option>
       </select>
     </div>
+    <div id="generalChatCard"></div>
     <div class="team-grid" id="teamGrid"></div>
   </div>
 
@@ -212,12 +236,12 @@ let allTeamsCache = [];  // flat list across all leagues, for search
 // Fetch every league's teams once up front so search can filter across
 // all of them instantly, without a network round-trip per keystroke.
 async function loadAllTeamsForSearch() {
-  const leagues = ['nfl', 'nba', 'mlb', 'nhl', 'wnba', 'ncaaf', 'ncaab', 'ncaawb', 'mls', 'epl', 'laliga', 'bundesliga', 'seriea'];
+  const leagues = ['nfl', 'nba', 'mlb', 'nhl', 'wnba', 'sec', 'bigten', 'big12', 'acc', 'ncaab', 'ncaawb', 'mls', 'epl', 'laliga', 'bundesliga', 'seriea'];
   try {
     const results = await Promise.all(leagues.map(l => fetch(`/api/chat/teams?league=${l}`).then(r => r.json())));
     allTeamsCache = [];
     leagues.forEach((league, i) => {
-      results[i].forEach(t => allTeamsCache.push({code: t.code, name: t.name, league: league}));
+      results[i].teams.forEach(t => allTeamsCache.push({code: t.code, name: t.name, league: league}));
     });
   } catch (err) {
     // search just won't return results if this fails — not fatal
@@ -247,17 +271,41 @@ document.getElementById('teamSearchInput').addEventListener('input', (e) => {
   });
 });
 
+const LEAGUE_DISPLAY_NAMES = {
+  nfl: 'NFL', nba: 'NBA', mlb: 'MLB', nhl: 'NHL', wnba: 'WNBA',
+  sec: 'SEC', bigten: 'Big Ten', big12: 'Big 12', acc: 'ACC',
+  ncaab: 'NCAA Basketball', ncaawb: "NCAA Women's Basketball",
+  mls: 'MLS', epl: 'Premier League', laliga: 'La Liga',
+  bundesliga: 'Bundesliga', seriea: 'Serie A',
+};
+
 async function loadTeams(league) {
   const grid = document.getElementById('teamGrid');
   grid.innerHTML = '<p class="empty-note">Loading teams...</p>';
   try {
     const resp = await fetch(`/api/chat/teams?league=${league}`);
-    const teams = await resp.json();
+    const data = await resp.json();
     grid.innerHTML = '';
-    teams.forEach(t => {
+
+    // General league-wide chat, not tied to a single team — surfaced
+    // above the individual team rooms since this is likely where the
+    // most activity happens, rather than splitting into 30+ team rooms
+    // right away.
+    const leagueName = LEAGUE_DISPLAY_NAMES[league] || league.toUpperCase();
+    const generalContainer = document.getElementById('generalChatCard');
+    const generalCountHtml = data.general_chat_count > 0
+      ? `<span class="chat-count">${data.general_chat_count} chat${data.general_chat_count === 1 ? '' : 's'}</span>`
+      : '';
+    generalContainer.innerHTML = `<div class="general-chat-card"><span class="general-chat-label">${escapeHtml(leagueName)} General Chat</span>${generalCountHtml}</div>`;
+    generalContainer.querySelector('.general-chat-card').addEventListener('click', () => enterRoom('_general', `${leagueName} General`, league));
+
+    data.teams.forEach(t => {
       const chip = document.createElement('div');
       chip.className = 'team-chip';
-      chip.textContent = t.name;
+      const countHtml = t.chat_count > 0
+        ? `<span class="chat-count">${t.chat_count} chat${t.chat_count === 1 ? '' : 's'}</span>`
+        : '';
+      chip.innerHTML = `${escapeHtml(t.name)}${countHtml}`;
       chip.addEventListener('click', () => enterRoom(t.code, t.name, league));
       grid.appendChild(chip);
     });
@@ -269,17 +317,30 @@ async function loadTeams(league) {
 document.getElementById('leagueSelect').addEventListener('change', (e) => {
   const selected = e.target.value;
   const soccerRow = document.getElementById('soccerSubLeagueRow');
+  const ncaafRow = document.getElementById('ncaafSubLeagueRow');
   const teamGrid = document.getElementById('teamGrid');
 
   if (selected === 'soccer_category') {
     soccerRow.style.display = 'block';
+    ncaafRow.style.display = 'none';
     teamGrid.innerHTML = '';
     document.getElementById('soccerSubLeagueSelect').selectedIndex = 0;
+  } else if (selected === 'ncaaf_category') {
+    ncaafRow.style.display = 'block';
+    soccerRow.style.display = 'none';
+    teamGrid.innerHTML = '';
+    document.getElementById('ncaafSubLeagueSelect').selectedIndex = 0;
   } else {
     soccerRow.style.display = 'none';
+    ncaafRow.style.display = 'none';
     currentLeague = selected;
     loadTeams(currentLeague);
   }
+});
+
+document.getElementById('ncaafSubLeagueSelect').addEventListener('change', (e) => {
+  currentLeague = e.target.value;
+  loadTeams(currentLeague);
 });
 
 document.getElementById('soccerSubLeagueSelect').addEventListener('change', (e) => {

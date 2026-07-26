@@ -3,6 +3,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from flask import Flask, render_template, request, jsonify, Response
+from sqlalchemy import func
 from dotenv import load_dotenv
 
 from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating
@@ -451,10 +452,33 @@ def smack_chat_page():
 
 @app.route("/api/chat/teams")
 def chat_teams():
-    """Team list for a Smack Chat league room, from chat_team_lists.py."""
+    """
+    Team list for a Smack Chat league room, from chat_team_lists.py, with
+    a live post count per team — real social proof for the browse view,
+    showing which rooms already have activity. One grouped query for the
+    whole league rather than a separate count query per team.
+
+    Also returns general_chat_count — every league also has a broader,
+    not-team-specific room (team="_general" in the ChatPost table), which
+    the browse view surfaces prominently above the individual team rooms.
+    """
     league = request.args.get("league", "nfl")
     teams = chat_team_lists.CHAT_LEAGUES.get(league, {})
-    return jsonify([{"code": code, "name": name} for code, name in sorted(teams.items(), key=lambda x: x[1])])
+
+    counts = dict(
+        db.session.query(ChatPost.team, func.count(ChatPost.id))
+        .filter(ChatPost.league == league)
+        .group_by(ChatPost.team)
+        .all()
+    )
+
+    return jsonify({
+        "teams": [
+            {"code": code, "name": name, "chat_count": counts.get(code, 0)}
+            for code, name in sorted(teams.items(), key=lambda x: x[1])
+        ],
+        "general_chat_count": counts.get("_general", 0),
+    })
 
 
 @app.route("/api/chat/posts")
