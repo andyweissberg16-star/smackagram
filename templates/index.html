@@ -314,20 +314,20 @@
 </div>
 
 <div class="wrap field-lines">
-  <section class="hero" style="padding-left:0; padding-right:0; padding-top:16px; position:relative; z-index:1;">
+  <section class="hero" style="padding-left:0; padding-right:0; padding-top:16px; padding-bottom:24px; position:relative; z-index:1;">
     <div>
       <div style="display:inline-flex; align-items:center; gap:8px; margin-bottom:16px;">
         <span class="live-dot"></span>
         <span class="eyebrow" style="margin:0;">Live now — game day is here</span>
       </div>
       <h1>Their team just choked.<br>Time to <span class="flare">rub it in.</span></h1>
-      <p class="sub">Type a team, our AI roasts their whole season, and we call your friend with it — in a real voice, recorded live. $2. Under a minute. Let's go.</p>
+      <p class="sub" style="max-width:900px; margin-left:auto; margin-right:auto; text-align:center;">Smackagram turns real game results into custom trash talk. Pick a team, and our AI writes a savage, personalized roast based on what actually happened — then calls your friend and reads it out loud in a real voice, completely anonymous. Send it right now, or arm it ahead of time so it only fires if their team actually loses. Either way, the whole thing takes under a minute.</p>
     </div>
   </section>
 </div>
 
-<div style="max-width:1700px; margin:0 auto; padding:0 24px;">
-  <div class="hero-split" style="display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:32px; text-align:left; width:100%;">
+<div style="max-width:1400px; margin:0 auto; padding:0 24px;">
+  <div class="hero-split" style="display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:8px; text-align:left; width:100%;">
     <div style="background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:40px;">
       <p style="font-family:'Anton',sans-serif; font-size:32px; letter-spacing:0.5px; margin-bottom:16px; text-transform:uppercase; color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.6); line-height:1.05;">Send a Smackagram</p>
       <p style="font-size:15px; color:var(--chalk-dim); margin-bottom:24px; line-height:1.5; max-width:90%;">Pick a team, we write the roast, and call your friend with it — live, in a real voice. Completely anonymous.</p>
@@ -339,7 +339,8 @@
     <div style="background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:40px;">
       <p style="font-family:'Anton',sans-serif; font-size:32px; letter-spacing:0.5px; margin-bottom:16px; text-transform:uppercase; color:var(--gold); text-shadow:0 0 24px rgba(255,212,0,0.5); line-height:1.05;">Locked &amp; Loaded</p>
       <p style="font-size:15px; color:var(--chalk-dim); margin-bottom:24px; line-height:1.5; max-width:90%;">Pick a team, and we watch their next game for you — if they lose, we automatically call your friend with a fresh roast, completely anonymous. If they win, you pay nothing.</p>
-      <input id="heroLockedTeamInput" type="text" placeholder="Team to watch" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:20px;">
+      <input id="heroLockedTeamInput" type="text" placeholder="Team to watch" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:14px;">
+      <input id="heroLockedRecipientInput" type="text" placeholder="Friend's name" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:20px;">
       <button id="heroLockedBtn" class="btn btn-ghost" style="width:100%; padding:18px 24px; font-size:16px;">Arm a smackagram</button>
     </div>
   </div>
@@ -504,8 +505,16 @@ document.getElementById('heroStartBtn').addEventListener('click', () => {
 // in a second, smaller place.
 document.getElementById('heroLockedBtn').addEventListener('click', () => {
   const team = document.getElementById('heroLockedTeamInput').value.trim();
-  const url = team ? `/locked-n-loaded?team=${encodeURIComponent(team)}` : '/locked-n-loaded';
-  window.location.href = url;
+  const recipient = document.getElementById('heroLockedRecipientInput').value.trim();
+  const params = new URLSearchParams();
+  if (team) params.set('team', team);
+  if (recipient) params.set('recipient_name', recipient);
+  const query = params.toString();
+  window.location.href = query ? `/locked-n-loaded?${query}` : '/locked-n-loaded';
+});
+
+document.getElementById('heroLockedRecipientInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('heroLockedBtn').click();
 });
 
 document.getElementById('heroTeamInput').addEventListener('keydown', (e) => {

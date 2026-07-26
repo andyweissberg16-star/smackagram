@@ -584,6 +584,13 @@ renderPopularTeams(selectedSport);
 (function prefillTeamFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const team = params.get('team');
+  const recipientName = params.get('recipient_name');
+
+  if (recipientName) {
+    const recipientInput = document.getElementById('recipientNameLL');
+    if (recipientInput) recipientInput.value = recipientName;
+  }
+
   if (!team) return;
   document.getElementById('teamSearchInput').value = team;
   searchGames(selectedSport, team);
