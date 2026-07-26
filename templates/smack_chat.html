@@ -90,6 +90,7 @@
   .rating-display{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--gold); font-weight:700;}
   .rate-btn{background:transparent; border:none; color:var(--chalk-dim); font-size:11px; cursor:pointer; text-decoration:underline; padding:0;}
   .rate-btn:hover{color:var(--gold);}
+  .already-rated{color:var(--chalk-dim); font-size:11px; font-style:italic;}
   .report-link{color:var(--chalk-dim); font-size:10px; cursor:pointer; text-decoration:underline; margin-left:auto;}
 
   .rate-picker{display:none; gap:3px; margin-top:6px;}
@@ -301,17 +302,53 @@ async function loadPosts(forceScroll) {
   }
 }
 
+// This is what actually gets enforced server-side (see the unique
+// constraint on ChatRating). Generated once per browser and reused
+// forever — once real accounts exist, this just becomes the real
+// logged-in user's ID instead, and nothing else about this flow changes.
+function getRaterId() {
+  let raterId = localStorage.getItem('smackagram_rater_id');
+  if (!raterId) {
+    raterId = 'anon-' + crypto.randomUUID();
+    localStorage.setItem('smackagram_rater_id', raterId);
+  }
+  return raterId;
+}
+
+function getRatedPosts() {
+  try {
+    return JSON.parse(localStorage.getItem('smackagram_rated_posts') || '{}');
+  } catch (err) {
+    return {};
+  }
+}
+
+function markPostRated(postId, rating) {
+  const rated = getRatedPosts();
+  rated[postId] = rating;
+  localStorage.setItem('smackagram_rated_posts', JSON.stringify(rated));
+}
+
 function renderPosts(posts) {
   const feed = document.getElementById('postsFeed');
   if (posts.length === 0) {
     feed.innerHTML = '<p class="empty-note">No posts yet — be the first to talk smack in here.</p>';
     return;
   }
+  const ratedPosts = getRatedPosts();
   feed.innerHTML = '';
   posts.forEach(p => {
     const div = document.createElement('div');
     div.className = 'post';
     const ratingText = p.average_rating !== null ? `${p.average_rating}/10 (${p.rating_count})` : 'Not yet rated';
+    // No accounts yet, so this can't be enforced server-side per person —
+    // it's a browser-local guardrail against easy repeat-clicking, not
+    // real security. Someone could still bypass it by clearing storage
+    // or switching devices.
+    const alreadyRated = ratedPosts.hasOwnProperty(p.id);
+    const rateControl = alreadyRated
+      ? `<span class="already-rated">You rated it ${ratedPosts[p.id]}/10</span>`
+      : `<button class="rate-btn" data-id="${p.id}">Rate it</button>`;
     div.innerHTML = `
       <div class="post-top">
         <span class="post-name">${escapeHtml(p.display_name)}</span>
@@ -320,7 +357,7 @@ function renderPosts(posts) {
       <p class="post-message">${escapeHtml(p.message)}</p>
       <div class="post-actions">
         <span class="rating-display">${ratingText}</span>
-        <button class="rate-btn" data-id="${p.id}">Rate it</button>
+        ${rateControl}
         <span class="report-link" data-id="${p.id}">Report</span>
       </div>
       <div class="rate-picker" id="ratePicker${p.id}">
@@ -338,11 +375,17 @@ function renderPosts(posts) {
   });
   document.querySelectorAll('.rate-picker button').forEach(btn => {
     btn.addEventListener('click', async () => {
-      await fetch(`/api/chat/posts/${btn.dataset.id}/rate`, {
+      const postId = btn.dataset.id;
+      const rating = parseInt(btn.dataset.rating);
+      const resp = await fetch(`/api/chat/posts/${postId}/rate`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({rating: parseInt(btn.dataset.rating)})
+        body: JSON.stringify({rating: rating, rater_id: getRaterId()})
       });
+      const data = await resp.json();
+      if (resp.ok) {
+        markPostRated(postId, rating);
+      }
       loadPosts();
     });
   });

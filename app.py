@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
 
-from models import db, Scenario, Order, Smackagram, ChatPost
+from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases
 from scheduler import check_armed_smackagrams
 
@@ -524,15 +524,32 @@ def create_chat_post():
 
 @app.route("/api/chat/posts/<int:post_id>/rate", methods=["POST"])
 def rate_chat_post(post_id):
+    """
+    Records one rating, enforced server-side — the database itself
+    rejects a second rating from the same rater_id on the same post
+    (unique constraint on ChatRating), not just app logic. rater_id comes
+    from the browser today (no accounts yet); once real accounts exist,
+    the frontend just sends the real user ID instead and this endpoint
+    doesn't need to change at all.
+    """
     data = request.json
     rating = data.get("rating")
+    rater_id = (data.get("rater_id") or "").strip()
+
     if not isinstance(rating, int) or rating < 1 or rating > 10:
         return jsonify({"error": "Rating must be a whole number 1-10"}), 400
+    if not rater_id:
+        return jsonify({"error": "Missing rater identifier"}), 400
 
     post = ChatPost.query.get(post_id)
     if not post:
         return jsonify({"error": "Post not found"}), 404
 
+    existing = ChatRating.query.filter_by(post_id=post_id, rater_id=rater_id).first()
+    if existing:
+        return jsonify({"error": "You've already rated this one"}), 400
+
+    db.session.add(ChatRating(post_id=post_id, rater_id=rater_id, rating=rating))
     post.rating_total += rating
     post.rating_count += 1
     db.session.commit()

@@ -49,6 +49,29 @@ class ChatPost(db.Model):
         return round(self.rating_total / self.rating_count, 1)
 
 
+class ChatRating(db.Model):
+    """
+    One individual rating on one ChatPost. This is what actually enforces
+    "only once" server-side — not just a running total on ChatPost.
+
+    rater_id is a random anonymous ID generated and stored in the rater's
+    browser today (no accounts exist yet). The design is deliberate: once
+    real accounts exist, rater_id just becomes the real logged-in user's
+    account ID instead — same table, same uniqueness constraint, same
+    enforcement logic, no rework needed. Only the browser-side generation
+    of rater_id changes, not this table or the rating endpoint's logic.
+    """
+    __tablename__ = "chat_ratings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey("chat_posts.id"), nullable=False)
+    rater_id = db.Column(db.String(64), nullable=False)
+    rating = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("post_id", "rater_id", name="one_rating_per_rater_per_post"),)
+
+
 class Order(db.Model):
     """An immediate 'send it now' smackagram — the simple v1 flow."""
     __tablename__ = "orders"
