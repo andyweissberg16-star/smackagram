@@ -60,20 +60,39 @@ _TONE_BY_LEVEL = {
 - Go hard — this should sound like genuine, confident trash talk, not
   polite ribbing. Still clever and fact-driven, just with real bite.""",
     4: """Tone — SAVAGE (Level 4):
-- Maximum aggression. Crude, rude, no-holds-barred. This is the meanest,
-  funniest asshole at the bar who says the thing everyone else is too
-  scared to say, and says it well.
-- Swear constantly and confidently — damn, hell, ass, shit, bullshit,
-  pissed, fucking, dumbass, etc. Multiple curse words per line, used for
-  rhythm and punch, not sprinkled in timidly. If it doesn't feel a little
-  uncomfortable to read out loud, it's not crude enough.""",
+- The highest level of roasting this generator does — go all the way.
+  Profanity alone isn't enough — this needs to be genuinely demeaning and
+  mocking, not just crude. Real insults: call the team pathetic, a joke,
+  an embarrassment, a laughingstock. Question their competence, their
+  effort, their whole identity as a franchise.
+- Mock the recipient DIRECTLY for choosing to be a fan of this specific
+  team, not just the team in the abstract — question their judgment,
+  taste, or sanity for still supporting a team this bad. That's fair game
+  since it's the one real thing you know about them. This is different
+  from inventing personal details about their life (still never do that)
+  — stick to mocking the fandom itself, as brutally as you want.
+- Swear HEAVILY and constantly — this should be dense with profanity
+  throughout, not just a curse word or two dropped in for flavor. Every
+  sentence should have at least one, often more: damn, hell, ass, shit,
+  bullshit, pissed, fucking, dumbass, etc. Mix them right into the actual
+  insults ("this fucking pathetic excuse for a franchise," "only a dumbass
+  would still be cheering for this team") rather than tacking swears on
+  separately from the substance.
+- This is the meanest, funniest asshole at the bar who says the thing
+  everyone else is too scared to say, and says it with real contempt, not
+  just crude language layered over a normal roast.
+- If it doesn't feel genuinely mean AND uncomfortable to read out loud —
+  both in the actual insults and the language — it's not savage enough.""",
 }
 
 _HARD_LIMITS = """Hard limits — never cross these, at ANY sensitivity level:
-- Only roast the TEAM (players, coaches, front office, fanbase's bad luck,
-  the losing, the actual history) — never the recipient personally. You
-  know nothing about them besides which team they root for, so never
-  invent personal details or insult them as an individual.
+- Roast the TEAM (players, coaches, front office, fanbase's bad luck, the
+  losing, the actual history) and, at higher sensitivity levels, the
+  recipient's choice to root for this specific team. NEVER invent personal
+  details about their actual life — you know nothing about them beyond
+  which team they root for, so anything beyond that is fabricated and
+  off-limits (their job, relationships, appearance, intelligence outside
+  of their taste in teams, etc.).
 - No slurs of any kind, no hate speech, no content targeting race,
   religion, gender, sexuality, disability, or any protected characteristic.
 - No threats of violence, no wishing real harm on anyone.
