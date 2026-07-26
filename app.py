@@ -7,7 +7,7 @@ from sqlalchemy import func
 from dotenv import load_dotenv
 
 from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating
-from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists
+from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors
 from scheduler import check_armed_smackagrams
 
 load_dotenv()
@@ -464,6 +464,16 @@ def chat_teams():
     """
     league = request.args.get("league", "nfl")
     teams = chat_team_lists.CHAT_LEAGUES.get(league, {})
+    colors = chat_team_colors.TEAM_COLORS.get(league, {})
+
+    # Reverse-lookup: which division is each team code in, for this league.
+    # Leagues without a defined division structure (conferences, soccer)
+    # just get None back and render as one flat group on the frontend.
+    league_divisions = chat_team_colors.DIVISIONS.get(league, {})
+    team_to_division = {}
+    for division_name, team_codes in league_divisions.items():
+        for code in team_codes:
+            team_to_division[code] = division_name
 
     counts = dict(
         db.session.query(ChatPost.team, func.count(ChatPost.id))
@@ -474,7 +484,13 @@ def chat_teams():
 
     return jsonify({
         "teams": [
-            {"code": code, "name": name, "chat_count": counts.get(code, 0)}
+            {
+                "code": code,
+                "name": name,
+                "chat_count": counts.get(code, 0),
+                "color": colors.get(code),
+                "division": team_to_division.get(code),
+            }
             for code, name in sorted(teams.items(), key=lambda x: x[1])
         ],
         "general_chat_count": counts.get("_general", 0),
