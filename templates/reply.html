@@ -111,42 +111,49 @@
       <button id="replayBtn" class="btn btn-ghost" style="margin-top:10px; display:none;">Hear it again</button>
     </div>
 
-    <div class="card">
-      <p class="step-label">Your comeback</p>
-      <h3>Fire back</h3>
-      <p class="card-sub">Write your own, or let the coach read what they said and craft a real response.</p>
+    <div id="replySection">
+      <div class="card">
+        <p class="step-label">Your comeback</p>
+        <h3>Fire back</h3>
+        <p class="card-sub">Write your own, or let the coach read what they said and craft a real response.</p>
 
-      <div id="sensitivitySelector" style="margin-bottom:14px;">
-        <p style="color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
+        <div id="sensitivitySelector" style="margin-bottom:14px;">
+          <p style="color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
+        </div>
+
+        <button id="generateBtn" class="btn btn-ghost" style="margin-bottom:14px;">Generate a comeback for me</button>
+
+        <textarea id="replyMessage" placeholder="Type your comeback, or generate one above..."></textarea>
+
+        <label for="voiceSelect">Voice</label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select id="voiceSelect" style="margin-bottom:0; flex:1;">
+            <option value="default">Loading voices...</option>
+          </select>
+          <button id="voiceSampleBtn" class="btn btn-ghost" type="button" style="width:auto; white-space:nowrap;">Preview</button>
+        </div>
+        <audio id="voiceSampleAudio" style="display:none;"></audio>
       </div>
 
-      <button id="generateBtn" class="btn btn-ghost" style="margin-bottom:14px;">Generate a comeback for me</button>
+      <div class="card">
+        <div id="errorBox"></div>
 
-      <textarea id="replyMessage" placeholder="Type your comeback, or generate one above..."></textarea>
+        <label class="consent-row">
+          <input id="ageConfirm" type="checkbox">
+          <span>I confirm the recipient is 18 years of age or older.</span>
+        </label>
+        <label class="consent-row">
+          <input id="termsAgree" type="checkbox">
+          <span>I agree to the <a href="/terms" target="_blank">Terms &amp; Conditions</a> and understand this is for entertainment purposes only.</span>
+        </label>
 
-      <label for="voiceSelect">Voice</label>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <select id="voiceSelect" style="margin-bottom:0; flex:1;">
-          <option value="default">Loading voices...</option>
-        </select>
-        <button id="voiceSampleBtn" class="btn btn-ghost" type="button" style="width:auto; white-space:nowrap;">Preview</button>
+        <button id="submitBtn" class="btn btn-flare">Send my reply — $2</button>
       </div>
-      <audio id="voiceSampleAudio" style="display:none;"></audio>
     </div>
 
-    <div class="card">
-      <div id="errorBox"></div>
-
-      <label class="consent-row">
-        <input id="ageConfirm" type="checkbox">
-        <span>I confirm the recipient is 18 years of age or older.</span>
-      </label>
-      <label class="consent-row">
-        <input id="termsAgree" type="checkbox">
-        <span>I agree to the <a href="/terms" target="_blank">Terms &amp; Conditions</a> and understand this is for entertainment purposes only.</span>
-      </label>
-
-      <button id="submitBtn" class="btn btn-flare">Send my reply — $2</button>
+    <div id="alreadyRepliedState" class="card" style="display:none; text-align:center;">
+      <p style="font-family:'Anton',sans-serif; font-size:20px; text-transform:uppercase; margin-bottom:8px; color:var(--gold);">Already replied</p>
+      <p style="color:var(--chalk-dim); font-size:14px;">You already sent your reply to this one — one shot per smack. You can still listen back above, or send a brand new smack of your own from the home page.</p>
     </div>
   </div>
 
@@ -177,6 +184,11 @@ async function loadContext() {
       const audioEl = document.getElementById('replayAudio');
       audioEl.src = data.message_audio_url;
       document.getElementById('replayBtn').style.display = 'block';
+    }
+
+    if (data.already_replied) {
+      document.getElementById('replySection').style.display = 'none';
+      document.getElementById('alreadyRepliedState').style.display = 'block';
     }
   } catch (err) {
     document.getElementById('mainContent').style.display = 'none';

@@ -156,6 +156,18 @@ def stripe_webhook():
                 call_sid = twilio_service.place_prank_call(order.id, order.recipient_phone, record=True)
                 order.twilio_call_sid = call_sid
                 order.call_status = "ringing"
+
+                # If this order is itself a reply, mark the original smack
+                # as replied now — waiting until the call is actually
+                # firing (not just at checkout creation) means an
+                # abandoned/failed checkout doesn't wrongly lock the
+                # original out of ever getting a real reply.
+                if order.replied_to_type and order.replied_to_id:
+                    original_model = Order if order.replied_to_type == "order" else Smackagram
+                    original_record = original_model.query.get(order.replied_to_id)
+                    if original_record:
+                        original_record.replied = True
+
                 db.session.commit()
             except Exception as e:
                 order.call_status = "failed"
@@ -398,18 +410,52 @@ def reply_page(token):
     return render_template("reply.html", reply_token=token)
 
 
+@app.route("/conversation/<int:reply_id>")
+def conversation_page(reply_id):
+    return render_template("conversation.html", reply_id=reply_id)
+
+
+@app.route("/api/conversation/<int:reply_id>")
+def conversation_data(reply_id):
+    """
+    Both sides of a completed reply exchange — the original smack and the
+    reply that was sent back, each with their own real persisted audio.
+    """
+    reply = Order.query.get(reply_id)
+    if not reply or not reply.replied_to_type or not reply.replied_to_id:
+        return jsonify({"error": "Conversation not found"}), 404
+
+    original_model = Order if reply.replied_to_type == "order" else Smackagram
+    original = original_model.query.get(reply.replied_to_id)
+    if not original:
+        return jsonify({"error": "Conversation not found"}), 404
+
+    return jsonify({
+        "original": {
+            "message": original.custom_message,
+            "audio_url": original.message_audio_url,
+            "created_at": original.created_at.isoformat(),
+        },
+        "reply": {
+            "message": reply.custom_message,
+            "audio_url": reply.message_audio_url,
+            "created_at": reply.created_at.isoformat(),
+        },
+    })
+
+
 @app.route("/api/check-if-smacked", methods=["POST"])
 def check_if_smacked():
     """
-    "Did you just get smacked?" lookup — someone enters the number that
-    received a call, and we check whether a real delivered smackagram
-    exists for it. Digit-only comparison so formatting differences
+    The "Smack Inbox" — returns EVERY delivered smack for a phone number,
+    not just one, newest first. Each item is flagged replied/unreplied;
+    replied items link to a conversation view, unreplied opted-in items
+    link to a reply page. Digit-only comparison so formatting differences
     (+1, dashes, spaces, parens) don't cause false misses.
 
-    Only returns reply-eligible results — the sender must have opted in
-    at checkout and given their own number. A match that exists but wasn't
-    opted in still confirms "yes you were smacked" without exposing any
-    path back to the sender.
+    Note: no ownership verification exists yet — anyone can look up any
+    number. Fine for the current one-off yes/no check, but flagged on the
+    roadmap as needed before this inbox holds a fuller history long-term.
     """
     data = request.json
     raw_phone = data.get("phone", "")
@@ -420,33 +466,41 @@ def check_if_smacked():
     def matches(stored_phone):
         return stored_phone and "".join(c for c in stored_phone if c.isdigit()).endswith(digits[-10:])
 
-    # Check instant orders and Locked & Loaded smackagrams — "completed" is
-    # Twilio's real CallStatus value for a call that connected and finished
-    # normally (there's no such thing as a "delivered" status; that was a
-    # mistake in the first version of this check — Twilio's actual terminal
-    # values are completed/no-answer/busy/failed/canceled). For smackagrams,
-    # also require status="fired" so we're only matching calls that were
-    # actually genuinely delivered, not just attempted.
+    # "completed" is Twilio's real CallStatus value for a call that
+    # connected and finished normally. For smackagrams, also require
+    # status="fired" so we're only matching calls that genuinely fired,
+    # not just armed-but-never-resolved.
     delivered_orders = Order.query.filter_by(call_status="completed").order_by(Order.created_at.desc()).all()
     fired_smackagrams = Smackagram.query.filter_by(status="fired", call_status="completed").order_by(Smackagram.created_at.desc()).all()
 
-    match = None
-    for record in delivered_orders + fired_smackagrams:
-        if matches(record.recipient_phone):
-            match = record
-            break
+    all_matches = [r for r in (delivered_orders + fired_smackagrams) if matches(r.recipient_phone)]
+    if not all_matches:
+        return jsonify({"found": False, "items": []})
 
-    if not match:
-        return jsonify({"found": False})
+    all_matches.sort(key=lambda r: r.created_at, reverse=True)
 
-    # Critical: never send the actual sender_phone to the browser. The
-    # reply_token is a random, non-guessable reference the reply page can
-    # use instead — the real number only ever gets read server-side, at
-    # the exact moment a reply order is actually being placed.
-    if match.reply_opt_in and match.reply_token:
-        return jsonify({"found": True, "reply_eligible": True, "reply_token": match.reply_token})
+    items = []
+    for record in all_matches:
+        record_type = "order" if isinstance(record, Order) else "smackagram"
+        preview = (record.custom_message or "")[:90]
+        item = {
+            "type": record_type,
+            "id": record.id,
+            "preview": preview,
+            "created_at": record.created_at.isoformat(),
+            "replied": bool(record.replied),
+        }
+        if record.replied:
+            # Find the reply that was sent for this one, to link the
+            # conversation view — the reply is always an Order record.
+            reply = Order.query.filter_by(replied_to_type=record_type, replied_to_id=record.id).first()
+            item["conversation_id"] = reply.id if reply else None
+        elif record.reply_opt_in and record.reply_token:
+            # Never expose the raw sender_phone — only the token.
+            item["reply_token"] = record.reply_token
+        items.append(item)
 
-    return jsonify({"found": True, "reply_eligible": False})
+    return jsonify({"found": True, "items": items})
 
 
 def _find_by_reply_token(token):
@@ -469,6 +523,7 @@ def reply_context(token):
     return jsonify({
         "original_message": record.custom_message,
         "message_audio_url": record.message_audio_url,
+        "already_replied": bool(record.replied),
     })
 
 
@@ -507,6 +562,9 @@ def create_reply_order():
     if not original or not original.sender_phone:
         return jsonify({"error": "This reply link isn't valid"}), 404
 
+    if original.replied:
+        return jsonify({"error": "A reply has already been sent for this smack"}), 400
+
     if not data.get("consent_confirmed"):
         return jsonify({"error": "Consent confirmation required"}), 400
 
@@ -525,6 +583,13 @@ def create_reply_order():
         consent_confirmed=True,
         price_cents=price,
         includes_recording=data.get("include_recording", True),
+        # Links back to the original for the conversation view — safe to
+        # set now even before payment completes, since this alone doesn't
+        # mark the original as "replied" (that only happens once the
+        # reply's call actually fires, in the Stripe webhook, so an
+        # abandoned checkout doesn't wrongly lock out a real reply later).
+        replied_to_type="order" if isinstance(original, Order) else "smackagram",
+        replied_to_id=original.id,
     )
     db.session.add(order)
     db.session.commit()

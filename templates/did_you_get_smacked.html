@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Did You Get Smacked? — Smackagram</title>
+<title>Smack Inbox — Smackagram</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --ink:#0D0D0D;
@@ -19,19 +19,19 @@
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
-  .wrap{max-width:520px; margin:0 auto; padding:0 24px 60px;}
+  .wrap{max-width:560px; margin:0 auto; padding:0 24px 60px;}
 
   nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
   nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
   nav a.back-link:hover{color:var(--flare);}
 
-  .hero{text-align:center; padding:48px 0 24px;}
-  h1{font-family:'Anton',sans-serif; font-size:36px; text-transform:uppercase; letter-spacing:0.5px; line-height:1.1;}
+  .hero{text-align:center; padding:44px 0 20px;}
+  h1{font-family:'Anton',sans-serif; font-size:34px; text-transform:uppercase; letter-spacing:0.5px; line-height:1.1;}
   h1 span{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.5);}
-  .sub{color:var(--chalk-dim); font-size:15px; margin-top:10px;}
+  .sub{color:var(--chalk-dim); font-size:14px; margin-top:8px;}
 
   .card{
-    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:32px; margin-top:16px;
+    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:28px; margin-top:16px;
   }
   label{display:block; font-size:12px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;}
   input[type=tel]{
@@ -48,15 +48,26 @@
   .btn:hover{transform:translateY(-1px);}
   .btn:disabled{opacity:0.5; cursor:not-allowed; transform:none;}
 
-  #resultArea{display:none; text-align:center; padding-top:20px;}
-  .result-title{font-family:'Anton',sans-serif; font-size:22px; text-transform:uppercase; margin-bottom:10px;}
-  .result-body{color:var(--chalk-dim); font-size:14px; margin-bottom:20px; line-height:1.5;}
-  .btn-secondary{
-    display:inline-block; background:transparent; border:1px solid var(--line-strong); color:var(--chalk);
-    padding:14px 28px; border-radius:4px; text-decoration:none; font-weight:700; text-transform:uppercase;
-    font-size:13px; letter-spacing:0.5px;
+  #inboxArea{display:none; margin-top:24px;}
+  .empty-note{color:var(--chalk-dim); font-size:14px; text-align:center; padding:20px 0;}
+
+  .inbox-item{
+    display:block; background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px;
+    padding:18px 20px; margin-bottom:12px; text-decoration:none; color:inherit; transition:border-color 0.15s ease;
   }
-  .btn-secondary:hover{border-color:var(--flare); color:var(--flare);}
+  .inbox-item:hover{border-color:var(--flare);}
+  .inbox-item.unreplied{border-left:3px solid var(--gold);}
+  .inbox-item.replied{border-left:3px solid var(--chalk-dim);}
+  .item-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .badge{
+    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.5px; padding:3px 10px; border-radius:20px;
+  }
+  .badge.new{background:var(--gold); color:var(--ink);}
+  .badge.replied{background:transparent; border:1px solid var(--line-strong); color:var(--chalk-dim);}
+  .item-date{font-size:11px; color:var(--chalk-dim);}
+  .item-preview{font-size:14px; color:#DCDCD9; font-style:italic;}
+  .item-action{font-size:12px; color:var(--gold); margin-top:8px; font-weight:600;}
 
   footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim); border-top:1px solid var(--line); margin-top:40px;}
   footer a{color:var(--chalk-dim); text-decoration:none;}
@@ -72,17 +83,17 @@
 
 <div class="wrap">
   <div class="hero">
-    <h1>Did you just get <span>smacked?</span></h1>
-    <p class="sub">Enter the number that got the call — let's find out, and give you a shot to hit back.</p>
+    <h1>Smack <span>Inbox</span></h1>
+    <p class="sub">Enter your number to see every smack you've ever gotten — and hit back on the ones still open.</p>
   </div>
 
   <div class="card" id="lookupCard">
     <label for="phoneInput">Your phone number</label>
     <input id="phoneInput" type="tel" placeholder="+1 555 555 5555">
-    <button id="checkBtn" class="btn">Check</button>
+    <button id="checkBtn" class="btn">Check my inbox</button>
   </div>
 
-  <div id="resultArea">
+  <div id="inboxArea">
     <!-- filled in by JS -->
   </div>
 </div>
@@ -107,39 +118,79 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
       body: JSON.stringify({phone: phone})
     });
     const data = await resp.json();
-    showResult(data);
+    showInbox(data);
   } catch (err) {
-    showResult({found: false});
+    showInbox({found: false, items: []});
   } finally {
-    btn.textContent = 'Check';
+    btn.textContent = 'Check my inbox';
     btn.disabled = false;
   }
 });
 
-function showResult(data) {
-  document.getElementById('lookupCard').style.display = 'none';
-  const resultArea = document.getElementById('resultArea');
-  resultArea.style.display = 'block';
+function formatDate(isoString) {
+  const d = new Date(isoString);
+  return d.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
+}
 
-  if (!data.found) {
-    resultArea.innerHTML = `
-      <p class="result-title">Nothing found</p>
-      <p class="result-body">No delivered smack matches that number — could've been sent from a different number, or maybe you're just in the clear.</p>
-      <a href="/send-a-smack" class="btn-secondary">Send one yourself instead</a>
+function showInbox(data) {
+  const inboxArea = document.getElementById('inboxArea');
+  inboxArea.style.display = 'block';
+
+  if (!data.found || !data.items || data.items.length === 0) {
+    inboxArea.innerHTML = `
+      <p class="empty-note">Nothing found for that number — could've come from a different number, or maybe you're just in the clear.</p>
+      <a href="/send-a-smack" class="btn" style="display:block; text-align:center; text-decoration:none;">Send one yourself instead</a>
     `;
-  } else if (data.reply_eligible) {
-    resultArea.innerHTML = `
-      <p class="result-title">Yep. You got smacked.</p>
-      <p class="result-body">And they're okay with getting one back. Time to even the score.</p>
-      <a href="/reply/${data.reply_token}" class="btn-secondary">Send a reply smack</a>
-    `;
-  } else {
-    resultArea.innerHTML = `
-      <p class="result-title">Yep. You got smacked.</p>
-      <p class="result-body">Whoever sent it didn't open themselves up to a reply this time — but nothing's stopping you from starting your own.</p>
-      <a href="/send-a-smack" class="btn-secondary">Send your own smack</a>
-    `;
+    return;
   }
+
+  let html = '';
+  data.items.forEach(item => {
+    const dateStr = formatDate(item.created_at);
+    const preview = item.preview ? (item.preview.length >= 90 ? item.preview + '...' : item.preview) : 'No preview available';
+
+    if (item.replied) {
+      html += `
+        <a href="/conversation/${item.conversation_id}" class="inbox-item replied">
+          <div class="item-top">
+            <span class="badge replied">Replied</span>
+            <span class="item-date">${dateStr}</span>
+          </div>
+          <p class="item-preview">${escapeHtml(preview)}</p>
+          <p class="item-action">View the full exchange &rarr;</p>
+        </a>
+      `;
+    } else if (item.reply_token) {
+      html += `
+        <a href="/reply/${item.reply_token}" class="inbox-item unreplied">
+          <div class="item-top">
+            <span class="badge new">New</span>
+            <span class="item-date">${dateStr}</span>
+          </div>
+          <p class="item-preview">${escapeHtml(preview)}</p>
+          <p class="item-action">Reply now &rarr;</p>
+        </a>
+      `;
+    } else {
+      html += `
+        <div class="inbox-item unreplied" style="cursor:default;">
+          <div class="item-top">
+            <span class="badge new">New</span>
+            <span class="item-date">${dateStr}</span>
+          </div>
+          <p class="item-preview">${escapeHtml(preview)}</p>
+          <p class="item-action" style="color:var(--chalk-dim);">No reply available — send your own instead</p>
+        </div>
+      `;
+    }
+  });
+  inboxArea.innerHTML = html;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 document.getElementById('phoneInput').addEventListener('keydown', (e) => {

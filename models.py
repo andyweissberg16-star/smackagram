@@ -38,6 +38,14 @@ class Order(db.Model):
     sender_phone = db.Column(db.String(20), nullable=True)
     reply_opt_in = db.Column(db.Boolean, default=False)
     reply_token = db.Column(db.String(64), nullable=True, unique=True)
+    replied = db.Column(db.Boolean, default=False)  # True once someone has replied to THIS smack
+
+    # Set only on records that ARE themselves a reply — points back to
+    # whichever original smack (Order or Smackagram) this replied to.
+    # replied_to_type is "order" or "smackagram" since the original could
+    # be either; replied_to_id is that record's id in its own table.
+    replied_to_type = db.Column(db.String(12), nullable=True)
+    replied_to_id = db.Column(db.Integer, nullable=True)
 
     price_cents = db.Column(db.Integer, default=200)     # $2 bundle default, $1 call-only option
     includes_recording = db.Column(db.Boolean, default=True)
@@ -91,6 +99,7 @@ class Smackagram(db.Model):
     sender_phone = db.Column(db.String(20), nullable=True)
     reply_opt_in = db.Column(db.Boolean, default=False)
     reply_token = db.Column(db.String(64), nullable=True, unique=True)
+    replied = db.Column(db.Boolean, default=False)  # True once someone has replied to THIS smack
 
     price_cents = db.Column(db.Integer, default=200)
 
