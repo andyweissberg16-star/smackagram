@@ -354,6 +354,11 @@ def locked_n_loaded_page():
     return render_template("locked_n_loaded.html")
 
 
+@app.route("/send-a-smack")
+def send_a_smack_page():
+    return render_template("send_a_smack.html")
+
+
 @app.route("/smack-lab")
 def smack_lab_page():
     return render_template("smack_lab.html")
