@@ -236,6 +236,13 @@ time. The user is practicing their trash talk against a rival team's fan
 (you), trying to sharpen their material before sending a real smackagram to
 a friend.
 
+If the user's own favorite team is provided, use it — real rivalry banter
+cuts both ways. Bring up THEIR team's actual droughts, collapses, or
+embarrassments in your comebacks too, not just the team they're roasting.
+This makes the exchange feel like genuine back-and-forth between two real
+fans, not a one-sided roast. If no team of theirs is given, just focus
+entirely on the team they're roasting as before.
+
 Every single response you give has TWO jobs:
 1. Rate and critique the user's last line like a real coach — direct,
    honest, a little brutal if the line was weak, genuinely impressed if it
@@ -266,12 +273,16 @@ Respond ONLY with a JSON object, nothing else, in this exact shape:
 """
 
 
-def smack_lab_respond(team: str, conversation_history: list[dict], user_line: str) -> dict:
+def smack_lab_respond(team: str, conversation_history: list[dict], user_line: str, my_team: str = "") -> dict:
     """
     Powers Smack Lab — a live back-and-forth sparring session where the AI
     plays an aggressive rival fan AND rates/critiques the user's trash talk
     like a coach, every single turn. Always maxes out aggression (this
     feature is explicitly meant to be the most savage corner of the site).
+
+    my_team: the user's own favorite team, if given — lets the AI's
+    comebacks reference the user's OWN team's history too (real two-way
+    rivalry banter), not just one-sided roasting of the opponent.
 
     conversation_history: list of {"role": "user"|"assistant", "content": str}
     from prior turns in this session, so the AI has real context on how the
@@ -281,7 +292,8 @@ def smack_lab_respond(team: str, conversation_history: list[dict], user_line: st
     a safe generic response if the model doesn't return valid JSON, rather
     than crashing the whole interaction over a formatting hiccup.
     """
-    user_content = f"Team you're a rival fan of: {team}\n\nThe user's latest line: {user_line}"
+    my_team_line = f"\nThe user's own team (use this for real two-way rivalry — bring up THEIR team's history/flaws too, not just theirs of the team they're roasting): {my_team}" if my_team else ""
+    user_content = f"Team you're a rival fan of: {team}{my_team_line}\n\nThe user's latest line: {user_line}"
 
     messages = list(conversation_history) + [{"role": "user", "content": user_content}]
 
@@ -338,7 +350,7 @@ Respond with ONLY the verdict text itself — 3-5 sentences, no JSON, no
 preamble, no labels. Just the verdict, ready to display as-is."""
 
 
-def smack_lab_final_verdict(team: str, average_rating: float, session_lines: list[str]) -> str:
+def smack_lab_final_verdict(team: str, average_rating: float, session_lines: list[str], my_team: str = "") -> str:
     """
     Delivers a session-ending report card after 5 rounds of Smack Lab —
     genuinely praises a strong average, brutally roasts a weak one,
@@ -346,8 +358,9 @@ def smack_lab_final_verdict(team: str, average_rating: float, session_lines: lis
     number. This is the "payoff" moment the whole session builds toward.
     """
     lines_block = "\n".join(f"{i+1}. {line}" for i, line in enumerate(session_lines))
+    my_team_line = f"\nThe user's own team: {my_team}" if my_team else ""
     user_content = (
-        f"Team being roasted this session: {team}\n"
+        f"Team being roasted this session: {team}{my_team_line}\n"
         f"Average rating across the session: {average_rating:.1f}/10\n\n"
         f"Their lines this session:\n{lines_block}\n\n"
         f"Deliver the final verdict."

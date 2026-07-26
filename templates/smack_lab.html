@@ -123,15 +123,19 @@
   <a href="/" class="back-link">&larr; Back to home</a>
 </nav>
 
+<img src="{{ url_for('static', filename='smack-lab-hero.png') }}" alt="Smack Lab — 1 on 1 coaching to take your smack to the big leagues" style="width:100%; height:auto; display:block;">
+
 <div class="wrap">
   <div class="hero">
-    <h1>SMACK <span>LAB</span></h1>
     <p>Learn the art of smack. Pick a team, throw your best line, and get rated — the good stuff, we'll help you actually send.</p>
   </div>
 
   <div class="card" id="setupSection">
     <label for="teamInput">Team to trash talk</label>
     <input id="teamInput" type="text" placeholder="ex. New York Yankees">
+
+    <label for="myTeamInput">Your team (so the coach knows exactly how to get you where it hurts)</label>
+    <input id="myTeamInput" type="text" placeholder="ex. Boston Red Sox">
 
     <label for="recipientInput">Who you'd eventually send this to (optional for now)</label>
     <input id="recipientInput" type="text" placeholder="ex. Mike">
@@ -145,6 +149,7 @@
         <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px;">Session average</span>
         <span id="avgValue" style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px; color:var(--gold);">—</span>
       </div>
+      <button id="sendBestBtn" class="btn btn-flare" style="display:none; margin-bottom:14px;">Send my best line yet</button>
       <div class="chat-log" id="chatLog">
         <div class="empty-state">Throw your first line below — the coach is waiting.</div>
       </div>
@@ -163,10 +168,13 @@
 
 <script>
 let currentTeam = '';
+let myTeam = '';
 let currentRecipient = '';
 let conversationHistory = [];
 let ratingHistory = [];
 let sessionLines = [];
+let bestLineSoFar = null;
+let bestRatingSoFar = 0;
 const VERDICT_MILESTONE = 5;
 
 document.getElementById('startBtn').addEventListener('click', () => {
@@ -176,11 +184,15 @@ document.getElementById('startBtn').addEventListener('click', () => {
     return;
   }
   currentTeam = team;
+  myTeam = document.getElementById('myTeamInput').value.trim();
   currentRecipient = document.getElementById('recipientInput').value.trim();
   conversationHistory = [];
   ratingHistory = [];
   sessionLines = [];
+  bestLineSoFar = null;
+  bestRatingSoFar = 0;
   updateAverageDisplay();
+  document.getElementById('sendBestBtn').style.display = 'none';
 
   document.getElementById('setupSection').style.display = 'none';
   document.getElementById('labSection').style.display = 'block';
@@ -262,6 +274,7 @@ async function sendLine() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         team: currentTeam,
+        my_team: myTeam,
         user_line: line,
         conversation_history: conversationHistory,
       })
@@ -282,6 +295,18 @@ async function sendLine() {
       ratingHistory.push(data.rating);
       sessionLines.push(line);
       updateAverageDisplay();
+
+      if (data.rating > bestRatingSoFar) {
+        bestRatingSoFar = data.rating;
+        bestLineSoFar = line;
+        const sendBestBtn = document.getElementById('sendBestBtn');
+        // Only surface the funnel once a line is actually good — no point
+        // pushing someone toward checkout on the back of a 3/10.
+        if (bestRatingSoFar >= 7) {
+          sendBestBtn.style.display = 'block';
+          sendBestBtn.textContent = `Send my best line yet (${bestRatingSoFar}/10)`;
+        }
+      }
 
       if (ratingHistory.length > 0 && ratingHistory.length % VERDICT_MILESTONE === 0) {
         await fetchAndShowVerdict();
@@ -327,6 +352,7 @@ async function fetchAndShowVerdict() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         team: currentTeam,
+        my_team: myTeam,
         average_rating: avg,
         session_lines: sessionLines,
       })
@@ -337,12 +363,18 @@ async function fetchAndShowVerdict() {
     if (data.verdict) {
       const div = document.createElement('div');
       div.className = 'msg-ai';
+      const ctaHtml = avg >= 6.5 && bestLineSoFar
+        ? `<button class="btn btn-flare verdict-cta" style="margin-top:10px;">Alright, I'm ready — send my best line (${bestRatingSoFar}/10)</button>`
+        : '';
       div.innerHTML = `
         <div class="comeback-block" style="border-left-color:var(--gold);">
           <span class="comeback-label" style="color:var(--gold);">Session verdict — ${avg.toFixed(1)}/10 average</span>
           <div class="comeback">${escapeHtml(data.verdict)}</div>
+          ${ctaHtml}
         </div>
       `;
+      const ctaBtn = div.querySelector('.verdict-cta');
+      if (ctaBtn) ctaBtn.addEventListener('click', () => lockInLine(bestLineSoFar));
       log.appendChild(div);
       log.scrollTop = log.scrollHeight;
     }
@@ -352,6 +384,9 @@ async function fetchAndShowVerdict() {
 }
 
 document.getElementById('sendBtn').addEventListener('click', sendLine);
+document.getElementById('sendBestBtn').addEventListener('click', () => {
+  if (bestLineSoFar) lockInLine(bestLineSoFar);
+});
 document.getElementById('lineInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendLine();
 });

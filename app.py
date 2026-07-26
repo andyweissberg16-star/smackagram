@@ -198,6 +198,7 @@ def smack_lab_respond():
 
     data = request.json
     team = data.get("team", "").strip()
+    my_team = data.get("my_team", "").strip()
     user_line = data.get("user_line", "").strip()
     conversation_history = data.get("conversation_history", [])
 
@@ -211,7 +212,7 @@ def smack_lab_respond():
     if not safety["safe"]:
         return jsonify({"error": "That line can't be processed — it may contain threatening, sexual, or harassing content. Try a different angle."}), 400
 
-    result = trash_talk_service.smack_lab_respond(team=team, conversation_history=conversation_history, user_line=user_line)
+    result = trash_talk_service.smack_lab_respond(team=team, my_team=my_team, conversation_history=conversation_history, user_line=user_line)
     rate_limiter.record_hit(identifier)
     return jsonify(result)
 
@@ -231,13 +232,14 @@ def smack_lab_verdict():
 
     data = request.json
     team = data.get("team", "").strip()
+    my_team = data.get("my_team", "").strip()
     average_rating = data.get("average_rating")
     session_lines = data.get("session_lines", [])
 
     if not team or average_rating is None or not session_lines:
         return jsonify({"error": "Missing session data for verdict"}), 400
 
-    verdict = trash_talk_service.smack_lab_final_verdict(team=team, average_rating=float(average_rating), session_lines=session_lines)
+    verdict = trash_talk_service.smack_lab_final_verdict(team=team, my_team=my_team, average_rating=float(average_rating), session_lines=session_lines)
     rate_limiter.record_hit(identifier)
     return jsonify({"verdict": verdict})
 
