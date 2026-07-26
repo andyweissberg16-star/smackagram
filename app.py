@@ -373,6 +373,11 @@ def smack_lab_page():
     return render_template("smack_lab.html")
 
 
+@app.route("/terms")
+def terms_page():
+    return render_template("terms.html")
+
+
 @app.route("/locked-n-loaded/success")
 def locked_n_loaded_success():
     session_id = request.args.get("session_id")
