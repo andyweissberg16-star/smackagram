@@ -269,6 +269,7 @@
     .pricing{grid-template-columns:1fr;}
     nav{flex-wrap:wrap; gap:12px;}
     .nav-links{display:none;}
+    .hero-split{grid-template-columns:1fr !important;}
   }
 </style>
 </head>
@@ -321,9 +322,21 @@
       </div>
       <h1>Their team just choked.<br>Time to <span class="flare">rub it in.</span></h1>
       <p class="sub">Type a team, our AI roasts their whole season, and we call your friend with it — in a real voice, recorded live. $2. Under a minute. Let's go.</p>
-      <div class="hero-ctas">
-        <a href="#generator" class="btn btn-flare" style="text-decoration:none; display:inline-block;">Get started</a>
-        <button class="btn btn-ghost">Hear a sample</button>
+
+      <div class="hero-split" style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:28px; text-align:left;">
+        <div style="background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:20px;">
+          <p class="mono" style="font-size:11px; color:var(--flare); letter-spacing:1px; margin-bottom:12px; font-weight:700;">SEND IT NOW</p>
+          <input id="heroTeamInput" type="text" placeholder="Team to roast" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:11px 12px; font-family:'Inter',sans-serif; font-size:13px; border-radius:2px; margin-bottom:10px;">
+          <input id="heroRecipientInput" type="text" placeholder="Friend's name" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:11px 12px; font-family:'Inter',sans-serif; font-size:13px; border-radius:2px; margin-bottom:14px;">
+          <button id="heroStartBtn" class="btn btn-flare" style="width:100%;">Start — $2</button>
+        </div>
+
+        <div style="background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:20px;">
+          <p class="mono" style="font-size:11px; color:var(--gold); letter-spacing:1px; margin-bottom:12px; font-weight:700;">LOCKED &amp; LOADED</p>
+          <p style="font-size:12px; color:var(--chalk-dim); margin-bottom:12px; line-height:1.4;">Arm it now — only fires if their team actually loses.</p>
+          <input id="heroLockedTeamInput" type="text" placeholder="Team to watch" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:11px 12px; font-family:'Inter',sans-serif; font-size:13px; border-radius:2px; margin-bottom:14px;">
+          <button id="heroLockedBtn" class="btn btn-ghost" style="width:100%;">Arm a smackagram</button>
+        </div>
       </div>
     </div>
   </section>
@@ -468,6 +481,38 @@ document.addEventListener('DOMContentLoaded', () => {
   const generatorSection = document.getElementById('generator');
   if (generatorSection) generatorSection.scrollIntoView({behavior: 'smooth', block: 'start'});
 })();
+
+// Hero "Send it now" mini card — copies values into the real generator
+// further down the page and scrolls to it, rather than duplicating the
+// full generator's logic in a second place.
+document.getElementById('heroStartBtn').addEventListener('click', () => {
+  const team = document.getElementById('heroTeamInput').value.trim();
+  const recipient = document.getElementById('heroRecipientInput').value.trim();
+
+  if (team) document.getElementById('teamInput').value = team;
+  if (recipient) document.getElementById('recipientNameInput').value = recipient;
+
+  document.getElementById('generator').scrollIntoView({behavior: 'smooth', block: 'start'});
+});
+
+// Hero "Locked & Loaded" mini card — hands off to the real Locked & Loaded
+// page with the team pre-filled, rather than rebuilding real-game search
+// in a second, smaller place.
+document.getElementById('heroLockedBtn').addEventListener('click', () => {
+  const team = document.getElementById('heroLockedTeamInput').value.trim();
+  const url = team ? `/locked-n-loaded?team=${encodeURIComponent(team)}` : '/locked-n-loaded';
+  window.location.href = url;
+});
+
+document.getElementById('heroTeamInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('heroStartBtn').click();
+});
+document.getElementById('heroRecipientInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('heroStartBtn').click();
+});
+document.getElementById('heroLockedTeamInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('heroLockedBtn').click();
+});
 
 let selectedSensitivity = 4;
 

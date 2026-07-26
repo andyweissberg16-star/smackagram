@@ -578,6 +578,17 @@ document.getElementById('sportTabs').addEventListener('click', (e) => {
 
 renderPopularTeams(selectedSport);
 
+// Pre-fill and auto-search when arriving with ?team=... — e.g. from the
+// home page's mini Locked & Loaded card, so the person doesn't have to
+// re-type what they already entered.
+(function prefillTeamFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const team = params.get('team');
+  if (!team) return;
+  document.getElementById('teamSearchInput').value = team;
+  searchGames(selectedSport, team);
+})();
+
 document.getElementById('teamSearchInput').addEventListener('input', (e) => {
   clearTimeout(searchDebounceTimer);
   const query = e.target.value.trim();
