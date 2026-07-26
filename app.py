@@ -412,9 +412,15 @@ def check_if_smacked():
     def matches(stored_phone):
         return stored_phone and "".join(c for c in stored_phone if c.isdigit()).endswith(digits[-10:])
 
-    # Check instant orders (delivered) and Locked & Loaded smackagrams (fired)
-    delivered_orders = Order.query.filter_by(call_status="delivered").order_by(Order.created_at.desc()).all()
-    fired_smackagrams = Smackagram.query.filter_by(status="fired").order_by(Smackagram.created_at.desc()).all()
+    # Check instant orders and Locked & Loaded smackagrams — "completed" is
+    # Twilio's real CallStatus value for a call that connected and finished
+    # normally (there's no such thing as a "delivered" status; that was a
+    # mistake in the first version of this check — Twilio's actual terminal
+    # values are completed/no-answer/busy/failed/canceled). For smackagrams,
+    # also require status="fired" so we're only matching calls that were
+    # actually genuinely delivered, not just attempted.
+    delivered_orders = Order.query.filter_by(call_status="completed").order_by(Order.created_at.desc()).all()
+    fired_smackagrams = Smackagram.query.filter_by(status="fired", call_status="completed").order_by(Smackagram.created_at.desc()).all()
 
     match = None
     for record in delivered_orders + fired_smackagrams:
@@ -525,10 +531,16 @@ def arm_smackagram():
 
 @app.route("/call-status/<int:record_id>", methods=["POST"])
 def call_status(record_id):
+    """
+    Twilio's real call-completion webhook — registered at call-creation
+    time in place_prank_call(). Same record_id space is shared by both
+    Order and Smackagram (both use the same place_prank_call function),
+    so this has to check both, the same way /call-instructions does.
+    """
     status = request.form.get("CallStatus")
-    order = Order.query.get(record_id)
-    if order:
-        order.call_status = status
+    record = Order.query.get(record_id) or Smackagram.query.get(record_id)
+    if record:
+        record.call_status = status
         db.session.commit()
     return "", 204
 

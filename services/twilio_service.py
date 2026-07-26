@@ -60,6 +60,9 @@ def place_prank_call(order_or_smackagram_id: int, recipient_phone: str, record: 
         url=f"{base_url}/call-instructions/{order_or_smackagram_id}",
         time_limit=59,  # hard cap on total call duration, enforced by Twilio itself
         machine_detection="DetectMessageEnd",
+        status_callback=f"{base_url}/call-status/{order_or_smackagram_id}",
+        status_callback_event=["completed"],
+        status_callback_method="POST",
     )
     return call.sid
 

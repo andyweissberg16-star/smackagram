@@ -88,6 +88,7 @@ class Smackagram(db.Model):
     # Outcome + delivery
     status = db.Column(db.String(20), default="armed")  # armed, fired, released, canceled
     twilio_call_sid = db.Column(db.String(120), nullable=True)
+    call_status = db.Column(db.String(20), nullable=True)  # raw Twilio CallStatus once the call completes
     recording_url = db.Column(db.String(500), nullable=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
