@@ -215,6 +215,15 @@
     <label>Recipient's phone number</label>
     <input id="orderRecipientPhone" type="tel" placeholder="+1 555 555 5555">
 
+    <label style="display:flex; gap:8px; align-items:flex-start; font-size:12px; color:var(--chalk-dim); margin-bottom:8px; cursor:pointer; text-transform:none;">
+      <input id="orderReplyOptIn" type="checkbox" style="width:auto; margin:2px 0 0 0;">
+      <span>If they want to smack you back, let them. I'm okay with receiving a reply.</span>
+    </label>
+    <div id="orderReplyPhoneRow" style="display:none; margin-bottom:14px;">
+      <label>Your phone number (only used if they reply)</label>
+      <input id="orderSenderPhone" type="tel" placeholder="+1 555 555 5555">
+    </div>
+
     <label id="orderAgeConfirmRow" style="display:none; gap:8px; align-items:flex-start; font-size:12px; color:var(--chalk-dim); margin-bottom:14px; cursor:pointer; text-transform:none;">
       <input id="orderAgeConfirm" type="checkbox" style="width:auto; margin:2px 0 0 0;">
       <span>I confirm the recipient is 18 years of age or older.</span>
@@ -240,15 +249,19 @@ document.addEventListener('DOMContentLoaded', () => {
 // Pre-fill when arriving from Smack Lab's "Lock this in" or the home
 // page's mini generator card — team/recipient/message passed as URL
 // params so nothing typed elsewhere gets lost.
+let prefilledRecipientPhone = null;
+
 (function prefillFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const team = params.get('team');
   const recipientName = params.get('recipient_name');
   const message = params.get('message');
+  const recipientPhone = params.get('recipient_phone');
 
   if (team) document.getElementById('teamInput').value = team;
   if (recipientName) document.getElementById('recipientNameInput').value = recipientName;
   if (message) document.getElementById('trashTalkOutput').value = message;
+  if (recipientPhone) prefilledRecipientPhone = recipientPhone;
 })();
 
 let selectedSensitivity = 4;
@@ -495,6 +508,9 @@ function openOrderModal(priceCents) {
   if (orderVoiceSelect.options.length && generatorVoice) {
     orderVoiceSelect.value = generatorVoice;
   }
+  if (prefilledRecipientPhone) {
+    document.getElementById('orderRecipientPhone').value = prefilledRecipientPhone;
+  }
 
   // 18+ confirmation only applies above "Clean" — Clean-level content
   // doesn't need it, so the checkbox doesn't even appear in that case.
@@ -518,6 +534,10 @@ document.getElementById('closeModalBtn').addEventListener('click', () => {
   document.getElementById('orderModal').style.display = 'none';
 });
 
+document.getElementById('orderReplyOptIn').addEventListener('change', (e) => {
+  document.getElementById('orderReplyPhoneRow').style.display = e.target.checked ? 'block' : 'none';
+});
+
 document.getElementById('orderSubmitBtn').addEventListener('click', async () => {
   const message = document.getElementById('orderMessage').value.trim();
   const voiceKey = document.getElementById('orderVoice').value;
@@ -525,6 +545,8 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
   const recipientPhone = document.getElementById('orderRecipientPhone').value.trim();
   const consent = document.getElementById('orderConsent').checked;
   const termsAgree = document.getElementById('orderTermsAgree').checked;
+  const replyOptIn = document.getElementById('orderReplyOptIn').checked;
+  const senderPhone = document.getElementById('orderSenderPhone').value.trim();
   const ageRow = document.getElementById('orderAgeConfirmRow');
   const ageConfirmed = document.getElementById('orderAgeConfirm').checked;
   const errorEl = document.getElementById('orderError');
@@ -534,6 +556,11 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
 
   if (!message || !recipientName || !recipientPhone) {
     errorEl.textContent = 'Please fill in the message, name, and phone number.';
+    errorEl.style.display = 'block';
+    return;
+  }
+  if (replyOptIn && !senderPhone) {
+    errorEl.textContent = 'Please enter your number, or uncheck the reply option.';
     errorEl.style.display = 'block';
     return;
   }
@@ -566,7 +593,9 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
         recipient_name: recipientName,
         recipient_phone: recipientPhone,
         consent_confirmed: consent,
-        include_recording: selectedPriceCents === 200
+        include_recording: selectedPriceCents === 200,
+        reply_opt_in: document.getElementById('orderReplyOptIn').checked,
+        sender_phone: document.getElementById('orderSenderPhone').value.trim()
       })
     });
     const data = await resp.json();

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Did You Get Smacked? — Smackagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D;
+    --ink-2:#1A1A1A;
+    --chalk:#F5F5F3;
+    --chalk-dim:#9A9A96;
+    --flare:#E8142C;
+    --gold:#FFD400;
+    --line:rgba(245,245,243,0.10);
+    --line-strong:rgba(245,245,243,0.24);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:520px; margin:0 auto; padding:0 24px 60px;}
+
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
+  nav a.back-link:hover{color:var(--flare);}
+
+  .hero{text-align:center; padding:48px 0 24px;}
+  h1{font-family:'Anton',sans-serif; font-size:36px; text-transform:uppercase; letter-spacing:0.5px; line-height:1.1;}
+  h1 span{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.5);}
+  .sub{color:var(--chalk-dim); font-size:15px; margin-top:10px;}
+
+  .card{
+    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:32px; margin-top:16px;
+  }
+  label{display:block; font-size:12px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;}
+  input[type=tel]{
+    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:14px 16px; font-family:'Inter',sans-serif; font-size:15px; border-radius:4px; margin-bottom:16px;
+  }
+  input:focus{outline:none; border-color:var(--flare);}
+
+  .btn{
+    font-weight:700; font-size:14px; padding:16px 24px; border-radius:4px; border:none; cursor:pointer;
+    text-transform:uppercase; letter-spacing:0.5px; width:100%; transition:transform 0.12s ease;
+    background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(232,20,44,0.4);
+  }
+  .btn:hover{transform:translateY(-1px);}
+  .btn:disabled{opacity:0.5; cursor:not-allowed; transform:none;}
+
+  #resultArea{display:none; text-align:center; padding-top:20px;}
+  .result-title{font-family:'Anton',sans-serif; font-size:22px; text-transform:uppercase; margin-bottom:10px;}
+  .result-body{color:var(--chalk-dim); font-size:14px; margin-bottom:20px; line-height:1.5;}
+  .btn-secondary{
+    display:inline-block; background:transparent; border:1px solid var(--line-strong); color:var(--chalk);
+    padding:14px 28px; border-radius:4px; text-decoration:none; font-weight:700; text-transform:uppercase;
+    font-size:13px; letter-spacing:0.5px;
+  }
+  .btn-secondary:hover{border-color:var(--flare); color:var(--flare);}
+
+  footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim); border-top:1px solid var(--line); margin-top:40px;}
+  footer a{color:var(--chalk-dim); text-decoration:none;}
+  footer a:hover{color:var(--flare);}
+</style>
+</head>
+<body>
+
+<nav>
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+  <a href="/" class="back-link">&larr; Back to home</a>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <h1>Did you just get <span>smacked?</span></h1>
+    <p class="sub">Enter the number that got the call — let's find out, and give you a shot to hit back.</p>
+  </div>
+
+  <div class="card" id="lookupCard">
+    <label for="phoneInput">Your phone number</label>
+    <input id="phoneInput" type="tel" placeholder="+1 555 555 5555">
+    <button id="checkBtn" class="btn">Check</button>
+  </div>
+
+  <div id="resultArea">
+    <!-- filled in by JS -->
+  </div>
+</div>
+
+<footer>
+  <a href="/terms">Terms</a> &middot; <a href="/contact">Contact</a>
+</footer>
+
+<script>
+document.getElementById('checkBtn').addEventListener('click', async () => {
+  const phone = document.getElementById('phoneInput').value.trim();
+  const btn = document.getElementById('checkBtn');
+  if (!phone) return;
+
+  btn.textContent = 'Checking...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/check-if-smacked', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({phone: phone})
+    });
+    const data = await resp.json();
+    showResult(data);
+  } catch (err) {
+    showResult({found: false});
+  } finally {
+    btn.textContent = 'Check';
+    btn.disabled = false;
+  }
+});
+
+function showResult(data) {
+  document.getElementById('lookupCard').style.display = 'none';
+  const resultArea = document.getElementById('resultArea');
+  resultArea.style.display = 'block';
+
+  if (!data.found) {
+    resultArea.innerHTML = `
+      <p class="result-title">Nothing found</p>
+      <p class="result-body">No delivered smack matches that number — could've been sent from a different number, or maybe you're just in the clear.</p>
+      <a href="/send-a-smack" class="btn-secondary">Send one yourself instead</a>
+    `;
+  } else if (data.reply_eligible) {
+    const params = new URLSearchParams({recipient_phone: data.sender_phone});
+    resultArea.innerHTML = `
+      <p class="result-title">Yep. You got smacked.</p>
+      <p class="result-body">And they're okay with getting one back. Time to even the score.</p>
+      <a href="/send-a-smack?${params.toString()}" class="btn-secondary">Send a reply smack</a>
+    `;
+  } else {
+    resultArea.innerHTML = `
+      <p class="result-title">Yep. You got smacked.</p>
+      <p class="result-body">Whoever sent it didn't open themselves up to a reply this time — but nothing's stopping you from starting your own.</p>
+      <a href="/send-a-smack" class="btn-secondary">Send your own smack</a>
+    `;
+  }
+}
+
+document.getElementById('phoneInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('checkBtn').click();
+});
+</script>
+</body>
+</html>

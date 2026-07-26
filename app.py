@@ -84,6 +84,8 @@ def create_order():
         consent_confirmed=True,
         price_cents=price,
         includes_recording=data.get("include_recording", True),
+        reply_opt_in=bool(data.get("reply_opt_in")),
+        sender_phone=data.get("sender_phone") if data.get("reply_opt_in") else None,
     )
     db.session.add(order)
     db.session.commit()  # commit first so order.id exists for the checkout metadata
@@ -383,6 +385,52 @@ def contact_page():
     return render_template("contact.html")
 
 
+@app.route("/did-you-get-smacked")
+def did_you_get_smacked_page():
+    return render_template("did_you_get_smacked.html")
+
+
+@app.route("/api/check-if-smacked", methods=["POST"])
+def check_if_smacked():
+    """
+    "Did you just get smacked?" lookup — someone enters the number that
+    received a call, and we check whether a real delivered smackagram
+    exists for it. Digit-only comparison so formatting differences
+    (+1, dashes, spaces, parens) don't cause false misses.
+
+    Only returns reply-eligible results — the sender must have opted in
+    at checkout and given their own number. A match that exists but wasn't
+    opted in still confirms "yes you were smacked" without exposing any
+    path back to the sender.
+    """
+    data = request.json
+    raw_phone = data.get("phone", "")
+    digits = "".join(c for c in raw_phone if c.isdigit())
+    if len(digits) < 10:
+        return jsonify({"error": "Enter a valid phone number"}), 400
+
+    def matches(stored_phone):
+        return stored_phone and "".join(c for c in stored_phone if c.isdigit()).endswith(digits[-10:])
+
+    # Check instant orders (delivered) and Locked & Loaded smackagrams (fired)
+    delivered_orders = Order.query.filter_by(call_status="delivered").order_by(Order.created_at.desc()).all()
+    fired_smackagrams = Smackagram.query.filter_by(status="fired").order_by(Smackagram.created_at.desc()).all()
+
+    match = None
+    for record in delivered_orders + fired_smackagrams:
+        if matches(record.recipient_phone):
+            match = record
+            break
+
+    if not match:
+        return jsonify({"found": False})
+
+    if match.reply_opt_in and match.sender_phone:
+        return jsonify({"found": True, "reply_eligible": True, "sender_phone": match.sender_phone})
+
+    return jsonify({"found": True, "reply_eligible": False})
+
+
 @app.route("/locked-n-loaded/success")
 def locked_n_loaded_success():
     session_id = request.args.get("session_id")
@@ -453,6 +501,8 @@ def arm_smackagram():
         recipient_name=data["recipient_name"],
         recipient_phone=data["recipient_phone"],
         consent_confirmed=True,
+        reply_opt_in=bool(data.get("reply_opt_in")),
+        sender_phone=data.get("sender_phone") if data.get("reply_opt_in") else None,
     )
     db.session.add(smackagram)
     db.session.commit()  # commit first so smackagram.id exists for the checkout metadata

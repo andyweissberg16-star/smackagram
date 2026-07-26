@@ -321,6 +321,17 @@
     <input id="recipientPhoneLL" type="tel" placeholder="+1 555 555 5555">
 
     <div class="consent-box">
+      <label class="consent-row">
+        <input id="replyOptInLL" type="checkbox">
+        <span>If they want to smack you back, let them. I'm okay with receiving a reply.</span>
+      </label>
+      <div id="replyPhoneRowLL" style="display:none; margin-top:10px;">
+        <label for="senderPhoneLL">Your phone number (only used if they reply)</label>
+        <input id="senderPhoneLL" type="tel" placeholder="+1 555 555 5555">
+      </div>
+    </div>
+
+    <div class="consent-box">
       <label class="consent-row" id="ageConfirmRowLL" style="display:none;">
         <input id="ageConfirmLL" type="checkbox">
         <span>I confirm the recipient is 18 years of age or older.</span>
@@ -679,6 +690,10 @@ document.getElementById('voiceSampleBtnLL').addEventListener('click', async () =
   }
 });
 
+document.getElementById('replyOptInLL').addEventListener('change', (e) => {
+  document.getElementById('replyPhoneRowLL').style.display = e.target.checked ? 'block' : 'none';
+});
+
 document.getElementById('armBtn').addEventListener('click', async () => {
   hideError();
 
@@ -694,10 +709,16 @@ document.getElementById('armBtn').addEventListener('click', async () => {
   const recipientPhone = document.getElementById('recipientPhoneLL').value.trim();
   const consent = document.getElementById('consentLL').checked;
   const termsAgree = document.getElementById('termsAgreeLL').checked;
+  const replyOptIn = document.getElementById('replyOptInLL').checked;
+  const senderPhone = document.getElementById('senderPhoneLL').value.trim();
   const ageRow = document.getElementById('ageConfirmRowLL');
   const ageConfirmed = document.getElementById('ageConfirmLL').checked;
   if (!recipientName || !recipientPhone) {
     showError('Fill in the recipient\'s name and phone number.');
+    return;
+  }
+  if (replyOptIn && !senderPhone) {
+    showError('Please enter your number, or uncheck the reply option.');
     return;
   }
   if (ageRow.style.display !== 'none' && !ageConfirmed) {
@@ -735,6 +756,8 @@ document.getElementById('armBtn').addEventListener('click', async () => {
         recipient_name: recipientName,
         recipient_phone: recipientPhone,
         consent_confirmed: true,
+        reply_opt_in: replyOptIn,
+        sender_phone: senderPhone,
       })
     });
     const data = await resp.json();

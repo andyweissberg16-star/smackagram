@@ -28,6 +28,12 @@ class Order(db.Model):
     recipient_phone = db.Column(db.String(20))
     consent_confirmed = db.Column(db.Boolean, default=False)
 
+    # "Did you just get smacked?" reply flow — opt-in only. If the buyer
+    # agrees to receive a reply smack, we store their own number here;
+    # otherwise this stays null and no reply is possible for this order.
+    sender_phone = db.Column(db.String(20), nullable=True)
+    reply_opt_in = db.Column(db.Boolean, default=False)
+
     price_cents = db.Column(db.Integer, default=200)     # $2 bundle default, $1 call-only option
     includes_recording = db.Column(db.Boolean, default=True)
 
@@ -68,6 +74,10 @@ class Smackagram(db.Model):
     recipient_name = db.Column(db.String(120))
     recipient_phone = db.Column(db.String(20))
     consent_confirmed = db.Column(db.Boolean, default=False)
+
+    # Same reply opt-in as Order — see comment there.
+    sender_phone = db.Column(db.String(20), nullable=True)
+    reply_opt_in = db.Column(db.Boolean, default=False)
 
     price_cents = db.Column(db.Integer, default=200)
 
