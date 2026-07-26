@@ -31,13 +31,22 @@ def _to_e164(number: str) -> str:
 def place_prank_call(order_or_smackagram_id: int, recipient_phone: str, record: bool = True) -> str:
     """
     Fires the actual outbound call. Twilio hits our /call-instructions
-    endpoint the moment the call connects, which returns the TwiML script.
+    endpoint the moment it's actually safe to start talking — see
+    machine_detection below — which returns the TwiML script.
     Returns the Twilio call SID for tracking.
 
-    Kept intentionally minimal — record/status_callback/machine_detection at
-    call-creation time all hit "trial accounts have limited parameter access"
-    errors. Recording instead happens via <Record> inside the TwiML script
-    itself (see build_twiml), which trial accounts do support.
+    machine_detection='DetectMessageEnd': makes this SYNCHRONOUS — Twilio
+    delays requesting our /call-instructions URL until it has determined
+    whether a human or an answering machine picked up, and specifically
+    (with DetectMessageEnd) waits until the machine's greeting has
+    actually finished — right around when the beep happens — before
+    fetching our instructions. This is what makes the message start after
+    the beep instead of during the greeting, where a voicemail box
+    wouldn't even be recording it yet.
+
+    This previously wasn't set because the Twilio account was on the
+    trial tier, which restricts this parameter — now that it's a real
+    paid account, this works correctly.
     """
     base_url = os.environ["BASE_URL"]
     to_number = _to_e164(recipient_phone)
@@ -50,6 +59,7 @@ def place_prank_call(order_or_smackagram_id: int, recipient_phone: str, record: 
         from_=from_number,
         url=f"{base_url}/call-instructions/{order_or_smackagram_id}",
         time_limit=59,  # hard cap on total call duration, enforced by Twilio itself
+        machine_detection="DetectMessageEnd",
     )
     return call.sid
 

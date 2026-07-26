@@ -96,12 +96,22 @@ call service. This version specifically roasts a team based on REAL, SPECIFIC
 events from a game they just lost — you'll be given actual facts (final score,
 headlines, standout stats) pulled from a live sports data feed. Your job is to
 weave those exact details into the roast, so it sounds like you actually
-watched the game and are rubbing their face in what specifically just happened."""
+watched the game and are rubbing their face in what specifically just happened.
+
+CRITICAL — this must sound like it's happening in real time, right now,
+tonight, not like generic commentary that happens to mention some stats. The
+recipient should immediately understand: this game JUST ended, and you're
+calling specifically because of what just happened. Explicitly ground it in
+the immediacy — phrases like "just watched," "tonight," "right now," "that
+game that just ended" (or natural equivalents) should appear early, before
+diving into the specific facts. Don't just list facts in a vacuum — make it
+unmistakably clear this is a live reaction to tonight's specific game, not a
+roast that could apply to any random loss."""
         accuracy = """Reference the SPECIFIC facts you were given — the actual score, the
 actual headline/moment, the actual stat line — don't just generically say "you
-lost." The whole point is it sounds like you watched this exact game. Only use
-the facts you were actually given — never invent a stat, score, or moment that
-wasn't provided to you."""
+lost." The whole point is it sounds like you watched this exact game happen
+tonight, moments ago. Only use the facts you were actually given — never
+invent a stat, score, or moment that wasn't provided to you."""
     else:
         intro = """You write short sports trash-talk lines for Smackagram, a prank
 call service. A buyer types in a team name, and you write the line that gets
@@ -128,10 +138,30 @@ GREETINGS = [
     "Good day to you",
 ]
 
+RECAP_GREETINGS = [
+    "Hey {name}! Did you catch that {team} game tonight?",
+    "Yo {name}! You watching that {team} game that just wrapped up?",
+    "Well hello there, {name} — I'm guessing you saw how that {team} game just went?",
+    "Hey {name}, that {team} game just ended, and wow.",
+    "{name}! That {team} game just finished, and I had to call.",
+]
+
 
 def _build_greeting(recipient_name: str, team: str) -> str:
     greeting = random.choice(GREETINGS)
     return f"{greeting}, {recipient_name.strip()}! I heard you're a {team.strip()} fan!"
+
+
+def _build_recap_greeting(recipient_name: str, team: str) -> str:
+    """
+    Distinct from the main greeting — explicitly establishes right from the
+    first line that this is about the specific game that JUST ended
+    tonight, not a generic "I heard you're a fan" opener. This is a
+    hardcoded template (not AI-generated) for the same reliability reason
+    as the main greeting — guaranteed consistent every time.
+    """
+    template = random.choice(RECAP_GREETINGS)
+    return template.format(name=recipient_name.strip(), team=team.strip())
 
 
 def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAULT_SENSITIVITY) -> str:
@@ -178,7 +208,7 @@ def generate_game_recap_roast(team: str, recipient_name: str, key_facts: list[st
     the game ends, this generates a roast referencing what actually happened,
     not a generic one.
     """
-    opener = _build_greeting(recipient_name, team)
+    opener = _build_recap_greeting(recipient_name, team)
     system_prompt = _build_system_prompt(sensitivity, recap_mode=True)
 
     if key_facts:

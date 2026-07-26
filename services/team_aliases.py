@@ -79,7 +79,7 @@ TEAM_ALIASES = {
         "BAL": ["baltimore", "orioles", "baltimore orioles"],
         "BOS": ["boston", "red sox", "boston red sox"],
         "CHC": ["chicago cubs", "cubs"],
-        "CWS": ["chicago white sox", "white sox"],
+        "CHW": ["chicago white sox", "white sox"],
         "CIN": ["cincinnati", "reds", "cincinnati reds"],
         "CLE": ["cleveland", "guardians", "cleveland guardians"],
         "COL": ["colorado", "rockies", "colorado rockies"],
@@ -148,6 +148,9 @@ def matches_search(sport: str, team_code: str, query: str) -> bool:
     plus every known alias (city, nickname, full name) for that sport.
     Falls back to a plain substring match against the code for leagues
     without an alias table (college sports, soccer, etc.).
+
+    Tolerant of missing spaces (e.g. "whitesox" still matches the "white
+    sox" alias) since that's a very natural way for someone to type it.
     """
     query = query.strip().lower()
     if not query:
@@ -157,7 +160,12 @@ def matches_search(sport: str, team_code: str, query: str) -> bool:
         return True
 
     aliases = TEAM_ALIASES.get(sport, {}).get(team_code, [])
-    return any(query in alias for alias in aliases)
+    if any(query in alias for alias in aliases):
+        return True
+
+    # space-insensitive fallback — catches "whitesox" against "white sox"
+    query_no_spaces = query.replace(" ", "")
+    return any(query_no_spaces in alias.replace(" ", "") for alias in aliases)
 
 
 # Properly-capitalized nickname for display purposes — SportsDataIO's raw
@@ -187,7 +195,7 @@ DISPLAY_NAMES = {
     },
     "mlb": {
         "ARI": "Diamondbacks", "ATL": "Braves", "BAL": "Orioles", "BOS": "Red Sox",
-        "CHC": "Cubs", "CWS": "White Sox", "CIN": "Reds", "CLE": "Guardians",
+        "CHC": "Cubs", "CHW": "White Sox", "CIN": "Reds", "CLE": "Guardians",
         "COL": "Rockies", "DET": "Tigers", "HOU": "Astros", "KC": "Royals",
         "LAA": "Angels", "LAD": "Dodgers", "MIA": "Marlins", "MIL": "Brewers",
         "MIN": "Twins", "NYM": "Mets", "NYY": "Yankees", "OAK": "Athletics",

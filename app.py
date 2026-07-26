@@ -5,7 +5,7 @@ from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
 
 from models import db, Scenario, Order, Smackagram
-from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation
+from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases
 from scheduler import check_armed_smackagrams
 
 load_dotenv()
@@ -248,6 +248,14 @@ def call_instructions(record_id):
     """
     order = Order.query.get(record_id) or Smackagram.query.get(record_id)
 
+    # With machine_detection='DetectMessageEnd' set at call-creation time,
+    # Twilio only requests this route once it's determined who/what
+    # answered — logging this confirms the timing fix is actually working
+    # (e.g. "machine_end_beep" means we're being asked to speak right
+    # after the voicemail's greeting ended, exactly when we want to).
+    answered_by = request.values.get("AnsweredBy")
+    print(f"[twilio] call-instructions hit for record {record_id} — AnsweredBy={answered_by!r}")
+
     # fall back to live resolution only if somehow nothing was pre-cached
     # (e.g. this route got hit directly without going through the webhook)
     audio_urls = _pending_call_audio.pop(record_id, None) or call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")))
@@ -418,6 +426,46 @@ def cron_check_smackagrams():
 
     check_armed_smackagrams()
     return jsonify({"ok": True})
+
+
+@app.route("/api/admin/check-team-codes")
+def admin_check_team_codes():
+    """
+    One-time diagnostic tool — pulls SportsDataIO's real Teams list for a
+    sport and compares it against our hand-built DISPLAY_NAMES table in
+    team_aliases.py, directly flagging any team whose real code doesn't
+    match what we have on file (exactly the class of bug that broke the
+    White Sox: filed under "CWS" when SportsDataIO actually uses "CHW").
+
+    ?sport=mlb|nfl|nba|nhl&key=... (same secret as the cron endpoint)
+    Not linked from anywhere in the UI — visit directly to run it.
+    """
+    provided_key = request.args.get("key", "")
+    expected_key = os.environ.get("CRON_SECRET", "")
+    if not expected_key or provided_key != expected_key:
+        return jsonify({"error": "unauthorized"}), 401
+
+    sport = request.args.get("sport", "mlb")
+    teams = sports_service.get_all_teams(sport)
+
+    our_table = team_aliases.DISPLAY_NAMES.get(sport, {})
+    real_codes = {}
+    for t in teams:
+        code = t.get("Key") or t.get("Abbreviation")
+        name = t.get("Name") or t.get("City")
+        if code:
+            real_codes[code] = name
+
+    missing_from_our_table = {code: name for code, name in real_codes.items() if code not in our_table}
+    in_our_table_but_not_real = {code: name for code, name in our_table.items() if code not in real_codes}
+
+    return jsonify({
+        "sport": sport,
+        "real_team_count": len(real_codes),
+        "our_table_count": len(our_table),
+        "MISMATCHES_missing_from_our_table": missing_from_our_table,
+        "MISMATCHES_in_our_table_but_code_not_real": in_our_table_but_not_real,
+    })
 
 
 with app.app_context():

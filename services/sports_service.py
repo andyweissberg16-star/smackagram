@@ -321,3 +321,20 @@ def get_game_summary(game_id: str, sport: str = "nfl") -> dict:
             return {"key_facts": key_facts}
 
     return {"key_facts": key_facts}
+
+
+def get_all_teams(sport: str) -> list[dict]:
+    """
+    Pulls SportsDataIO's Teams reference endpoint — the ground-truth list
+    of every real team code + name for a sport. Not used anywhere in the
+    live app; exists purely as a one-time validation tool to check our
+    hand-built TEAM_ALIASES/DISPLAY_NAMES tables (in team_aliases.py)
+    against SportsDataIO's actual codes, since a mismatch there (like the
+    White Sox being filed under "CWS" when SportsDataIO actually uses
+    "CHW") silently breaks search/display for that team with no error.
+    """
+    path = SPORT_PATHS[sport]
+    url = f"{BASE}/{path}/scores/json/Teams"
+    resp = requests.get(url, params={"key": _api_key()}, timeout=15)
+    resp.raise_for_status()
+    return resp.json()
