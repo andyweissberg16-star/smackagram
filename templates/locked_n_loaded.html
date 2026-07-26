@@ -432,7 +432,10 @@ async function searchGames(sport, teamQuery) {
 
   listEl.innerHTML = '<p class="game-empty">Searching...</p>';
   try {
-    const resp = await fetch(`/api/games/upcoming?sport=${sport}&team=${encodeURIComponent(teamQuery)}`);
+    // _ts cache-busts every request — belt-and-suspenders alongside the
+    // server's no-store header, so a live score can never be served from
+    // a stale cached copy at any layer.
+    const resp = await fetch(`/api/games/upcoming?sport=${sport}&team=${encodeURIComponent(teamQuery)}&_ts=${Date.now()}`);
     const games = await resp.json();
 
     // Discard this response if a newer search has been issued since —

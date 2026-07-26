@@ -296,7 +296,13 @@ def upcoming_games():
     """Powers the game picker — only games within 48h. ?sport=nfl|nba|mlb|nhl|ncaaf&team=yankees"""
     sport = request.args.get("sport", "nfl")
     team_query = request.args.get("team", "").strip() or None
-    return jsonify(sports_service.get_upcoming_games(sport=sport, hours_ahead=48, team_query=team_query))
+    resp = jsonify(sports_service.get_upcoming_games(sport=sport, hours_ahead=48, team_query=team_query))
+    # Explicitly forbid caching — this powers live scores, and a cached
+    # response (even briefly) would show a stale score during a live game,
+    # since the browser might otherwise reuse an identical prior request
+    # instead of hitting the server again on every auto-refresh.
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    return resp
 
 
 @app.route("/api/smackagrams", methods=["POST"])
