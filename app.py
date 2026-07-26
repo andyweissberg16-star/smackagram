@@ -216,6 +216,32 @@ def smack_lab_respond():
     return jsonify(result)
 
 
+@app.route("/api/smack-lab/verdict", methods=["POST"])
+def smack_lab_verdict():
+    """
+    Delivers the session-ending report card after 5 rounds of Smack Lab —
+    same rate limit as the main respond endpoint since it's still a real
+    Claude API call on a free feature.
+    """
+    identifier = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if rate_limiter.is_rate_limited(identifier):
+        return jsonify({
+            "error": "You've hit the free Smack Lab limit for now. Take a breather and come back in a bit."
+        }), 429
+
+    data = request.json
+    team = data.get("team", "").strip()
+    average_rating = data.get("average_rating")
+    session_lines = data.get("session_lines", [])
+
+    if not team or average_rating is None or not session_lines:
+        return jsonify({"error": "Missing session data for verdict"}), 400
+
+    verdict = trash_talk_service.smack_lab_final_verdict(team=team, average_rating=float(average_rating), session_lines=session_lines)
+    rate_limiter.record_hit(identifier)
+    return jsonify({"verdict": verdict})
+
+
 @app.route("/api/voice-options")
 def get_voice_options():
     return jsonify(voice_options.list_voice_options())

@@ -306,3 +306,57 @@ def smack_lab_respond(team: str, conversation_history: list[dict], user_line: st
             "critique": "Couldn't quite parse that one — try again with a fresh line.",
             "comeback": f"Come on, is that really the best you've got against {team}?",
         }
+
+
+SMACK_LAB_VERDICT_SYSTEM_PROMPT = """You are the "Smack Lab" coach on
+Smackagram, delivering a FINAL VERDICT after a full session of trash-talk
+sparring. You've been rating this person's lines for a whole session, and
+now it's time for the report card moment.
+
+You'll be given their average rating out of 10 across the session, plus
+the actual lines they threw. Calibrate your tone genuinely to that number:
+- High average (7+): genuinely impressed, hype them up, tell them they're
+  actually ready to send real smacks
+- Middle average (4-6.9): backhanded, "not bad but not great" energy —
+  mix real compliments with real criticism
+- Low average (under 4): brutal, no mercy, roast their performance itself
+  (their WRITING/DELIVERY, never them as a person)
+
+Reference specific things from their actual lines in the session — this
+should feel like a real coach who was actually paying attention the whole
+time, not a generic score readout.
+
+Tone: same savage, crude, aggressive energy as the rest of Smack Lab —
+swear confidently, go hard, be genuinely funny either way.
+
+Hard limits — never cross these:
+- Only critique their WRITING/DELIVERY — never them as a person, never
+  invent personal details about them.
+- No slurs, no hate speech, no threats, no protected-characteristic content.
+
+Respond with ONLY the verdict text itself — 3-5 sentences, no JSON, no
+preamble, no labels. Just the verdict, ready to display as-is."""
+
+
+def smack_lab_final_verdict(team: str, average_rating: float, session_lines: list[str]) -> str:
+    """
+    Delivers a session-ending report card after 5 rounds of Smack Lab —
+    genuinely praises a strong average, brutally roasts a weak one,
+    referencing the actual lines thrown rather than just reading out a
+    number. This is the "payoff" moment the whole session builds toward.
+    """
+    lines_block = "\n".join(f"{i+1}. {line}" for i, line in enumerate(session_lines))
+    user_content = (
+        f"Team being roasted this session: {team}\n"
+        f"Average rating across the session: {average_rating:.1f}/10\n\n"
+        f"Their lines this session:\n{lines_block}\n\n"
+        f"Deliver the final verdict."
+    )
+
+    message = _get_client().messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=250,
+        system=SMACK_LAB_VERDICT_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": user_content}],
+    )
+    return message.content[0].text.strip()

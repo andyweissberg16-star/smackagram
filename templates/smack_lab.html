@@ -141,6 +141,10 @@
 
   <div id="labSection">
     <div class="card">
+      <div id="avgTracker" style="display:none; margin-bottom:14px; padding:10px 14px; background:var(--ink); border:1px solid var(--line-strong); border-radius:2px; align-items:center; justify-content:space-between;">
+        <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px;">Session average</span>
+        <span id="avgValue" style="font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px; color:var(--gold);">—</span>
+      </div>
       <div class="chat-log" id="chatLog">
         <div class="empty-state">Throw your first line below — the coach is waiting.</div>
       </div>
@@ -161,6 +165,9 @@
 let currentTeam = '';
 let currentRecipient = '';
 let conversationHistory = [];
+let ratingHistory = [];
+let sessionLines = [];
+const VERDICT_MILESTONE = 5;
 
 document.getElementById('startBtn').addEventListener('click', () => {
   const team = document.getElementById('teamInput').value.trim();
@@ -171,6 +178,9 @@ document.getElementById('startBtn').addEventListener('click', () => {
   currentTeam = team;
   currentRecipient = document.getElementById('recipientInput').value.trim();
   conversationHistory = [];
+  ratingHistory = [];
+  sessionLines = [];
+  updateAverageDisplay();
 
   document.getElementById('setupSection').style.display = 'none';
   document.getElementById('labSection').style.display = 'block';
@@ -268,6 +278,14 @@ async function sendLine() {
       appendAiMessage(data);
       conversationHistory.push({role: 'user', content: `Team you're a rival fan of: ${currentTeam}\n\nThe user's latest line: ${line}`});
       conversationHistory.push({role: 'assistant', content: JSON.stringify(data)});
+
+      ratingHistory.push(data.rating);
+      sessionLines.push(line);
+      updateAverageDisplay();
+
+      if (ratingHistory.length > 0 && ratingHistory.length % VERDICT_MILESTONE === 0) {
+        await fetchAndShowVerdict();
+      }
     }
   } catch (err) {
     typing.remove();
@@ -278,6 +296,58 @@ async function sendLine() {
   } finally {
     sendBtn.disabled = false;
     input.focus();
+  }
+}
+
+function updateAverageDisplay() {
+  const tracker = document.getElementById('avgTracker');
+  const valueEl = document.getElementById('avgValue');
+  if (ratingHistory.length === 0) {
+    tracker.style.display = 'none';
+    return;
+  }
+  const avg = ratingHistory.reduce((a, b) => a + b, 0) / ratingHistory.length;
+  tracker.style.display = 'flex';
+  valueEl.textContent = `${avg.toFixed(1)}/10 (${ratingHistory.length} line${ratingHistory.length === 1 ? '' : 's'})`;
+}
+
+async function fetchAndShowVerdict() {
+  const log = document.getElementById('chatLog');
+  const typing = document.createElement('div');
+  typing.className = 'typing-indicator';
+  typing.textContent = 'Coach is putting together your report card...';
+  log.appendChild(typing);
+  log.scrollTop = log.scrollHeight;
+
+  const avg = ratingHistory.reduce((a, b) => a + b, 0) / ratingHistory.length;
+
+  try {
+    const resp = await fetch('/api/smack-lab/verdict', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        team: currentTeam,
+        average_rating: avg,
+        session_lines: sessionLines,
+      })
+    });
+    const data = await resp.json();
+    typing.remove();
+
+    if (data.verdict) {
+      const div = document.createElement('div');
+      div.className = 'msg-ai';
+      div.innerHTML = `
+        <div class="comeback-block" style="border-left-color:var(--gold);">
+          <span class="comeback-label" style="color:var(--gold);">Session verdict — ${avg.toFixed(1)}/10 average</span>
+          <div class="comeback">${escapeHtml(data.verdict)}</div>
+        </div>
+      `;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+    }
+  } catch (err) {
+    typing.remove();
   }
 }
 
