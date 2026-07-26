@@ -405,7 +405,10 @@ function renderGameOption(g) {
         </div>
       </div>`;
   } else {
-    const kickoff = new Date(g.start_time).toLocaleString(undefined, {weekday:'short', hour:'numeric', minute:'2-digit', timeZoneName:'short'});
+    // Always display Eastern time, regardless of the viewer's own
+    // timezone — sports schedules are conventionally shown in ET no
+    // matter where the fan watching happens to be.
+    const kickoff = new Date(g.start_time).toLocaleString('en-US', {timeZone: 'America/New_York', weekday:'short', hour:'numeric', minute:'2-digit', timeZoneName:'short'});
     el.innerHTML = `<div><div class="matchup">${g.away_team} @ ${g.home_team}</div><div class="kickoff">${kickoff}</div></div>`;
   }
 

@@ -1,7 +1,21 @@
 import os
 import requests
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from services import team_aliases
+
+# US sports leagues organize games by the date they're played in US time,
+# not UTC. Using raw UTC "today" caused a real bug: in the evening on the
+# US east coast (after ~8PM EDT / 7PM EST), it's already past midnight
+# UTC, so UTC "today" is actually tomorrow relative to the US — meaning
+# live games happening RIGHT NOW would silently vanish from search
+# results, since the wrong date bucket was being queried entirely.
+_US_EASTERN = ZoneInfo("America/New_York")
+
+
+def _today_us_eastern():
+    return datetime.now(_US_EASTERN).date()
+
 
 # SportsDataIO — paid, documented, SLA-backed sports data provider.
 # Replaces the earlier free ESPN integration, which worked but was
@@ -78,7 +92,7 @@ def get_upcoming_games(sport: str = "nfl", hours_ahead: int = 48, team_query: st
     actual kickoff time.
     """
     cutoff = datetime.now(timezone.utc) + timedelta(hours=hours_ahead)
-    today = datetime.now(timezone.utc).date()
+    today = _today_us_eastern()
     dates_to_check = [today, today + timedelta(days=1), today + timedelta(days=2)]
 
     games = []
@@ -166,7 +180,7 @@ def get_game_result(game_id: str, sport: str = "nfl") -> dict | None:
     # SportsDataIO doesn't have a simple "get one game by ID" for every
     # sport, so we pull today's (and yesterday's, in case it's a late game
     # that finished after midnight UTC) slate and find the matching game.
-    today = datetime.now(timezone.utc).date()
+    today = _today_us_eastern()
     for d in [today, today - timedelta(days=1)]:
         date_str = d.strftime("%Y-%b-%d").upper()
         try:
@@ -233,7 +247,7 @@ def get_game_summary(game_id: str, sport: str = "nfl") -> dict:
     Returns a dict with a "key_facts" list of plain-English strings ready
     to hand to the trash talk generator.
     """
-    today = datetime.now(timezone.utc).date()
+    today = _today_us_eastern()
     key_facts = []
 
     for d in [today, today - timedelta(days=1)]:
