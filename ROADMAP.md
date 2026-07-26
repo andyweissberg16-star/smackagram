@@ -230,5 +230,51 @@ nothing to build:
 - [ ] Social media pages across all platforms, linked back to the site
 - [ ] Promo codes for new customers / general promotions
 
+## Smack Inbox — evolving "Did You Get Smacked?" into a real history page
+Currently a one-time lookup with a real bug: once someone replies, the
+same original smack still shows as reply-eligible forever (no "already
+replied" state exists). Rather than a narrow bugfix, the plan is to
+rebuild this as an actual inbox tied to a phone number — a real precursor
+to what a full account/profile page should eventually look like.
+
+**The core bug to fix (do this regardless of the bigger rebuild):**
+- [ ] Once a reply is actually placed against a reply_token, that token
+      needs to be invalidated/marked used — a "replied" flag or clearing
+      the token after use — so the same original smack can't be replied
+      to a second time. Keeps this feature distinct from the separate
+      "Smack Battles" roadmap idea, which is meant for people who
+      actually want an extended back-and-forth.
+
+**The inbox vision:**
+- [ ] `/did-you-get-smacked` becomes a real list view for a phone number
+      — every smack ever received, newest first, clearly marked
+      **New** vs **Replied**
+- [ ] Unreplied items work as they do today — instant replay + reply option
+- [ ] Replied items become a link into a **conversation view** — both the
+      original message and the reply, each with their own real persisted
+      audio (see message_audio_url work already done), playable forever
+- [ ] Needs a new explicit link between a reply Order and the original
+      smack it replied to — doesn't exist yet, the two records are
+      currently unconnected once a reply is placed
+
+**Security — phone verification before showing inbox contents:**
+- [ ] Not needed for the simple bugfix, but required before building the
+      real inbox. Right now anyone can type in *any* number and see "did
+      they get smacked" — fine for a one-time yes/no check, but a much
+      bigger deal once it shows a full history. Needs some lightweight
+      ownership verification (e.g., a one-time code texted to that
+      number) before revealing inbox contents. Real added friction, but
+      necessary once there's a real history to protect.
+
+**Other open questions, not yet resolved:**
+- [ ] Should the original sender get any notification that their smack
+      got a reply? Currently the only way they find out is by literally
+      receiving the reply call. Hard to do well without a persistent
+      identity/account system to notify against.
+- [ ] This inbox is explicitly the seed of a real profile/account history
+      page — worth building it in a way that could later just become
+      "your profile" once Postgres + accounts exist, rather than as a
+      fully separate, throwaway system.
+
 ---
 *Last updated: 2026-07-26*
