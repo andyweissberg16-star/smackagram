@@ -249,19 +249,15 @@ document.addEventListener('DOMContentLoaded', () => {
 // Pre-fill when arriving from Smack Lab's "Lock this in" or the home
 // page's mini generator card — team/recipient/message passed as URL
 // params so nothing typed elsewhere gets lost.
-let prefilledRecipientPhone = null;
-
 (function prefillFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const team = params.get('team');
   const recipientName = params.get('recipient_name');
   const message = params.get('message');
-  const recipientPhone = params.get('recipient_phone');
 
   if (team) document.getElementById('teamInput').value = team;
   if (recipientName) document.getElementById('recipientNameInput').value = recipientName;
   if (message) document.getElementById('trashTalkOutput').value = message;
-  if (recipientPhone) prefilledRecipientPhone = recipientPhone;
 })();
 
 let selectedSensitivity = 4;
@@ -507,9 +503,6 @@ function openOrderModal(priceCents) {
   const orderVoiceSelect = document.getElementById('orderVoice');
   if (orderVoiceSelect.options.length && generatorVoice) {
     orderVoiceSelect.value = generatorVoice;
-  }
-  if (prefilledRecipientPhone) {
-    document.getElementById('orderRecipientPhone').value = prefilledRecipientPhone;
   }
 
   // 18+ confirmation only applies above "Clean" — Clean-level content

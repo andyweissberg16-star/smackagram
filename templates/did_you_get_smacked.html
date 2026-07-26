@@ -128,11 +128,10 @@ function showResult(data) {
       <a href="/send-a-smack" class="btn-secondary">Send one yourself instead</a>
     `;
   } else if (data.reply_eligible) {
-    const params = new URLSearchParams({recipient_phone: data.sender_phone});
     resultArea.innerHTML = `
       <p class="result-title">Yep. You got smacked.</p>
       <p class="result-body">And they're okay with getting one back. Time to even the score.</p>
-      <a href="/send-a-smack?${params.toString()}" class="btn-secondary">Send a reply smack</a>
+      <a href="/reply/${data.reply_token}" class="btn-secondary">Send a reply smack</a>
     `;
   } else {
     resultArea.innerHTML = `

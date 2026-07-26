@@ -1,4 +1,5 @@
 import os
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from flask import Flask, render_template, request, jsonify, Response
@@ -86,6 +87,7 @@ def create_order():
         includes_recording=data.get("include_recording", True),
         reply_opt_in=bool(data.get("reply_opt_in")),
         sender_phone=data.get("sender_phone") if data.get("reply_opt_in") else None,
+        reply_token=secrets.token_urlsafe(24) if data.get("reply_opt_in") else None,
     )
     db.session.add(order)
     db.session.commit()  # commit first so order.id exists for the checkout metadata
@@ -150,6 +152,7 @@ def stripe_webhook():
             try:
                 audio_urls = call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")))
                 _pending_call_audio[order.id] = audio_urls
+                order.message_audio_url = audio_urls[0]  # persist for reply-flow "hear it again" replay
                 call_sid = twilio_service.place_prank_call(order.id, order.recipient_phone, record=True)
                 order.twilio_call_sid = call_sid
                 order.call_status = "ringing"
@@ -390,6 +393,11 @@ def did_you_get_smacked_page():
     return render_template("did_you_get_smacked.html")
 
 
+@app.route("/reply/<token>")
+def reply_page(token):
+    return render_template("reply.html", reply_token=token)
+
+
 @app.route("/api/check-if-smacked", methods=["POST"])
 def check_if_smacked():
     """
@@ -431,10 +439,105 @@ def check_if_smacked():
     if not match:
         return jsonify({"found": False})
 
-    if match.reply_opt_in and match.sender_phone:
-        return jsonify({"found": True, "reply_eligible": True, "sender_phone": match.sender_phone})
+    # Critical: never send the actual sender_phone to the browser. The
+    # reply_token is a random, non-guessable reference the reply page can
+    # use instead — the real number only ever gets read server-side, at
+    # the exact moment a reply order is actually being placed.
+    if match.reply_opt_in and match.reply_token:
+        return jsonify({"found": True, "reply_eligible": True, "reply_token": match.reply_token})
 
     return jsonify({"found": True, "reply_eligible": False})
+
+
+def _find_by_reply_token(token):
+    """Shared lookup — checks both Order and Smackagram, same record_id space pattern used elsewhere."""
+    return Order.query.filter_by(reply_token=token).first() or Smackagram.query.filter_by(reply_token=token).first()
+
+
+@app.route("/api/reply-context/<token>")
+def reply_context(token):
+    """
+    Powers the reply page's "instant replay" — the original message text
+    and its actual persisted audio URL, so the person can re-read/re-hear
+    exactly what was sent before crafting a reply. Safe to expose: no
+    phone numbers, no sender identity, just the roast content itself.
+    """
+    record = _find_by_reply_token(token)
+    if not record:
+        return jsonify({"error": "This reply link isn't valid"}), 404
+
+    return jsonify({
+        "original_message": record.custom_message,
+        "message_audio_url": record.message_audio_url,
+    })
+
+
+@app.route("/api/generate-reply-smack", methods=["POST"])
+def generate_reply_smack_route():
+    """
+    AI-assisted comeback — reads the ORIGINAL message server-side (never
+    trusts client-supplied text for this, so someone can't feed it an
+    arbitrary prompt) and generates a reply that actually responds to
+    what was said.
+    """
+    data = request.json
+    token = data.get("reply_token", "")
+    sensitivity = data.get("sensitivity", trash_talk_service.DEFAULT_SENSITIVITY)
+
+    record = _find_by_reply_token(token)
+    if not record or not record.custom_message:
+        return jsonify({"error": "This reply link isn't valid"}), 404
+
+    reply_text = trash_talk_service.generate_reply_smack(record.custom_message, sensitivity=sensitivity)
+    return jsonify({"generated_text": reply_text})
+
+
+@app.route("/api/reply-orders", methods=["POST"])
+def create_reply_order():
+    """
+    Submits the actual reply smack. The real recipient phone number is
+    looked up server-side from the token — it's never part of the request
+    body, so it's never exposed to or trusted from the browser at any
+    point in this flow.
+    """
+    data = request.json
+    token = data.get("reply_token", "")
+
+    original = _find_by_reply_token(token)
+    if not original or not original.sender_phone:
+        return jsonify({"error": "This reply link isn't valid"}), 404
+
+    if not data.get("consent_confirmed"):
+        return jsonify({"error": "Consent confirmation required"}), 400
+
+    custom_message = data.get("custom_message", "")
+    safety = content_moderation.check_message_safety(custom_message)
+    if not safety["safe"]:
+        print(f"[safety] blocked reply order attempt — reason: {safety['reason']}")
+        return jsonify({"error": "This message can't be sent — it may contain threatening, sexual, or harassing content. Please revise it."}), 400
+
+    price = 200 if data.get("include_recording", True) else 100
+    order = Order(
+        custom_message=custom_message,
+        voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
+        recipient_name="Unknown",  # we deliberately never learn/store the original sender's name
+        recipient_phone=original.sender_phone,
+        consent_confirmed=True,
+        price_cents=price,
+        includes_recording=data.get("include_recording", True),
+    )
+    db.session.add(order)
+    db.session.commit()
+
+    session = stripe_service.create_checkout_session(
+        order_id=order.id,
+        amount_cents=price,
+        base_url=os.environ.get("BASE_URL", request.url_root.rstrip("/")),
+    )
+    order.stripe_payment_intent_id = session.id
+    db.session.commit()
+
+    return jsonify({"checkout_url": session.url})
 
 
 @app.route("/locked-n-loaded/success")
@@ -509,6 +612,7 @@ def arm_smackagram():
         consent_confirmed=True,
         reply_opt_in=bool(data.get("reply_opt_in")),
         sender_phone=data.get("sender_phone") if data.get("reply_opt_in") else None,
+        reply_token=secrets.token_urlsafe(24) if data.get("reply_opt_in") else None,
     )
     db.session.add(smackagram)
     db.session.commit()  # commit first so smackagram.id exists for the checkout metadata

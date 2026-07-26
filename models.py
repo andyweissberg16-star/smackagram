@@ -31,8 +31,13 @@ class Order(db.Model):
     # "Did you just get smacked?" reply flow — opt-in only. If the buyer
     # agrees to receive a reply smack, we store their own number here;
     # otherwise this stays null and no reply is possible for this order.
+    # reply_token is what actually gets shown/passed around anywhere a
+    # reply link exists — the raw sender_phone is NEVER sent to the
+    # browser or put in a URL; it only ever gets read server-side, at the
+    # moment the reply is actually being submitted.
     sender_phone = db.Column(db.String(20), nullable=True)
     reply_opt_in = db.Column(db.Boolean, default=False)
+    reply_token = db.Column(db.String(64), nullable=True, unique=True)
 
     price_cents = db.Column(db.Integer, default=200)     # $2 bundle default, $1 call-only option
     includes_recording = db.Column(db.Boolean, default=True)
@@ -43,6 +48,13 @@ class Order(db.Model):
     twilio_call_sid = db.Column(db.String(120), nullable=True)
     call_status = db.Column(db.String(20), default="not_sent")    # not_sent, ringing, delivered, no_answer, failed
     recording_url = db.Column(db.String(500), nullable=True)
+
+    # The actual ElevenLabs-generated message audio URL used for THIS call,
+    # persisted at call-time. Needed for the reply "hear it again" replay —
+    # regenerating later isn't reliable since the S3 key is randomly
+    # generated per-call, not content-based, so a fresh generation would
+    # produce a different file, not the original.
+    message_audio_url = db.Column(db.String(500), nullable=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -78,6 +90,7 @@ class Smackagram(db.Model):
     # Same reply opt-in as Order — see comment there.
     sender_phone = db.Column(db.String(20), nullable=True)
     reply_opt_in = db.Column(db.Boolean, default=False)
+    reply_token = db.Column(db.String(64), nullable=True, unique=True)
 
     price_cents = db.Column(db.Integer, default=200)
 
@@ -90,6 +103,7 @@ class Smackagram(db.Model):
     twilio_call_sid = db.Column(db.String(120), nullable=True)
     call_status = db.Column(db.String(20), nullable=True)  # raw Twilio CallStatus once the call completes
     recording_url = db.Column(db.String(500), nullable=True)
+    message_audio_url = db.Column(db.String(500), nullable=True)  # see comment on Order — same purpose
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     resolved_at = db.Column(db.DateTime, nullable=True)

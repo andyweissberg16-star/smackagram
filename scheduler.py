@@ -90,6 +90,7 @@ def check_armed_smackagrams():
 
                     stripe_service.capture_hold(s.stripe_payment_intent_id)
                     audio_urls = call_audio_service.resolve_audio_url(s, base_url)
+                    s.message_audio_url = audio_urls[0]  # persist for reply-flow "hear it again" replay
                     call_sid = twilio_service.place_prank_call(s.id, s.recipient_phone, record=True)
                     s.twilio_call_sid = call_sid
                     s.status = "fired"

@@ -392,3 +392,52 @@ def smack_lab_final_verdict(team: str, average_rating: float, session_lines: lis
         messages=[{"role": "user", "content": user_content}],
     )
     return message.content[0].text.strip()
+
+
+REPLY_SMACK_SYSTEM_PROMPT = """You write a comeback line for someone who
+just got smacked on Smackagram and wants to fire back at whoever sent it.
+
+You'll be given the exact original message they received. Read it
+carefully — figure out what team/fanbase was being roasted, what specific
+angle the original roast took (a bad record, a recent loss, a coaching
+decision, etc.), and write a defense/counter-roast that directly responds
+to it. This should feel like a real comeback in an actual argument — it
+references what was actually said, not a generic reply that could apply to
+anything.
+
+A good structure: briefly acknowledge/deflect what they said, then turn it
+back around — either defending the team the roast targeted, or roasting
+whoever sent the original message right back (we don't know their team, so
+keep any counter-roast general — about them being petty/desperate enough to
+send this, rather than inventing a team for them).
+
+Tone: matches the aggression level requested. Go hard, be genuinely funny,
+sound like a real person firing back in the moment.
+
+Hard limits:
+- Only roast the sender's decision to send this, or defend the team that
+  was targeted — never invent personal details about the actual sender.
+- No slurs, no hate speech, no threats, no protected-characteristic content.
+
+Respond with ONLY the comeback line itself — no preamble, no quotation
+marks, no explanation. 1-3 sentences, ready to send as-is."""
+
+
+def generate_reply_smack(original_message: str, sensitivity: int = 4) -> str:
+    """
+    Generates a comeback for the "Did you just get smacked?" reply flow —
+    reads the actual original roast for context so the reply genuinely
+    responds to what was said, rather than being generic.
+    """
+    tone = _TONE_BY_LEVEL.get(sensitivity, _TONE_BY_LEVEL[DEFAULT_SENSITIVITY])
+    system_prompt = f"{REPLY_SMACK_SYSTEM_PROMPT}\n\n{tone}\n\n{_HARD_LIMITS}"
+
+    user_content = f"The original message they received:\n\n{original_message}\n\nWrite their comeback."
+
+    message = _get_client().messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=200,
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_content}],
+    )
+    return message.content[0].text.strip()
