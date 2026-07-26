@@ -183,6 +183,39 @@ def get_sensitivity_levels():
     return jsonify(trash_talk_service.SENSITIVITY_LEVELS)
 
 
+@app.route("/api/smack-lab/respond", methods=["POST"])
+def smack_lab_respond():
+    """
+    Powers Smack Lab — live back-and-forth trash-talk sparring with a
+    rating + coaching critique on every turn. Rate-limited per IP since
+    this is a free feature (no purchase) that costs real Claude API calls.
+    """
+    identifier = request.headers.get("X-Forwarded-For", request.remote_addr)
+    if rate_limiter.is_rate_limited(identifier):
+        return jsonify({
+            "error": "You've hit the free Smack Lab limit for now. Take a breather and come back in a bit."
+        }), 429
+
+    data = request.json
+    team = data.get("team", "").strip()
+    user_line = data.get("user_line", "").strip()
+    conversation_history = data.get("conversation_history", [])
+
+    if not team or not user_line:
+        return jsonify({"error": "Team and a line to rate are both required"}), 400
+
+    # Same safety gate every user-typed message on this site passes through
+    # before an AI does anything with it — this is user-typed text, no
+    # different from a custom message elsewhere.
+    safety = content_moderation.check_message_safety(user_line)
+    if not safety["safe"]:
+        return jsonify({"error": "That line can't be processed — it may contain threatening, sexual, or harassing content. Try a different angle."}), 400
+
+    result = trash_talk_service.smack_lab_respond(team=team, conversation_history=conversation_history, user_line=user_line)
+    rate_limiter.record_hit(identifier)
+    return jsonify(result)
+
+
 @app.route("/api/voice-options")
 def get_voice_options():
     return jsonify(voice_options.list_voice_options())
@@ -291,6 +324,11 @@ def recording_done(record_id):
 @app.route("/locked-n-loaded")
 def locked_n_loaded_page():
     return render_template("locked_n_loaded.html")
+
+
+@app.route("/smack-lab")
+def smack_lab_page():
+    return render_template("smack_lab.html")
 
 
 @app.route("/locked-n-loaded/success")

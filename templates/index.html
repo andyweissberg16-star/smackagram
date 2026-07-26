@@ -281,6 +281,7 @@
     <a href="#generator" style="color:inherit; text-decoration:none;">Generator</a>
     <a href="#scenarios" style="color:inherit; text-decoration:none;">Scenarios</a>
     <a href="/locked-n-loaded" style="color:var(--flare); text-decoration:none; font-weight:600;">Locked &amp; Loaded</a>
+    <a href="/smack-lab" style="color:inherit; text-decoration:none;">Smack Lab</a>
   </div>
   <div style="display:flex; align-items:center; gap:16px;">
     <div class="clock"><span class="dot"></span>Q4 · 00:12</div>
@@ -449,6 +450,24 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+
+// Pre-fill the generator when arriving from a Smack Lab "Lock this in" —
+// someone already crafted and liked a line there, so land them right in
+// the generator with everything ready instead of starting from scratch.
+(function prefillFromSmackLab() {
+  const params = new URLSearchParams(window.location.search);
+  const team = params.get('team');
+  const recipientName = params.get('recipient_name');
+  const message = params.get('message');
+  if (!team && !recipientName && !message) return;
+
+  if (team) document.getElementById('teamInput').value = team;
+  if (recipientName) document.getElementById('recipientNameInput').value = recipientName;
+  if (message) document.getElementById('trashTalkOutput').value = message;
+
+  const generatorSection = document.getElementById('generator');
+  if (generatorSection) generatorSection.scrollIntoView({behavior: 'smooth', block: 'start'});
+})();
 
 let selectedSensitivity = 4;
 

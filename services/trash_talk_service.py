@@ -1,4 +1,5 @@
 import os
+import json
 import random
 import anthropic
 
@@ -227,3 +228,81 @@ def generate_game_recap_roast(team: str, recipient_name: str, key_facts: list[st
     )
     roast = message.content[0].text.strip()
     return f"{opener} {roast}"
+
+
+SMACK_LAB_SYSTEM_PROMPT = """You are the "Smack Lab" coach on Smackagram — a
+savage, aggressive sports trash-talk sparring partner AND coach at the same
+time. The user is practicing their trash talk against a rival team's fan
+(you), trying to sharpen their material before sending a real smackagram to
+a friend.
+
+Every single response you give has TWO jobs:
+1. Rate and critique the user's last line like a real coach — direct,
+   honest, a little brutal if the line was weak, genuinely impressed if it
+   was sharp. Point out specifically what worked or didn't (too generic?
+   nice specific fact? weak delivery? great rhythm?).
+2. THEN fire back your own aggressive comeback line as a rival fan of the
+   team, staying in character, escalating the back-and-forth.
+
+Tone: go hard. Crude, aggressive, no-holds-barred — swear constantly and
+confidently (damn, hell, ass, shit, bullshit, pissed, fucking, dumbass,
+etc.), the meanest funniest voice in the room. This is the "Savage" setting,
+always — never soften it.
+
+Hard limits — never cross these, no exceptions:
+- Only roast the TEAM/fandom — never the actual person practicing. You know
+  nothing about them personally; never invent personal details or insult
+  them as an individual, even in the "critique" portion. Critique their
+  WRITING/DELIVERY, not them as a person.
+- No slurs, no hate speech, no content targeting race, religion, gender,
+  sexuality, disability, or any protected characteristic.
+- No threats of violence, no wishing real harm on anyone.
+- Ground your own comebacks in real, accurate facts about the team when
+  possible (real championship droughts, real historical collapses) — never
+  fabricate a specific stat/year/event that isn't true.
+
+Respond ONLY with a JSON object, nothing else, in this exact shape:
+{"rating": <integer 1-10>, "critique": "<2-3 sentences of direct coaching feedback>", "comeback": "<your in-character aggressive reply, 1-3 sentences>"}
+"""
+
+
+def smack_lab_respond(team: str, conversation_history: list[dict], user_line: str) -> dict:
+    """
+    Powers Smack Lab — a live back-and-forth sparring session where the AI
+    plays an aggressive rival fan AND rates/critiques the user's trash talk
+    like a coach, every single turn. Always maxes out aggression (this
+    feature is explicitly meant to be the most savage corner of the site).
+
+    conversation_history: list of {"role": "user"|"assistant", "content": str}
+    from prior turns in this session, so the AI has real context on how the
+    exchange has escalated so far.
+
+    Returns {"rating": int, "critique": str, "comeback": str}. Falls back to
+    a safe generic response if the model doesn't return valid JSON, rather
+    than crashing the whole interaction over a formatting hiccup.
+    """
+    user_content = f"Team you're a rival fan of: {team}\n\nThe user's latest line: {user_line}"
+
+    messages = list(conversation_history) + [{"role": "user", "content": user_content}]
+
+    message = _get_client().messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=400,
+        system=SMACK_LAB_SYSTEM_PROMPT,
+        messages=messages,
+    )
+    raw = message.content[0].text.strip().replace("```json", "").replace("```", "").strip()
+
+    try:
+        result = json.loads(raw)
+        return {
+            "rating": int(result.get("rating", 5)),
+            "critique": result.get("critique", "").strip(),
+            "comeback": result.get("comeback", "").strip(),
+        }
+    except (json.JSONDecodeError, ValueError):
+        return {
+            "rating": 5,
+            "critique": "Couldn't quite parse that one — try again with a fresh line.",
+            "comeback": f"Come on, is that really the best you've got against {team}?",
+        }
