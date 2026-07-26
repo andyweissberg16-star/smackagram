@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contact Us — Smackagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D;
+    --ink-2:#1A1A1A;
+    --chalk:#F5F5F3;
+    --chalk-dim:#9A9A96;
+    --flare:#E8142C;
+    --gold:#FFD400;
+    --line:rgba(245,245,243,0.10);
+    --line-strong:rgba(245,245,243,0.24);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.6; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:640px; margin:0 auto; padding:0 24px 80px;}
+
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
+  nav a.back-link:hover{color:var(--flare);}
+
+  h1{font-family:'Anton',sans-serif; font-size:38px; text-transform:uppercase; margin:40px 0 12px; letter-spacing:0.5px;}
+  .sub{color:var(--chalk-dim); font-size:15px; margin-bottom:36px; max-width:480px;}
+
+  .card{
+    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:28px; margin-bottom:20px;
+  }
+  .card h2{font-family:'Anton',sans-serif; font-size:16px; text-transform:uppercase; letter-spacing:0.5px; color:var(--flare); margin-bottom:8px;}
+  .card p{color:#DCDCD9; font-size:14px; margin-bottom:4px;}
+  .card a{color:var(--gold); text-decoration:none; font-weight:600; word-break:break-all;}
+  .card a:hover{text-decoration:underline;}
+
+  footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim); border-top:1px solid var(--line); margin-top:40px;}
+</style>
+</head>
+<body>
+
+<nav>
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+  <a href="/" class="back-link">&larr; Back to home</a>
+</nav>
+
+<div class="wrap">
+  <h1>Contact Us</h1>
+  <p class="sub">Questions about an order, a delivery issue, or anything else — here's how to reach us.</p>
+
+  <div class="card">
+    <h2>General Support</h2>
+    <p>For order issues, delivery problems, or general questions:</p>
+    <a href="mailto:support@smackagram.com">support@smackagram.com</a>
+  </div>
+
+  <div class="card">
+    <h2>Report a Problem</h2>
+    <p>If you believe Smackagram was used to contact you without your knowledge or consent, or you'd like to report misuse:</p>
+    <a href="mailto:report@smackagram.com">report@smackagram.com</a>
+  </div>
+
+  <div class="card">
+    <h2>Billing &amp; Refund Questions</h2>
+    <p>For questions about a charge, hold, or account credit:</p>
+    <a href="mailto:billing@smackagram.com">billing@smackagram.com</a>
+  </div>
+</div>
+
+<footer>
+  <span>© 2026 Smackagram</span>
+  <p style="margin-top:12px;"><a href="/terms">Terms</a></p>
+</footer>
+
+</body>
+</html>

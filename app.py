@@ -378,6 +378,11 @@ def terms_page():
     return render_template("terms.html")
 
 
+@app.route("/contact")
+def contact_page():
+    return render_template("contact.html")
+
+
 @app.route("/locked-n-loaded/success")
 def locked_n_loaded_success():
     session_id = request.args.get("session_id")
