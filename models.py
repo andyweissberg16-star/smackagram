@@ -16,6 +16,39 @@ class Scenario(db.Model):
     active = db.Column(db.Boolean, default=True)
 
 
+class ChatPost(db.Model):
+    """
+    Smack Chat — a real user typing their own trash talk into a public
+    team/league room. Purely manual, no AI generation anywhere in this
+    flow. Every post still passes through the same safety check used
+    everywhere else on the site before it's allowed to go live (flags
+    genuine threats/hate speech/etc, not ordinary crude trash talk).
+
+    display_name is freeform and unverified for now — real accounts will
+    replace this later, but the room/posting/rating functionality doesn't
+    need to wait on that to work.
+    """
+    __tablename__ = "chat_posts"
+
+    id = db.Column(db.Integer, primary_key=True)
+    league = db.Column(db.String(20), nullable=False)   # nfl, nba, mlb, nhl
+    team = db.Column(db.String(10), nullable=False)      # team code, e.g. "DAL", "NYY"
+    display_name = db.Column(db.String(40), nullable=False, default="Anonymous")
+    message = db.Column(db.Text, nullable=False)
+
+    rating_total = db.Column(db.Integer, default=0)   # sum of all ratings given
+    rating_count = db.Column(db.Integer, default=0)    # how many people rated it
+    report_count = db.Column(db.Integer, default=0)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def average_rating(self):
+        if self.rating_count == 0:
+            return None
+        return round(self.rating_total / self.rating_count, 1)
+
+
 class Order(db.Model):
     """An immediate 'send it now' smackagram — the simple v1 flow."""
     __tablename__ = "orders"

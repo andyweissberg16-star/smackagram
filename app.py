@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Flask, render_template, request, jsonify, Response
 from dotenv import load_dotenv
 
-from models import db, Scenario, Order, Smackagram
+from models import db, Scenario, Order, Smackagram, ChatPost
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases
 from scheduler import check_armed_smackagrams
 
@@ -442,6 +442,113 @@ def conversation_data(reply_id):
             "created_at": reply.created_at.isoformat(),
         },
     })
+
+
+@app.route("/smack-chat")
+def smack_chat_page():
+    return render_template("smack_chat.html")
+
+
+@app.route("/api/chat/teams")
+def chat_teams():
+    """Team list for a league, reusing the same display-name data already built for search/roasting."""
+    league = request.args.get("league", "nfl")
+    teams = team_aliases.DISPLAY_NAMES.get(league, {})
+    return jsonify([{"code": code, "name": name} for code, name in sorted(teams.items(), key=lambda x: x[1])])
+
+
+@app.route("/api/chat/posts")
+def chat_posts():
+    """
+    Posts for a specific team room. sort=top surfaces the highest-rated
+    (min 1 rating) first, useful for "best smack talk this week"-style
+    browsing; sort=new is straight chronological, the default.
+    """
+    league = request.args.get("league", "")
+    team = request.args.get("team", "")
+    sort = request.args.get("sort", "new")
+
+    query = ChatPost.query.filter_by(league=league, team=team)
+    posts = query.order_by(ChatPost.created_at.desc()).limit(100).all()
+
+    if sort == "top":
+        posts = sorted(posts, key=lambda p: (p.average_rating or 0, p.created_at), reverse=True)
+
+    return jsonify([{
+        "id": p.id,
+        "display_name": p.display_name,
+        "message": p.message,
+        "average_rating": p.average_rating,
+        "rating_count": p.rating_count,
+        "created_at": p.created_at.isoformat(),
+    } for p in posts])
+
+
+@app.route("/api/chat/posts", methods=["POST"])
+def create_chat_post():
+    """
+    A real person posting their own manually-typed trash talk — no AI
+    generation anywhere in this flow. Still passes through the same
+    safety check every custom-typed message on the site goes through
+    before it's allowed to go live.
+    """
+    data = request.json
+    league = data.get("league", "")
+    team = data.get("team", "")
+    display_name = (data.get("display_name") or "Anonymous").strip()[:40]
+    message = (data.get("message") or "").strip()
+
+    if not league or not team or not message:
+        return jsonify({"error": "League, team, and a message are all required"}), 400
+    if len(message) > 500:
+        return jsonify({"error": "Keep it under 500 characters"}), 400
+
+    safety = content_moderation.check_message_safety(message)
+    if not safety["safe"]:
+        print(f"[safety] blocked chat post — reason: {safety['reason']}")
+        return jsonify({"error": "That message can't be posted — it may contain threatening, sexual, or harassing content. Try a different angle."}), 400
+
+    post = ChatPost(league=league, team=team, display_name=display_name or "Anonymous", message=message)
+    db.session.add(post)
+    db.session.commit()
+
+    return jsonify({
+        "id": post.id,
+        "display_name": post.display_name,
+        "message": post.message,
+        "average_rating": post.average_rating,
+        "rating_count": post.rating_count,
+        "created_at": post.created_at.isoformat(),
+    })
+
+
+@app.route("/api/chat/posts/<int:post_id>/rate", methods=["POST"])
+def rate_chat_post(post_id):
+    data = request.json
+    rating = data.get("rating")
+    if not isinstance(rating, int) or rating < 1 or rating > 10:
+        return jsonify({"error": "Rating must be a whole number 1-10"}), 400
+
+    post = ChatPost.query.get(post_id)
+    if not post:
+        return jsonify({"error": "Post not found"}), 404
+
+    post.rating_total += rating
+    post.rating_count += 1
+    db.session.commit()
+
+    return jsonify({"average_rating": post.average_rating, "rating_count": post.rating_count})
+
+
+@app.route("/api/chat/posts/<int:post_id>/report", methods=["POST"])
+def report_chat_post(post_id):
+    post = ChatPost.query.get(post_id)
+    if not post:
+        return jsonify({"error": "Post not found"}), 404
+
+    post.report_count += 1
+    db.session.commit()
+    return jsonify({"reported": True})
 
 
 @app.route("/api/check-if-smacked", methods=["POST"])

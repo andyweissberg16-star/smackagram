@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smack Chat — Smackagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D;
+    --ink-2:#1A1A1A;
+    --chalk:#F5F5F3;
+    --chalk-dim:#9A9A96;
+    --flare:#E8142C;
+    --gold:#FFD400;
+    --line:rgba(245,245,243,0.10);
+    --line-strong:rgba(245,245,243,0.24);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:720px; margin:0 auto; padding:0 24px 60px;}
+
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
+  nav a.back-link:hover{color:var(--flare);}
+
+  .hero{text-align:center; padding:40px 0 20px;}
+  h1{font-family:'Anton',sans-serif; font-size:36px; text-transform:uppercase; letter-spacing:0.5px;}
+  h1 span{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.5);}
+  .sub{color:var(--chalk-dim); font-size:14px; margin-top:8px;}
+
+  .league-tabs{display:flex; gap:8px; justify-content:center; margin-bottom:20px; flex-wrap:wrap;}
+  .league-tab{
+    background:var(--ink-2); border:1px solid var(--line-strong); color:var(--chalk-dim);
+    padding:8px 18px; border-radius:20px; font-size:13px; font-weight:700; cursor:pointer;
+    text-transform:uppercase; letter-spacing:0.5px;
+  }
+  .league-tab.active{background:var(--flare); border-color:var(--flare); color:#fff;}
+
+  .team-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:10px; margin-bottom:24px;}
+  .team-chip{
+    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:12px 14px;
+    text-align:center; cursor:pointer; font-size:13px; font-weight:600;
+  }
+  .team-chip:hover{border-color:var(--flare); color:var(--flare);}
+
+  #roomView{display:none;}
+  .room-header{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;}
+  .room-title{font-family:'Anton',sans-serif; font-size:24px; text-transform:uppercase;}
+  .btn-back{background:none; border:none; color:var(--chalk-dim); cursor:pointer; font-size:13px; text-decoration:underline;}
+
+  .sort-tabs{display:flex; gap:8px; margin-bottom:16px;}
+  .sort-tab{
+    background:transparent; border:1px solid var(--line-strong); color:var(--chalk-dim);
+    padding:6px 14px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer;
+  }
+  .sort-tab.active{background:var(--gold); border-color:var(--gold); color:var(--ink);}
+
+  .composer{
+    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:20px; margin-bottom:24px;
+  }
+  label{display:block; font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;}
+  input[type=text], textarea{
+    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:10px 12px; font-family:'Inter',sans-serif; font-size:14px; border-radius:4px; margin-bottom:12px;
+  }
+  input:focus, textarea:focus{outline:none; border-color:var(--flare);}
+  textarea{resize:vertical; min-height:70px;}
+
+  .btn{
+    font-weight:700; font-size:13px; padding:10px 20px; border-radius:4px; border:none; cursor:pointer;
+    text-transform:uppercase; letter-spacing:0.5px;
+  }
+  .btn-flare{background:var(--flare); color:#fff;}
+  .btn-flare:disabled{opacity:0.5; cursor:not-allowed;}
+  #postError{display:none; color:var(--flare); font-size:12px; margin-bottom:10px;}
+
+  .post{background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:16px 18px; margin-bottom:12px;}
+  .post-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .post-name{font-weight:700; font-size:13px; color:var(--gold);}
+  .post-date{font-size:11px; color:var(--chalk-dim);}
+  .post-message{font-size:14px; color:#DCDCD9; margin-bottom:12px;}
+  .post-actions{display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
+  .rating-display{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--gold); font-weight:700;}
+  .rate-btn{background:transparent; border:1px solid var(--line-strong); color:var(--chalk-dim); border-radius:4px; padding:4px 10px; font-size:11px; cursor:pointer;}
+  .rate-btn:hover{border-color:var(--gold); color:var(--gold);}
+  .report-link{color:var(--chalk-dim); font-size:11px; cursor:pointer; text-decoration:underline; margin-left:auto;}
+  .funnel-btn{
+    display:inline-block; background:var(--flare); color:#fff; font-size:11px; font-weight:700; padding:6px 12px;
+    border-radius:4px; text-decoration:none; text-transform:uppercase;
+  }
+
+  .rate-picker{display:none; gap:4px; margin-top:8px;}
+  .rate-picker button{
+    width:26px; height:26px; border-radius:4px; border:1px solid var(--line-strong); background:var(--ink);
+    color:var(--chalk-dim); font-size:11px; cursor:pointer;
+  }
+  .rate-picker button:hover{border-color:var(--gold); color:var(--gold);}
+
+  .empty-note{color:var(--chalk-dim); font-size:13px; text-align:center; padding:20px 0;}
+
+  footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim); border-top:1px solid var(--line); margin-top:40px;}
+  footer a{color:var(--chalk-dim); text-decoration:none;}
+  footer a:hover{color:var(--flare);}
+</style>
+</head>
+<body>
+
+<nav>
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+  <a href="/" class="back-link">&larr; Back to home</a>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <h1>Smack <span>Chat</span></h1>
+    <p class="sub">Real fans, real trash talk. Pick your team's room and let it fly.</p>
+  </div>
+
+  <div id="browseView">
+    <div class="league-tabs" id="leagueTabs">
+      <button class="league-tab active" data-league="nfl">NFL</button>
+      <button class="league-tab" data-league="nba">NBA</button>
+      <button class="league-tab" data-league="mlb">MLB</button>
+      <button class="league-tab" data-league="nhl">NHL</button>
+    </div>
+    <div class="team-grid" id="teamGrid">
+      <p class="empty-note">Loading teams...</p>
+    </div>
+  </div>
+
+  <div id="roomView">
+    <div class="room-header">
+      <p class="room-title" id="roomTitle"></p>
+      <button class="btn-back" id="backBtn">&larr; Change room</button>
+    </div>
+
+    <div class="sort-tabs">
+      <button class="sort-tab active" data-sort="new">Newest</button>
+      <button class="sort-tab" data-sort="top">Top rated</button>
+    </div>
+
+    <div class="composer">
+      <label for="displayNameInput">Your name</label>
+      <input id="displayNameInput" type="text" placeholder="ex. CowboysHater88" maxlength="40">
+      <label for="messageInput">Your smack talk</label>
+      <textarea id="messageInput" placeholder="Say what you came to say..." maxlength="500"></textarea>
+      <div id="postError"></div>
+      <button id="postBtn" class="btn btn-flare">Post it</button>
+    </div>
+
+    <div id="postsFeed">
+      <p class="empty-note">Loading posts...</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <a href="/terms">Terms</a> &middot; <a href="/contact">Contact</a>
+</footer>
+
+<script>
+let currentLeague = 'nfl';
+let currentTeam = null;
+let currentSort = 'new';
+let pollInterval = null;
+
+async function loadTeams() {
+  const grid = document.getElementById('teamGrid');
+  grid.innerHTML = '<p class="empty-note">Loading teams...</p>';
+  try {
+    const resp = await fetch(`/api/chat/teams?league=${currentLeague}`);
+    const teams = await resp.json();
+    grid.innerHTML = '';
+    teams.forEach(t => {
+      const chip = document.createElement('div');
+      chip.className = 'team-chip';
+      chip.textContent = t.name;
+      chip.addEventListener('click', () => enterRoom(t.code, t.name));
+      grid.appendChild(chip);
+    });
+  } catch (err) {
+    grid.innerHTML = '<p class="empty-note">Couldn\'t load teams — try again.</p>';
+  }
+}
+
+document.querySelectorAll('.league-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.league-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentLeague = tab.dataset.league;
+    loadTeams();
+  });
+});
+loadTeams();
+
+function enterRoom(teamCode, teamName) {
+  currentTeam = teamCode;
+  document.getElementById('browseView').style.display = 'none';
+  document.getElementById('roomView').style.display = 'block';
+  document.getElementById('roomTitle').textContent = teamName;
+  loadPosts();
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(loadPosts, 8000);
+}
+
+document.getElementById('backBtn').addEventListener('click', () => {
+  document.getElementById('roomView').style.display = 'none';
+  document.getElementById('browseView').style.display = 'block';
+  if (pollInterval) clearInterval(pollInterval);
+});
+
+document.querySelectorAll('.sort-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.sort-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentSort = tab.dataset.sort;
+    loadPosts();
+  });
+});
+
+async function loadPosts() {
+  const feed = document.getElementById('postsFeed');
+  try {
+    const resp = await fetch(`/api/chat/posts?league=${currentLeague}&team=${currentTeam}&sort=${currentSort}`);
+    const posts = await resp.json();
+    renderPosts(posts);
+  } catch (err) {
+    feed.innerHTML = '<p class="empty-note">Couldn\'t load posts — try again.</p>';
+  }
+}
+
+function renderPosts(posts) {
+  const feed = document.getElementById('postsFeed');
+  if (posts.length === 0) {
+    feed.innerHTML = '<p class="empty-note">No posts yet — be the first to talk smack in here.</p>';
+    return;
+  }
+  feed.innerHTML = '';
+  posts.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'post';
+    const ratingText = p.average_rating !== null ? `${p.average_rating}/10 (${p.rating_count})` : 'Not yet rated';
+    const funnelHtml = (p.average_rating !== null && p.average_rating >= 7)
+      ? `<a href="/send-a-smack?message=${encodeURIComponent(p.message)}" class="funnel-btn">Send this as a real smack</a>`
+      : '';
+    div.innerHTML = `
+      <div class="post-top">
+        <span class="post-name">${escapeHtml(p.display_name)}</span>
+        <span class="post-date">${formatDate(p.created_at)}</span>
+      </div>
+      <p class="post-message">${escapeHtml(p.message)}</p>
+      <div class="post-actions">
+        <span class="rating-display">${ratingText}</span>
+        <button class="rate-btn" data-id="${p.id}">Rate it</button>
+        ${funnelHtml}
+        <span class="report-link" data-id="${p.id}">Report</span>
+      </div>
+      <div class="rate-picker" id="ratePicker${p.id}">
+        ${[1,2,3,4,5,6,7,8,9,10].map(n => `<button data-id="${p.id}" data-rating="${n}">${n}</button>`).join('')}
+      </div>
+    `;
+    feed.appendChild(div);
+  });
+
+  document.querySelectorAll('.rate-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const picker = document.getElementById(`ratePicker${btn.dataset.id}`);
+      picker.style.display = picker.style.display === 'flex' ? 'none' : 'flex';
+    });
+  });
+  document.querySelectorAll('.rate-picker button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await fetch(`/api/chat/posts/${btn.dataset.id}/rate`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({rating: parseInt(btn.dataset.rating)})
+      });
+      loadPosts();
+    });
+  });
+  document.querySelectorAll('.report-link').forEach(link => {
+    link.addEventListener('click', async () => {
+      link.textContent = 'Reported';
+      await fetch(`/api/chat/posts/${link.dataset.id}/report`, {method: 'POST'});
+    });
+  });
+}
+
+document.getElementById('postBtn').addEventListener('click', async () => {
+  const displayName = document.getElementById('displayNameInput').value.trim();
+  const message = document.getElementById('messageInput').value.trim();
+  const errorEl = document.getElementById('postError');
+  const btn = document.getElementById('postBtn');
+
+  errorEl.style.display = 'none';
+  if (!message) {
+    errorEl.textContent = 'Type something first.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  btn.textContent = 'Posting...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/chat/posts', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({league: currentLeague, team: currentTeam, display_name: displayName, message: message})
+    });
+    const data = await resp.json();
+    if (data.error) {
+      errorEl.textContent = data.error;
+      errorEl.style.display = 'block';
+    } else {
+      document.getElementById('messageInput').value = '';
+      loadPosts();
+    }
+  } catch (err) {
+    errorEl.textContent = "Couldn't post right now — try again.";
+    errorEl.style.display = 'block';
+  } finally {
+    btn.textContent = 'Post it';
+    btn.disabled = false;
+  }
+});
+
+function formatDate(isoString) {
+  const d = new Date(isoString);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return d.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
