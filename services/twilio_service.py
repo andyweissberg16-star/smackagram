@@ -60,6 +60,14 @@ def place_prank_call(order_or_smackagram_id: int, recipient_phone: str, record: 
         url=f"{base_url}/call-instructions/{order_or_smackagram_id}",
         time_limit=59,  # hard cap on total call duration, enforced by Twilio itself
         machine_detection="DetectMessageEnd",
+        # Twilio's default timeout here is 30 seconds — that's the source
+        # of the 5-30s lag before the message starts on live answers,
+        # since Twilio has to finish analyzing audio (to tell human from
+        # voicemail) before it'll even request our TwiML. Capping this
+        # much lower keeps voicemail-greeting timing accurate for the
+        # vast majority of real greetings (which are well under 15s) while
+        # putting a hard ceiling on how long a live human ever waits.
+        machine_detection_timeout=15,
         status_callback=f"{base_url}/call-status/{order_or_smackagram_id}",
         status_callback_event=["completed"],
         status_callback_method="POST",
