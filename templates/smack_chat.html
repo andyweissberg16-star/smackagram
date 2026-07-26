@@ -30,13 +30,28 @@
   h1 span{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.5);}
   .sub{color:var(--chalk-dim); font-size:14px; margin-top:8px;}
 
-  .league-tabs{display:flex; gap:8px; justify-content:center; margin-bottom:20px; flex-wrap:wrap;}
-  .league-tab{
-    background:var(--ink-2); border:1px solid var(--line-strong); color:var(--chalk-dim);
-    padding:8px 18px; border-radius:20px; font-size:13px; font-weight:700; cursor:pointer;
-    text-transform:uppercase; letter-spacing:0.5px;
+  .search-input{
+    width:100%; background:var(--ink-2); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:14px 16px; font-family:'Inter',sans-serif; font-size:15px; border-radius:8px; margin-bottom:8px;
   }
-  .league-tab.active{background:var(--flare); border-color:var(--flare); color:#fff;}
+  .search-input:focus{outline:none; border-color:var(--flare);}
+
+  .search-results{margin-bottom:16px;}
+  .search-result-item{
+    display:flex; justify-content:space-between; align-items:center; background:var(--ink-2);
+    border:1px solid var(--line-strong); border-radius:6px; padding:12px 16px; margin-bottom:8px; cursor:pointer;
+  }
+  .search-result-item:hover{border-color:var(--flare);}
+  .search-result-name{font-weight:600; font-size:14px;}
+  .search-result-league{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px;}
+
+  .league-select-row{margin-bottom:20px;}
+  .league-select{
+    width:100%; background:var(--ink-2); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:14px 16px; font-family:'Inter',sans-serif; font-size:14px; font-weight:600; border-radius:8px;
+    cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;
+  }
+  .league-select:focus{outline:none; border-color:var(--flare);}
 
   .team-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:10px; margin-bottom:24px;}
   .team-chip{
@@ -76,10 +91,6 @@
   .rate-btn{background:transparent; border:none; color:var(--chalk-dim); font-size:11px; cursor:pointer; text-decoration:underline; padding:0;}
   .rate-btn:hover{color:var(--gold);}
   .report-link{color:var(--chalk-dim); font-size:10px; cursor:pointer; text-decoration:underline; margin-left:auto;}
-  .funnel-btn{
-    display:inline-block; background:var(--flare); color:#fff; font-size:10px; font-weight:700; padding:3px 8px;
-    border-radius:4px; text-decoration:none; text-transform:uppercase;
-  }
 
   .rate-picker{display:none; gap:3px; margin-top:6px;}
   .rate-picker button{
@@ -129,15 +140,19 @@
   </div>
 
   <div id="browseView">
-    <div class="league-tabs" id="leagueTabs">
-      <button class="league-tab active" data-league="nfl">NFL</button>
-      <button class="league-tab" data-league="nba">NBA</button>
-      <button class="league-tab" data-league="mlb">MLB</button>
-      <button class="league-tab" data-league="nhl">NHL</button>
+    <input id="teamSearchInput" type="text" placeholder="Search any team across every league..." class="search-input">
+    <div id="searchResults" class="search-results"></div>
+
+    <div class="league-select-row">
+      <select id="leagueSelect" class="league-select">
+        <option value="" disabled selected>Select a league</option>
+        <option value="nfl">NFL</option>
+        <option value="nba">NBA</option>
+        <option value="mlb">MLB</option>
+        <option value="nhl">NHL</option>
+      </select>
     </div>
-    <div class="team-grid" id="teamGrid">
-      <p class="empty-note">Loading teams...</p>
-    </div>
+    <div class="team-grid" id="teamGrid"></div>
   </div>
 
   <div id="roomView">
@@ -170,23 +185,62 @@
 </footer>
 
 <script>
-let currentLeague = 'nfl';
+let currentLeague = null;
 let currentTeam = null;
 let currentSort = 'new';
 let pollInterval = null;
+let allTeamsCache = [];  // flat list across all leagues, for search
 
-async function loadTeams() {
+// Fetch every league's teams once up front so search can filter across
+// all of them instantly, without a network round-trip per keystroke.
+async function loadAllTeamsForSearch() {
+  const leagues = ['nfl', 'nba', 'mlb', 'nhl'];
+  try {
+    const results = await Promise.all(leagues.map(l => fetch(`/api/chat/teams?league=${l}`).then(r => r.json())));
+    allTeamsCache = [];
+    leagues.forEach((league, i) => {
+      results[i].forEach(t => allTeamsCache.push({code: t.code, name: t.name, league: league}));
+    });
+  } catch (err) {
+    // search just won't return results if this fails — not fatal
+  }
+}
+loadAllTeamsForSearch();
+
+document.getElementById('teamSearchInput').addEventListener('input', (e) => {
+  const query = e.target.value.trim().toLowerCase();
+  const resultsEl = document.getElementById('searchResults');
+  if (!query) {
+    resultsEl.innerHTML = '';
+    return;
+  }
+  const matches = allTeamsCache.filter(t => t.name.toLowerCase().includes(query)).slice(0, 8);
+  if (matches.length === 0) {
+    resultsEl.innerHTML = '<p class="empty-note">No teams match that.</p>';
+    return;
+  }
+  resultsEl.innerHTML = '';
+  matches.forEach(t => {
+    const item = document.createElement('div');
+    item.className = 'search-result-item';
+    item.innerHTML = `<span class="search-result-name">${escapeHtml(t.name)}</span><span class="search-result-league">${t.league}</span>`;
+    item.addEventListener('click', () => enterRoom(t.code, t.name, t.league));
+    resultsEl.appendChild(item);
+  });
+});
+
+async function loadTeams(league) {
   const grid = document.getElementById('teamGrid');
   grid.innerHTML = '<p class="empty-note">Loading teams...</p>';
   try {
-    const resp = await fetch(`/api/chat/teams?league=${currentLeague}`);
+    const resp = await fetch(`/api/chat/teams?league=${league}`);
     const teams = await resp.json();
     grid.innerHTML = '';
     teams.forEach(t => {
       const chip = document.createElement('div');
       chip.className = 'team-chip';
       chip.textContent = t.name;
-      chip.addEventListener('click', () => enterRoom(t.code, t.name));
+      chip.addEventListener('click', () => enterRoom(t.code, t.name, league));
       grid.appendChild(chip);
     });
   } catch (err) {
@@ -194,17 +248,13 @@ async function loadTeams() {
   }
 }
 
-document.querySelectorAll('.league-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.league-tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    currentLeague = tab.dataset.league;
-    loadTeams();
-  });
+document.getElementById('leagueSelect').addEventListener('change', (e) => {
+  currentLeague = e.target.value;
+  loadTeams(currentLeague);
 });
-loadTeams();
 
-function enterRoom(teamCode, teamName) {
+function enterRoom(teamCode, teamName, league) {
+  currentLeague = league;
   currentTeam = teamCode;
   document.getElementById('browseView').style.display = 'none';
   document.getElementById('roomView').style.display = 'flex';
@@ -262,9 +312,6 @@ function renderPosts(posts) {
     const div = document.createElement('div');
     div.className = 'post';
     const ratingText = p.average_rating !== null ? `${p.average_rating}/10 (${p.rating_count})` : 'Not yet rated';
-    const funnelHtml = (p.average_rating !== null && p.average_rating >= 7)
-      ? `<a href="/send-a-smack?message=${encodeURIComponent(p.message)}" class="funnel-btn">Send this as a real smack</a>`
-      : '';
     div.innerHTML = `
       <div class="post-top">
         <span class="post-name">${escapeHtml(p.display_name)}</span>
@@ -274,7 +321,6 @@ function renderPosts(posts) {
       <div class="post-actions">
         <span class="rating-display">${ratingText}</span>
         <button class="rate-btn" data-id="${p.id}">Rate it</button>
-        ${funnelHtml}
         <span class="report-link" data-id="${p.id}">Report</span>
       </div>
       <div class="rate-picker" id="ratePicker${p.id}">
