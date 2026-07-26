@@ -80,3 +80,147 @@ complexity on top:
 
 ---
 *Last updated: 2026-07-26*
+
+# Master Project List (added 2026-07-26)
+
+Andy's full project list, merged in with honest status against what's
+actually built so far. This overlaps with sections 1-5 above in places —
+noted where relevant. Nothing in this section has been started unless
+explicitly marked done.
+
+## User Profile Page
+Overlaps heavily with "1. Accounts & Authentication" above — same
+underlying blocker (Postgres + email service needed first).
+- [ ] Register page
+- [ ] Order history
+- [~] Sent audio files storage — recordings DO get stored (S3) today, but
+      there's no user-facing page to browse/access them. Storage exists,
+      retrieval UI doesn't.
+- [ ] Billing/accounting history with account balance
+- [ ] Password reset for registered users
+- [ ] Guest checkout customer record for history retrieval — Stripe
+      creates a customer at checkout time, but it's not tied to a
+      queryable "customer record" for guest order history
+- [ ] Unique customer ID per customer, for records access
+- [ ] Add/remove/cancel subscription options — no subscriptions exist yet
+      (see pricing strategy discussion, not yet built)
+
+## Delivery Workflow
+- [~] Twilio delivery confirmation (answered vs. VM) — we log `AnsweredBy`
+      from the machine-detection callback today, but there's no
+      structured confirmation/alerting system built around it yet
+- [ ] Refunds for undeliverable smackagrams
+- [~] Log/store records for confirmation — Order/Smackagram DB records
+      exist, but not a dedicated delivery-confirmation audit log
+- [ ] Alternative delivery (text/email) for undeliverable smackagrams
+- [ ] Full workflow testing across various mobile devices
+- [ ] Reply Smackagram offer when a call is answered live
+- [ ] Redirect-to-site-to-reply flow after a VM delivery
+- [ ] 18+ recipient age confirmation checkbox, required except when
+      "Clean" sensitivity is selected — **current consent checkbox is
+      generic** ("I know this person and this is a prank between
+      friends"), not an explicit age-verification checkbox tied to
+      sensitivity level. Real gap, easy fix once prioritized.
+- [x] **Record the reaction for live-answered calls — already built**
+      (`record=True` on `place_prank_call`, stored via S3)
+- [ ] **Disable recording entirely when the call goes to VM — confirmed
+      NOT done.** Recording is currently controlled only by the
+      `include_recording` purchase choice, not by `AnsweredBy`. Now that
+      AMD/machine-detection exists (tonight's build), this is a real,
+      fairly quick fix: skip `<Record>` when `AnsweredBy` indicates a
+      machine.
+
+## Stripe Checkout Pages
+- [ ] Explicit T&Cs acknowledgment checkbox (T&Cs page doesn't exist yet
+      either — see below)
+- [ ] Handling for numbers that can't receive calls (blocked/no VM set up)
+- [ ] Text/email copy of the smackagram for a $2 upcharge — related to,
+      but distinct from, the audio-file-download product idea discussed
+      earlier (that was a separate self-serve product; this is an add-on
+      to an existing call order)
+- [ ] Subscription tiers — $9.99/mo (20 smackagrams + storage + Smack Lab
+      access), $14.99/mo (40 smackagrams + storage + Smack Lab access)
+
+## Terms & Conditions
+Confirmed not built at all — flagged multiple times already as a real gap.
+- [ ] Age compliance language
+- [ ] Recording law disclosures (two-party consent states, etc.)
+- [ ] Prohibited content policy
+- [ ] "Entertainment purposes only" acknowledgment
+- [ ] Right to refuse service for suspected foul play
+- [ ] Privacy rights/policy
+- [ ] All-sales-final policy, with undeliverable refunds issued as
+      account credit rather than cash refunds (note: account credit
+      requires the account system to exist first)
+
+## Backend Admin Panel
+Only the one-off team-code diagnostic tool exists today (`/api/admin/check-team-codes`).
+No real dashboard. Everything below is net-new:
+- [ ] Real-time stats: sales, sent/delivered/failed counts, estimated
+      gross profit (default: current month), registrations, active
+      customers, guest vs. registered checkout split, average order
+      value
+- [ ] Accounts-payable balance for unsent/armed smackagrams + estimated
+      fulfillment cost
+- [ ] Alerting for any system failures (API outages, etc.)
+- [ ] Full production records — queryable by customer, full history of
+      accounting + smackagrams + logs
+- [ ] Unique ID per customer AND per smackagram for records retrieval
+- [~] **Note**: the "214 smacks sent today" / "2,847 this week" numbers
+      currently shown on the home page are **hardcoded placeholder
+      copy, not real data** — worth knowing before quoting them anywhere
+      real, and this admin panel would be what makes them real.
+
+## Security
+- [ ] Formal site-security review
+- [ ] Brute-force protection on the DB/auth layer (moot until accounts exist)
+- [~] API connections — real API keys used throughout (Stripe, Twilio,
+      ElevenLabs, SportsDataIO, Anthropic), but no formal audit of
+      exposure/rotation practices. Two keys were flagged as exposed in
+      chat earlier this build (SportsDataIO, Twilio auth token) and
+      still need rotating — see "Pending Items" further up.
+- [ ] "No external API access" — needs clarification on what this means
+      in context before it's actionable
+- [ ] Database backups/redundancy — moot on SQLite; becomes relevant once
+      Postgres migration happens
+- [x] **Code repository security — already in place** (private GitHub repo)
+- [ ] Stripe data cloud storage + local redundancy — Stripe already hosts
+      this by default; unclear if this means something beyond that
+
+## General Requirements
+- [ ] Business email addresses (at least 3)
+- [~] Hosting — live on Render today, but no scalability validation or
+      stress testing done
+- [ ] Stress test for up to 1,000 simultaneous deliveries
+- [ ] "Contact us" links across all applicable pages
+- [ ] "Did you just get smacked?" reply workflow — recipient-initiated
+      anonymous reply-to-sender flow, a genuinely new customer/transaction
+      type, not built
+- [ ] Twilio Caller ID branded as "Smackagram" — needs an EIN (already
+      flagged as pending earlier tonight)
+- [ ] Additional "laughing" voice profile(s) for ElevenLabs
+- [ ] Track and surface high-volume teams on the site (real data — see
+      admin panel note above about the currently-fake stats)
+- [~] Total smackagrams sent display — exists on the page today but is
+      **hardcoded, not live data**
+- [ ] Updated/upgraded "smack" sound effect file
+- [ ] LLC / ownership structure determination — business/legal, not code
+- [ ] Partnership agreement (Andy + David) — business/legal, not code
+- [ ] Business bank account(s) — business/legal, not code
+- [ ] A real staging/test site separate from production, for trying
+      changes before they go live to real customers
+
+## Sponsorships & Partnerships
+Business development, not engineering — noted here for completeness,
+nothing to build:
+- [ ] FanDuel
+- [ ] Fantasy league platforms (Discord communities, others)
+- [ ] Dave Portnoy / Barstool
+- [ ] ESPN
+- [ ] Meta/Facebook organic posts
+- [ ] Paid social ads (TikTok, Meta, X, Instagram)
+- [ ] Social media pages across all platforms, linked back to the site
+- [ ] Promo codes for new customers / general promotions
+
+---
+*Last updated: 2026-07-26*
