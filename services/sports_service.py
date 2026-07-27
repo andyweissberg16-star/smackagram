@@ -334,7 +334,14 @@ def get_all_teams(sport: str) -> list[dict]:
     "CHW") silently breaks search/display for that team with no error.
     """
     path = SPORT_PATHS[sport]
-    url = f"{BASE}/{path}/scores/json/Teams"
+    if sport == "soccer":
+        # Soccer lives on API v4, not v3 like every other sport here —
+        # same distinction _get() already has to handle. Without this,
+        # this call was silently hitting a URL that doesn't exist for
+        # soccer at all.
+        url = f"https://api.sportsdata.io/v4/soccer/scores/json/Teams/{SOCCER_TRIAL_COMPETITION_ID}"
+    else:
+        url = f"{BASE}/{path}/scores/json/Teams"
     resp = requests.get(url, params={"key": _api_key()}, timeout=15)
     resp.raise_for_status()
     return resp.json()

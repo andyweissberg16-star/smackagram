@@ -3,9 +3,18 @@
 Saved for reference. Not yet started. Revisit and prioritize when ready.
 
 ## Prerequisites (needed before most of this becomes buildable)
-- [ ] **Postgres database** — currently on SQLite, which wipes on every Render
-      redeploy. Accounts, purchase history, and admin reporting all need
-      data that survives deploys.
+- [ ] **Postgres database or persistent disk** — currently on SQLite,
+      which wipes on every Render redeploy AND on the free tier's
+      15-minute idle spin-down (confirmed directly — the Smack Chat seed
+      script's data got wiped this way, not from a deploy at all, just
+      the site sitting idle). Accounts, purchase history, admin
+      reporting, and now the Smack Chat seed data all need this fixed to
+      actually persist. Two real fix options already scoped: attach a
+      persistent disk to a paid Render web service (cheaper/faster), or
+      migrate to real Postgres (more robust long-term, needs a paid tier
+      too since the free Postgres option expires after 30 days). Revisit
+      once ready to stop re-seeding/re-testing against data that keeps
+      disappearing.
 - [ ] **Email-sending service** (SendGrid, Postmark, etc.) — needed for
       password resets, email verification, and preference confirmations.
       Nothing currently sends transactional email.
