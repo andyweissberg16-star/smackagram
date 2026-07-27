@@ -877,3 +877,17 @@ image or using the OS-level native share sheet, not a real web link.
       file are hardcoded rgba values, not tied to these variables —
       those keep the original gold/red glow regardless of team
       colors unless that's expanded separately later.
+
+## Regression found and fixed same session
+- [x] The new typing indicator feature reintroduced the exact
+      textarea-wiping bug from earlier tonight. Cause: is_typing_a/
+      is_typing_b were included in the same signature that gates
+      rebuilding the whole action area (including the textarea) — since
+      a typist's own pings reflect back to their own client via polling,
+      their own typing status flickering true/false every couple
+      seconds kept destroying and recreating their own textarea,
+      wiping whatever they'd typed. Removed typing status from that
+      signature entirely, and gave the typing indicator its own
+      dedicated DOM slot that updates independently on every render —
+      it can never touch or rebuild the textarea now, regardless of how
+      often typing status changes.
