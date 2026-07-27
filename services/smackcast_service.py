@@ -1,0 +1,271 @@
+"""
+Smackcast — weekly fantasy football recap generation. Pulls real
+matchup data (via sleeper_service for now; espn_service/yahoo_service
+follow the same shape once built) and turns it into a savage,
+Smackagram-toned script covering every matchup in the league, sized to
+the league's team count.
+"""
+import os
+import json
+import anthropic
+import requests
+
+_client = None
+
+
+def _get_client():
+    global _client
+    if _client is None:
+        _client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    return _client
+
+
+_HARD_LIMITS = """Hard limits — never cross these:
+- Roast the TEAM PERFORMANCE (the score, the blowout, the bad bench
+  decision, the specific players who did or didn't produce) — never
+  invent personal details about the actual human behind a team name
+  beyond what's in the data you were given.
+- No slurs of any kind, no hate speech, no content targeting race,
+  religion, gender, sexuality, disability, or any protected characteristic.
+- No threats of violence, no wishing real harm on anyone.
+- No real-world tragedy references, no political content.
+- Only use the scores and team names you were actually given — never
+  invent a stat, score, or player performance that wasn't provided.
+- Output ONLY the script to be read aloud. No preamble, no labels, no
+  stage directions, no markdown."""
+
+
+def _target_word_count(team_count: int) -> int:
+    """
+    Scales the target script length with league size — an 8-team league
+    has less ground to cover than a 14-team one, so the recap runtime
+    scales roughly linearly between ~3 minutes (8 teams) and ~5 minutes
+    (14+ teams), at a natural spoken pace of ~150 words/minute.
+    """
+    team_count = max(8, min(team_count, 14))
+    min_words, max_words = 450, 750
+    fraction = (team_count - 8) / (14 - 8)
+    return round(min_words + fraction * (max_words - min_words))
+
+
+def generate_weekly_recap_script(league_name: str, week: int, matchups: list, team_count: int) -> dict:
+    """
+    matchups: list of {team_a, team_a_score, team_b, team_b_score}
+    Returns {"script": str, "best_line": str} — script is the full
+    recap ready for ElevenLabs, best_line is the single most quotable
+    line pulled out for the shareable meme image, extracted in the
+    same call rather than a separate one.
+    """
+    target_words = _target_word_count(team_count)
+
+    matchup_lines = []
+    for m in matchups:
+        winner = m["team_a"] if m["team_a_score"] > m["team_b_score"] else m["team_b"]
+        margin = abs(m["team_a_score"] - m["team_b_score"])
+        matchup_lines.append(
+            f"{m['team_a']} ({m['team_a_score']:.1f}) vs {m['team_b']} ({m['team_b_score']:.1f}) "
+            f"— {winner} won by {margin:.1f}"
+        )
+    matchups_block = "\n".join(matchup_lines)
+
+    system_prompt = f"""You write the weekly Smackcast — a savage, heavily
+profane fantasy football recap read aloud to an entire league. This is
+Smackagram's established voice: real cursing throughout, genuinely
+brutal, but funny and specific rather than mean for its own sake. Cover
+EVERY matchup given to you, not just the most dramatic one — call out
+blowouts specifically, give close games their due tension, and name
+whoever had the week's most embarrassing loss and biggest win by name.
+
+Target length: approximately {target_words} words — this scales with
+how many matchups are in the league this week, so hit it reasonably
+closely rather than running short or padding it out.
+
+{_HARD_LIMITS}
+
+After writing the script, pull out the single most quotable, savage
+line from it verbatim (word-for-word as it appears in the script) —
+this gets used on its own as a shareable image, so it needs to land
+completely out of context, not rely on the rest of the recap to make
+sense.
+
+Respond with ONLY a JSON object, nothing else:
+{{"script": "...", "best_line": "..."}}"""
+
+    user_content = (
+        f"League: {league_name}\n"
+        f"Week: {week}\n\n"
+        f"This week's matchups:\n{matchups_block}\n\n"
+        f"Write the recap."
+    )
+
+    last_error = None
+    for attempt in range(2):
+        try:
+            message = _get_client().messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=1600,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_content}],
+            )
+            raw = message.content[0].text.strip().replace("```json", "").replace("```", "").strip()
+            result = json.loads(raw)
+            if result.get("script"):
+                return {"script": result["script"], "best_line": result.get("best_line") or ""}
+        except Exception as e:
+            last_error = e
+            print(f"[smackcast] script generation attempt {attempt + 1} failed: {e}")
+
+    # Both attempts failed to produce valid structured output — this is
+    # a genuine failure the caller needs to know about, not something to
+    # paper over with fallback text the way the battle recap does,
+    # since there's no sensible generic fallback for an entire league's
+    # weekly recap.
+    raise RuntimeError(f"Failed to generate Smackcast script after 2 attempts: {last_error}")
+
+
+def deliver_to_discord(webhook_url: str, league_name: str, week: int, audio_url: str, share_url: str, meme_url: str = None) -> bool:
+    """
+    Posts a message into a Discord channel via a webhook the league
+    owner set up themselves (Discord doesn't let third parties post
+    into a server without the owner explicitly creating a webhook for
+    that specific channel). Returns True on success, False on failure —
+    delivery failures shouldn't crash the whole weekly generation run
+    for every other league. Includes the meme as a rich embed image
+    when available, which displays inline in Discord rather than as a
+    plain clickable link.
+    """
+    try:
+        payload = {
+            "content": (
+                f"🔥 **Smackcast — {league_name}, Week {week}** 🔥\n"
+                f"Your league just got roasted. Listen here: {audio_url}\n"
+                f"Full recap page: {share_url}"
+            )
+        }
+        if meme_url:
+            payload["embeds"] = [{"image": {"url": meme_url}}]
+        resp = requests.post(webhook_url, json=payload, timeout=10)
+        return resp.status_code in (200, 204)
+    except Exception as e:
+        print(f"[smackcast] Discord delivery failed: {e}")
+        return False
+
+
+def deliver_to_groupme(bot_id: str, league_name: str, week: int, share_url: str) -> bool:
+    """
+    Posts into a GroupMe chat via a bot the league owner registered
+    themselves at dev.groupme.com. GroupMe bots can only post plain
+    text (no rich embeds like Discord), so this leans on the share link
+    for the audio player rather than linking the raw file directly.
+    """
+    try:
+        resp = requests.post(
+            "https://api.groupme.com/v3/bots/post",
+            json={
+                "bot_id": bot_id,
+                "text": f"🔥 Smackcast — {league_name}, Week {week} 🔥 Your league just got roasted: {share_url}",
+            },
+            timeout=10,
+        )
+        return resp.status_code in (200, 202)
+    except Exception as e:
+        print(f"[smackcast] GroupMe delivery failed: {e}")
+        return False
+
+
+def _wrap_text(draw, text, font, max_width):
+    """Manual word-wrap since Pillow doesn't do this automatically —
+    greedily packs words onto each line until adding the next one
+    would exceed max_width."""
+    words = text.split()
+    lines = []
+    current_line = ""
+    for word in words:
+        candidate = f"{current_line} {word}".strip()
+        bbox = draw.textbbox((0, 0), candidate, font=font)
+        if bbox[2] - bbox[0] <= max_width or not current_line:
+            current_line = candidate
+        else:
+            lines.append(current_line)
+            current_line = word
+    if current_line:
+        lines.append(current_line)
+    return lines
+
+
+def generate_meme_image(best_line: str, league_name: str, week: int) -> str:
+    """
+    Turns the week's single best/most savage line into a shareable,
+    Smackagram-branded square image (1080x1080 — works fine for
+    Discord/GroupMe embeds and any social sharing). Returns the
+    uploaded S3 URL. Fonts are bundled directly in static/fonts/ rather
+    than relying on whatever happens to be installed on the deployment
+    server, since that's not guaranteed to include Anton at all.
+    """
+    from PIL import Image, ImageDraw, ImageFont
+    import boto3
+    import uuid
+
+    INK = (13, 13, 13)
+    CHALK = (245, 245, 243)
+    GOLD = (255, 212, 0)
+    FLARE = (232, 20, 44)
+
+    size = 1080
+    img = Image.new("RGB", (size, size), INK)
+    draw = ImageDraw.Draw(img)
+
+    fonts_dir = os.path.join(os.path.dirname(__file__), "..", "static", "fonts")
+    anton_path = os.path.join(fonts_dir, "Anton-Regular.ttf")
+    dejavu_path = os.path.join(fonts_dir, "DejaVuSans-Bold.ttf")
+
+    # Accent bar across the top, same gold-to-red brand pairing used
+    # throughout the rest of the site.
+    draw.rectangle([(0, 0), (size, 14)], fill=GOLD)
+    draw.rectangle([(0, 14), (size, 20)], fill=FLARE)
+
+    label_font = ImageFont.truetype(dejavu_path, 32)
+    draw.text((size / 2, 90), "SMACKCAST", font=label_font, fill=FLARE, anchor="mm")
+
+    # Main quote — starts large and steps down in size until it
+    # actually fits within the available height, since a short savage
+    # one-liner and a longer one need very different type sizes to
+    # both look intentional rather than either tiny or overflowing.
+    max_text_width = size - 160
+    max_text_height = 620
+    quote_font_size = 90
+    quote_lines = []
+    while quote_font_size > 36:
+        quote_font = ImageFont.truetype(anton_path, quote_font_size)
+        quote_lines = _wrap_text(draw, f'"{best_line}"', quote_font, max_text_width)
+        line_height = quote_font_size * 1.25
+        if line_height * len(quote_lines) <= max_text_height:
+            break
+        quote_font_size -= 4
+
+    quote_font = ImageFont.truetype(anton_path, quote_font_size)
+    line_height = quote_font_size * 1.25
+    total_height = line_height * len(quote_lines)
+    start_y = (size - total_height) / 2 + 40
+
+    for i, line in enumerate(quote_lines):
+        draw.text((size / 2, start_y + i * line_height), line, font=quote_font, fill=CHALK, anchor="mm")
+
+    footer_font = ImageFont.truetype(dejavu_path, 26)
+    draw.text((size / 2, size - 70), f"{league_name} — Week {week}", font=footer_font, fill=(154, 154, 150), anchor="mm")
+
+    draw.rectangle([(0, size - 20), (size, size - 14)], fill=FLARE)
+    draw.rectangle([(0, size - 14), (size, size)], fill=GOLD)
+
+    buffer_path = f"/tmp/{uuid.uuid4()}.png"
+    img.save(buffer_path, "PNG")
+
+    s3_bucket = os.environ["AUDIO_S3_BUCKET"]
+    s3_region = os.environ.get("AWS_REGION", "us-east-1")
+    filename = f"smackcast-memes/{uuid.uuid4()}.png"
+    s3 = boto3.client("s3", region_name=s3_region)
+    with open(buffer_path, "rb") as f:
+        s3.put_object(Bucket=s3_bucket, Key=filename, Body=f.read(), ContentType="image/png")
+    os.remove(buffer_path)
+
+    return f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/{filename}"

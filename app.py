@@ -9,9 +9,9 @@ from sqlalchemy import func
 import requests
 from dotenv import load_dotenv
 
-from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleRoundResult, User
-from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors
-from scheduler import check_armed_smackagrams
+from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleRoundResult, User, SmackcastSubscription, SmackcastRecap
+from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, sleeper_service, smackcast_service, espn_service
+from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
 
 load_dotenv()
 
@@ -439,6 +439,15 @@ def stripe_webhook():
             # (starts with "cs_") — avoids re-processing a duplicate webhook
             if smackagram and smackagram.stripe_payment_intent_id == session["id"]:
                 smackagram.stripe_payment_intent_id = session.get("payment_intent")
+                db.session.commit()
+            return jsonify({"received": True})
+
+        if metadata.get("smackcast_subscription_id"):
+            subscription_id = int(metadata["smackcast_subscription_id"])
+            subscription = SmackcastSubscription.query.get(subscription_id)
+            if subscription and not subscription.is_active:
+                subscription.is_active = True
+                subscription.stripe_checkout_session_id = session["id"]
                 db.session.commit()
             return jsonify({"received": True})
 
@@ -1663,6 +1672,163 @@ def cron_check_smackagrams():
         return jsonify({"error": "unauthorized"}), 401
 
     check_armed_smackagrams()
+    return jsonify({"ok": True})
+
+
+@app.route("/smackcast")
+@login_required
+def smackcast_page():
+    return render_template("smackcast.html")
+
+
+@app.route("/api/smackcast/find-sleeper-leagues", methods=["POST"])
+@login_required
+def api_find_sleeper_leagues():
+    data = request.json or {}
+    username = (data.get("username") or "").strip()
+    if not username:
+        return jsonify({"error": "Enter your Sleeper username."}), 400
+
+    from datetime import datetime as _dt
+    season = str(_dt.utcnow().year)
+    leagues = sleeper_service.find_leagues_by_username(username, season)
+    if not leagues:
+        return jsonify({"error": "No leagues found for that username this season."}), 404
+    return jsonify({"leagues": leagues, "season": season})
+
+
+@app.route("/api/smackcast/connect-espn-league", methods=["POST"])
+@login_required
+def api_connect_espn_league():
+    """
+    ESPN has no "find my leagues by username" flow like Sleeper — the
+    owner provides their league ID directly (found in their ESPN
+    Fantasy URL), plus cookies if it's a private league. This endpoint
+    doubles as the connection test: get_league_info() will fail here if
+    the ID is wrong or the cookies don't match, before any money changes
+    hands.
+    """
+    data = request.json or {}
+    league_id = (data.get("league_id") or "").strip()
+    swid = (data.get("swid") or "").strip() or None
+    espn_s2 = (data.get("espn_s2") or "").strip() or None
+
+    if not league_id:
+        return jsonify({"error": "Enter your ESPN league ID."}), 400
+
+    from datetime import datetime as _dt
+    season = str(_dt.utcnow().year)
+
+    info = espn_service.get_league_info(league_id, season, swid=swid, espn_s2=espn_s2)
+    if not info:
+        return jsonify({"error": "Couldn't connect to that league. Double-check the league ID — if it's private, you'll need to add your SWID and espn_s2 cookies too."}), 404
+
+    return jsonify({"league": info, "season": season})
+
+
+@app.route("/api/smackcast/create-subscription", methods=["POST"])
+@login_required
+def api_create_smackcast_subscription():
+    user = get_current_user()
+    data = request.json or {}
+
+    platform = (data.get("platform") or "sleeper").strip()
+    if platform not in ("sleeper", "espn"):
+        return jsonify({"error": "Unsupported platform."}), 400
+
+    league_id = (data.get("league_id") or "").strip()
+    league_name = (data.get("league_name") or "").strip()
+    team_count = data.get("team_count")
+    season = data.get("season")
+
+    if not league_id or not season:
+        return jsonify({"error": "Missing league information."}), 400
+
+    delivery_methods = data.get("delivery_methods") or {}
+
+    espn_swid = None
+    espn_s2 = None
+    if platform == "espn":
+        espn_swid = (data.get("swid") or "").strip() or None
+        espn_s2 = (data.get("espn_s2") or "").strip() or None
+
+    subscription = SmackcastSubscription(
+        user_id=user.id,
+        platform=platform,
+        league_id=league_id,
+        league_name=league_name,
+        team_count=team_count,
+        season_year=int(season),
+        espn_swid=espn_swid,
+        espn_s2=espn_s2,
+        deliver_web_link=True,
+        deliver_phone_call=bool(delivery_methods.get("phone_call")),
+        phone_call_number=(delivery_methods.get("phone_call_number") or "").strip() or None,
+        deliver_sms=bool(delivery_methods.get("sms")),
+        sms_number=(delivery_methods.get("sms_number") or "").strip() or None,
+        deliver_discord=bool(delivery_methods.get("discord")),
+        discord_webhook_url=(delivery_methods.get("discord_webhook_url") or "").strip() or None,
+        deliver_groupme=bool(delivery_methods.get("groupme")),
+        groupme_bot_id=(delivery_methods.get("groupme_bot_id") or "").strip() or None,
+    )
+    db.session.add(subscription)
+    db.session.commit()
+
+    base_url = os.environ["BASE_URL"]
+    checkout_session = stripe_service.create_smackcast_checkout_session(subscription.id, base_url)
+    return jsonify({"checkout_url": checkout_session.url})
+
+
+@app.route("/smackcast/success")
+@login_required
+def smackcast_success_page():
+    return render_template("smackcast_success.html")
+
+
+@app.route("/smackcast-recap/<share_token>")
+def smackcast_recap_page(share_token):
+    """
+    Public, no login required — this is the universal delivery fallback
+    that works for literally any platform someone's league already
+    chats on, since it's just a link anyone can paste anywhere.
+    """
+    recap = SmackcastRecap.query.filter_by(share_token=share_token).first()
+    if not recap:
+        return "Recap not found.", 404
+    subscription = SmackcastSubscription.query.get(recap.subscription_id)
+    return render_template("smackcast_recap.html", recap=recap, subscription=subscription)
+
+
+@app.route("/smackcast-call-instructions/<int:recap_id>", methods=["GET", "POST"])
+def smackcast_call_instructions(recap_id):
+    """
+    Twilio hits this once the call connects (see place_smackcast_call).
+    Just plays the recap's audio straight through — no branching logic
+    needed since this is one-way playback, not an interactive call.
+    """
+    recap = SmackcastRecap.query.get(recap_id)
+    if not recap or not recap.audio_url:
+        return Response('<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>', mimetype="text/xml")
+    twiml = f'<?xml version="1.0" encoding="UTF-8"?><Response><Play>{recap.audio_url}</Play></Response>'
+    return Response(twiml, mimetype="text/xml")
+
+
+@app.route("/api/cron/generate-smackcasts", methods=["GET", "POST"])
+def cron_generate_smackcasts():
+    """
+    Called by an external scheduler configured to hit this every Tuesday
+    around 9AM — same reasoning as check_armed_smackagrams above (an
+    in-process scheduler already proved unreliable on Render's free
+    tier). Safe to hit more than once, since generate_weekly_smackcasts
+    itself checks whether each subscription already has this week's
+    recap before generating another.
+    """
+    provided_key = request.args.get("key", "")
+    expected_key = os.environ.get("CRON_SECRET", "")
+    if not expected_key or provided_key != expected_key:
+        return jsonify({"error": "unauthorized"}), 401
+
+    generate_weekly_smackcasts()
     return jsonify({"ok": True})
 
 

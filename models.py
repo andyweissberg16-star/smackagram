@@ -347,3 +347,87 @@ class User(db.Model):
 
     def check_password(self, raw_password):
         return check_password_hash(self.password_hash, raw_password)
+
+
+class SmackcastSubscription(db.Model):
+    """
+    A season-long Smackcast pass tied to one fantasy league. One-time
+    payment, then recaps auto-generate weekly for the rest of the
+    season — no further charge. Platform-specific credentials are
+    nullable since only the fields for whichever platform was chosen
+    actually get used; ESPN needs cookies only for private leagues,
+    Yahoo needs OAuth tokens since it doesn't support a simple
+    paste-your-ID flow like Sleeper does.
+    """
+    __tablename__ = "smackcast_subscriptions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+
+    platform = db.Column(db.String(20), nullable=False)  # "sleeper", "espn", "yahoo"
+    league_id = db.Column(db.String(100), nullable=False)
+    league_name = db.Column(db.String(200), nullable=True)  # fetched from the platform once connected
+    team_count = db.Column(db.Integer, nullable=True)  # drives recap length scaling
+    season_year = db.Column(db.Integer, nullable=False)
+
+    # ESPN-only — cookies required for private leagues, unused/null for
+    # public leagues and for any other platform entirely.
+    espn_swid = db.Column(db.String(255), nullable=True)
+    espn_s2 = db.Column(db.Text, nullable=True)
+
+    # Yahoo-only — OAuth tokens, since Yahoo has no simple paste-an-ID
+    # flow. Access tokens expire and need refreshing over a season, so
+    # both are stored.
+    yahoo_access_token = db.Column(db.Text, nullable=True)
+    yahoo_refresh_token = db.Column(db.Text, nullable=True)
+    yahoo_token_expires_at = db.Column(db.DateTime, nullable=True)
+
+    # Delivery — the owner can pick any combination. Web link is the
+    # universal fallback (works for literally any platform someone
+    # pastes it into) so it defaults on.
+    deliver_web_link = db.Column(db.Boolean, default=True)
+    deliver_phone_call = db.Column(db.Boolean, default=False)
+    phone_call_number = db.Column(db.String(30), nullable=True)
+    deliver_sms = db.Column(db.Boolean, default=False)
+    sms_number = db.Column(db.String(30), nullable=True)
+    deliver_discord = db.Column(db.Boolean, default=False)
+    discord_webhook_url = db.Column(db.Text, nullable=True)
+    deliver_groupme = db.Column(db.Boolean, default=False)
+    groupme_bot_id = db.Column(db.String(100), nullable=True)
+
+    stripe_checkout_session_id = db.Column(db.String(255), nullable=True)
+    is_active = db.Column(db.Boolean, default=False)  # flips True on successful payment
+    last_recap_week = db.Column(db.Integer, nullable=True)  # avoids double-generating the same week
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class SmackcastRecap(db.Model):
+    """
+    One week's generated recap for one subscription. status tracks
+    progress through the multi-step pipeline (pull league data ->
+    generate script -> generate audio -> deliver), same reasoning as
+    Smackagram order statuses elsewhere on the site — several things
+    can fail independently and it's worth knowing which step broke.
+    """
+    __tablename__ = "smackcast_recaps"
+
+    id = db.Column(db.Integer, primary_key=True)
+    subscription_id = db.Column(db.Integer, db.ForeignKey("smackcast_subscriptions.id"), nullable=False)
+
+    week_number = db.Column(db.Integer, nullable=False)
+    season_year = db.Column(db.Integer, nullable=False)
+
+    script_text = db.Column(db.Text, nullable=True)
+    audio_url = db.Column(db.String(500), nullable=True)
+    meme_image_url = db.Column(db.String(500), nullable=True)
+    best_line = db.Column(db.Text, nullable=True)
+    share_token = db.Column(db.String(64), unique=True, nullable=True)
+
+    status = db.Column(db.String(20), default="generating")  # generating, ready, failed
+    error_message = db.Column(db.Text, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    delivered_at = db.Column(db.DateTime, nullable=True)
+
+    __table_args__ = (db.UniqueConstraint("subscription_id", "week_number", "season_year", name="one_recap_per_week_per_subscription"),)

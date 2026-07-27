@@ -63,6 +63,29 @@ def create_checkout_session(order_id: int, amount_cents: int, base_url: str) -> 
     )
 
 
+def create_smackcast_checkout_session(subscription_id: int, base_url: str) -> stripe.checkout.Session:
+    """
+    One-time season pass checkout — $39.99, no recurring billing. Same
+    hosted-Checkout pattern as create_checkout_session above.
+    """
+    _configure()
+    return stripe.checkout.Session.create(
+        mode="payment",
+        payment_method_types=["card"],
+        line_items=[{
+            "price_data": {
+                "currency": "usd",
+                "product_data": {"name": "Smackcast — Season Pass"},
+                "unit_amount": 3999,
+            },
+            "quantity": 1,
+        }],
+        metadata={"smackcast_subscription_id": str(subscription_id)},
+        success_url=f"{base_url}/smackcast/success?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{base_url}/smackcast",
+    )
+
+
 def create_authorized_checkout_session(smackagram_id: int, amount_cents: int, base_url: str) -> stripe.checkout.Session:
     """
     Same hosted-Checkout UX as create_checkout_session, but for locked-and-

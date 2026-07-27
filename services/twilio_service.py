@@ -50,6 +50,28 @@ def send_sms(to_phone: str, body: str) -> str:
     return message.sid
 
 
+def place_smackcast_call(recap_id: int, recipient_phone: str) -> str:
+    """
+    Calls a league owner and plays their weekly Smackcast recap. Separate
+    from place_prank_call() since that one caps at 59 seconds (fine for
+    a short prank line, nowhere near enough for a 3-5 minute recap) and
+    is tied to the order/smackagram pre-resolved audio dict rather than
+    a recap ID.
+    """
+    base_url = os.environ["BASE_URL"]
+    to_number = _to_e164(recipient_phone)
+    from_number = _to_e164(os.environ["TWILIO_PHONE_NUMBER"])
+
+    call = _get_client().calls.create(
+        to=to_number,
+        from_=from_number,
+        url=f"{base_url}/smackcast-call-instructions/{recap_id}",
+        time_limit=360,  # 6 minutes — covers the longest (5 min) recap plus buffer
+        machine_detection="DetectMessageEnd",
+    )
+    return call.sid
+
+
 def place_prank_call(order_or_smackagram_id: int, recipient_phone: str, record: bool = True) -> str:
     """
     Fires the actual outbound call. Twilio hits our /call-instructions

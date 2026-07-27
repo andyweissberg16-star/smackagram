@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smackcast — Smackagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D; --ink-2:#1A1A1A; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
+    --flare:#E8142C; --gold:#FFD400; --line:rgba(245,245,243,0.10); --line-strong:rgba(245,245,243,0.24);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:560px; margin:0 auto; padding:0 24px 80px;}
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  nav a{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
+  .hero{text-align:center; padding:40px 0 16px;}
+  .hero .label{font-family:'Anton',sans-serif; font-size:14px; color:var(--flare); text-transform:uppercase; letter-spacing:1px;}
+  .hero h1{font-family:'Anton',sans-serif; font-size:32px; text-transform:uppercase; letter-spacing:0.5px; margin-top:8px;}
+  .hero p{color:var(--chalk-dim); font-size:14px; margin-top:10px; line-height:1.5;}
+  .price-tag{font-family:'Anton',sans-serif; font-size:20px; color:var(--gold); margin-top:14px;}
+
+  .card{background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:28px; margin-top:24px;}
+  .step-label{font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:1px; margin-bottom:14px;}
+
+  .platform-row{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+  .platform-tile{
+    background:var(--ink); border:1px solid var(--line-strong); border-radius:6px; padding:18px 10px;
+    text-align:center; cursor:pointer; font-size:13px; font-weight:600;
+  }
+  .platform-tile.selected{border-color:var(--flare); box-shadow:0 0 0 1px var(--flare);}
+  .platform-tile.disabled{opacity:0.4; cursor:not-allowed;}
+  .platform-tile .emoji{font-size:24px; display:block; margin-bottom:6px;}
+  .platform-tile .soon{font-size:10px; color:var(--chalk-dim); text-transform:uppercase; margin-top:4px;}
+
+  label{display:block; font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin:16px 0 6px;}
+  input[type=text], input[type=tel]{
+    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:4px;
+  }
+  input:focus{outline:none; border-color:var(--flare);}
+
+  .league-option{
+    background:var(--ink); border:1px solid var(--line-strong); border-radius:4px; padding:12px 14px;
+    margin-top:8px; cursor:pointer; font-size:14px;
+  }
+  .league-option.selected{border-color:var(--gold); box-shadow:0 0 0 1px var(--gold);}
+  .league-option .meta{font-size:11px; color:var(--chalk-dim); margin-top:2px;}
+
+  .delivery-row{display:flex; align-items:center; gap:10px; margin-top:14px;}
+  .delivery-row input[type=checkbox]{width:auto;}
+  .delivery-row label{margin:0; font-size:13px; color:var(--chalk); text-transform:none; letter-spacing:normal;}
+  .delivery-input{margin-top:8px; margin-left:26px; display:none;}
+  .delivery-input.show{display:block;}
+
+  .btn{font-weight:700; font-size:14px; padding:14px 24px; border-radius:4px; border:none; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; width:100%; margin-top:20px;}
+  .btn-flare{background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(232,20,44,0.4);}
+  .btn-flare:disabled{opacity:0.5; cursor:not-allowed;}
+  #formError{display:none; color:var(--flare); font-size:12px; margin-top:12px;}
+</style>
+</head>
+<body>
+
+<nav>
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+  <a href="/">&larr; Back to home</a>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <p class="label">Smackcast</p>
+    <h1>Your League's Weekly Recap</h1>
+    <p>Fully automated. Zero mercy. Connect your league, and every Tuesday at 9AM Smackcast pulls the real scores and roasts your whole league — by name, in Smackagram's voice. One payment, one season, no renewals.</p>
+    <p class="price-tag">$39.99 once. Savage every week.</p>
+  </div>
+
+  <div class="card">
+    <p class="step-label">Step 1 — Pick Your Platform</p>
+    <div class="platform-row">
+      <div class="platform-tile selected" id="platformSleeper" data-platform="sleeper">
+        <span class="emoji">😴</span>Sleeper
+      </div>
+      <div class="platform-tile" id="platformEspn" data-platform="espn">
+        <span class="emoji">🏈</span>ESPN
+      </div>
+      <div class="platform-tile disabled">
+        <span class="emoji">🟣</span>Yahoo
+        <p class="soon">Coming Soon</p>
+      </div>
+    </div>
+
+    <div id="sleeperConnect">
+      <label for="sleeperUsernameInput">Your Sleeper Username</label>
+      <input id="sleeperUsernameInput" type="text" placeholder="ex. andyweissberg">
+      <button id="findLeaguesBtn" class="btn" style="background:transparent; border:1px solid var(--line-strong); color:var(--chalk); margin-top:10px;">Find My Leagues</button>
+
+      <div id="leagueList"></div>
+    </div>
+
+    <div id="espnConnect" style="display:none;">
+      <label for="espnLeagueIdInput">Your ESPN League ID</label>
+      <input id="espnLeagueIdInput" type="text" placeholder="Find it in your ESPN Fantasy URL: .../leagues/XXXXXXXX">
+
+      <div style="margin-top:14px; padding:12px 14px; background:var(--ink); border:1px solid var(--line-strong); border-radius:4px; font-size:12px; color:var(--chalk-dim); line-height:1.6;">
+        <strong style="color:var(--chalk);">Private league?</strong> You'll need two cookie values from your browser:
+        log into ESPN Fantasy on the web &rarr; open DevTools (F12) &rarr; Application tab &rarr; Cookies &rarr; fantasy.espn.com &rarr; copy the <code>SWID</code> and <code>espn_s2</code> values below.
+      </div>
+
+      <label for="espnSwidInput">SWID Cookie (private leagues only)</label>
+      <input id="espnSwidInput" type="text" placeholder="{XXXXXXXX-XXXX-...}">
+
+      <label for="espnS2Input">espn_s2 Cookie (private leagues only)</label>
+      <input id="espnS2Input" type="text" placeholder="Long string of letters and numbers">
+
+      <button id="connectEspnBtn" class="btn" style="background:transparent; border:1px solid var(--line-strong); color:var(--chalk); margin-top:10px;">Connect League</button>
+
+      <div id="espnLeagueResult"></div>
+    </div>
+  </div>
+
+  <div class="card" id="deliveryCard" style="display:none;">
+    <p class="step-label">Step 2 — Choose Delivery</p>
+
+    <div class="delivery-row">
+      <input type="checkbox" checked disabled>
+      <label>Shareable web link (always included)</label>
+    </div>
+
+    <div class="delivery-row">
+      <input type="checkbox" id="deliverPhone">
+      <label for="deliverPhone">Phone call to the league owner</label>
+    </div>
+    <div class="delivery-input" id="phoneInputWrap">
+      <input type="tel" id="phoneNumberInput" placeholder="Phone number">
+    </div>
+
+    <div class="delivery-row">
+      <input type="checkbox" id="deliverSms">
+      <label for="deliverSms">Text message to the league owner</label>
+    </div>
+    <div class="delivery-input" id="smsInputWrap">
+      <input type="tel" id="smsNumberInput" placeholder="Phone number">
+    </div>
+
+    <div class="delivery-row">
+      <input type="checkbox" id="deliverDiscord">
+      <label for="deliverDiscord">Discord (post into your league's server)</label>
+    </div>
+    <div class="delivery-input" id="discordInputWrap">
+      <input type="text" id="discordWebhookInput" placeholder="Discord webhook URL">
+    </div>
+
+    <div class="delivery-row">
+      <input type="checkbox" id="deliverGroupme">
+      <label for="deliverGroupme">GroupMe (post into your league's chat)</label>
+    </div>
+    <div class="delivery-input" id="groupmeInputWrap">
+      <input type="text" id="groupmeBotIdInput" placeholder="GroupMe bot ID">
+    </div>
+
+    <div id="formError"></div>
+    <button id="checkoutBtn" class="btn btn-flare">Get Smackcast — $39.99</button>
+  </div>
+</div>
+
+<script>
+let selectedLeague = null;
+let selectedPlatform = 'sleeper';
+
+document.getElementById('platformSleeper').addEventListener('click', () => {
+  selectedPlatform = 'sleeper';
+  document.getElementById('platformSleeper').classList.add('selected');
+  document.getElementById('platformEspn').classList.remove('selected');
+  document.getElementById('sleeperConnect').style.display = 'block';
+  document.getElementById('espnConnect').style.display = 'none';
+  selectedLeague = null;
+  document.getElementById('deliveryCard').style.display = 'none';
+});
+
+document.getElementById('platformEspn').addEventListener('click', () => {
+  selectedPlatform = 'espn';
+  document.getElementById('platformEspn').classList.add('selected');
+  document.getElementById('platformSleeper').classList.remove('selected');
+  document.getElementById('sleeperConnect').style.display = 'none';
+  document.getElementById('espnConnect').style.display = 'block';
+  selectedLeague = null;
+  document.getElementById('deliveryCard').style.display = 'none';
+});
+
+document.getElementById('connectEspnBtn').addEventListener('click', async () => {
+  const leagueId = document.getElementById('espnLeagueIdInput').value.trim();
+  const swid = document.getElementById('espnSwidInput').value.trim();
+  const espnS2 = document.getElementById('espnS2Input').value.trim();
+  const errorEl = document.getElementById('formError');
+  const resultEl = document.getElementById('espnLeagueResult');
+  errorEl.style.display = 'none';
+  resultEl.innerHTML = '';
+
+  if (!leagueId) {
+    errorEl.textContent = 'Enter your ESPN league ID first.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('connectEspnBtn');
+  btn.textContent = 'Connecting...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/smackcast/connect-espn-league', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({league_id: leagueId, swid: swid, espn_s2: espnS2})
+    });
+    const data = await resp.json();
+    if (data.error) {
+      errorEl.textContent = data.error;
+      errorEl.style.display = 'block';
+    } else {
+      selectedLeague = {...data.league, season: data.season, swid: swid, espn_s2: espnS2};
+      resultEl.innerHTML = `<div class="league-option selected">${data.league.name}<p class="meta">${data.league.team_count} teams</p></div>`;
+      document.getElementById('deliveryCard').style.display = 'block';
+    }
+  } catch (err) {
+    errorEl.textContent = "Couldn't reach ESPN — try again.";
+    errorEl.style.display = 'block';
+  } finally {
+    btn.textContent = 'Connect League';
+    btn.disabled = false;
+  }
+});
+
+document.querySelectorAll('.delivery-row input[type=checkbox]:not([disabled])').forEach(cb => {
+  cb.addEventListener('change', () => {
+    const wrapId = cb.id.replace('deliver', '').toLowerCase() + 'InputWrap';
+    const wrap = document.getElementById(wrapId);
+    if (wrap) wrap.classList.toggle('show', cb.checked);
+  });
+});
+
+document.getElementById('findLeaguesBtn').addEventListener('click', async () => {
+  const username = document.getElementById('sleeperUsernameInput').value.trim();
+  const errorEl = document.getElementById('formError');
+  const listEl = document.getElementById('leagueList');
+  errorEl.style.display = 'none';
+  listEl.innerHTML = '';
+
+  if (!username) {
+    errorEl.textContent = 'Enter your Sleeper username first.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('findLeaguesBtn');
+  btn.textContent = 'Searching...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/smackcast/find-sleeper-leagues', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username: username})
+    });
+    const data = await resp.json();
+    if (data.error) {
+      errorEl.textContent = data.error;
+      errorEl.style.display = 'block';
+    } else {
+      data.leagues.forEach(league => {
+        const el = document.createElement('div');
+        el.className = 'league-option';
+        el.innerHTML = `${league.name}<p class="meta">${league.team_count} teams</p>`;
+        el.addEventListener('click', () => {
+          document.querySelectorAll('.league-option').forEach(o => o.classList.remove('selected'));
+          el.classList.add('selected');
+          selectedLeague = {...league, season: data.season};
+          document.getElementById('deliveryCard').style.display = 'block';
+        });
+        listEl.appendChild(el);
+      });
+    }
+  } catch (err) {
+    errorEl.textContent = "Couldn't reach Sleeper — try again.";
+    errorEl.style.display = 'block';
+  } finally {
+    btn.textContent = 'Find My Leagues';
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('checkoutBtn').addEventListener('click', async () => {
+  const errorEl = document.getElementById('formError');
+  errorEl.style.display = 'none';
+
+  if (!selectedLeague) {
+    errorEl.textContent = 'Pick a league first.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  const btn = document.getElementById('checkoutBtn');
+  btn.textContent = 'Redirecting to payment...';
+  btn.disabled = true;
+
+  const payload = {
+    platform: selectedPlatform,
+    league_id: selectedLeague.league_id,
+    league_name: selectedLeague.name,
+    team_count: selectedLeague.team_count,
+    season: selectedLeague.season,
+    swid: selectedLeague.swid || '',
+    espn_s2: selectedLeague.espn_s2 || '',
+    delivery_methods: {
+      phone_call: document.getElementById('deliverPhone').checked,
+      phone_call_number: document.getElementById('phoneNumberInput').value.trim(),
+      sms: document.getElementById('deliverSms').checked,
+      sms_number: document.getElementById('smsNumberInput').value.trim(),
+      discord: document.getElementById('deliverDiscord').checked,
+      discord_webhook_url: document.getElementById('discordWebhookInput').value.trim(),
+      groupme: document.getElementById('deliverGroupme').checked,
+      groupme_bot_id: document.getElementById('groupmeBotIdInput').value.trim(),
+    }
+  };
+
+  try {
+    const resp = await fetch('/api/smackcast/create-subscription', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    if (data.login_required) {
+      window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+      return;
+    }
+    if (data.checkout_url) {
+      window.location.href = data.checkout_url;
+    } else {
+      errorEl.textContent = data.error || 'Something went wrong — try again.';
+      errorEl.style.display = 'block';
+      btn.textContent = 'Get Smackcast — $39.99';
+      btn.disabled = false;
+    }
+  } catch (err) {
+    errorEl.textContent = 'Something went wrong — try again.';
+    errorEl.style.display = 'block';
+    btn.textContent = 'Get Smackcast — $39.99';
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

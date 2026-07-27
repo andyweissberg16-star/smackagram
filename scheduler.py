@@ -1,8 +1,9 @@
 import os
+import secrets
 from datetime import datetime
 
-from models import db, Smackagram, Scenario
-from services import sports_service, stripe_service, twilio_service, trash_talk_service, call_audio_service, content_moderation
+from models import db, Smackagram, Scenario, SmackcastSubscription, SmackcastRecap
+from services import sports_service, stripe_service, twilio_service, trash_talk_service, call_audio_service, content_moderation, sleeper_service, smackcast_service, elevenlabs_service, espn_service
 
 
 def check_armed_smackagrams():
@@ -104,3 +105,115 @@ def check_armed_smackagrams():
             s.resolved_at = datetime.utcnow()
 
         db.session.commit()
+
+
+def generate_weekly_smackcasts():
+    """
+    Called via a new /api/cron/generate-smackcasts route, hit by the
+    same external cron mechanism as check_armed_smackagrams (an actual
+    in-process "wake up every Tuesday" scheduler was already proven
+    unreliable on Render's free tier — see that function's docstring).
+    The external cron just needs to be configured to hit this weekly;
+    this function itself checks whether each subscription has already
+    gotten this week's recap, so it's safe to hit more often than
+    strictly necessary without generating duplicates.
+
+    Handles Sleeper and ESPN. Yahoo follows once OAuth credentials exist
+    for it. The actual NFL week number is universal regardless of
+    platform, so Sleeper's week-detection endpoint is used as the
+    single source of truth even for ESPN subscriptions — only the
+    matchup data pull itself is platform-specific.
+    """
+    current_week = sleeper_service.get_current_nfl_week()
+    if not current_week:
+        print("[smackcast] No current NFL week available (likely offseason) — skipping")
+        return
+
+    subscriptions = SmackcastSubscription.query.filter(
+        SmackcastSubscription.is_active == True,
+        SmackcastSubscription.platform.in_(["sleeper", "espn"]),
+    ).all()
+    print(f"[smackcast] Week {current_week} — checking {len(subscriptions)} active subscription(s)")
+
+    for sub in subscriptions:
+        if sub.last_recap_week == current_week:
+            continue  # already generated this week's recap for this league
+
+        try:
+            if sub.platform == "sleeper":
+                week_data = sleeper_service.get_week_recap_data(sub.league_id, current_week)
+            elif sub.platform == "espn":
+                week_data = espn_service.get_week_recap_data(
+                    sub.league_id, str(sub.season_year), current_week,
+                    swid=sub.espn_swid, espn_s2=sub.espn_s2,
+                )
+            else:
+                continue  # unsupported platform, shouldn't happen given the query filter above
+
+            if not week_data or not week_data["matchups"]:
+                print(f"[smackcast] No matchup data yet for subscription {sub.id}, week {current_week} — will retry next check")
+                continue
+
+            result = smackcast_service.generate_weekly_recap_script(
+                league_name=sub.league_name or "Your League",
+                week=current_week,
+                matchups=week_data["matchups"],
+                team_count=sub.team_count or week_data["team_count"],
+            )
+            script = result["script"]
+            best_line = result["best_line"]
+            audio_url = elevenlabs_service.generate_audio_url(script)
+
+            # Meme generation failure shouldn't block the actual recap
+            # from delivering — the audio/script are the core product,
+            # the meme is a nice-to-have on top.
+            meme_url = None
+            if best_line:
+                try:
+                    meme_url = smackcast_service.generate_meme_image(best_line, sub.league_name or "Your League", current_week)
+                except Exception as e:
+                    print(f"[smackcast] meme generation failed for subscription {sub.id}: {e}")
+
+            recap = SmackcastRecap(
+                subscription_id=sub.id,
+                week_number=current_week,
+                season_year=sub.season_year,
+                script_text=script,
+                audio_url=audio_url,
+                meme_image_url=meme_url,
+                best_line=best_line,
+                share_token=secrets.token_urlsafe(16),
+                status="ready",
+            )
+            db.session.add(recap)
+            db.session.flush()  # get recap.id before delivery, without a separate commit
+
+            base_url = os.environ["BASE_URL"]
+            share_url = f"{base_url}/smackcast-recap/{recap.share_token}"
+
+            if sub.deliver_phone_call and sub.phone_call_number:
+                try:
+                    twilio_service.place_smackcast_call(recap.id, sub.phone_call_number)
+                except Exception as e:
+                    print(f"[smackcast] phone delivery failed for subscription {sub.id}: {e}")
+
+            if sub.deliver_sms and sub.sms_number:
+                try:
+                    twilio_service.send_sms(sub.sms_number, f"Your Smackcast for Week {current_week} is ready: {share_url}")
+                except Exception as e:
+                    print(f"[smackcast] SMS delivery failed for subscription {sub.id}: {e}")
+
+            if sub.deliver_discord and sub.discord_webhook_url:
+                smackcast_service.deliver_to_discord(sub.discord_webhook_url, sub.league_name or "Your League", current_week, audio_url, share_url, meme_url=meme_url)
+
+            if sub.deliver_groupme and sub.groupme_bot_id:
+                smackcast_service.deliver_to_groupme(sub.groupme_bot_id, sub.league_name or "Your League", current_week, share_url)
+
+            recap.delivered_at = datetime.utcnow()
+            sub.last_recap_week = current_week
+            db.session.commit()
+            print(f"[smackcast] Generated and delivered week {current_week} recap for subscription {sub.id}")
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"[smackcast] Failed to generate recap for subscription {sub.id}: {e}")

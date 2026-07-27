@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>You're In — Smackcast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D; --ink-2:#1A1A1A; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
+    --flare:#E8142C; --gold:#FFD400; --line:rgba(245,245,243,0.10); --line-strong:rgba(245,245,243,0.24);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:480px; margin:0 auto; padding:0 24px 60px; text-align:center;}
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  nav a{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
+  .hero{padding:60px 0 20px;}
+  .checkmark{font-size:48px; color:var(--gold);}
+  .hero h1{font-family:'Anton',sans-serif; font-size:28px; text-transform:uppercase; letter-spacing:0.5px; margin-top:16px;}
+  .hero p{color:var(--chalk-dim); font-size:14px; margin-top:14px; line-height:1.6;}
+  .card{background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:24px; margin-top:28px; text-align:left; font-size:13px; color:var(--chalk-dim); line-height:1.6;}
+  .btn{
+    display:inline-block; font-weight:700; font-size:14px; padding:14px 28px; border-radius:4px; text-decoration:none;
+    text-transform:uppercase; letter-spacing:0.5px; margin-top:24px; background:var(--flare); color:#fff;
+    box-shadow:0 0 20px rgba(232,20,44,0.4);
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+  <a href="/">&larr; Back to home</a>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <p class="checkmark">🔥</p>
+    <h1>You're Locked In</h1>
+    <p>Your league is officially on the clock. Every Tuesday at 9AM, Smackcast pulls the week's real scores and roasts your whole league — delivered exactly how you set it up.</p>
+  </div>
+
+  <div class="card">
+    First recap drops this coming Tuesday, once the current week's games are final. No further setup needed — just wait for the destruction to arrive.
+  </div>
+
+  <a href="/" class="btn">Back to Smackagram</a>
+</div>
+
+</body>
+</html>

@@ -1015,3 +1015,118 @@ image or using the OS-level native share sheet, not a real web link.
       10DLC registration is sorted out in Twilio.
       IMPORTANT REMINDER: re-enable this before relying on 2FA for
       anything real.
+
+## NEW FEATURE: Smackcast — Fantasy Football weekly recaps (major build)
+Full concept: connect a fantasy league, get a weekly AI-generated,
+Smackagram-toned AUDIO recap of real matchups, auto-delivered every
+Tuesday at 9AM. One-time $39.99 season pass, no renewals.
+
+Competitive research done first — audio is a genuine differentiator;
+competitors found (League Rewind, SmackScript, FantasyCast, Scoutcast.ai,
+FantasySportsReports) are text/podcast/strategy-focused, none combine a
+consistently savage tone with phone-call delivery.
+
+### Built and verified this session:
+- [x] SmackcastSubscription + SmackcastRecap models
+- [x] Sleeper integration (sleeper_service.py) — find leagues by
+      username, league info, current NFL week (pulled directly from
+      Sleeper's own API), full week matchup data joined from
+      rosters+users+matchups
+- [x] Recap script generation (smackcast_service.py) — Claude-generated,
+      word count auto-scales linearly with team count (8 teams = 3 min,
+      14+ teams = 5 min, verified against actual math)
+- [x] Discord webhook + GroupMe bot delivery functions
+- [x] New Twilio function (place_smackcast_call) — separate from the
+      existing 59-second prank call limit, 6-minute cap for recaps
+- [x] Public share page (/smackcast-recap/<token>) — no login required,
+      universal delivery fallback
+- [x] Weekly generation orchestration (scheduler.py) — follows the
+      EXACT same external-cron-hits-an-endpoint pattern already proven
+      reliable on this site (in-process scheduling was already tested
+      and found unreliable on Render's free tier)
+- [x] New cron endpoint /api/cron/generate-smackcasts, same secret-key
+      protection as the existing cron endpoint
+- [x] Stripe one-time $39.99 checkout + webhook handling to activate
+      the subscription
+- [x] Full "Connect Your League" wizard (/smackcast) — platform picker
+      (Sleeper live, ESPN/Yahoo marked Coming Soon), league lookup/
+      selection, delivery method picker with conditional inputs
+      (phone/SMS/Discord/GroupMe, web link always on)
+- [x] Success page, added to home page nav
+
+### Explicitly NOT done yet (future phases, already scoped):
+- [ ] ESPN integration — buildable now (unofficial API), private
+      leagues need the owner to paste SWID/espn_s2 cookies
+- [ ] Yahoo integration — blocked on user registering a Yahoo Developer
+      app and providing Client ID/Secret (OAuth, can't be done without
+      those credentials)
+- [ ] Email delivery — blocked on the same pre-existing missing email
+      infrastructure gap noted earlier in the 2FA work
+- [ ] Meme generation from best lines, screenshot-upload fallback for
+      unsupported platforms — good ideas from competitive research,
+      not yet built
+- [ ] The actual external cron job needs to be configured (e.g.
+      cron-job.org) to hit /api/cron/generate-smackcasts weekly —
+      same manual setup step the existing check-smackagrams cron
+      required
+
+## Smackcast Phase 2: ESPN integration (same session)
+- [x] espn_service.py — uses the same unofficial, community-maintained
+      ESPN fantasy API pattern the whole developer community relies on
+      (no official public API exists). Public leagues work with zero
+      extra setup; private leagues need the owner's SWID/espn_s2
+      cookies, since ESPN has no OAuth flow for third parties.
+      get_week_recap_data() returns data in the exact same shape as
+      Sleeper's version, which is what lets the scheduler treat both
+      platforms identically downstream.
+- [x] New /api/smackcast/connect-espn-league endpoint — doubles as the
+      connection test (wrong league ID or missing/bad cookies fails
+      here, before any payment happens)
+- [x] Subscription creation endpoint now accepts platform + ESPN cookie
+      fields instead of being hardcoded to Sleeper
+- [x] scheduler.py restructured to handle both platforms — key
+      simplification: the actual NFL week number is universal
+      regardless of which fantasy platform someone's on, so Sleeper's
+      week-detection stays the single source of truth even for ESPN
+      subscriptions; only the matchup data pull itself branches by
+      platform
+- [x] Frontend wizard — ESPN tile enabled, full connection flow with
+      clear private-league cookie instructions (DevTools walkthrough),
+      connection result confirms league name/team count before
+      proceeding to delivery/payment
+
+Yahoo remains blocked on the user registering a Yahoo Developer app
+and providing Client ID/Secret — genuinely can't be built without
+those credentials, not a scoping choice.
+
+## Smackcast Phase 3: shareable meme generation (same session)
+- [x] Restructured script generation to also extract the single best/
+      most quotable line in the same API call (structured JSON output,
+      2-attempt retry) — avoids a second Claude call just to pull out
+      a highlight.
+- [x] Built real image generation (Pillow) — 1080x1080 branded meme:
+      gold/red accent bars matching the site's actual color scheme,
+      auto-sizing bold Anton headline text that steps down in size
+      until it fits (tested both a long line at 5 lines/82pt and a
+      short line staying at max 90pt/1 line — both look genuinely
+      good, not just technically functional), league/week footer.
+      Bundled the actual Anton and DejaVu Sans Bold font files directly
+      in static/fonts/ rather than relying on whatever's installed on
+      the deployment server, since that's not guaranteed.
+- [x] Wired into the pipeline — meme generates after the script/audio,
+      uploads to S3, gets attached to Discord posts as a real inline
+      embed image (not just a link), and displays on the public recap
+      page. Meme generation failure is non-fatal — the actual recap
+      (audio + script) still delivers fine even if the image step
+      fails for some reason.
+- [ ] GroupMe delivery does NOT include the meme yet — GroupMe bots
+      only support plain text via this simple API, no rich image
+      embeds the way Discord has. Could add as a follow-up using
+      GroupMe's more involved image-upload API if worth the effort.
+
+DEPLOYMENT NOTE: this needs static/fonts/Anton-Regular.ttf and
+static/fonts/DejaVuSans-Bold.ttf actually present on disk to work —
+these are delivered as a separate small zip alongside the main code
+zip, since the main zip deliberately excludes all of static/ to avoid
+the deletion issue from earlier tonight, and this is a brand new
+subfolder with zero overwrite risk.
