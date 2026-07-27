@@ -781,6 +781,34 @@ one at a time. Logging each as it's built:
 - [x] Tightened further per follow-up — down to a hard 2-sentence
       max, one single sharpest moment referenced instead of two.
       Token budget trimmed to match.
+- [x] Fixed the boo sound firing on mobile right at round 1's start,
+      completely unrelated to any actual round outcome. Root cause: the
+      mobile unlock sequence muted each sound, played it silently, then
+      *restored* its original volume afterward — that restore step
+      could land at almost any moment, including right as the real
+      round-start sequence (bell, countdown) was also firing, creating
+      a race condition where a "restored to full volume" sound could
+      become audible at the wrong time. Restructured so the unlock
+      sequence now leaves everything muted permanently afterward (no
+      restore step, no race), and moved responsibility for the correct
+      volume to the actual playback functions instead — they now
+      explicitly unmute and set the right volume every single time they
+      genuinely play something, rather than trusting leftover state.
+      Also found and fixed two other direct play() calls (the crowd
+      loop and the new-line ding) that bypassed this safe handling
+      entirely and would have gone silent after the mobile unlock ran.
+- [x] Fixed the two-corners chat messages moving and flickering
+      aggressively and continuously, instead of once when genuinely new.
+      Root cause: the entire chat history was being rebuilt from scratch
+      on every single poll (every 1.5s) regardless of whether anything
+      actually changed, which destroyed and recreated every message
+      element each time — replaying every entrance animation for every
+      message, constantly. Added a signature-based guard so the chat
+      only actually rebuilds when the line content genuinely changed.
+      Also removed the slide-in movement entirely per follow-up
+      feedback and replaced it with a subtle, finite border-blink on
+      the message bubble itself instead (plays twice then settles,
+      correctly only once per real new message now).
 
 ## Future: shareable final scorecard
 Saved for later per user request — a real feature, worth doing

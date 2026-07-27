@@ -126,16 +126,8 @@
   .safety-note{font-size:11px; color:var(--chalk-dim); margin:8px 0 14px; line-height:1.4;}
 
   .line-row{display:flex; align-items:flex-end; gap:8px; margin-bottom:12px; max-width:100%;}
-  .line-row.side-a{flex-direction:row; animation:punchInLeft 0.3s ease-out;}
-  .line-row.side-b{flex-direction:row-reverse; animation:punchInRight 0.3s ease-out;}
-  @keyframes punchInLeft{
-    0%{opacity:0; transform:translateX(-16px);}
-    100%{opacity:1; transform:translateX(0);}
-  }
-  @keyframes punchInRight{
-    0%{opacity:0; transform:translateX(16px);}
-    100%{opacity:1; transform:translateX(0);}
-  }
+  .line-row.side-a{flex-direction:row;}
+  .line-row.side-b{flex-direction:row-reverse;}
   .fighter-avatar{
     flex-shrink:0; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     font-family:'Anton',sans-serif; font-size:14px; font-weight:400;
@@ -143,8 +135,16 @@
   .fighter-avatar.side-a{background:rgba(255,212,0,0.15); border:2px solid var(--gold); color:var(--gold); box-shadow:0 0 10px rgba(255,212,0,0.35);}
   .fighter-avatar.side-b{background:rgba(232,20,44,0.15); border:2px solid var(--flare); color:var(--flare); box-shadow:0 0 10px rgba(232,20,44,0.35);}
   .line{padding:12px 16px; border-radius:8px; max-width:78%;}
-  .line.side-a{background:rgba(255,212,0,0.12); border:1px solid rgba(255,212,0,0.3); border-left:3px solid var(--gold);}
-  .line.side-b{background:rgba(232,20,44,0.12); border:1px solid rgba(232,20,44,0.3); border-right:3px solid var(--flare); text-align:right;}
+  .line.side-a{background:rgba(255,212,0,0.12); border:1px solid rgba(255,212,0,0.3); border-left:3px solid var(--gold); animation:borderBlinkGold 1.2s ease-out 2;}
+  .line.side-b{background:rgba(232,20,44,0.12); border:1px solid rgba(232,20,44,0.3); border-right:3px solid var(--flare); text-align:right; animation:borderBlinkRed 1.2s ease-out 2;}
+  @keyframes borderBlinkGold{
+    0%, 100%{border-color:rgba(255,212,0,0.3);}
+    50%{border-color:var(--gold); box-shadow:0 0 12px rgba(255,212,0,0.5);}
+  }
+  @keyframes borderBlinkRed{
+    0%, 100%{border-color:rgba(232,20,44,0.3);}
+    50%{border-color:var(--flare); box-shadow:0 0 12px rgba(232,20,44,0.5);}
+  }
   .line-name{font-size:12px; font-weight:700; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;}
   .line.side-a .line-name{color:var(--gold);}
   .line.side-b .line-name{color:var(--flare);}
@@ -362,6 +362,7 @@ let lastLineCount = 0;
 let lastRoundResultsCount = 0;
 let knownRoundNumber = null;
 let lastActionSignature = null;
+let lastLineHistorySignature = null;
 let judgingStartedAt = null;
 let myScorecardUnlocked = false;
 let judgingBeepIntervalId = null;
@@ -451,6 +452,12 @@ function updateBackgroundMusic(status) {
     // the live back-and-forth of an active battle.
     if (crowdAudio && !crowdAudio.paused) crowdAudio.pause();
     if (waitingAudio && waitingAudio.src) {
+      // Explicitly unmute/set volume every time — the mobile unlock
+      // sequence intentionally leaves elements muted afterward (see
+      // unlockOneShotSounds), so this can't just assume it's already
+      // correctly configured.
+      waitingAudio.muted = false;
+      waitingAudio.volume = 0.25;
       if (status === 'complete' && !completeMusicStarted) {
         // The scorecard reveal should feel like a clean musical moment
         // of its own, not a continuation of whatever point the track
@@ -469,7 +476,11 @@ function updateBackgroundMusic(status) {
     }
   } else {
     if (waitingAudio && !waitingAudio.paused) waitingAudio.pause();
-    if (crowdAudio && crowdAudio.paused && crowdAudio.src) crowdAudio.play().catch(() => {});
+    if (crowdAudio && crowdAudio.paused && crowdAudio.src) {
+      crowdAudio.muted = false;
+      crowdAudio.volume = 0.15;
+      crowdAudio.play().catch(() => {});
+    }
   }
 }
 
@@ -530,7 +541,6 @@ async function unlockOneShotSounds() {
   for (const id of ids) {
     const el = document.getElementById(id);
     if (!el || !el.src) continue;
-    const originalVolume = el.volume;
     el.muted = true;
     el.volume = 0;
     try {
@@ -541,14 +551,26 @@ async function unlockOneShotSounds() {
       // Fine if this one didn't unlock — later attempts to play it will
       // just silently fail via the existing .catch(() => {}) handling.
     }
-    el.muted = false;
-    el.volume = originalVolume;
+    // Deliberately NOT restoring volume/muted here — leaving it muted
+    // is what genuinely eliminated the risk of an audible blip landing
+    // right as this unlock sequence overlaps with the real round-start
+    // sequence (bell, countdown, etc). playAudioElement() below now
+    // explicitly sets the correct volume and unmutes every single time
+    // it actually plays something for real, instead of relying on a
+    // "restore" step here that could race against real playback.
   }
 }
+
+// Each sound's actual intended volume when genuinely played — mostly
+// full volume, except critique-reveal which stays a bit quieter since
+// it's meant to sit under the critique text, not dominate it.
+const SOUND_VOLUMES = { critiqueRevealAudio: 0.5 };
 
 function playAudioElement(id) {
   const el = document.getElementById(id);
   if (el && el.src) {
+    el.muted = false;
+    el.volume = SOUND_VOLUMES[id] !== undefined ? SOUND_VOLUMES[id] : 1.0;
     el.currentTime = 0;
     el.play().catch(() => {});
   }
@@ -869,9 +891,7 @@ function render(battle) {
   // A new line arrived since the last render — celebrate it with a quick
   // crowd-pop sound, but only once sound has actually been enabled.
   if (soundEnabled && battle.lines.length > lastLineCount) {
-    const newLineAudio = document.getElementById('newLineAudio');
-    newLineAudio.currentTime = 0;
-    newLineAudio.play().catch(() => {});
+    playAudioElement('newLineAudio');
   }
   lastLineCount = battle.lines.length;
 
@@ -916,7 +936,17 @@ function render(battle) {
       });
     }
     historyHtml += '</div>';
-    lineHistory.innerHTML = historyHtml;
+
+    // Only actually rebuild the DOM when the line content genuinely
+    // changed — rebuilding on every single poll (even when nothing was
+    // new) was destroying and recreating every message element each
+    // time, which replayed each one's entrance animation constantly
+    // instead of just once when it was genuinely new.
+    const historySignature = `${battle.round_number}|${roundLines.length}`;
+    if (lastLineHistorySignature !== historySignature) {
+      lastLineHistorySignature = historySignature;
+      lineHistory.innerHTML = historyHtml;
+    }
   }
 
   // The action area (turn input, waiting note, or voting) only gets
