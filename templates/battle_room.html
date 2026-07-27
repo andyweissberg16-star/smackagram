@@ -105,6 +105,12 @@
   #actionError{display:none; color:var(--flare); font-size:12px; margin-bottom:10px;}
 
   .waiting-note{text-align:center; color:var(--chalk-dim); font-size:14px; padding:8px 0;}
+  .coach-message{
+    text-align:center; font-size:14px; color:var(--chalk); font-style:italic; padding:14px 18px 0;
+    margin-top:10px; border-top:1px solid var(--line-strong); position:relative;
+  }
+  .coach-message::before{content:'"'; color:var(--gold); font-family:'Anton',sans-serif; font-size:18px; margin-right:2px;}
+  .coach-message::after{content:'"'; color:var(--gold); font-family:'Anton',sans-serif; font-size:18px; margin-left:2px;}
   .safety-note{font-size:11px; color:var(--chalk-dim); margin:8px 0 14px; line-height:1.4;}
 
   .line{padding:12px 16px; border-radius:8px; margin-bottom:10px; max-width:85%;}
@@ -363,41 +369,12 @@ function updateBackgroundMusic(status) {
 
 initSound();
 
-const unlockedAudioIds = new Set();
 
 function handlePageInteraction() {
   // Browsers block real autoplay-with-sound before any interaction on
   // every site — the first tap/click anywhere on the page unlocks and
   // starts the music. Permanent from there — no mute toggle.
   updateBackgroundMusic(lastKnownStatus);
-
-  // Also unlock every one-shot sound effect element — mobile Safari in
-  // particular will reject play() on an element later (e.g. from inside
-  // a poll callback) if that exact element was never successfully
-  // played during a real gesture first. Tracked per-element (not a
-  // single one-time flag) so this safely retries only the ones that
-  // still need it — covers the case where the very first click happens
-  // before the sound URLs have finished loading — without repeating a
-  // play-then-pause on every single keystroke once everything's already
-  // unlocked, which would otherwise cause audible blips while typing.
-  ['cheerAudio', 'booAudio', 'critiqueRevealAudio', 'bellAudio', 'introAudio', 'tickAudio', 'newLineAudio'].forEach(id => {
-    if (unlockedAudioIds.has(id)) return;
-    const el = document.getElementById(id);
-    if (el && el.src) {
-      // Silence it for the unlock attempt — if pause() doesn't land
-      // instantly (audio still buffering, etc.), this is what stopped
-      // a real, audible blip of the sound (e.g. the bell) from playing
-      // the moment someone first tapped the screen, before anything in
-      // the battle actually warranted it.
-      const originalVolume = el.volume;
-      el.volume = 0;
-      el.play().then(() => {
-        el.pause();
-        el.volume = originalVolume;
-        unlockedAudioIds.add(id);
-      }).catch(() => { el.volume = originalVolume; });
-    }
-  });
 }
 
 ['click', 'touchstart', 'keydown'].forEach(evt => {
@@ -811,7 +788,16 @@ function render(battle) {
       `;
     } else {
       const waitingOn = battle.current_turn === 'a' ? battle.display_name_a : battle.display_name_b;
-      actionHtml = `<div class="card"><p class="waiting-note">Waiting for ${escapeHtml(waitingOn)} to respond...</p></div>`;
+      const results = battle.round_results || [];
+      const latestForMe = results.length > 0 ? results[results.length - 1] : null;
+      const myCoachMessage = latestForMe ? (mySide === 'a' ? latestForMe.coach_message_a : latestForMe.coach_message_b) : '';
+
+      actionHtml = `
+        <div class="card">
+          <p class="waiting-note">Waiting for ${escapeHtml(waitingOn)} to respond...</p>
+          ${myCoachMessage ? `<p class="coach-message">${escapeHtml(myCoachMessage)}</p>` : ''}
+        </div>
+      `;
     }
   } else if (battle.status === 'complete') {
     // Both sides have requested a rematch and the new battle already

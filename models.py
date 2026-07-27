@@ -289,6 +289,8 @@ class BattleRoundResult(db.Model):
     critique_b = db.Column(db.Text, nullable=True)  # same, for side B
     score_a = db.Column(db.Integer, nullable=True)  # 0-10 rating of side A's line this round
     score_b = db.Column(db.Integer, nullable=True)  # same, for side B
+    coach_message_a = db.Column(db.Text, nullable=True)  # savage/motivational, based on side A's standing so far
+    coach_message_b = db.Column(db.Text, nullable=True)  # same, for side B
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint("battle_id", "round_number", name="one_result_per_round_per_battle"),)

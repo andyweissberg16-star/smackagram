@@ -645,7 +645,7 @@ def _battle_state_json(battle):
         "display_name_b": battle.display_name_b,
         "team_b": battle.team_b,
         "lines": [{"side": l.side, "round": l.round_number, "message": l.message, "created_at": l.created_at.isoformat()} for l in lines],
-        "round_results": [{"round": r.round_number, "winner": r.winner, "critique_a": r.critique_a, "critique_b": r.critique_b, "score_a": r.score_a, "score_b": r.score_b} for r in round_results],
+        "round_results": [{"round": r.round_number, "winner": r.winner, "critique_a": r.critique_a, "critique_b": r.critique_b, "score_a": r.score_a, "score_b": r.score_b, "coach_message_a": r.coach_message_a, "coach_message_b": r.coach_message_b} for r in round_results],
         "awaiting_next_round": battle.awaiting_next_round,
         "ready_a": battle.ready_a,
         "ready_b": battle.ready_b,
@@ -726,7 +726,19 @@ def _judge_round_async(battle_id, round_number, team_a, line_a_message, team_b, 
     """
     with app.app_context():
         try:
-            result = trash_talk_service.judge_battle_round(team_a, line_a_message, team_b, line_b_message)
+            prior_results = BattleRoundResult.query.filter_by(battle_id=battle_id).all()
+            wins_a_before = sum(1 for r in prior_results if r.winner == "a")
+            wins_b_before = sum(1 for r in prior_results if r.winner == "b")
+            scores_a = [r.score_a for r in prior_results if r.score_a is not None]
+            scores_b = [r.score_b for r in prior_results if r.score_b is not None]
+            avg_a_before = (sum(scores_a) / len(scores_a)) if scores_a else None
+            avg_b_before = (sum(scores_b) / len(scores_b)) if scores_b else None
+
+            result = trash_talk_service.judge_battle_round(
+                team_a, line_a_message, team_b, line_b_message,
+                round_number=round_number, wins_a_before=wins_a_before, wins_b_before=wins_b_before,
+                avg_score_a_before=avg_a_before, avg_score_b_before=avg_b_before,
+            )
             existing = BattleRoundResult.query.filter_by(battle_id=battle_id, round_number=round_number).first()
             if not existing:
                 db.session.add(BattleRoundResult(
@@ -737,6 +749,8 @@ def _judge_round_async(battle_id, round_number, team_a, line_a_message, team_b, 
                     critique_b=result["critique_b"],
                     score_a=result["score_a"],
                     score_b=result["score_b"],
+                    coach_message_a=result["coach_message_a"],
+                    coach_message_b=result["coach_message_b"],
                 ))
                 db.session.commit()
         except Exception as e:

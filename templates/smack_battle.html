@@ -91,15 +91,7 @@
   <a href="/" class="back-link">&larr; Back to home</a>
 </nav>
 
-<picture>
-  <source media="(max-aspect-ratio: 1/1)" type="image/webp"
-          srcset="{{ url_for('static', filename='battle-bg-mobile.webp') }}">
-  <source media="(max-aspect-ratio: 1/1)"
-          srcset="{{ url_for('static', filename='battle-bg-mobile.jpg') }}">
-  <img src="{{ url_for('static', filename='smack-battle-hero.png') }}"
-       alt="Smack Battle — where trash talk meets its match"
-       style="width:100%; height:auto; display:block;">
-</picture>
+<img src="{{ url_for('static', filename='smack-battle-hero.png') }}" alt="Smack Battle — where trash talk meets its match" style="width:100%; height:auto; display:block;">
 
 <div class="wrap">
   <div class="hero">

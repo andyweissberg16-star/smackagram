@@ -482,45 +482,87 @@ the winner their line actually cooked, why it worked. Reference the
 actual content of their line specifically — generic insults that could
 apply to any line aren't good enough.
 
+You'll also get each side's overall standing in the battle so far
+(rounds won, average score) including this just-judged round. Write a
+short COACH MESSAGE for each side — one or two punchy sentences, a
+corner-man/coach voice, not a critique of the line itself but a call to
+action based on where they actually stand right now in the battle. If
+they're behind, light a fire under them ("get it together before you
+get knocked out" energy). If they're ahead, tell them not to get
+comfortable. If it's close, raise the stakes. Base it on the real
+numbers you're given, not a generic pep talk.
+
 """ + _BATTLE_HARD_LIMITS + """
 
 Respond with ONLY a JSON object, nothing else:
-{"winner": "a" or "b" or "tie", "critique_a": "...", "critique_b": "...", "score_a": 0-10, "score_b": 0-10}"""
+{"winner": "a" or "b" or "tie", "critique_a": "...", "critique_b": "...", "score_a": 0-10, "score_b": 0-10, "coach_message_a": "...", "coach_message_b": "..."}"""
 
 
-def judge_battle_round(team_a: str, line_a: str, team_b: str, line_b: str) -> dict:
+def judge_battle_round(
+    team_a: str, line_a: str, team_b: str, line_b: str,
+    round_number: int = 1, wins_a_before: int = 0, wins_b_before: int = 0,
+    avg_score_a_before: float = None, avg_score_b_before: float = None,
+) -> dict:
     """
     Returns {"winner": "a"/"b"/"tie", "critique_a": str, "critique_b": str,
-    "score_a": int, "score_b": int} for one round of a Smack Battle.
+    "score_a": int, "score_b": int, "coach_message_a": str,
+    "coach_message_b": str} for one round of a Smack Battle.
+
+    The wins_*_before / avg_score_*_before params reflect each side's
+    standing walking INTO this round (not including it) — used to give
+    the coach message real context about how the battle's going so far.
     Fails to a neutral tie with generic critiques and mid-scores if the
     judge call itself errors out — safer than crashing the round
     transition.
     """
+    standing_block = (
+        f"Round {round_number} of 5.\n"
+        f"Side A's standing before this round: {wins_a_before} rounds won"
+        + (f", average score {avg_score_a_before:.1f}/10" if avg_score_a_before is not None else ", no prior rounds yet")
+        + f"\nSide B's standing before this round: {wins_b_before} rounds won"
+        + (f", average score {avg_score_b_before:.1f}/10" if avg_score_b_before is not None else ", no prior rounds yet")
+    )
     user_content = (
+        f"{standing_block}\n\n"
         f"Side A ({team_a} fan): {line_a}\n\n"
         f"Side B ({team_b} fan): {line_b}\n\n"
         f"Who won this round, and why did each side's line work or not?"
     )
-    try:
-        message = _get_client().messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=220,
-            system=BATTLE_ROUND_JUDGE_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_content}],
-        )
-        raw = message.content[0].text.strip().replace("```json", "").replace("```", "").strip()
-        result = json.loads(raw)
-        winner = result.get("winner")
-        return {
-            "winner": winner if winner in ("a", "b", "tie") else "tie",
-            "critique_a": result.get("critique_a") or "",
-            "critique_b": result.get("critique_b") or "",
-            "score_a": max(0, min(10, int(result.get("score_a", 5)))),
-            "score_b": max(0, min(10, int(result.get("score_b", 5)))),
-        }
-    except Exception as e:
-        print(f"[battle judge] failed, defaulting to tie: {e}")
-        return {"winner": "tie", "critique_a": "Couldn't judge this round.", "critique_b": "Couldn't judge this round.", "score_a": 5, "score_b": 5}
+
+    # One retry before giving up — a transient API hiccup or a
+    # malformed JSON response on the first try shouldn't be a dead end,
+    # especially on the last round where there's no next round to
+    # naturally paper over a bad result.
+    last_error = None
+    for attempt in range(2):
+        try:
+            message = _get_client().messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=320,
+                system=BATTLE_ROUND_JUDGE_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_content}],
+            )
+            raw = message.content[0].text.strip().replace("```json", "").replace("```", "").strip()
+            result = json.loads(raw)
+            winner = result.get("winner")
+            return {
+                "winner": winner if winner in ("a", "b", "tie") else "tie",
+                "critique_a": result.get("critique_a") or "",
+                "critique_b": result.get("critique_b") or "",
+                "score_a": max(0, min(10, int(result.get("score_a", 5)))),
+                "score_b": max(0, min(10, int(result.get("score_b", 5)))),
+                "coach_message_a": result.get("coach_message_a") or "",
+                "coach_message_b": result.get("coach_message_b") or "",
+            }
+        except Exception as e:
+            last_error = e
+            print(f"[battle judge] attempt {attempt + 1} failed: {e}")
+
+    print(f"[battle judge] both attempts failed, defaulting to tie: {last_error}")
+    return {
+        "winner": "tie", "critique_a": "Couldn't judge this round.", "critique_b": "Couldn't judge this round.",
+        "score_a": 5, "score_b": 5, "coach_message_a": "", "coach_message_b": "",
+    }
 
 
 BATTLE_RECAP_SYSTEM_PROMPT = """You write the final recap for a Smack
