@@ -840,10 +840,9 @@ def submit_battle_line(challenge_code):
 @app.route("/api/battles/<challenge_code>/ready", methods=["POST"])
 def ready_for_next_round(challenge_code):
     """
-    One side confirming they're ready to move on from the just-finished
-    round. The round only actually advances once BOTH sides have called
-    this — no timer, purely gated on both people clicking through on
-    their own device.
+    Either side confirming they're ready moves the round forward
+    immediately for both — one click from whoever gets there first is
+    enough, rather than requiring both people to independently confirm.
     """
     battle = Battle.query.filter_by(challenge_code=challenge_code).first()
     if not battle:
@@ -856,27 +855,21 @@ def ready_for_next_round(challenge_code):
     if side not in ("a", "b"):
         return jsonify({"error": "Invalid side"}), 400
 
-    if side == "a":
-        battle.ready_a = True
-    else:
-        battle.ready_b = True
+    battle.awaiting_next_round = False
+    battle.ready_a = False
+    battle.ready_b = False
+    battle.current_turn = "a"
+    battle.round_number += 1
+    if battle.round_number > 5:
+        battle.status = "complete"
+        battle.completed_at = datetime.utcnow()
+        db.session.commit()
 
-    if battle.ready_a and battle.ready_b:
-        battle.awaiting_next_round = False
-        battle.ready_a = False
-        battle.ready_b = False
-        battle.current_turn = "a"
-        battle.round_number += 1
-        if battle.round_number > 5:
-            battle.status = "complete"
-            battle.completed_at = datetime.utcnow()
-            db.session.commit()
-
-            # Recap generation is a real AI call — run it in the
-            # background so whoever clicks the second "ready" doesn't sit
-            # there waiting for it before seeing the battle end.
-            threading.Thread(target=_generate_recap_async, args=(battle.id,), daemon=True).start()
-            return jsonify(_battle_state_json(battle))
+        # Recap generation is a real AI call — run it in the
+        # background so whoever clicks ready doesn't sit there waiting
+        # for it before seeing the battle end.
+        threading.Thread(target=_generate_recap_async, args=(battle.id,), daemon=True).start()
+        return jsonify(_battle_state_json(battle))
 
     db.session.commit()
     return jsonify(_battle_state_json(battle))

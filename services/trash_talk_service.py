@@ -467,6 +467,13 @@ Judge on actual quality, not team loyalty or which side went first.
 A tie is a legitimate call if both lines are genuinely close in quality
 — don't force a winner just to pick one.
 
+If one side's line is genuine effort — actual trash talk, even if
+mediocre or clumsy — and the other side's is gibberish, keyboard
+mashing, random characters, or otherwise not a real attempt at trash
+talk, the real effort wins this round outright. Never call it a tie
+just because the real line wasn't very good — a weak real line still
+beats no real line at all. Score the non-attempt at or near 0.
+
 Also score EACH side's line 0-10 on how good their trash talk actually
 was this round — wit, delivery, specificity. These are independent
 scores, not just "winner gets high, loser gets low" — a genuinely weak
@@ -538,7 +545,7 @@ def judge_battle_round(
         try:
             message = _get_client().messages.create(
                 model="claude-sonnet-4-6",
-                max_tokens=320,
+                max_tokens=500,
                 system=BATTLE_ROUND_JUDGE_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_content}],
             )

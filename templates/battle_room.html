@@ -266,7 +266,7 @@
 <audio id="waitingMusicAudio" loop style="display:none;"></audio>
 <audio id="cheerAudio" style="display:none;"></audio>
 <audio id="booAudio" style="display:none;"></audio>
-<audio id="critiqueRevealAudio" style="display:none;"></audio>
+<audio id="critiqueRevealAudio" loop style="display:none;"></audio>
 <audio id="bellAudio" style="display:none;"></audio>
 <audio id="introAudio" style="display:none;"></audio>
 <audio id="tickAudio" style="display:none;"></audio>
@@ -442,7 +442,11 @@ async function unlockOneShotSounds() {
   // before starting the next, and using both muted+volume together
   // (not just volume=0, which wasn't reliably silent on its own) so
   // there's no chance of the earlier overlapping-blips bug coming back.
-  const ids = ['cheerAudio', 'booAudio', 'critiqueRevealAudio', 'bellAudio', 'introAudio', 'tickAudio', 'newLineAudio'];
+  // critiqueRevealAudio goes first — it's needed almost immediately
+  // (right after round 1's judging finishes), so it gets unlocked
+  // before anything else that has more time before it's actually
+  // needed.
+  const ids = ['critiqueRevealAudio', 'cheerAudio', 'booAudio', 'bellAudio', 'introAudio', 'tickAudio', 'newLineAudio'];
   for (const id of ids) {
     const el = document.getElementById(id);
     if (!el || !el.src) continue;
@@ -744,6 +748,15 @@ function render(battle) {
   // again to mark the new round starting.
   if (knownRoundNumber !== null && battle.status === 'active' && battle.round_number > knownRoundNumber) {
     ringBell();
+    // The round can now advance from either side clicking "ready," not
+    // just this device's own click — so the critique-reveal loop needs
+    // to stop here too, for whoever DIDN'T personally click, not only
+    // inside the button's own click handler.
+    const critiqueAudio = document.getElementById('critiqueRevealAudio');
+    if (critiqueAudio && !critiqueAudio.paused) {
+      critiqueAudio.pause();
+      critiqueAudio.currentTime = 0;
+    }
   }
   knownRoundNumber = battle.round_number;
 
@@ -788,8 +801,12 @@ function render(battle) {
     let historyHtml = '<div class="card">';
     historyHtml += `<p class="round-label">Round ${battle.round_number}</p>`;
     if (roundLines.length === 0) {
-      const onTheClock = battle.current_turn === 'a' ? battle.display_name_a : battle.display_name_b;
-      historyHtml += `<p class="empty-note">${escapeHtml(onTheClock)} is on the clock. Let's see if they've got anything.</p>`;
+      const isMe = battle.current_turn === mySide;
+      const upNext = isMe ? 'You' : (battle.current_turn === 'a' ? battle.display_name_a : battle.display_name_b);
+      const emptyMessage = isMe
+        ? `${upNext}'re up. Let's see what you've got.`
+        : `${escapeHtml(upNext)} is up. Let's see if they've got anything.`;
+      historyHtml += `<p class="empty-note">${emptyMessage}</p>`;
     } else {
       roundLines.forEach(l => {
         const name = l.side === 'a' ? battle.display_name_a : battle.display_name_b;
@@ -859,7 +876,6 @@ function render(battle) {
       const myCritique = mySide === 'a' ? latestResult.critique_a : latestResult.critique_b;
       const myScore = mySide === 'a' ? latestResult.score_a : latestResult.score_b;
       const outcome = latestResult.winner === 'tie' ? 'tie' : (latestResult.winner === mySide ? 'win' : 'loss');
-      const iAmReady = mySide === 'a' ? battle.ready_a : battle.ready_b;
       const isFinalRound = battle.round_number >= 5;
 
       actionHtml = `
@@ -868,9 +884,7 @@ function render(battle) {
             <p class="critique-label">${outcome === 'win' ? 'You won this round' : outcome === 'loss' ? 'You lost this round' : 'Round tied'}${myScore !== null && myScore !== undefined ? ` — ${myScore}/10` : ''}</p>
             <p>${escapeHtml(myCritique)}</p>
           </div>
-          ${iAmReady
-            ? '<p class="waiting-note">Waiting for your opponent...</p>'
-            : `<button id="readyBtn" class="btn btn-flare">${isFinalRound ? 'Take It To The Judges' : 'Start next round'}</button>`}
+          <button id="readyBtn" class="btn btn-flare">${isFinalRound ? 'Take It To The Judges' : 'Start next round'}</button>
         </div>
       `;
     }
@@ -963,7 +977,7 @@ function render(battle) {
         // of whether the other side has clicked yet.
         ringBell();
         readyBtn.disabled = true;
-        readyBtn.textContent = 'Waiting for opponent...';
+        readyBtn.textContent = 'Starting...';
         const resp = await fetch(`/api/battles/${challengeCode}/ready`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},

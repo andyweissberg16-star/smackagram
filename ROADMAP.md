@@ -583,6 +583,42 @@ one at a time. Logging each as it's built:
       next battle. Deliberately styled small and understated (a pill
       link, not a full button) so it doesn't visually compete with the
       rematch button right below it.
+- [x] Fixed the "who's up" message at the start of each round two ways:
+      it now says "You're up" instead of showing the viewer's own name
+      in the third person, and dropped "on the clock" (there's no clock
+      anywhere in this feature) for "is up" instead — reads correctly
+      whether it's referring to you or your opponent.
+- [x] Made critique-reveal.mp3 loop continuously while the critique/
+      ready screen is showing, instead of playing through once and
+      stopping — only actually stops when "Start next round" is clicked
+      (already wired correctly). Also reordered the mobile unlock
+      sequence to prioritize this sound first, since it's needed almost
+      immediately after round 1 finishes — minimizes any chance it's
+      still mid-unlock when it's actually needed.
+- [x] Changed "Start next round" to advance immediately for both sides
+      the instant either person clicks it, rather than requiring both
+      people to independently confirm — one click from whoever gets
+      there first is enough now. Removed the now-unreachable "waiting
+      for your opponent" UI state that this made obsolete. Also fixed
+      the critique-reveal loop only stopping on the device that actually
+      clicked — since the round can now advance from the *other*
+      person's click, the stop logic had to move to wherever a round
+      transition is detected (the same place the bell-per-round logic
+      already lives), so it correctly stops for both people regardless
+      of who triggered the advance.
+- [x] Fixed two round-5 "couldn't judge this round" reports and a
+      genuine judging quality bug found in the same test:
+      (1) Likely root cause of the judging failures — the round judge's
+      token budget was still set to 320 from before coach messages got
+      added to the same call, which now has to fit two critiques, two
+      coach messages, two scores, and a winner call all in one JSON
+      response. Too tight, likely causing truncated/invalid JSON on some
+      calls. Raised to 500.
+      (2) A round of genuine (if mediocre) trash talk got called a tie
+      against literal random-letter gibberish from the other side.
+      Added an explicit instruction: real effort always beats a
+      non-attempt outright, never a tie just because the real line
+      wasn't very good, and score gibberish at or near 0.
 
 ---
 *Last updated: 2026-07-26*
