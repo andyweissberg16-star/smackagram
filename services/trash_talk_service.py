@@ -575,28 +575,32 @@ def judge_battle_round(
 BATTLE_RECAP_SYSTEM_PROMPT = """You write the final recap for a Smack
 Battle that just ended — 5 rounds of trash talk between two people
 roasting each other's sports teams. You'll get every line from the
-whole battle, the round-by-round results, and the overall winner.
+whole battle, the round-by-round results, the overall winner, and the
+winner's average round score (0-10).
 
 Write TWO separate pieces, each 2-4 sentences, in Smackagram's voice:
-savage, heavily profane, genuinely brutal, zero mercy — real cursing
-throughout, not just edgy phrasing. The insults are aimed at how well
-(or badly) each side actually talked smack this battle — their lines,
-their delivery, their overall performance — never at the real person
-behind the screen. Reference specific real moments from the actual
-battle (a real line someone said, a round that swung it) rather than
-generic hype — the specificity is what makes it land.
+savage, heavily profane, genuinely brutal — real cursing throughout,
+not just edgy phrasing, the same energy as the rest of the site.
+Reference specific real moments from the actual battle (a real line
+someone said, a round that swung it) rather than generic hype — the
+specificity is what makes it land.
 
-WINNER_RECAP: a victory-lap roast, hyping up how badly the winner just
-cooked their opponent's whole performance. Lean all the way into it.
+WINNER_RECAP tone depends entirely on the winner's average score —
+this is the most important instruction, follow it exactly:
 
-EXCEPTION: if the winner's own average score for the battle was below
-6.0 (you'll be told this number), they won, but their own performance
-wasn't actually good — flip the WINNER_RECAP's tone. Still acknowledge
-the win, but call out that it was an embarrassing, mediocre performance
-to win with — 1-2 sentences of genuinely constructive criticism (what
-specifically was weak) rather than a victory lap. Still savage, still
-in Smackagram's voice, just honest about the win not being earned with
-quality.
+- Below 6.5: they won, but their own performance was genuinely weak.
+  Do NOT give them a victory lap. Call them out directly — they may
+  have won, but that was an embarrassing showing, and say so like
+  Smackagram would: savage, profane, real constructive criticism about
+  what specifically fell flat in their lines. Won the battle, lost the
+  respect.
+- 6.5 to 7.9: solid, respectable performance. Back off the brutality
+  here — still Smackagram's voice, still has an edge, but genuinely
+  uplifting and constructive. Hype them up for what worked, encourage
+  them to keep sharpening it.
+- 8.0 to 10: certified elite performance. Go full worship mode — treat
+  them like a smack-talk god, admire them, over-the-top reverence in
+  Smackagram's voice. They earned it, let them have it.
 
 LOSER_RECAP: a "you got smoked" recap tearing into the losing side's
 performance specifically — their weak lines, what fell flat, why they
@@ -619,9 +623,9 @@ def generate_battle_recap(team_a: str, team_b: str, all_lines: list, round_resul
     round_results: list of {"round", "winner"}
     overall_winner: "a", "b", or "tie"
     winner_avg_score: the winning side's average round score (0-10),
-    used to flip the winner_recap's tone to constructive criticism
-    instead of a pure victory lap if they won with a genuinely weak
-    overall performance (below 6.0).
+    drives a 3-tier tone for the winner's recap — under 6.5 gets real
+    constructive criticism despite the win, 6.5-7.9 gets genuine
+    encouragement, 8.0+ gets full over-the-top worship.
 
     Returns {"winner_recap": str, "loser_recap": str}. On a tie, both
     keys still get filled (with tie-appropriate text) so the caller
@@ -649,19 +653,30 @@ def generate_battle_recap(team_a: str, team_b: str, all_lines: list, round_resul
         f"{winner_score_line}"
         f"Write the recap."
     )
-    try:
-        message = _get_client().messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=250,
-            system=BATTLE_RECAP_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_content}],
-        )
-        raw = message.content[0].text.strip().replace("```json", "").replace("```", "").strip()
-        result = json.loads(raw)
-        return {
-            "winner_recap": result.get("winner_recap") or "What a battle.",
-            "loser_recap": result.get("loser_recap") or "Tough one.",
-        }
-    except Exception as e:
-        print(f"[battle recap] failed: {e}")
-        return {"winner_recap": "What a battle.", "loser_recap": "Tough one."}
+
+    # One retry before giving up — same reasoning as the round judge:
+    # a transient hiccup shouldn't be a dead end, especially here where
+    # there's no next round to naturally give a bad result a second
+    # chance, and the fallback text is a flat, generic letdown compared
+    # to what this is supposed to deliver.
+    last_error = None
+    for attempt in range(2):
+        try:
+            message = _get_client().messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=350,
+                system=BATTLE_RECAP_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_content}],
+            )
+            raw = message.content[0].text.strip().replace("```json", "").replace("```", "").strip()
+            result = json.loads(raw)
+            return {
+                "winner_recap": result.get("winner_recap") or "What a battle.",
+                "loser_recap": result.get("loser_recap") or "Tough one.",
+            }
+        except Exception as e:
+            last_error = e
+            print(f"[battle recap] attempt {attempt + 1} failed: {e}")
+
+    print(f"[battle recap] both attempts failed, using fallback text: {last_error}")
+    return {"winner_recap": "What a battle.", "loser_recap": "Tough one."}

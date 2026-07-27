@@ -69,20 +69,20 @@
   }
 
   .round-popup{
-    position:fixed; top:24px; left:50%; transform:translateX(-50%) translateY(-100px);
-    z-index:250; padding:16px 32px; border-radius:8px; font-family:'Anton',sans-serif;
-    font-size:22px; text-transform:uppercase; text-align:center; opacity:0; pointer-events:none;
-    box-shadow:0 8px 24px rgba(0,0,0,0.5);
+    position:fixed; top:50%; left:50%; transform:translate(-50%, -50%) scale(0.7);
+    z-index:250; padding:20px 40px; border-radius:8px; font-family:'Anton',sans-serif;
+    font-size:26px; text-transform:uppercase; text-align:center; opacity:0; pointer-events:none;
+    box-shadow:0 8px 32px rgba(0,0,0,0.6);
   }
-  .round-popup.win{background:var(--gold); color:var(--ink); box-shadow:0 8px 24px rgba(255,212,0,0.5);}
-  .round-popup.loss{background:var(--flare); color:#fff; box-shadow:0 8px 24px rgba(232,20,44,0.5);}
+  .round-popup.win{background:var(--gold); color:var(--ink); box-shadow:0 8px 32px rgba(255,212,0,0.6);}
+  .round-popup.loss{background:var(--flare); color:#fff; box-shadow:0 8px 32px rgba(232,20,44,0.6);}
   .round-popup.tie{background:var(--ink-2); color:var(--chalk); border:2px solid var(--chalk-dim);}
-  .round-popup.show{animation:popupSlide 5s ease-in-out forwards;}
-  @keyframes popupSlide{
-    0%{opacity:0; transform:translateX(-50%) translateY(-40px);}
-    10%{opacity:1; transform:translateX(-50%) translateY(0);}
-    85%{opacity:1; transform:translateX(-50%) translateY(0);}
-    100%{opacity:0; transform:translateX(-50%) translateY(-40px);}
+  .round-popup.show{animation:popupCenterSlide 5s cubic-bezier(0.34,1.56,0.64,1) forwards;}
+  @keyframes popupCenterSlide{
+    0%{opacity:0; transform:translate(-50%, -50%) scale(0.6);}
+    12%{opacity:1; transform:translate(-50%, -50%) scale(1);}
+    80%{opacity:1; transform:translate(-50%, -50%) scale(1);}
+    100%{opacity:0; transform:translate(-50%, calc(-50% - 120px)) scale(0.9);}
   }
 
   .card{
@@ -124,10 +124,27 @@
   .coach-message::after{content:'"'; color:var(--gold); font-family:'Anton',sans-serif; font-size:18px; margin-left:2px;}
   .safety-note{font-size:11px; color:var(--chalk-dim); margin:8px 0 14px; line-height:1.4;}
 
-  .line{padding:12px 16px; border-radius:8px; margin-bottom:10px; max-width:85%;}
-  .line.side-a{background:rgba(255,212,0,0.08); border-left:3px solid var(--gold); margin-right:auto;}
-  .line.side-b{background:rgba(232,20,44,0.08); border-left:3px solid var(--flare); margin-left:auto; text-align:right;}
-  .line-name{font-size:11px; font-weight:700; margin-bottom:4px;}
+  .line-row{display:flex; align-items:flex-end; gap:8px; margin-bottom:12px; max-width:100%;}
+  .line-row.side-a{flex-direction:row; animation:punchInLeft 0.3s ease-out;}
+  .line-row.side-b{flex-direction:row-reverse; animation:punchInRight 0.3s ease-out;}
+  @keyframes punchInLeft{
+    0%{opacity:0; transform:translateX(-16px);}
+    100%{opacity:1; transform:translateX(0);}
+  }
+  @keyframes punchInRight{
+    0%{opacity:0; transform:translateX(16px);}
+    100%{opacity:1; transform:translateX(0);}
+  }
+  .fighter-avatar{
+    flex-shrink:0; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-family:'Anton',sans-serif; font-size:14px; font-weight:400;
+  }
+  .fighter-avatar.side-a{background:rgba(255,212,0,0.15); border:2px solid var(--gold); color:var(--gold); box-shadow:0 0 10px rgba(255,212,0,0.35);}
+  .fighter-avatar.side-b{background:rgba(232,20,44,0.15); border:2px solid var(--flare); color:var(--flare); box-shadow:0 0 10px rgba(232,20,44,0.35);}
+  .line{padding:12px 16px; border-radius:8px; max-width:78%;}
+  .line.side-a{background:rgba(255,212,0,0.12); border:1px solid rgba(255,212,0,0.3); border-left:3px solid var(--gold);}
+  .line.side-b{background:rgba(232,20,44,0.12); border:1px solid rgba(232,20,44,0.3); border-right:3px solid var(--flare); text-align:right;}
+  .line-name{font-size:12px; font-weight:700; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;}
   .line.side-a .line-name{color:var(--gold);}
   .line.side-b .line-name{color:var(--flare);}
   .line-message{font-size:14px; color:#DCDCD9;}
@@ -158,7 +175,8 @@
 
   .final-outcome-label{
     font-family:'Anton',sans-serif; font-size:32px; text-transform:uppercase; text-align:center;
-    letter-spacing:0.5px; margin-bottom:8px; line-height:1.1; animation:outcomeSlam 0.55s cubic-bezier(0.34,1.56,0.64,1);
+    letter-spacing:0.5px; margin-bottom:8px; line-height:1.1;
+    animation:outcomeSlam 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards, outcomeBlink 1.1s ease-in-out 0.55s infinite;
   }
   .final-outcome-label.win{color:var(--gold); text-shadow:0 0 24px rgba(255,212,0,0.6);}
   .final-outcome-label.loss{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.6);}
@@ -167,6 +185,10 @@
     0%{opacity:0; transform:scale(1.6);}
     60%{opacity:1; transform:scale(0.95);}
     100%{opacity:1; transform:scale(1);}
+  }
+  @keyframes outcomeBlink{
+    0%, 100%{opacity:1;}
+    50%{opacity:0.45;}
   }
 
   .final-scorecard{text-align:center;}
@@ -491,7 +513,14 @@ async function unlockOneShotSounds() {
   // (right after round 1's judging finishes), so it gets unlocked
   // before anything else that has more time before it's actually
   // needed.
-  const ids = ['critiqueRevealAudio', 'judgingBeepAudio', 'cheerAudio', 'booAudio', 'bellAudio', 'introAudio', 'tickAudio', 'newLineAudio'];
+  // crowdLoopAudio specifically needs to be here too — unlike
+  // waitingMusicAudio (which gets a genuine gesture-unlock naturally,
+  // since updateBackgroundMusic() already plays it during this same
+  // click), crowdLoopAudio never gets attempted until the battle
+  // actually goes active, and that transition is usually detected via
+  // a poll, not a direct click — so on mobile, its very first play()
+  // attempt would get rejected without this.
+  const ids = ['critiqueRevealAudio', 'judgingBeepAudio', 'cheerAudio', 'booAudio', 'bellAudio', 'introAudio', 'tickAudio', 'newLineAudio', 'crowdLoopAudio'];
   for (const id of ids) {
     const el = document.getElementById(id);
     if (!el || !el.src) continue;
@@ -787,6 +816,7 @@ function render(battle) {
     introShown = true;
     knownRoundNumber = battle.round_number;
     lastRoundResultsCount = (battle.round_results || []).length;
+    lastLineCount = battle.lines.length;
     // Only play the full countdown overlay for round 1's actual start —
     // a refresh mid-battle (round 2+) was incorrectly replaying the
     // whole 3-2-1 sequence every time, since introShown is just an
@@ -830,7 +860,7 @@ function render(battle) {
 
   // A new line arrived since the last render — celebrate it with a quick
   // crowd-pop sound, but only once sound has actually been enabled.
-  if (soundEnabled && battle.lines.length > lastLineCount && lastLineCount > 0) {
+  if (soundEnabled && battle.lines.length > lastLineCount) {
     const newLineAudio = document.getElementById('newLineAudio');
     newLineAudio.currentTime = 0;
     newLineAudio.play().catch(() => {});
@@ -865,10 +895,14 @@ function render(battle) {
     } else {
       roundLines.forEach(l => {
         const name = l.side === 'a' ? battle.display_name_a : battle.display_name_b;
+        const initial = (name || '?').trim().charAt(0).toUpperCase();
         historyHtml += `
-          <div class="line side-${l.side}">
-            <p class="line-name">${escapeHtml(name)}</p>
-            <p class="line-message">${escapeHtml(l.message)}</p>
+          <div class="line-row side-${l.side}">
+            <div class="fighter-avatar side-${l.side}">${escapeHtml(initial)}</div>
+            <div class="line side-${l.side}">
+              <p class="line-name">${escapeHtml(name)}</p>
+              <p class="line-message">${escapeHtml(l.message)}</p>
+            </div>
           </div>
         `;
       });
@@ -983,6 +1017,17 @@ function render(battle) {
     }
 
     stopJudgingBeep();
+    // Same gap as the judging beep had — the critique-reveal loop's
+    // explicit stop only lived in the readyBtn click handler and the
+    // active-status round-transition check, both of which miss the
+    // round 5 -> complete transition specifically (status leaves
+    // 'active' entirely at that point), so whoever DIDN'T click "Take
+    // It To The Judges" never got the stop command. Safety net here.
+    const critiqueAudioOnComplete = document.getElementById('critiqueRevealAudio');
+    if (critiqueAudioOnComplete && !critiqueAudioOnComplete.paused) {
+      critiqueAudioOnComplete.pause();
+      critiqueAudioOnComplete.currentTime = 0;
+    }
     actionHtml = buildFinalScorecard(battle, mySide);
 
     const iRequestedRematch = mySide === 'a' ? battle.rematch_requested_a : battle.rematch_requested_b;

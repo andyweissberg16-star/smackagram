@@ -670,6 +670,62 @@ one at a time. Logging each as it's built:
       other critique box, which badly undersold the actual climax of
       the whole match. Now large Anton display type, glowing gold for a
       win / red for a loss, with a punchy scale-in entrance animation.
+- [x] Fixed the waiting-room music not stopping (and the crowd loop not
+      starting) once the battle actually goes active, on mobile
+      specifically. Root cause: waiting-room music gets a genuine
+      gesture-unlock naturally (already playing during the hype-popup or
+      join click), but the crowd loop never did — its first ever play()
+      attempt only happens once the battle transitions to active, which
+      is usually detected via a poll, not a direct click, so mobile
+      rejected it outright. Added crowdLoopAudio to the same deliberate
+      unlock sequence as the other sounds.
+- [x] Fixed the new-line "pop" sound only playing for the second
+      person's line, never the first, in every round. Root cause: a
+      guard meant to stop the sound from replaying pre-existing lines on
+      a page refresh was written as "skip if this is the very first line
+      ever seen" — which correctly avoided the refresh-replay problem,
+      but also incorrectly blocked the genuinely first new line of the
+      whole battle. Fixed the same way the round-results popup was fixed
+      earlier — set the starting baseline properly on first render
+      instead of using a blanket "skip the first one" rule.
+- [x] Redesigned the "You won/lost that round" popup — now appears dead
+      center of the screen (both directions), holds there, then slides
+      up and off the top of the screen as it fades out. Uses fixed
+      viewport positioning, so it's identical on mobile and desktop.
+- [x] Fixed critique-reveal continuing to play right through the final
+      scorecard, instead of stopping and handing off to the fresh
+      scorecard music. Same category of gap as the earlier judging-beep
+      fix — the explicit stop only lived in the "Take It To The Judges"
+      click handler and the active-status round-transition check, both
+      of which miss the round 5 → complete transition specifically
+      (status leaves 'active' entirely at that point), so whoever didn't
+      personally click never got the stop command. Added the same
+      safety-net stop where the complete-state scorecard rendering
+      begins.
+- [x] "You won/lost the battle" now blinks/pulses continuously after
+      its entrance animation finishes, so it keeps demanding attention
+      instead of settling into static text.
+- [x] Added retry resilience to the final recap generation, matching
+      what round judging already had — a transient AI hiccup no longer
+      immediately falls back to the flat "What a battle." text.
+- [x] Rebuilt the winner's recap into a proper 3-tier tone system based
+      on their average round score, all in Smackagram's voice: below
+      6.5 gets real savage constructive criticism (won the battle, lost
+      the respect), 6.5-7.9 backs off into genuine encouragement, 8.0+
+      goes full over-the-top worship mode. Replaces the earlier
+      single-threshold version that only flipped tone below 6.0.
+- [x] Rebuilt the chat line, considered and decided against a literal
+      split-screen two-column layout — that would fight against the
+      mobile viewport constraints the whole build has been optimized
+      for (narrower columns force awkward text wrapping, and needs more
+      vertical space for the same content). Instead pushed real
+      "two fighters, two corners" energy into the existing single-feed
+      layout: circular avatar badges per fighter (glowing gold/red ring
+      with their initial), stronger color-washed message bubbles with a
+      colored edge on the correct side, bolder uppercase name labels,
+      and each message now punches in from its own side (side A slides
+      from the left, side B from the right) instead of just fading in
+      generically.
 
 ---
 *Last updated: 2026-07-26*
