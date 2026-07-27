@@ -632,11 +632,15 @@ function ringBell() {
   }
 }
 
-function playIntro(teamA, teamB) {
+function playIntro(teamA, teamB, teamAColor, teamBColor) {
   const overlay = document.getElementById('introOverlay');
   const countdownEl = document.getElementById('introCountdown');
-  document.getElementById('introTeamA').textContent = teamA;
-  document.getElementById('introTeamB').textContent = teamB;
+  const introTeamAEl = document.getElementById('introTeamA');
+  const introTeamBEl = document.getElementById('introTeamB');
+  introTeamAEl.textContent = teamA;
+  introTeamBEl.textContent = teamB;
+  introTeamAEl.style.color = teamAColor || '';
+  introTeamBEl.style.color = teamBColor || '';
   countdownEl.textContent = '';
   countdownEl.className = 'intro-countdown';
   overlay.style.display = 'flex';
@@ -778,8 +782,8 @@ function buildFinalScorecard(battle, mySide) {
       <div class="final-round-row">${rounds}</div>
       ${avgA !== null && avgB !== null ? `
         <div class="final-avg-row">
-          <div class="final-avg-item"><p class="final-avg-label">${escapeHtml(battle.team_a)}</p><p class="final-avg-value side-a">${avgA}/10</p></div>
-          <div class="final-avg-item"><p class="final-avg-label">${escapeHtml(battle.team_b)}</p><p class="final-avg-value side-b">${avgB}/10</p></div>
+          <div class="final-avg-item"><p class="final-avg-label" style="color:${battle.team_a_color || 'var(--chalk-dim)'};">${escapeHtml(battle.team_a)}</p><p class="final-avg-value side-a">${avgA}/10</p></div>
+          <div class="final-avg-item"><p class="final-avg-label" style="color:${battle.team_b_color || 'var(--chalk-dim)'};">${escapeHtml(battle.team_b)}</p><p class="final-avg-value side-b">${avgB}/10</p></div>
         </div>
       ` : ''}
       ${recapBlock}
@@ -831,16 +835,6 @@ function render(battle) {
   const actionArea = document.getElementById('actionArea');
   const mySide = getMySide();
 
-  // Real team colors when we have them (major leagues only — college
-  // sports and soccer don't have color data, so this quietly falls back
-  // to the default gold/red theme for those). This re-themes solid
-  // colors (text, backgrounds, borders) since those reference these CSS
-  // variables directly, but glow/shadow effects elsewhere are hardcoded
-  // rgba values, not tied to these variables — those keep the original
-  // gold/red glow regardless of team colors.
-  document.documentElement.style.setProperty('--gold', battle.team_a_color || '#FFD400');
-  document.documentElement.style.setProperty('--flare', battle.team_b_color || '#E8142C');
-
   // Always sync against the freshly-fetched status, every render — not
   // gated behind "did status change since last time," since that check
   // relies on lastKnownStatus staying accurate, and a missed or delayed
@@ -877,7 +871,7 @@ function render(battle) {
     content.innerHTML = '';
     lineHistory.innerHTML = '';
     const waitingHeaderText = mySide === 'a' ? 'Waiting for a challenger' : 'Waiting for you to accept';
-    header.innerHTML = `<p class="matchup-teams"><span class="side-a">${escapeHtml(battle.team_a)}</span></p><p class="round-indicator">${waitingHeaderText}</p>`;
+    header.innerHTML = `<p class="matchup-teams"><span class="side-a" style="color:${battle.team_a_color || 'var(--gold)'};">${escapeHtml(battle.team_a)}</span></p><p class="round-indicator">${waitingHeaderText}</p>`;
 
     const waitingSignature = `waiting|${mySide}`;
     if (lastActionSignature !== waitingSignature) {
@@ -893,7 +887,7 @@ function render(battle) {
       } else {
         actionArea.innerHTML = `
           <div class="card">
-            <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)} is calling out ${escapeHtml(battle.team_a)} fans. Step up?</p>
+            <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)} is calling out <span style="color:${battle.team_a_color || 'var(--gold)'};">${escapeHtml(battle.team_a)}</span> fans. Step up?</p>
             <label for="teamBInput">Your team</label>
             <input id="teamBInput" type="text" placeholder="ex. Eagles">
             <label for="nameBInput">Your name</label>
@@ -954,7 +948,7 @@ function render(battle) {
     // in-memory flag that resets on every fresh page load. For any
     // later round, skip straight to showing the current state.
     if (battle.round_number === 1) {
-      playIntro(battle.team_a, battle.team_b);
+      playIntro(battle.team_a, battle.team_b, battle.team_a_color, battle.team_b_color);
     }
   }
 
@@ -997,7 +991,7 @@ function render(battle) {
   lastLineCount = battle.lines.length;
 
   header.innerHTML = `
-    <p class="matchup-teams"><span class="side-a">${escapeHtml(battle.team_a)}</span><span class="vs">vs</span><span class="side-b">${escapeHtml(battle.team_b)}</span></p>
+    <p class="matchup-teams"><span class="side-a" style="color:${battle.team_a_color || 'var(--gold)'};">${escapeHtml(battle.team_a)}</span><span class="vs">vs</span><span class="side-b" style="color:${battle.team_b_color || 'var(--flare)'};">${escapeHtml(battle.team_b)}</span></p>
     <p class="round-indicator">${battle.status === 'complete' ? 'Battle complete' : `Round ${battle.round_number} of 5`}</p>
     ${buildMomentumBar(battle)}
     <div class="led-row">${buildLedRow(battle)}</div>

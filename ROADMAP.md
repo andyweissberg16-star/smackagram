@@ -891,3 +891,14 @@ image or using the OS-level native share sheet, not a real web link.
       dedicated DOM slot that updates independently on every render —
       it can never touch or rebuild the textarea now, regardless of how
       often typing status changes.
+
+## Team color scoping fix (same session)
+- [x] The team color theming was too broad — overriding the global
+      --gold/--flare CSS variables affected everything (buttons, LED
+      indicators, message bubbles, avatars), not just team name text as
+      intended. Reverted the global override entirely; team colors now
+      apply only via targeted inline styles on the specific places team
+      names are displayed as text (matchup header, VS countdown screen,
+      final scorecard labels, "is calling out [team] fans"). Everything
+      else — buttons, LEDs, bubbles, avatars — correctly stays the
+      original fixed gold/red theme regardless of team colors.
