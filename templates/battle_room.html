@@ -296,6 +296,8 @@ async function initSound() {
 
 let lastKnownStatus = 'waiting';
 
+let musicMuted = false;
+
 function updateBackgroundMusic(status) {
   const crowdAudio = document.getElementById('crowdLoopAudio');
   const waitingAudio = document.getElementById('waitingMusicAudio');
@@ -304,24 +306,44 @@ function updateBackgroundMusic(status) {
     // the final scorecard reveal — the crowd loop is specifically for
     // the live back-and-forth of an active battle.
     if (crowdAudio && !crowdAudio.paused) crowdAudio.pause();
-    if (waitingAudio && waitingAudio.paused && waitingAudio.src) waitingAudio.play().catch(() => {});
+    if (!musicMuted && waitingAudio && waitingAudio.paused && waitingAudio.src) waitingAudio.play().catch(() => {});
   } else {
     if (waitingAudio && !waitingAudio.paused) waitingAudio.pause();
-    if (crowdAudio && crowdAudio.paused && crowdAudio.src) crowdAudio.play().catch(() => {});
+    if (!musicMuted && crowdAudio && crowdAudio.paused && crowdAudio.src) crowdAudio.play().catch(() => {});
   }
 }
 
 initSound();
 
-function unlockAudio() {
-  // Called from every button click throughout the page, not just once —
-  // desktop browsers seemed to need a more persistent nudge than mobile
-  // did. Harmless no-op if everything's already playing.
-  updateBackgroundMusic(lastKnownStatus);
+function handlePageInteraction() {
+  // Browsers block real autoplay-with-sound before any interaction —
+  // this is a hard restriction on every site, not something any code
+  // can bypass. Closest real behavior: the very first tap/click
+  // anywhere on the page starts the music; every tap after that toggles
+  // mute/unmute, since by then the audio element is already "unlocked"
+  // and just needs pausing/resuming rather than a fresh play() call.
+  const currentAudio = (lastKnownStatus === 'waiting' || lastKnownStatus === 'complete')
+    ? document.getElementById('waitingMusicAudio')
+    : document.getElementById('crowdLoopAudio');
+
+  if (!currentAudio || !currentAudio.src) return;
+
+  if (currentAudio.paused && !musicMuted) {
+    // Not playing yet at all — this is the unlock moment, start it.
+    updateBackgroundMusic(lastKnownStatus);
+  } else {
+    // Already been unlocked once — toggle mute/unmute from here on.
+    musicMuted = !musicMuted;
+    if (musicMuted) {
+      currentAudio.pause();
+    } else {
+      currentAudio.play().catch(() => {});
+    }
+  }
 }
 
 ['click', 'touchstart', 'keydown'].forEach(evt => {
-  document.addEventListener(evt, unlockAudio);
+  document.addEventListener(evt, handlePageInteraction);
 });
 
 function showRoundResultPopup(outcome) {

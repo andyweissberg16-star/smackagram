@@ -444,6 +444,13 @@ one at a time. Logging each as it's built:
 - [x] Added a 9th sound — critique-reveal.mp3, layered under cheer/boo
       (lower volume) every time a round's critique appears, regardless
       of win/loss/tie.
+- [x] Rebuilt the audio unlock into a genuine mute/unmute toggle. Real
+      autoplay-with-sound before any interaction isn't achievable on any
+      website — every browser blocks it deliberately — but now the very
+      first tap/click anywhere on the page starts the music immediately,
+      and every tap after that toggles mute/unmute (also fixed a bug
+      where changing battle status, like the opponent joining, would
+      have silently un-muted the music against the user's choice).
 
 ---
 *Last updated: 2026-07-26*
