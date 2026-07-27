@@ -1681,6 +1681,66 @@ def smackcast_page():
     return render_template("smackcast.html")
 
 
+@app.route("/smackcast/test")
+@login_required
+def smackcast_test_page():
+    """
+    Admin-only test tool — runs the full real pipeline (script, audio,
+    meme) against realistic sample matchup data instead of a real
+    league, so the whole generation flow can be verified without
+    needing real fantasy accounts or touching any real strangers' data.
+    """
+    user = get_current_user()
+    if not user.is_admin:
+        return "Not authorized.", 403
+    return render_template("smackcast_test.html")
+
+
+@app.route("/api/smackcast/test-generate", methods=["POST"])
+@login_required
+def api_smackcast_test_generate():
+    user = get_current_user()
+    if not user.is_admin:
+        return jsonify({"error": "Not authorized."}), 403
+
+    data = request.json or {}
+    sport = (data.get("sport") or "nfl").strip()
+    league_name = (data.get("league_name") or "Test League").strip()
+    team_count = int(data.get("team_count") or 10)
+    week = int(data.get("week") or 1)
+
+    if sport not in ("nfl", "nba", "mlb"):
+        return jsonify({"error": "Unsupported sport."}), 400
+    if team_count < 4 or team_count > 20:
+        return jsonify({"error": "Team count must be between 4 and 20."}), 400
+
+    matchups = smackcast_service.generate_sample_matchups(sport, team_count)
+
+    try:
+        result = smackcast_service.generate_weekly_recap_script(
+            league_name=league_name, week=week, matchups=matchups, team_count=team_count,
+        )
+        script = result["script"]
+        best_line = result["best_line"]
+        audio_url = elevenlabs_service.generate_audio_url(script)
+        meme_url = None
+        if best_line:
+            try:
+                meme_url = smackcast_service.generate_meme_image(best_line, league_name, week)
+            except Exception as e:
+                print(f"[smackcast test] meme generation failed: {e}")
+    except Exception as e:
+        return jsonify({"error": f"Generation failed: {e}"}), 500
+
+    return jsonify({
+        "matchups": matchups,
+        "script": script,
+        "best_line": best_line,
+        "audio_url": audio_url,
+        "meme_url": meme_url,
+    })
+
+
 @app.route("/api/smackcast/find-sleeper-leagues", methods=["POST"])
 @login_required
 def api_find_sleeper_leagues():

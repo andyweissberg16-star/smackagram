@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smackcast Test Tool</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D; --ink-2:#1A1A1A; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
+    --flare:#E8142C; --gold:#FFD400; --line:rgba(245,245,243,0.10); --line-strong:rgba(245,245,243,0.24);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:640px; margin:0 auto; padding:0 24px 80px;}
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  nav a{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
+  .hero{text-align:center; padding:36px 0 8px;}
+  .hero .label{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare); text-transform:uppercase; letter-spacing:1px;}
+  .hero h1{font-family:'Anton',sans-serif; font-size:26px; text-transform:uppercase; letter-spacing:0.5px; margin-top:8px;}
+  .hero p{color:var(--chalk-dim); font-size:13px; margin-top:10px; line-height:1.5;}
+
+  .card{background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:24px; margin-top:24px;}
+  label{display:block; font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin:14px 0 6px;}
+  label:first-child{margin-top:0;}
+  input[type=text], input[type=number]{
+    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:4px;
+  }
+  select{
+    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:4px;
+  }
+  input:focus, select:focus{outline:none; border-color:var(--flare);}
+
+  .btn{font-weight:700; font-size:14px; padding:14px 24px; border-radius:4px; border:none; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; width:100%; margin-top:20px;}
+  .btn-flare{background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(232,20,44,0.4);}
+  .btn-flare:disabled{opacity:0.5; cursor:not-allowed;}
+  #formError{display:none; color:var(--flare); font-size:12px; margin-top:12px;}
+
+  .result-card{display:none;}
+  .matchup-line{font-size:13px; color:var(--chalk-dim); padding:6px 0; border-bottom:1px solid var(--line);}
+  audio{width:100%; margin:16px 0;}
+  .script-text{font-size:14px; color:#DCDCD9; white-space:pre-wrap; line-height:1.7; margin-top:16px;}
+  .best-line{
+    font-family:'Anton',sans-serif; font-size:18px; color:var(--gold); text-align:center;
+    padding:16px; background:var(--ink); border-radius:4px; margin:16px 0;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+  <a href="/smackcast">&larr; Back to Smackcast</a>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <p class="label">Admin Only — Test Tool</p>
+    <h1>Smackcast Generator Test</h1>
+    <p>Runs the full real pipeline (script, audio, meme) against realistic sample matchup data — no real league or account needed.</p>
+  </div>
+
+  <div class="card">
+    <label for="sportSelect">Sport</label>
+    <select id="sportSelect">
+      <option value="nfl">Football</option>
+      <option value="nba">Basketball</option>
+      <option value="mlb">Baseball</option>
+    </select>
+
+    <label for="leagueNameInput">League Name</label>
+    <input id="leagueNameInput" type="text" value="The League of Extraordinary Nonsense">
+
+    <label for="teamCountInput">Team Count</label>
+    <input id="teamCountInput" type="number" value="10" min="4" max="20">
+
+    <label for="weekInput">Week Number</label>
+    <input id="weekInput" type="number" value="13" min="1" max="18">
+
+    <div id="formError"></div>
+    <button id="generateBtn" class="btn btn-flare">Generate Test Recap</button>
+  </div>
+
+  <div class="card result-card" id="resultCard">
+    <p style="font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Sample Matchups Used</p>
+    <div id="matchupsList"></div>
+
+    <div id="bestLineWrap"></div>
+    <audio id="audioPlayer" controls preload="metadata"></audio>
+    <img id="memeImage" src="" alt="Generated meme" style="width:100%; border-radius:4px; display:none;">
+    <p class="script-text" id="scriptText"></p>
+  </div>
+</div>
+
+<script>
+document.getElementById('generateBtn').addEventListener('click', async () => {
+  const errorEl = document.getElementById('formError');
+  const resultCard = document.getElementById('resultCard');
+  const btn = document.getElementById('generateBtn');
+  errorEl.style.display = 'none';
+  resultCard.style.display = 'none';
+
+  const payload = {
+    sport: document.getElementById('sportSelect').value,
+    league_name: document.getElementById('leagueNameInput').value.trim(),
+    team_count: parseInt(document.getElementById('teamCountInput').value, 10),
+    week: parseInt(document.getElementById('weekInput').value, 10),
+  };
+
+  btn.textContent = 'Generating... (this takes a bit — real AI + audio + image generation)';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/smackcast/test-generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    if (data.error) {
+      errorEl.textContent = data.error;
+      errorEl.style.display = 'block';
+    } else {
+      document.getElementById('matchupsList').innerHTML = data.matchups.map(m =>
+        `<div class="matchup-line">${m.team_a} (${m.team_a_score}) vs ${m.team_b} (${m.team_b_score})</div>`
+      ).join('');
+
+      if (data.best_line) {
+        document.getElementById('bestLineWrap').innerHTML = `<p class="best-line">"${data.best_line}"</p>`;
+      }
+
+      document.getElementById('audioPlayer').src = data.audio_url;
+
+      const memeImg = document.getElementById('memeImage');
+      if (data.meme_url) {
+        memeImg.src = data.meme_url;
+        memeImg.style.display = 'block';
+      } else {
+        memeImg.style.display = 'none';
+      }
+
+      document.getElementById('scriptText').textContent = data.script;
+      resultCard.style.display = 'block';
+    }
+  } catch (err) {
+    errorEl.textContent = "Generation failed — try again.";
+    errorEl.style.display = 'block';
+  } finally {
+    btn.textContent = 'Generate Test Recap';
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

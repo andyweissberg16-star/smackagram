@@ -1171,3 +1171,20 @@ Research done first, changed the actual scope:
       Sleeper is selected, re-enables for ESPN; a scope disclaimer
       about points-only scoring shown directly in the UI, not just
       buried in a doc
+
+## Smackcast test tool (same session)
+- [x] Admin-only test tool (/smackcast/test) — runs the entire real
+      pipeline (Claude script generation, real ElevenLabs audio, real
+      meme image) against realistic sample matchup data instead of a
+      real league. Built specifically so the whole generation flow can
+      be verified end to end without needing real fantasy accounts,
+      and deliberately avoiding pulling any real person's actual league
+      data for testing — even "public" league data is still a real
+      stranger's identity being used to generate mocking content about
+      them without consent, which doesn't become acceptable just
+      because it's only for a private test.
+  - generate_sample_matchups() — realistic fake team names, sport-
+    appropriate score ranges (verified: NFL ~55-165, NBA ~480-920,
+    MLB ~90-260), correctly pairs into matchups regardless of team count
+  - Test page shows everything: the sample matchups used, the full
+    script, the best line, playable audio, and the meme image

@@ -269,3 +269,45 @@ def generate_meme_image(best_line: str, league_name: str, week: int) -> str:
     os.remove(buffer_path)
 
     return f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/{filename}"
+
+
+_SAMPLE_TEAM_NAMES = [
+    "Gridiron Ghosts", "Waiver Wire Warriors", "Fumble Bunch", "Bench Press Kings",
+    "The Injured Reserve", "Sunday Scaries", "Trade Deadline Villains", "Zero Dark Thirty",
+    "Blowout Brigade", "Last Place Legends", "The Comeback Kids", "Championship Dreams",
+    "Point Differential", "The Bye Week Crew", "Draft Day Disasters", "Undefeated Underdogs",
+    "Playoff Bound", "Streak Breakers", "The Sleeper Picks", "Overtime Heroes",
+]
+
+
+def generate_sample_matchups(sport: str, team_count: int) -> list:
+    """
+    Realistic-but-entirely-fake matchup data for testing the generation
+    pipeline without needing a real league or touching any real
+    person's actual data. Score ranges are rough approximations per
+    sport (points-format weekly totals), not meant to be precise —
+    good enough to give the script generator something plausible to
+    react to.
+    """
+    import random
+
+    score_ranges = {
+        "nfl": (55, 165),
+        "nba": (480, 920),
+        "mlb": (90, 260),
+    }
+    low, high = score_ranges.get(sport, (55, 165))
+
+    names = random.sample(_SAMPLE_TEAM_NAMES, min(team_count, len(_SAMPLE_TEAM_NAMES)))
+    while len(names) < team_count:
+        names.append(f"Team {len(names) + 1}")
+
+    matchups = []
+    for i in range(0, len(names) - 1, 2):
+        matchups.append({
+            "team_a": names[i],
+            "team_a_score": round(random.uniform(low, high), 1),
+            "team_b": names[i + 1],
+            "team_b_score": round(random.uniform(low, high), 1),
+        })
+    return matchups
