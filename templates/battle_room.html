@@ -17,6 +17,7 @@
     --line:rgba(245,245,243,0.10);
     --line-strong:rgba(245,245,243,0.24);
   }
+  html, body{height:100%; overflow:hidden;}
   *{box-sizing:border-box; margin:0; padding:0;}
   body{
     background-color:var(--ink);
@@ -27,7 +28,9 @@
     background-repeat:no-repeat;
     color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;
   }
-  .wrap{max-width:620px; margin:0 auto; padding:0 24px 60px;}
+  .wrap{max-width:620px; margin:0 auto; padding:0 24px; display:flex; flex-direction:column; height:calc(100vh - 76px);}
+  #lineHistory{flex:1; overflow-y:auto; min-height:0; padding:4px 0;}
+  #actionArea{flex-shrink:0; padding-bottom:16px;}
 
   nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
   nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
@@ -63,7 +66,7 @@
   .round-popup.win{background:var(--gold); color:var(--ink); box-shadow:0 8px 24px rgba(255,212,0,0.5);}
   .round-popup.loss{background:var(--flare); color:#fff; box-shadow:0 8px 24px rgba(232,20,44,0.5);}
   .round-popup.tie{background:var(--ink-2); color:var(--chalk); border:2px solid var(--chalk-dim);}
-  .round-popup.show{animation:popupSlide 4s ease-in-out forwards;}
+  .round-popup.show{animation:popupSlide 5s ease-in-out forwards;}
   @keyframes popupSlide{
     0%{opacity:0; transform:translateX(-50%) translateY(-40px);}
     10%{opacity:1; transform:translateX(-50%) translateY(0);}
@@ -111,6 +114,37 @@
   .winner-banner{text-align:center; font-family:'Anton',sans-serif; font-size:18px; text-transform:uppercase; color:var(--gold); margin-bottom:14px;}
 
   .empty-note{color:var(--chalk-dim); font-size:13px; text-align:center; padding:20px 0;}
+  .round-label{
+    font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--chalk-dim); text-transform:uppercase;
+    letter-spacing:1px; margin-bottom:12px; text-align:center;
+  }
+  .critique-box{
+    background:var(--ink); border:1px solid var(--line-strong); border-radius:6px; padding:14px 16px;
+    font-size:13px; color:#DCDCD9; line-height:1.5; margin-bottom:14px;
+  }
+  .critique-label{font-family:'JetBrains Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; font-weight:700;}
+  .critique-box.win .critique-label{color:var(--gold);}
+  .critique-box.loss .critique-label{color:var(--flare);}
+  .critique-box.tie .critique-label{color:var(--chalk-dim);}
+
+  .final-scorecard{text-align:center;}
+  .final-scorecard-title{
+    font-family:'Anton',sans-serif; font-size:14px; text-transform:uppercase; letter-spacing:2px;
+    color:var(--chalk-dim); margin-bottom:12px;
+  }
+  .final-score-tally{font-family:'Anton',sans-serif; font-size:52px; margin-bottom:18px;}
+  .final-score-tally .side-a{color:var(--gold); text-shadow:0 0 20px rgba(255,212,0,0.5);}
+  .final-score-tally .side-b{color:var(--flare); text-shadow:0 0 20px rgba(232,20,44,0.5);}
+  .final-score-tally .final-score-dash{color:var(--chalk-dim); margin:0 14px; font-size:32px;}
+  .final-round-row{display:flex; justify-content:center; gap:10px;}
+  .final-round-chip{
+    width:44px; height:44px; border-radius:8px; background:#1a1a1a; border:2px solid var(--line-strong);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .final-round-chip.side-a{background:rgba(255,212,0,0.15); border-color:var(--gold); box-shadow:0 0 10px rgba(255,212,0,0.4);}
+  .final-round-chip.side-b{background:rgba(232,20,44,0.15); border-color:var(--flare); box-shadow:0 0 10px rgba(232,20,44,0.4);}
+  .final-round-chip.tie{background:var(--ink-2); border-color:var(--chalk-dim);}
+  .final-round-num{font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:var(--chalk);}
 
   .intro-team{
     font-family:'Anton',sans-serif; font-size:44px; text-transform:uppercase; text-align:center;
@@ -163,6 +197,8 @@
   </div>
 
   <div id="content"></div>
+  <div id="lineHistory"></div>
+  <div id="actionArea"></div>
 </div>
 
 <div id="introOverlay" style="display:none; position:fixed; inset:0; background:#000; z-index:200; align-items:center; justify-content:center; flex-direction:column;">
@@ -176,9 +212,7 @@
 
 <div id="roundResultPopup" class="round-popup"></div>
 
-<footer>
-  <a href="/terms">Terms</a> &middot; <a href="/contact">Contact</a>
-</footer>
+
 
 <script>
 const challengeCode = "{{ challenge_code }}";
@@ -210,6 +244,7 @@ let introShown = false;
 let lastLineCount = 0;
 let lastRoundResultsCount = 0;
 let knownRoundNumber = null;
+let lastActionSignature = null;
 const newLineDing = new Audio();
 
 async function initSound() {
@@ -257,7 +292,7 @@ function showRoundResultPopup(outcome) {
 
   void popup.offsetWidth;
   popup.classList.add(outcome, 'show');
-  setTimeout(() => { popup.classList.remove('show'); }, 4000);
+  setTimeout(() => { popup.classList.remove('show'); }, 5000);
 
   if (soundEnabled && sfxUrls) {
     if (outcome === 'win' && sfxUrls.cheer_url) new Audio(sfxUrls.cheer_url).play().catch(() => {});
@@ -324,6 +359,43 @@ async function loadBattle() {
   }
 }
 
+function buildFinalScorecard(battle, mySide) {
+  const results = battle.round_results || [];
+  const winsA = results.filter(r => r.winner === 'a').length;
+  const winsB = results.filter(r => r.winner === 'b').length;
+
+  let rounds = '';
+  for (let round = 1; round <= 5; round++) {
+    const r = results.find(x => x.round === round);
+    const cls = !r ? '' : r.winner === 'tie' ? 'tie' : 'side-' + r.winner;
+    rounds += `<div class="final-round-chip ${cls}"><span class="final-round-num">R${round}</span></div>`;
+  }
+
+  const isWinner = battle.overall_winner && battle.overall_winner !== 'tie' && mySide === battle.overall_winner;
+  const isLoser = battle.overall_winner && battle.overall_winner !== 'tie' && mySide !== battle.overall_winner;
+  const recapText = battle.overall_winner === 'tie' ? battle.recap_winner_text
+    : isWinner ? battle.recap_winner_text
+    : battle.recap_loser_text;
+  const recapClass = battle.overall_winner === 'tie' ? 'tie' : isWinner ? 'win' : 'loss';
+  const recapLabel = battle.overall_winner === 'tie' ? "It's a tie" : isWinner ? 'You won the battle' : 'You lost the battle';
+
+  return `
+    <div class="card final-scorecard">
+      <p class="final-scorecard-title">Final Scorecard</p>
+      <div class="final-score-tally">
+        <span class="side-a">${winsA}</span>
+        <span class="final-score-dash">–</span>
+        <span class="side-b">${winsB}</span>
+      </div>
+      <div class="final-round-row">${rounds}</div>
+      <div class="critique-box ${recapClass}" style="margin-top:16px;">
+        <p class="critique-label">${recapLabel}</p>
+        <p>${escapeHtml(recapText || '')}</p>
+      </div>
+    </div>
+  `;
+}
+
 function buildLedRow(battle) {
   const results = {};
   (battle.round_results || []).forEach(r => { results[r.round] = r.winner; });
@@ -345,66 +417,66 @@ function buildLedRow(battle) {
 function render(battle) {
   const header = document.getElementById('matchupHeader');
   const content = document.getElementById('content');
+  const lineHistory = document.getElementById('lineHistory');
+  const actionArea = document.getElementById('actionArea');
   const mySide = getMySide();
 
-  // Capture whatever's currently typed (in either the join form or the
-  // line textarea) before rebuilding the DOM, so a poll-triggered
-  // re-render doesn't wipe out someone's in-progress typing.
-  const preserved = {};
-  const existingTeamB = document.getElementById('teamBInput');
-  const existingNameB = document.getElementById('nameBInput');
-  const existingLine = document.getElementById('lineInput');
-  if (existingTeamB) preserved.teamB = existingTeamB.value;
-  if (existingNameB) preserved.nameB = existingNameB.value;
-  if (existingLine) preserved.line = existingLine.value;
-
   if (battle.status === 'waiting') {
+    content.innerHTML = '';
+    lineHistory.innerHTML = '';
     header.innerHTML = `<p class="matchup-teams"><span class="side-a">${escapeHtml(battle.team_a)}</span></p><p class="round-indicator">Waiting for a challenger</p>`;
 
-    if (mySide === 'a') {
-      content.innerHTML = `
-        <div class="card">
-          <p class="waiting-note">Share your battle link with whoever you're calling out. This page will update once they join.</p>
-        </div>
-      `;
-    } else {
-      content.innerHTML = `
-        <div class="card">
-          <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)} is calling out ${escapeHtml(battle.team_a)} fans. Step up?</p>
-          <label for="teamBInput">Your team</label>
-          <input id="teamBInput" type="text" placeholder="ex. Eagles">
-          <label for="nameBInput">Your name</label>
-          <input id="nameBInput" type="text" placeholder="ex. RivalReady" maxlength="40">
-          <div id="actionError"></div>
-          <button id="joinBtn" class="btn btn-flare">Accept the challenge</button>
-        </div>
-      `;
-      if (preserved.teamB) document.getElementById('teamBInput').value = preserved.teamB;
-      if (preserved.nameB) document.getElementById('nameBInput').value = preserved.nameB;
-      document.getElementById('joinBtn').addEventListener('click', async () => {
-        const teamB = document.getElementById('teamBInput').value.trim();
-        const nameB = document.getElementById('nameBInput').value.trim();
-        const errorEl = document.getElementById('actionError');
-        errorEl.style.display = 'none';
-        if (!teamB) {
-          errorEl.textContent = 'Enter your team first.';
-          errorEl.style.display = 'block';
-          return;
-        }
-        const resp = await fetch(`/api/battles/${challengeCode}/join`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({team_b: teamB, display_name_b: nameB})
+    const waitingSignature = `waiting|${mySide}`;
+    if (lastActionSignature !== waitingSignature) {
+      lastActionSignature = waitingSignature;
+
+      if (mySide === 'a') {
+        actionArea.innerHTML = `
+          <div class="card">
+            <p class="waiting-note">Share your battle link with whoever you're calling out. This page will update once they join.</p>
+          </div>
+        `;
+      } else {
+        actionArea.innerHTML = `
+          <div class="card">
+            <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)} is calling out ${escapeHtml(battle.team_a)} fans. Step up?</p>
+            <label for="teamBInput">Your team</label>
+            <input id="teamBInput" type="text" placeholder="ex. Eagles">
+            <label for="nameBInput">Your name</label>
+            <input id="nameBInput" type="text" placeholder="ex. RivalReady" maxlength="40">
+            <div id="actionError"></div>
+            <button id="joinBtn" class="btn btn-flare">Accept the challenge</button>
+          </div>
+        `;
+        document.getElementById('joinBtn').addEventListener('click', async () => {
+          const btn = document.getElementById('joinBtn');
+          const teamB = document.getElementById('teamBInput').value.trim();
+          const nameB = document.getElementById('nameBInput').value.trim();
+          const errorEl = document.getElementById('actionError');
+          errorEl.style.display = 'none';
+          if (!teamB) {
+            errorEl.textContent = 'Enter your team first.';
+            errorEl.style.display = 'block';
+            return;
+          }
+          btn.disabled = true;
+          const resp = await fetch(`/api/battles/${challengeCode}/join`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({team_b: teamB, display_name_b: nameB})
+          });
+          const data = await resp.json();
+          if (data.error) {
+            errorEl.textContent = data.error;
+            errorEl.style.display = 'block';
+            btn.disabled = false;
+          } else {
+            setMySide('b');
+            lastActionSignature = null;
+            render(data);
+          }
         });
-        const data = await resp.json();
-        if (data.error) {
-          errorEl.textContent = data.error;
-          errorEl.style.display = 'block';
-        } else {
-          setMySide('b');
-          render(data);
-        }
-      });
+      }
     }
     return;
   }
@@ -455,13 +527,20 @@ function render(battle) {
     <div class="led-row">${buildLedRow(battle)}</div>
   `;
 
-  let html = '<div class="card">';
-  if (battle.lines.length === 0) {
-    html += '<p class="empty-note">No lines yet — the battle is about to begin.</p>';
+  // Only this round's lines are shown — the screen clears each round,
+  // with the round number labeled clearly above it, rather than
+  // accumulating every line from every round on one long page.
+  const displayRound = battle.status === 'complete' ? battle.round_number - 1 : battle.round_number;
+  const roundLines = battle.lines.filter(l => l.round === displayRound);
+
+  let historyHtml = '<div class="card">';
+  historyHtml += `<p class="round-label">Round ${displayRound}</p>`;
+  if (roundLines.length === 0) {
+    historyHtml += '<p class="empty-note">No lines yet — the round is about to begin.</p>';
   } else {
-    battle.lines.forEach(l => {
+    roundLines.forEach(l => {
       const name = l.side === 'a' ? battle.display_name_a : battle.display_name_b;
-      html += `
+      historyHtml += `
         <div class="line side-${l.side}">
           <p class="line-name">${escapeHtml(name)}</p>
           <p class="line-message">${escapeHtml(l.message)}</p>
@@ -469,11 +548,43 @@ function render(battle) {
       `;
     });
   }
-  html += '</div>';
+  historyHtml += '</div>';
+  lineHistory.innerHTML = historyHtml;
 
-  if (battle.status === 'active') {
+  // The action area (turn input, waiting note, or voting) only gets
+  // rebuilt when something it actually depends on changes — this is
+  // what stops the textarea from losing focus and the buttons from
+  // getting destroyed mid-click on every 4-second poll. A signature
+  // string captures everything that would legitimately require a
+  // rebuild; if it's unchanged since last render, the DOM (and whatever
+  // the user is doing in it right now) is left completely alone.
+  const actionSignature = `${battle.status}|${battle.current_turn}|${mySide}|${battle.round_number}|${battle.vote_count_a}|${battle.awaiting_next_round}|${battle.ready_a}|${battle.ready_b}`;
+  if (lastActionSignature === actionSignature) {
+    return;
+  }
+  lastActionSignature = actionSignature;
+
+  let actionHtml = '';
+  if (battle.status === 'active' && battle.awaiting_next_round) {
+    const latestResult = (battle.round_results || []).find(r => r.round === battle.round_number);
+    const myCritique = latestResult ? (mySide === 'a' ? latestResult.critique_a : latestResult.critique_b) : '';
+    const outcome = !latestResult ? 'tie' : latestResult.winner === 'tie' ? 'tie' : (latestResult.winner === mySide ? 'win' : 'loss');
+    const iAmReady = mySide === 'a' ? battle.ready_a : battle.ready_b;
+
+    actionHtml = `
+      <div class="card">
+        <div class="critique-box ${outcome}">
+          <p class="critique-label">${outcome === 'win' ? 'You won this round' : outcome === 'loss' ? 'You lost this round' : 'Round tied'}</p>
+          <p>${escapeHtml(myCritique)}</p>
+        </div>
+        ${iAmReady
+          ? '<p class="waiting-note">Waiting for your opponent to start the next round...</p>'
+          : '<button id="readyBtn" class="btn btn-flare">Start next round</button>'}
+      </div>
+    `;
+  } else if (battle.status === 'active') {
     if (mySide === battle.current_turn) {
-      html += `
+      actionHtml = `
         <div class="card">
           <p class="waiting-note" style="margin-bottom:10px;">Your turn — round ${battle.round_number}</p>
           <textarea id="lineInput" placeholder="Say what you came to say..." maxlength="500"></textarea>
@@ -483,15 +594,16 @@ function render(battle) {
       `;
     } else {
       const waitingOn = battle.current_turn === 'a' ? battle.display_name_a : battle.display_name_b;
-      html += `<div class="card"><p class="waiting-note">Waiting for ${escapeHtml(waitingOn)} to respond...</p></div>`;
+      actionHtml = `<div class="card"><p class="waiting-note">Waiting for ${escapeHtml(waitingOn)} to respond...</p></div>`;
     }
   } else if (battle.status === 'complete') {
+    actionHtml = buildFinalScorecard(battle, mySide);
     if (battle.vote_count_a !== null) {
       const winner = battle.vote_count_a > battle.vote_count_b ? battle.team_a
         : battle.vote_count_b > battle.vote_count_a ? battle.team_b : null;
-      html += '<div class="card">';
-      if (winner) html += `<p class="winner-banner">${escapeHtml(winner)} is winning the crowd</p>`;
-      html += `
+      actionHtml += '<div class="card">';
+      if (winner) actionHtml += `<p class="winner-banner">${escapeHtml(winner)} is winning the crowd</p>`;
+      actionHtml += `
         <div class="vote-row">
           <div class="vote-btn" id="voteABtn">
             <p class="vote-name">${escapeHtml(battle.team_a)}</p>
@@ -504,31 +616,67 @@ function render(battle) {
         </div>
         <div id="actionError" style="margin-top:12px;"></div>
       `;
-      html += '</div>';
+      actionHtml += '</div>';
     }
   }
 
-  content.innerHTML = html;
-  const restoredLine = document.getElementById('lineInput');
-  if (restoredLine && preserved.line) restoredLine.value = preserved.line;
+  actionArea.innerHTML = actionHtml;
+
+  if (battle.status === 'active' && battle.awaiting_next_round) {
+    const readyBtn = document.getElementById('readyBtn');
+    if (readyBtn) {
+      readyBtn.addEventListener('click', async () => {
+        // The clicker hears the bell the instant they click, regardless
+        // of whether the other side has clicked yet.
+        ringBell();
+        readyBtn.disabled = true;
+        readyBtn.textContent = 'Waiting for opponent...';
+        const resp = await fetch(`/api/battles/${challengeCode}/ready`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({side: mySide})
+        });
+        const data = await resp.json();
+        if (!data.error) {
+          lastActionSignature = null;
+          render(data);
+        }
+      });
+    }
+  }
 
   if (battle.status === 'active' && mySide === battle.current_turn) {
-    document.getElementById('submitLineBtn').addEventListener('click', async () => {
+    const submitBtn = document.getElementById('submitLineBtn');
+    submitBtn.addEventListener('click', async () => {
       const message = document.getElementById('lineInput').value.trim();
       const errorEl = document.getElementById('actionError');
       errorEl.style.display = 'none';
       if (!message) return;
-      const resp = await fetch(`/api/battles/${challengeCode}/line`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({side: mySide, message: message})
-      });
-      const data = await resp.json();
-      if (data.error) {
-        errorEl.textContent = data.error;
+      // Disable immediately so a slow connection or an impatient extra
+      // click can't fire the request twice.
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending...';
+      try {
+        const resp = await fetch(`/api/battles/${challengeCode}/line`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({side: mySide, message: message})
+        });
+        const data = await resp.json();
+        if (data.error) {
+          errorEl.textContent = data.error;
+          errorEl.style.display = 'block';
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Send it';
+        } else {
+          lastActionSignature = null;
+          render(data);
+        }
+      } catch (err) {
+        errorEl.textContent = "Couldn't send — try again.";
         errorEl.style.display = 'block';
-      } else {
-        render(data);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send it';
       }
     });
   }
@@ -548,6 +696,7 @@ function render(battle) {
           errorEl.textContent = data.error;
           errorEl.style.display = 'block';
         } else {
+          lastActionSignature = null;
           loadBattle();
         }
       });

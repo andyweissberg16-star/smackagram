@@ -202,8 +202,26 @@ class Battle(db.Model):
     current_turn = db.Column(db.String(1), default="a")   # "a" or "b" — whose turn it is
     round_number = db.Column(db.Integer, default=1)        # 1-5
 
+    # Once both sides have gone in a round, the round pauses here — no
+    # timer, no auto-advance. Each side sees their own critique and a
+    # "Start next round" button; the next round only actually begins once
+    # BOTH ready flags are true, checked/reset together in the ready
+    # endpoint.
+    awaiting_next_round = db.Column(db.Boolean, default=False)
+    ready_a = db.Column(db.Boolean, default=False)
+    ready_b = db.Column(db.Boolean, default=False)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
+
+    # Generated once, right when the battle finishes — savage,
+    # Smackagram-voiced recap text, one version for whoever won overall
+    # and one for whoever lost. Stored rather than regenerated on every
+    # request. overall_winner is "a", "b", or "tie" based on who won more
+    # of the 5 rounds.
+    overall_winner = db.Column(db.String(4), nullable=True)
+    recap_winner_text = db.Column(db.Text, nullable=True)
+    recap_loser_text = db.Column(db.Text, nullable=True)
 
     @property
     def vote_count_a(self):
@@ -258,6 +276,8 @@ class BattleRoundResult(db.Model):
     battle_id = db.Column(db.Integer, db.ForeignKey("battles.id"), nullable=False)
     round_number = db.Column(db.Integer, nullable=False)
     winner = db.Column(db.String(4), nullable=False)  # "a", "b", or "tie"
+    critique_a = db.Column(db.Text, nullable=True)  # a few sentences on side A's line specifically
+    critique_b = db.Column(db.Text, nullable=True)  # same, for side B
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint("battle_id", "round_number", name="one_result_per_round_per_battle"),)

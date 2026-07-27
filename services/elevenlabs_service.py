@@ -26,6 +26,11 @@ def generate_sound_effect(prompt: str, duration_seconds: float = 1.5) -> str:
     Sound Effects endpoint — a different feature from voice TTS, built for
     exactly this: short stingers/effects like a slap, whoosh, or ding.
     Requires the API key to have "Sound Effects" access enabled.
+
+    Runs through the same loudness normalization as speech, but targeting
+    a louder level (-10 LUFS vs speech's -16) — effects like a bell or
+    crowd cheer are supposed to hit hard and punchy, not sit at a
+    conversational volume like a voice line.
     """
     if prompt in _sfx_cache:
         return _sfx_cache[prompt]
@@ -48,12 +53,14 @@ def generate_sound_effect(prompt: str, duration_seconds: float = 1.5) -> str:
     )
     resp.raise_for_status()
 
+    normalized_audio = _normalize_loudness(resp.content, target_lufs=SFX_TARGET_LUFS)
+
     filename = f"sfx/{uuid.uuid4()}.mp3"
     s3 = boto3.client("s3", region_name=s3_region)
     s3.put_object(
         Bucket=s3_bucket,
         Key=filename,
-        Body=resp.content,
+        Body=normalized_audio,
         ContentType="audio/mpeg",
     )
 
@@ -91,21 +98,25 @@ def get_voice_preview_url(voice_id: str) -> str:
 # breathing artifacts. linear=true below uses a single flat gain instead of
 # adaptive frame-by-frame correction, which eliminates that pumping entirely.
 TARGET_LUFS = -16
+# Sound effects target louder than speech — a bell or crowd roar is
+# supposed to hit hard, not sit at conversational volume.
+SFX_TARGET_LUFS = -10
 
 
-def _normalize_loudness(audio_bytes: bytes) -> bytes:
+def _normalize_loudness(audio_bytes: bytes, target_lufs: int = TARGET_LUFS) -> bytes:
     """
     Runs generated audio through ffmpeg loudness normalization to match
-    TARGET_LUFS. If ffmpeg isn't available on the server for any reason,
-    fails safe by returning the original, unnormalized audio rather than
-    breaking the call — you'd just be back to the volume mismatch, not a
+    target_lufs (defaults to TARGET_LUFS, speech's level). If ffmpeg isn't
+    available on the server for any reason, fails safe by returning the
+    original, unnormalized audio rather than breaking the call — you'd
+    just be back to the volume mismatch, not a broken feature.
     broken feature.
     """
     try:
         process = subprocess.run(
             [
                 "ffmpeg", "-i", "pipe:0",
-                "-af", f"loudnorm=I={TARGET_LUFS}:TP=-1.5:LRA=7:linear=true",
+                "-af", f"loudnorm=I={target_lufs}:TP=-1.5:LRA=7:linear=true",
                 "-f", "mp3", "pipe:1",
             ],
             input=audio_bytes,

@@ -633,7 +633,13 @@ def _battle_state_json(battle):
         "display_name_b": battle.display_name_b,
         "team_b": battle.team_b,
         "lines": [{"side": l.side, "round": l.round_number, "message": l.message, "created_at": l.created_at.isoformat()} for l in lines],
-        "round_results": [{"round": r.round_number, "winner": r.winner} for r in round_results],
+        "round_results": [{"round": r.round_number, "winner": r.winner, "critique_a": r.critique_a, "critique_b": r.critique_b} for r in round_results],
+        "awaiting_next_round": battle.awaiting_next_round,
+        "ready_a": battle.ready_a,
+        "ready_b": battle.ready_b,
+        "overall_winner": battle.overall_winner,
+        "recap_winner_text": battle.recap_winner_text,
+        "recap_loser_text": battle.recap_loser_text,
         "vote_count_a": battle.vote_count_a if battle.status == "complete" else None,
         "vote_count_b": battle.vote_count_b if battle.status == "complete" else None,
     }
@@ -715,21 +721,79 @@ def submit_battle_line(challenge_code):
 
     db.session.add(BattleLine(battle_id=battle.id, side=side, round_number=battle.round_number, message=message))
 
-    # Advance turn — a full round is one line from each side. After B goes,
-    # the round is complete: judge it, then increment; after 5 completed
-    # rounds, the battle is done.
     if side == "a":
         battle.current_turn = "b"
     else:
+        # Round complete — judge it, save the critique for each side, then
+        # PAUSE. No auto-advance, no timer: the round only actually moves
+        # forward once both sides hit "Start next round" themselves (see
+        # the /ready endpoint below).
         line_a = BattleLine.query.filter_by(battle_id=battle.id, round_number=battle.round_number, side="a").first()
-        winner = trash_talk_service.judge_battle_round(battle.team_a, line_a.message if line_a else "", battle.team_b, message)
-        db.session.add(BattleRoundResult(battle_id=battle.id, round_number=battle.round_number, winner=winner))
+        result = trash_talk_service.judge_battle_round(battle.team_a, line_a.message if line_a else "", battle.team_b, message)
+        db.session.add(BattleRoundResult(
+            battle_id=battle.id,
+            round_number=battle.round_number,
+            winner=result["winner"],
+            critique_a=result["critique_a"],
+            critique_b=result["critique_b"],
+        ))
+        battle.awaiting_next_round = True
+        battle.ready_a = False
+        battle.ready_b = False
 
+    db.session.commit()
+    return jsonify(_battle_state_json(battle))
+
+
+@app.route("/api/battles/<challenge_code>/ready", methods=["POST"])
+def ready_for_next_round(challenge_code):
+    """
+    One side confirming they're ready to move on from the just-finished
+    round. The round only actually advances once BOTH sides have called
+    this — no timer, purely gated on both people clicking through on
+    their own device.
+    """
+    battle = Battle.query.filter_by(challenge_code=challenge_code).first()
+    if not battle:
+        return jsonify({"error": "Battle not found"}), 404
+    if not battle.awaiting_next_round:
+        return jsonify({"error": "No round is currently pending"}), 400
+
+    data = request.json
+    side = data.get("side", "")
+    if side not in ("a", "b"):
+        return jsonify({"error": "Invalid side"}), 400
+
+    if side == "a":
+        battle.ready_a = True
+    else:
+        battle.ready_b = True
+
+    if battle.ready_a and battle.ready_b:
+        battle.awaiting_next_round = False
+        battle.ready_a = False
+        battle.ready_b = False
         battle.current_turn = "a"
         battle.round_number += 1
         if battle.round_number > 5:
             battle.status = "complete"
             battle.completed_at = datetime.utcnow()
+
+            all_results = BattleRoundResult.query.filter_by(battle_id=battle.id).order_by(BattleRoundResult.round_number.asc()).all()
+            wins_a = sum(1 for r in all_results if r.winner == "a")
+            wins_b = sum(1 for r in all_results if r.winner == "b")
+            overall_winner = "a" if wins_a > wins_b else "b" if wins_b > wins_a else "tie"
+            battle.overall_winner = overall_winner
+
+            all_lines = BattleLine.query.filter_by(battle_id=battle.id).order_by(BattleLine.created_at.asc()).all()
+            recap = trash_talk_service.generate_battle_recap(
+                battle.team_a, battle.team_b,
+                [{"side": l.side, "round": l.round_number, "message": l.message} for l in all_lines],
+                [{"round": r.round_number, "winner": r.winner} for r in all_results],
+                overall_winner,
+            )
+            battle.recap_winner_text = recap["winner_recap"]
+            battle.recap_loser_text = recap["loser_recap"]
 
     db.session.commit()
     return jsonify(_battle_state_json(battle))

@@ -453,32 +453,116 @@ Judge on actual quality, not team loyalty or which side went first.
 A tie is a legitimate call if both lines are genuinely close in quality
 — don't force a winner just to pick one.
 
+Also write a short critique for EACH side — a few sentences, spoken
+directly to that person, explaining specifically what worked or didn't
+in their own line this round. The winner's critique should say what
+made their line land; the loser's should be honest about what fell
+flat, without being needlessly harsh. Reference the actual content of
+their line, not generic feedback that could apply to anything.
+
 Respond with ONLY a JSON object, nothing else:
-{"winner": "a" or "b" or "tie"}"""
+{"winner": "a" or "b" or "tie", "critique_a": "...", "critique_b": "..."}"""
 
 
-def judge_battle_round(team_a: str, line_a: str, team_b: str, line_b: str) -> str:
+def judge_battle_round(team_a: str, line_a: str, team_b: str, line_b: str) -> dict:
     """
-    Returns "a", "b", or "tie" for who won this round of a Smack Battle.
-    Fails to "tie" if the judge call itself errors out — a neutral
-    result is the safer default than crashing the round transition.
+    Returns {"winner": "a"/"b"/"tie", "critique_a": str, "critique_b": str}
+    for one round of a Smack Battle. Fails to a neutral tie with generic
+    critiques if the judge call itself errors out — safer than crashing
+    the round transition.
     """
     user_content = (
         f"Side A ({team_a} fan): {line_a}\n\n"
         f"Side B ({team_b} fan): {line_b}\n\n"
-        f"Who won this round?"
+        f"Who won this round, and why did each side's line work or not?"
     )
     try:
         message = _get_client().messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=50,
+            max_tokens=300,
             system=BATTLE_ROUND_JUDGE_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
         )
         raw = message.content[0].text.strip().replace("```json", "").replace("```", "").strip()
         result = json.loads(raw)
         winner = result.get("winner")
-        return winner if winner in ("a", "b", "tie") else "tie"
+        return {
+            "winner": winner if winner in ("a", "b", "tie") else "tie",
+            "critique_a": result.get("critique_a") or "",
+            "critique_b": result.get("critique_b") or "",
+        }
     except Exception as e:
         print(f"[battle judge] failed, defaulting to tie: {e}")
-        return "tie"
+        return {"winner": "tie", "critique_a": "Couldn't judge this round.", "critique_b": "Couldn't judge this round."}
+
+
+BATTLE_RECAP_SYSTEM_PROMPT = """You write the final recap for a Smack
+Battle that just ended — 5 rounds of trash talk between two people
+roasting each other's sports teams. You'll get every line from the
+whole battle, the round-by-round results, and the overall winner.
+
+Write TWO separate pieces, each 2-4 sentences, in Smackagram's voice:
+savage, crude, genuinely funny, zero mercy — the same energy as the
+rest of the brand, not corporate or safe. Reference specific real
+moments from the actual battle (a real line someone said, a round that
+swung it) rather than generic hype — the specificity is what makes it
+land.
+
+WINNER_RECAP: a victory-lap roast, hyping up how badly the winner just
+cooked their opponent. Lean into it — this is their moment.
+
+LOSER_RECAP: a "you got smoked" recap directed at the losing side —
+still funny, not just mean, more "well that happened" than genuinely
+cruel. Can reference a specific weak line or moment that cost them.
+
+If the overall result is a tie, both pieces should reflect that it was
+genuinely close instead of declaring a winner.
+
+Respond with ONLY a JSON object, nothing else:
+{"winner_recap": "...", "loser_recap": "..."}"""
+
+
+def generate_battle_recap(team_a: str, team_b: str, all_lines: list, round_results: list, overall_winner: str) -> dict:
+    """
+    Generates the final savage recap text once a battle completes.
+    all_lines: list of {"side", "round", "message"}
+    round_results: list of {"round", "winner"}
+    overall_winner: "a", "b", or "tie"
+
+    Returns {"winner_recap": str, "loser_recap": str}. On a tie, both
+    keys still get filled (with tie-appropriate text) so the caller
+    doesn't need special-case handling.
+    """
+    lines_block = "\n".join(
+        f"Round {l['round']} — Side {l['side'].upper()} ({team_a if l['side'] == 'a' else team_b} fan): {l['message']}"
+        for l in all_lines
+    )
+    results_block = "\n".join(
+        f"Round {r['round']}: {'Side A' if r['winner'] == 'a' else 'Side B' if r['winner'] == 'b' else 'Tie'}"
+        for r in round_results
+    )
+    winner_label = "Side A" if overall_winner == "a" else "Side B" if overall_winner == "b" else "Tie — nobody"
+
+    user_content = (
+        f"Side A fan roots for: {team_a}\nSide B fan roots for: {team_b}\n\n"
+        f"All lines from the battle:\n{lines_block}\n\n"
+        f"Round-by-round results:\n{results_block}\n\n"
+        f"Overall winner: {winner_label}\n\n"
+        f"Write the recap."
+    )
+    try:
+        message = _get_client().messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=400,
+            system=BATTLE_RECAP_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_content}],
+        )
+        raw = message.content[0].text.strip().replace("```json", "").replace("```", "").strip()
+        result = json.loads(raw)
+        return {
+            "winner_recap": result.get("winner_recap") or "What a battle.",
+            "loser_recap": result.get("loser_recap") or "Tough one.",
+        }
+    except Exception as e:
+        print(f"[battle recap] failed: {e}")
+        return {"winner_recap": "What a battle.", "loser_recap": "Tough one."}

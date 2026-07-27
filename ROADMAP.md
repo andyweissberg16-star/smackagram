@@ -308,6 +308,37 @@ one at a time. Logging each as it's built:
       round" (or "Round tied"), 4 seconds on screen, with cheers for the
       winner and boos for the loser. Match bell now also rings at the
       start of every round, not just the very first one.
+- [x] Fixed the real root cause of the typing/focus-loss and click-lag
+      bugs — the whole battle screen was rebuilding itself (including
+      the textarea and buttons) on every 4-second poll, which kicked
+      focus out of the input field and could destroy a button mid-click.
+      Restructured so the input/button area only rebuilds when something
+      it actually depends on changes (whose turn, round number, battle
+      status) — otherwise it's left completely alone across polls. Also
+      added a proper disabled state on the send button the instant it's
+      clicked, so a slow response or an extra click can't double-submit.
+- [x] Round result popup extended from 4 to 5 seconds
+- [x] All battle sound effects (bell, cheers, boos, ticks, crowd) now go
+      through the same loudness normalization already used for the
+      speech generation, targeting a louder level than speech (-10 LUFS
+      vs speech's -16) — should be noticeably punchier across the board,
+      not just the bell specifically.
+- [x] Major flow redesign: the chat area no longer expands the whole
+      page — it's a fixed-height box that scrolls internally, and the
+      page itself never needs scrolling. Only the CURRENT round's lines
+      show at a time (clearly labeled "Round X"), instead of every
+      round's lines piling up together. After each round, both sides get
+      a short AI critique explaining specifically why they won or lost,
+      plus a "Start next round" button. No timer — the next round only
+      actually begins once BOTH sides have clicked their own button.
+      Clicking it rings the bell immediately for whoever clicked.
+- [x] Final battle scorecard, shown once the whole battle (all 5 rounds)
+      is over — round-by-round chips showing who won each round, an
+      overall score tally (e.g. 3–2), and a savage, Smackagram-voiced
+      recap generated once per battle: a victory-lap roast for whoever
+      won overall, a "you got smoked" recap for whoever lost, both
+      referencing real specific lines from the actual battle rather than
+      generic hype.
 
 ---
 *Last updated: 2026-07-26*
