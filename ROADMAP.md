@@ -410,6 +410,28 @@ one at a time. Logging each as it's built:
       · Final scorecard was getting cut off on screen — unlocked page
         scrolling specifically for the battle-complete view (the active
         battle view stays locked/no-scroll as before)
+- [x] MAJOR FIX: removed ElevenLabs entirely from Smack Battle sounds.
+      This was very likely the real root cause of most of the second
+      playtest's problems — /api/battle-sfx was making 8 separate
+      sequential ElevenLabs API calls on every cache-cold request, each
+      one costing real money and, worse, likely holding a web worker
+      hostage for 20-30+ seconds on a server that may only have 1-2
+      workers total — which would explain the slow page loads, missing
+      sounds, and probably a good chunk of the mobile update lag and
+      "Battle not found" flashes too, since those all look exactly like
+      what a server buried under a long-running request produces.
+      Sounds now come entirely from static files under static/sfx/ (no
+      API calls, no cost, instant) — user is downloading and providing:
+      battle-intro.mp3, crowd-loop.mp3, new-line.mp3, countdown-tick.mp3,
+      bell.mp3, cheer.mp3, boo.mp3, waiting-music.mp3. Any missing file
+      just comes back as null and that sound is silently skipped.
+- [x] Final scorecard no longer shows round 5's chat lines above it —
+      once the battle is complete, just the scorecard, nothing else.
+- [x] All 8 real sound files provided and wired in: battle-intro,
+      bell, crowd-loop, countdown-tick, cheer, boo, waiting-music, and
+      new-line. The waiting-music (epic rock) track now also plays
+      during the final scorecard reveal, not just the pre-battle waiting
+      screen.
 
 ---
 *Last updated: 2026-07-26*

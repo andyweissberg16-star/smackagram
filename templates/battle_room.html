@@ -299,7 +299,10 @@ let lastKnownStatus = 'waiting';
 function updateBackgroundMusic(status) {
   const crowdAudio = document.getElementById('crowdLoopAudio');
   const waitingAudio = document.getElementById('waitingMusicAudio');
-  if (status === 'waiting') {
+  if (status === 'waiting' || status === 'complete') {
+    // Same epic rock track for both the "waiting to start" screen and
+    // the final scorecard reveal — the crowd loop is specifically for
+    // the live back-and-forth of an active battle.
     if (crowdAudio && !crowdAudio.paused) crowdAudio.pause();
     if (waitingAudio && waitingAudio.paused && waitingAudio.src) waitingAudio.play().catch(() => {});
   } else {
@@ -600,29 +603,34 @@ function render(battle) {
     <div class="led-row">${buildLedRow(battle)}</div>
   `;
 
-  // Only this round's lines are shown — the screen clears each round,
-  // with the round number labeled clearly above it, rather than
-  // accumulating every line from every round on one long page.
-  const displayRound = battle.status === 'complete' ? battle.round_number - 1 : battle.round_number;
-  const roundLines = battle.lines.filter(l => l.round === displayRound);
-
-  let historyHtml = '<div class="card">';
-  historyHtml += `<p class="round-label">Round ${displayRound}</p>`;
-  if (roundLines.length === 0) {
-    historyHtml += '<p class="empty-note">No lines yet — the round is about to begin.</p>';
+  // Only this round's lines are shown while the battle is active — the
+  // screen clears each round, with the round number labeled clearly
+  // above it, rather than accumulating every line from every round on
+  // one long page. Once the battle is complete, the chat history is
+  // dropped entirely — just the final scorecard, nothing else.
+  if (battle.status === 'complete') {
+    lineHistory.innerHTML = '';
   } else {
-    roundLines.forEach(l => {
-      const name = l.side === 'a' ? battle.display_name_a : battle.display_name_b;
-      historyHtml += `
-        <div class="line side-${l.side}">
-          <p class="line-name">${escapeHtml(name)}</p>
-          <p class="line-message">${escapeHtml(l.message)}</p>
-        </div>
-      `;
-    });
+    const roundLines = battle.lines.filter(l => l.round === battle.round_number);
+
+    let historyHtml = '<div class="card">';
+    historyHtml += `<p class="round-label">Round ${battle.round_number}</p>`;
+    if (roundLines.length === 0) {
+      historyHtml += '<p class="empty-note">No lines yet — the round is about to begin.</p>';
+    } else {
+      roundLines.forEach(l => {
+        const name = l.side === 'a' ? battle.display_name_a : battle.display_name_b;
+        historyHtml += `
+          <div class="line side-${l.side}">
+            <p class="line-name">${escapeHtml(name)}</p>
+            <p class="line-message">${escapeHtml(l.message)}</p>
+          </div>
+        `;
+      });
+    }
+    historyHtml += '</div>';
+    lineHistory.innerHTML = historyHtml;
   }
-  historyHtml += '</div>';
-  lineHistory.innerHTML = historyHtml;
 
   // The action area (turn input, waiting note, or voting) only gets
   // rebuilt when something it actually depends on changes — this is

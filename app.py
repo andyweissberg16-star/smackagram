@@ -3,7 +3,7 @@ import secrets
 import threading
 from datetime import datetime, timedelta, timezone
 
-from flask import Flask, render_template, request, jsonify, Response
+from flask import Flask, render_template, request, jsonify, Response, url_for
 from sqlalchemy import func
 import requests
 from dotenv import load_dotenv
@@ -922,58 +922,30 @@ def request_rematch(challenge_code):
 @app.route("/api/battle-sfx")
 def battle_sfx():
     """
-    Sound effects for the battle room — reuses the same ElevenLabs Sound
-    Effects generation already built for the call slap sound. Each prompt
-    is cached (see generate_sound_effect), so this only actually costs
-    credits once total, not once per request.
+    Sound effects for the battle room — served entirely from static
+    files, no API calls. Expects these files to exist under
+    static/sfx/ (any that are missing just come back as null, and the
+    frontend already treats a null URL as "skip this sound," so nothing
+    breaks if a file hasn't been added yet):
+
+    battle-intro.mp3, crowd-loop.mp3, new-line.mp3, countdown-tick.mp3,
+    bell.mp3, cheer.mp3, boo.mp3, waiting-music.mp3
     """
-    try:
-        intro_url = elevenlabs_service.generate_sound_effect(
-            "Dramatic boxing match intro whoosh with a deep bass hit and crowd anticipation swell, arena sound, cinematic sports intro sting",
-            duration_seconds=3.0,
-        )
-        crowd_loop_url = elevenlabs_service.generate_sound_effect(
-            "Large sports arena crowd ambience, murmuring and cheering continuously, seamless loopable background crowd noise, no announcer voice",
-            duration_seconds=10.0,
-        )
-        new_line_url = elevenlabs_service.generate_sound_effect(
-            "Short crowd pop and cheer reaction, quick arena crowd 'ooh' burst, half a second, punchy",
-            duration_seconds=1.0,
-        )
-        countdown_tick_url = elevenlabs_service.generate_sound_effect(
-            "Single sharp mechanical countdown tick, like a boxing round timer click, short and punchy, quarter second",
-            duration_seconds=0.5,
-        )
-        bell_url = elevenlabs_service.generate_sound_effect(
-            "Boxing ring bell, single clear ding-ding ring bell strike signaling the start of a round",
-            duration_seconds=1.5,
-            target_lufs=-4,  # noticeably louder than the general SFX target — this one needs to cut through
-        )
-        cheer_url = elevenlabs_service.generate_sound_effect(
-            "Excited sports arena crowd cheering and applauding loudly, celebratory roar, winning moment reaction",
-            duration_seconds=2.0,
-        )
-        boo_url = elevenlabs_service.generate_sound_effect(
-            "Sports arena crowd booing loudly, disappointed jeering reaction, losing moment",
-            duration_seconds=2.0,
-        )
-        waiting_music_url = elevenlabs_service.generate_sound_effect(
-            "Epic cinematic rock instrumental, driving electric guitar riff and powerful drums, intense battle anticipation music, no vocals, seamless loopable",
-            duration_seconds=15.0,
-        )
-        return jsonify({
-            "intro_url": intro_url,
-            "crowd_loop_url": crowd_loop_url,
-            "new_line_url": new_line_url,
-            "countdown_tick_url": countdown_tick_url,
-            "bell_url": bell_url,
-            "cheer_url": cheer_url,
-            "boo_url": boo_url,
-            "waiting_music_url": waiting_music_url,
-        })
-    except Exception as e:
-        print(f"[battle-sfx] generation failed: {e}")
-        return jsonify({"intro_url": None, "crowd_loop_url": None, "new_line_url": None, "countdown_tick_url": None, "bell_url": None, "cheer_url": None, "boo_url": None, "waiting_music_url": None})
+    sfx_files = {
+        "intro_url": "battle-intro.mp3",
+        "crowd_loop_url": "crowd-loop.mp3",
+        "new_line_url": "new-line.mp3",
+        "countdown_tick_url": "countdown-tick.mp3",
+        "bell_url": "bell.mp3",
+        "cheer_url": "cheer.mp3",
+        "boo_url": "boo.mp3",
+        "waiting_music_url": "waiting-music.mp3",
+    }
+    result = {}
+    for key, filename in sfx_files.items():
+        filepath = os.path.join(app.static_folder, "sfx", filename)
+        result[key] = url_for("static", filename=f"sfx/{filename}") if os.path.exists(filepath) else None
+    return jsonify(result)
 
 
 @app.route("/api/check-if-smacked", methods=["POST"])
