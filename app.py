@@ -197,6 +197,11 @@ def generate_trash_talk():
     team = data.get("team", "").strip()
     recipient_name = data.get("recipient_name", "").strip()
     sensitivity = data.get("sensitivity", trash_talk_service.DEFAULT_SENSITIVITY)
+    # Sanitized server-side too, not just trusting whatever the frontend
+    # already limited to 3 — cap length per topic as a light guard
+    # against someone pasting something huge into this field.
+    raw_topics = data.get("roast_topics") or []
+    roast_topics = [str(t).strip()[:60] for t in raw_topics if str(t).strip()][:3]
 
     if not team or not recipient_name:
         return jsonify({"error": "Both team and recipient name are required"}), 400
@@ -204,7 +209,7 @@ def generate_trash_talk():
     if sensitivity not in trash_talk_service.SENSITIVITY_LEVELS:
         return jsonify({"error": "Invalid sensitivity level"}), 400
 
-    line = trash_talk_service.generate_trash_talk(team=team, recipient_name=recipient_name, sensitivity=sensitivity)
+    line = trash_talk_service.generate_trash_talk(team=team, recipient_name=recipient_name, sensitivity=sensitivity, roast_topics=roast_topics)
     return jsonify({"generated_text": line})
 
 

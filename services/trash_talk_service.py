@@ -184,7 +184,7 @@ def _build_recap_greeting(recipient_name: str, team: str) -> str:
     return template.format(name=recipient_name.strip(), team=team.strip())
 
 
-def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAULT_SENSITIVITY) -> str:
+def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAULT_SENSITIVITY, roast_topics: list = None) -> str:
     """
     Generates a ready-to-edit trash talk line roasting the given team,
     always opening with a personalized greeting built in code (not left to
@@ -193,6 +193,11 @@ def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAU
     the AI-generated roast continues from there.
 
     sensitivity: 1 (clean) through 4 (savage) — see SENSITIVITY_LEVELS.
+    roast_topics: up to 3 specific things the user wants roasted about
+    this team (e.g. "Dusty Baker", "trash cans", "cheating") — when
+    provided, the roast weaves these in specifically rather than
+    picking its own angle. When empty/None, falls back to the original
+    behavior: whatever real current or historical material fits best.
 
     Returned text goes straight into the custom-message textarea for the
     buyer to tweak. The closing tagline is NOT included in this text — it's
@@ -202,13 +207,23 @@ def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAU
     opener = _build_greeting(recipient_name, team)
     system_prompt = _build_system_prompt(sensitivity, recap_mode=False)
 
+    if roast_topics:
+        topics_str = ", ".join(roast_topics)
+        user_content = (
+            f"Team to roast: {team}. Specifically roast them about: {topics_str}. "
+            f"Weave these in naturally and specifically — don't just list them, actually "
+            f"make the joke land using real, accurate details about each one. Write the line."
+        )
+    else:
+        user_content = f"Team to roast: {team}. Write the line."
+
     message = _get_client().messages.create(
         model="claude-sonnet-4-6",
         max_tokens=200,
         system=system_prompt,
         messages=[{
             "role": "user",
-            "content": f"Team to roast: {team}. Write the line.",
+            "content": user_content,
         }],
     )
     roast = message.content[0].text.strip()

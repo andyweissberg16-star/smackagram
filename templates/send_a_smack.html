@@ -68,6 +68,7 @@
   }
   input:focus, textarea:focus, select:focus{outline:none; border-color:var(--flare);}
   textarea{resize:vertical; min-height:100px;}
+  .field-hint{font-size:11px; color:var(--chalk-dim); margin:-8px 0 14px; line-height:1.4;}
 
   .btn{font-weight:600; font-size:14px; padding:12px 24px; border-radius:2px; border:none; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; width:100%; transition:transform 0.12s ease;}
   .btn:hover{transform:scale(1.03) rotate(-0.5deg);}
@@ -122,6 +123,10 @@
 
     <label for="teamInput">Team to trash talk</label>
     <input id="teamInput" type="text" placeholder="ex. New York Yankees">
+
+    <label for="roastTopicsInput">Specific things to roast them about (optional)</label>
+    <input id="roastTopicsInput" type="text" placeholder="Up to 3, comma-separated — ex. Dusty Baker, trash cans, cheating">
+    <p class="field-hint">Leave blank and we'll roast them generally, using whatever real history and current events fit.</p>
 
     <label for="recipientNameInput">Who's receiving this</label>
     <input id="recipientNameInput" type="text" placeholder="ex. Mike">
@@ -330,6 +335,11 @@ loadSensitivityLevels();
 document.getElementById('generateBtn').addEventListener('click', async () => {
   const team = document.getElementById('teamInput').value.trim();
   const recipientName = document.getElementById('recipientNameInput').value.trim();
+  const roastTopics = document.getElementById('roastTopicsInput').value
+    .split(',')
+    .map(t => t.trim())
+    .filter(t => t.length > 0)
+    .slice(0, 3);
   const output = document.getElementById('trashTalkOutput');
   const btn = document.getElementById('generateBtn');
 
@@ -349,7 +359,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     const resp = await fetch('/api/generate-trash-talk', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({team: team, recipient_name: recipientName, sensitivity: selectedSensitivity})
+      body: JSON.stringify({team: team, recipient_name: recipientName, sensitivity: selectedSensitivity, roast_topics: roastTopics})
     });
     const data = await resp.json();
     if (data.generated_text) {

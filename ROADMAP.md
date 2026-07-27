@@ -915,3 +915,14 @@ image or using the OS-level native share sheet, not a real web link.
       stuck-timeout/retry protection as everywhere else. Applies
       equally whether someone is the one who originally finalized the
       battle or the one confirming separately afterward.
+
+## Main generator: roast-topic keywords (new feature)
+- [x] Added an optional free-text field to the main "Send a Smack"
+      generator, below the team field — user can enter up to 3
+      comma-separated specific things to roast the team about (e.g.
+      "Dusty Baker, trash cans, cheating" for the Astros). When
+      provided, the AI weaves these in specifically rather than picking
+      its own angle. When left blank, falls back to the original
+      behavior — a general roast using whatever real current or
+      historical material fits best. Sanitized both client and
+      server-side (capped at 3 topics, 60 chars each).
