@@ -1207,3 +1207,16 @@ Research done first, changed the actual scope:
       ElevenLabs + ffmpeg + image generation, all sequential) could
       finish. Fixed via Render's Start Command setting (--timeout 180),
       not something fixable from code alone.
+
+## Meme image broken (question mark icon) - fixed without AWS access (same session)
+- [x] Meme images uploaded successfully to S3 but showed a broken
+      image icon in the browser — confirmed via dev tools this was a
+      403-style permission issue, not a generation failure. Root
+      cause: memes were uploaded to a separate smackcast-memes/ S3
+      folder, while the confirmed-working audio uploads use tts/ —
+      the bucket's public-read access is almost certainly a bucket
+      policy scoped to that specific path, which the new folder wasn't
+      covered by. Fixed by having memes reuse the exact same tts/
+      path audio already uses successfully — inherits the same public
+      access automatically, zero AWS console changes needed (useful
+      since account access was temporarily lost).

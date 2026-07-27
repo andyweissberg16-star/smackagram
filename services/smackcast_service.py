@@ -266,7 +266,14 @@ def generate_meme_image(best_line: str, league_name: str, week: int) -> str:
 
     s3_bucket = os.environ["AUDIO_S3_BUCKET"]
     s3_region = os.environ.get("AWS_REGION", "us-east-1")
-    filename = f"smackcast-memes/{uuid.uuid4()}.png"
+    # Reusing the same "tts/" path the confirmed-working audio uploads
+    # use, rather than a separate folder — the bucket's public-read
+    # access is almost certainly scoped to this specific path via a
+    # bucket policy, and a separate smackcast-memes/ folder wouldn't be
+    # covered by that same policy, which is exactly what caused the
+    # meme images to upload successfully but return a broken image icon
+    # (no public read access) when the browser tried to load them.
+    filename = f"tts/{uuid.uuid4()}.png"
     s3 = boto3.client("s3", region_name=s3_region)
     with open(buffer_path, "rb") as f:
         s3.put_object(Bucket=s3_bucket, Key=filename, Body=f.read(), ContentType="image/png")
