@@ -16,6 +16,13 @@ from scheduler import check_armed_smackagrams
 load_dotenv()
 
 app = Flask(__name__)
+
+# Temporarily disabled while sorting out an SMS delivery issue (likely
+# A2P 10DLC carrier filtering — messages report as "sent" from Twilio
+# but never actually reach the phone). Flip back to True once that's
+# resolved — every login/registration path already checks this flag,
+# so re-enabling is just this one line.
+TWO_FACTOR_ENABLED = False
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///smackagram.db")
 # SQLite's default driver flatly refuses to let a connection be used
 # from a different thread than the one that created it — which is
@@ -137,6 +144,10 @@ def api_register():
     db.session.add(user)
     db.session.commit()
 
+    if not TWO_FACTOR_ENABLED:
+        session["user_id"] = user.id
+        return jsonify({"ok": True})
+
     # 2FA right after registration too, not just future logins — this
     # also confirms the phone number they gave us is real and reachable.
     # If sending genuinely fails (bad number, Twilio issue), roll back
@@ -177,10 +188,11 @@ def api_login():
     if not user or not user.check_password(password):
         return jsonify({"error": "Incorrect email or password."}), 401
 
-    # The seeded admin test account skips 2FA entirely — it exists
-    # specifically for quick, frictionless testing, and doesn't have a
-    # real phone number behind it anyway.
-    if user.is_admin:
+    # The seeded admin test account always skips 2FA (frictionless
+    # testing, no real phone behind it) — and right now, per the
+    # TWO_FACTOR_ENABLED toggle above, everyone does while the SMS
+    # delivery issue gets sorted out.
+    if user.is_admin or not TWO_FACTOR_ENABLED:
         session["user_id"] = user.id
         return jsonify({"ok": True})
 

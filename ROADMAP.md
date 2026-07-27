@@ -1000,3 +1000,18 @@ image or using the OS-level native share sheet, not a real web link.
       nickname, email, tel, bday, new-password/current-password) to
       every field across registration, login, and profile, so the
       browser can't guess wrong about which field is which.
+
+## 2FA temporarily disabled (same session)
+- [x] SMS 2FA showed "undelivered" in Twilio's message logs after
+      registration — likely A2P 10DLC carrier filtering (US carriers
+      require businesses to register their messaging campaign before
+      SMS reliably delivers; without it, Twilio reports success but the
+      carrier silently blocks the actual text). That's a Twilio Console
+      configuration issue, not something fixable in code. Added a single
+      clearly-commented toggle (TWO_FACTOR_ENABLED, top of app.py, one
+      line) to skip 2FA entirely for now so testing everything else
+      isn't blocked — both registration and login already check this
+      flag, so flipping it back on later is a one-line change once the
+      10DLC registration is sorted out in Twilio.
+      IMPORTANT REMINDER: re-enable this before relying on 2FA for
+      anything real.

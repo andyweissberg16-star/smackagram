@@ -142,7 +142,11 @@ async function submitRegistration() {
       btn.disabled = false;
       btn.textContent = 'Create Account';
     } else {
-      window.location.href = `/verify?next=${encodeURIComponent(getNextParam())}`;
+      if (data.requires_verification) {
+        window.location.href = `/verify?next=${encodeURIComponent(getNextParam())}`;
+      } else {
+        window.location.href = getNextParam();
+      }
     }
   } catch (err) {
     errorEl.textContent = "Couldn't create your account — try again.";
