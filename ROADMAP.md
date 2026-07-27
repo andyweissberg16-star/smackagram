@@ -902,3 +902,16 @@ image or using the OS-level native share sheet, not a real web link.
       final scorecard labels, "is calling out [team] fans"). Everything
       else — buttons, LEDs, bubbles, avatars — correctly stays the
       original fixed gold/red theme regardless of team colors.
+
+## Scorecard reveal timing fix (same session)
+- [x] Clicking the final "Take It To The Judges" button was taking
+      people straight to the scorecard even though the AI-generated
+      final recap was still finishing in the background — landed on a
+      "Writing your recap..." placeholder inside an otherwise-complete
+      scorecard, rather than a clean, fully-ready reveal. Restructured
+      so clicking now holds on a clear loading state ("Finishing up
+      your recap...") until the recap has genuinely finished generating,
+      then reveals the complete scorecard all at once. Same 20-second
+      stuck-timeout/retry protection as everywhere else. Applies
+      equally whether someone is the one who originally finalized the
+      battle or the one confirming separately afterward.

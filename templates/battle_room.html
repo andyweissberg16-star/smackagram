@@ -396,6 +396,8 @@ let lastActionSignature = null;
 let lastLineHistorySignature = null;
 let judgingStartedAt = null;
 let myScorecardUnlocked = false;
+let finalConfirmClicked = false;
+let recapWaitStartedAt = null;
 let judgingBeepIntervalId = null;
 
 function startJudgingBeep() {
@@ -1058,11 +1060,12 @@ function render(battle) {
   // 20-second "try again" fallback below would never actually get a
   // chance to render, since none of the underlying battle fields change
   // while genuinely stuck waiting.
-  const isPendingJudgment = battle.status === 'active' && battle.awaiting_next_round
-    && !(battle.round_results || []).some(r => r.round === battle.round_number);
+  const isPendingJudgment = (battle.status === 'active' && battle.awaiting_next_round
+    && !(battle.round_results || []).some(r => r.round === battle.round_number))
+    || (battle.status === 'complete' && mySide && finalConfirmClicked && !battle.overall_winner);
   const timeBucket = isPendingJudgment ? Math.floor(Date.now() / 5000) : 0;
 
-  const actionSignature = `${battle.status}|${battle.current_turn}|${mySide}|${battle.round_number}|${battle.vote_count_a}|${battle.awaiting_next_round}|${battle.ready_a}|${battle.ready_b}|${(battle.round_results || []).length}|${battle.overall_winner}|${battle.rematch_requested_a}|${battle.rematch_requested_b}|${timeBucket}|${myScorecardUnlocked}`;
+  const actionSignature = `${battle.status}|${battle.current_turn}|${mySide}|${battle.round_number}|${battle.vote_count_a}|${battle.awaiting_next_round}|${battle.ready_a}|${battle.ready_b}|${(battle.round_results || []).length}|${battle.overall_winner}|${battle.rematch_requested_a}|${battle.rematch_requested_b}|${timeBucket}|${myScorecardUnlocked}|${finalConfirmClicked}`;
   if (lastActionSignature === actionSignature) {
     return;
   }
@@ -1161,15 +1164,59 @@ function render(battle) {
     // click through it themselves — independent of battle.status, which
     // may already say "complete" behind the scenes.
     if (mySide && !myScorecardUnlocked) {
-      const round5Result = (battle.round_results || []).find(r => r.round === 5);
-      if (!round5Result) {
-        // Round 5 hasn't actually finished judging yet on the backend —
-        // same "Judging this round..." holding state as any other
-        // round, with the same stuck-timeout protection.
-        if (judgingStartedAt === null) judgingStartedAt = Date.now();
-        const stuckTooLong = Date.now() - judgingStartedAt > 20000;
-        if (stuckTooLong) {
+      if (!finalConfirmClicked) {
+        const round5Result = (battle.round_results || []).find(r => r.round === 5);
+        if (!round5Result) {
+          // Round 5 hasn't actually finished judging yet on the backend —
+          // same "Judging this round..." holding state as any other
+          // round, with the same stuck-timeout protection.
+          if (judgingStartedAt === null) judgingStartedAt = Date.now();
+          const stuckTooLong = Date.now() - judgingStartedAt > 20000;
+          if (stuckTooLong) {
+            stopJudgingBeep();
+            actionHtml = `
+              <div class="card">
+                <p class="waiting-note" style="margin-bottom:12px;">This is taking longer than it should.</p>
+                <button id="retryJudgingBtn" class="btn" style="background:transparent; border:1px solid var(--line-strong); color:var(--chalk);">Try again</button>
+              </div>
+            `;
+          } else {
+            startJudgingBeep();
+            actionHtml = `<div class="card"><p class="judging-note">Judging this round...</p></div>`;
+          }
+        } else {
+          judgingStartedAt = null;
           stopJudgingBeep();
+          const myCritique = mySide === 'a' ? round5Result.critique_a : round5Result.critique_b;
+          const myScore = mySide === 'a' ? round5Result.score_a : round5Result.score_b;
+          const outcome = round5Result.winner === 'tie' ? 'tie' : (round5Result.winner === mySide ? 'win' : 'loss');
+          actionHtml = `
+            <div class="card">
+              <div class="critique-box ${outcome}">
+                <p class="critique-label">${outcome === 'win' ? 'You won this round' : outcome === 'loss' ? 'You lost this round' : 'Round tied'}${myScore !== null && myScore !== undefined ? ` — ${myScore}/10` : ''}</p>
+                <p>${escapeHtml(myCritique)}</p>
+              </div>
+              <button id="unlockScorecardBtn" class="btn btn-flare">Take It To The Judges</button>
+            </div>
+          `;
+        }
+      } else {
+        // They've already clicked through — now hold on a clean loading
+        // state until the final recap has genuinely finished generating
+        // in the background, rather than dumping them into a scorecard
+        // that's still showing "Writing your recap..." internally. Same
+        // stuck-timeout/retry protection as everywhere else.
+        if (recapWaitStartedAt === null) recapWaitStartedAt = Date.now();
+        if (battle.overall_winner) {
+          // Ready — reveal the fully-complete scorecard now, all at once.
+          recapWaitStartedAt = null;
+          myScorecardUnlocked = true;
+          lastActionSignature = null;
+          render(battle);
+          return;
+        }
+        const recapStuckTooLong = Date.now() - recapWaitStartedAt > 20000;
+        if (recapStuckTooLong) {
           actionHtml = `
             <div class="card">
               <p class="waiting-note" style="margin-bottom:12px;">This is taking longer than it should.</p>
@@ -1177,31 +1224,15 @@ function render(battle) {
             </div>
           `;
         } else {
-          startJudgingBeep();
-          actionHtml = `<div class="card"><p class="judging-note">Judging this round...</p></div>`;
+          actionHtml = `<div class="card"><p class="judging-note">Finishing up your recap...</p></div>`;
         }
-      } else {
-        judgingStartedAt = null;
-        stopJudgingBeep();
-        const myCritique = mySide === 'a' ? round5Result.critique_a : round5Result.critique_b;
-        const myScore = mySide === 'a' ? round5Result.score_a : round5Result.score_b;
-        const outcome = round5Result.winner === 'tie' ? 'tie' : (round5Result.winner === mySide ? 'win' : 'loss');
-        actionHtml = `
-          <div class="card">
-            <div class="critique-box ${outcome}">
-              <p class="critique-label">${outcome === 'win' ? 'You won this round' : outcome === 'loss' ? 'You lost this round' : 'Round tied'}${myScore !== null && myScore !== undefined ? ` — ${myScore}/10` : ''}</p>
-              <p>${escapeHtml(myCritique)}</p>
-            </div>
-            <button id="unlockScorecardBtn" class="btn btn-flare">Take It To The Judges</button>
-          </div>
-        `;
       }
       actionArea.innerHTML = actionHtml;
       const unlockBtn = document.getElementById('unlockScorecardBtn');
       if (unlockBtn) {
         unlockBtn.addEventListener('click', () => {
           ringBell();
-          myScorecardUnlocked = true;
+          finalConfirmClicked = true;
           lastActionSignature = null;
           render(battle);
         });
@@ -1272,12 +1303,13 @@ function render(battle) {
         if (!data.error) {
           // Whoever personally clicked this already made their own
           // deliberate choice to move forward — they shouldn't have to
-          // click a second time just to see their own scorecard. The
-          // local-unlock gate (myScorecardUnlocked) exists specifically
-          // for the OTHER person, who didn't click and whose status
-          // just changed underneath them via polling.
+          // click a second time to confirm it. But if this was round 5
+          // finishing, don't jump straight to "unlocked" — the final
+          // recap is still generating in the background at this exact
+          // moment, so route through the same finalConfirmClicked gate
+          // that holds on a loading state until it's genuinely ready.
           if (data.status === 'complete') {
-            myScorecardUnlocked = true;
+            finalConfirmClicked = true;
           }
           lastActionSignature = null;
           render(data);
