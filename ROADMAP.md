@@ -492,6 +492,35 @@ one at a time. Logging each as it's built:
       20-second timeout fallback with a manual "Try again" button on the
       judging screen, as a safety net against any future issue leaving
       someone stuck with literally no way out but abandoning the battle.
+- [x] Fixed hearing an audible bell blip the moment the waiting-room
+      music started. Cause: the audio-unlock trick (a real, brief
+      play-then-pause on every sound effect, including the bell, done
+      the moment someone first taps the screen) could produce an
+      audible fragment if pause() didn't land instantly. Now silences
+      each sound's volume during the unlock attempt so any such delay
+      can never actually be heard.
+- [x] Fixed the critique-reveal track (the longer "industrial rock"
+      sound that plays under every round's critique) continuing to play
+      for its full length in the background even after clicking "Start
+      next round" — clicking ready now cuts it off immediately before
+      ringing the bell, instead of letting the two overlap.
+- [x] Replaced the generic "No lines yet" message at the start of each
+      round with something on-brand — now calls out whoever's actually
+      on the clock by name: "[Name] is on the clock. Let's see if
+      they've got anything."
+- [x] Fixed the rock track bleeding over from the waiting screen into
+      the final scorecard instead of starting fresh — it now always
+      restarts cleanly from the beginning exactly once on the genuine
+      transition into the completed battle, rather than just continuing
+      wherever it happened to be (and without restarting again on every
+      subsequent click, like voting, on the scorecard screen).
+- [x] Redesigned the create-battle page — the hero image now carries
+      through the whole page as a background (fading into the dark form
+      area via a gradient) instead of stopping dead into a flat black
+      void below the banner. Form restyled as a "Fight Card" — Anton
+      labels, a red/gold accent stripe, a VS divider between team and
+      name, stronger button glow. Button now reads "Start a Smack
+      Battle."
 
 ---
 *Last updated: 2026-07-26*

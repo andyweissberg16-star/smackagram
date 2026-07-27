@@ -326,15 +326,35 @@ async function initSound() {
 
 let lastKnownStatus = 'waiting';
 
+let completeMusicStarted = false;
+
 function updateBackgroundMusic(status) {
   const crowdAudio = document.getElementById('crowdLoopAudio');
   const waitingAudio = document.getElementById('waitingMusicAudio');
+  if (status !== 'complete') completeMusicStarted = false;
+
   if (status === 'waiting' || status === 'complete') {
     // Same epic rock track for both the "waiting to start" screen and
     // the final scorecard reveal — the crowd loop is specifically for
     // the live back-and-forth of an active battle.
     if (crowdAudio && !crowdAudio.paused) crowdAudio.pause();
-    if (waitingAudio && waitingAudio.paused && waitingAudio.src) waitingAudio.play().catch(() => {});
+    if (waitingAudio && waitingAudio.src) {
+      if (status === 'complete' && !completeMusicStarted) {
+        // The scorecard reveal should feel like a clean musical moment
+        // of its own, not a continuation of whatever point the track
+        // happened to be at from the pre-battle waiting screen — restart
+        // it fresh exactly once, right on the transition into complete.
+        // Guarded by completeMusicStarted so a later click (voting,
+        // etc.) — which also runs through this same function via
+        // handlePageInteraction — doesn't keep restarting the track
+        // from the beginning every time.
+        completeMusicStarted = true;
+        waitingAudio.currentTime = 0;
+        waitingAudio.play().catch(() => {});
+      } else if (waitingAudio.paused) {
+        waitingAudio.play().catch(() => {});
+      }
+    }
   } else {
     if (waitingAudio && !waitingAudio.paused) waitingAudio.pause();
     if (crowdAudio && crowdAudio.paused && crowdAudio.src) crowdAudio.play().catch(() => {});
@@ -364,7 +384,18 @@ function handlePageInteraction() {
     if (unlockedAudioIds.has(id)) return;
     const el = document.getElementById(id);
     if (el && el.src) {
-      el.play().then(() => { el.pause(); unlockedAudioIds.add(id); }).catch(() => {});
+      // Silence it for the unlock attempt — if pause() doesn't land
+      // instantly (audio still buffering, etc.), this is what stopped
+      // a real, audible blip of the sound (e.g. the bell) from playing
+      // the moment someone first tapped the screen, before anything in
+      // the battle actually warranted it.
+      const originalVolume = el.volume;
+      el.volume = 0;
+      el.play().then(() => {
+        el.pause();
+        el.volume = originalVolume;
+        unlockedAudioIds.add(id);
+      }).catch(() => { el.volume = originalVolume; });
     }
   });
 }
@@ -682,7 +713,8 @@ function render(battle) {
     let historyHtml = '<div class="card">';
     historyHtml += `<p class="round-label">Round ${battle.round_number}</p>`;
     if (roundLines.length === 0) {
-      historyHtml += '<p class="empty-note">No lines yet — the round is about to begin.</p>';
+      const onTheClock = battle.current_turn === 'a' ? battle.display_name_a : battle.display_name_b;
+      historyHtml += `<p class="empty-note">${escapeHtml(onTheClock)} is on the clock. Let's see if they've got anything.</p>`;
     } else {
       roundLines.forEach(l => {
         const name = l.side === 'a' ? battle.display_name_a : battle.display_name_b;
@@ -833,6 +865,16 @@ function render(battle) {
     const readyBtn = document.getElementById('readyBtn');
     if (readyBtn) {
       readyBtn.addEventListener('click', async () => {
+        // Cut off the critique-reveal track (a real, longer audio file
+        // that otherwise just kept playing in the background for its
+        // full length even after moving on) before the bell rings —
+        // clicking ready should cleanly replace whatever was playing,
+        // not layer the bell on top of it.
+        const critiqueAudio = document.getElementById('critiqueRevealAudio');
+        if (critiqueAudio) {
+          critiqueAudio.pause();
+          critiqueAudio.currentTime = 0;
+        }
         // The clicker hears the bell the instant they click, regardless
         // of whether the other side has clicked yet.
         ringBell();
