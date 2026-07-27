@@ -1714,9 +1714,9 @@ def api_smackcast_test_generate():
     if team_count < 4 or team_count > 20:
         return jsonify({"error": "Team count must be between 4 and 20."}), 400
 
-    matchups = smackcast_service.generate_sample_matchups(sport, team_count)
-
     try:
+        matchups = smackcast_service.generate_sample_matchups(sport, team_count)
+
         result = smackcast_service.generate_weekly_recap_script(
             league_name=league_name, week=week, matchups=matchups, team_count=team_count,
         )
@@ -1730,6 +1730,7 @@ def api_smackcast_test_generate():
             except Exception as e:
                 print(f"[smackcast test] meme generation failed: {e}")
     except Exception as e:
+        print(f"[smackcast test] generation failed: {e}")
         return jsonify({"error": f"Generation failed: {e}"}), 500
 
     return jsonify({
