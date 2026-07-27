@@ -926,3 +926,15 @@ image or using the OS-level native share sheet, not a real web link.
       behavior — a general roast using whatever real current or
       historical material fits best. Sanitized both client and
       server-side (capped at 3 topics, 60 chars each).
+
+## Content quality refinement — rhetorical vs declarative recipient insults
+- [x] Added a specific rule distinguishing rhetorical/hypothetical framing
+      about the recipient ("are you a delusional bastard?", "you'd have
+      to be a dumbass to...") from flat declarative personal insults
+      stated as fact ("you're a delusional bastard", "your dumbass").
+      Only the former is now allowed. Uses the user's own real example
+      (a Chiefs roast) as the concrete illustration in the prompt itself,
+      since concrete examples land far more reliably than an abstract
+      rule alone. This is the shared _HARD_LIMITS constant, so it applies
+      across the main generator, game recap roasts, and the reply-smack
+      feature all at once — not just the one flow that was tested.

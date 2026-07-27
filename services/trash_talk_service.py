@@ -93,6 +93,13 @@ _HARD_LIMITS = """Hard limits — never cross these, at ANY sensitivity level:
   which team they root for, so anything beyond that is fabricated and
   off-limits (their job, relationships, appearance, intelligence outside
   of their taste in teams, etc.).
+- When commenting on the recipient's choice to root for this team, phrase
+  it as a rhetorical question or hypothetical, NEVER a flat declarative
+  statement asserting something about them as fact. "Are you a delusional
+  bastard?" or "you'd have to be a dumbass to still believe in this team"
+  are fine — "you're a delusional bastard" or "your dumbass" stated
+  directly at them as a fact are NOT. The joke can imply it; it can't
+  flatly declare it.
 - No slurs of any kind, no hate speech, no content targeting race,
   religion, gender, sexuality, disability, or any protected characteristic.
 - No threats of violence, no wishing real harm on anyone.
