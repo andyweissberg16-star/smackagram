@@ -18,7 +18,15 @@
     --line-strong:rgba(245,245,243,0.24);
   }
   *{box-sizing:border-box; margin:0; padding:0;}
-  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  body{
+    background-color:var(--ink);
+    background-image:linear-gradient(rgba(13,13,13,0.88), rgba(13,13,13,0.88)), url('{{ url_for('static', filename='smack-battle-hero.png') }}');
+    background-size:cover;
+    background-position:center top;
+    background-attachment:fixed;
+    background-repeat:no-repeat;
+    color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
   .wrap{max-width:620px; margin:0 auto; padding:0 24px 60px;}
 
   nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
@@ -95,6 +103,16 @@
     0%{opacity:0; transform:scale(1.8);}
     100%{opacity:1; transform:scale(1);}
   }
+  .intro-countdown{
+    font-family:'Anton',sans-serif; font-size:80px; color:var(--flare); margin-top:24px;
+    text-shadow:0 0 40px rgba(232,20,44,0.7); opacity:0;
+  }
+  .intro-countdown.pulse{animation:countdownPulse 0.9s ease-out;}
+  @keyframes countdownPulse{
+    0%{opacity:0; transform:scale(2);}
+    30%{opacity:1; transform:scale(1);}
+    100%{opacity:0; transform:scale(0.9);}
+  }
 
   footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim); border-top:1px solid var(--line); margin-top:20px;}
   footer a{color:var(--chalk-dim); text-decoration:none;}
@@ -124,6 +142,7 @@
   <p id="introTeamA" class="intro-team side-a"></p>
   <p class="intro-vs">VS</p>
   <p id="introTeamB" class="intro-team side-b"></p>
+  <p id="introCountdown" class="intro-countdown"></p>
 </div>
 
 <audio id="crowdLoopAudio" loop style="display:none;"></audio>
@@ -196,35 +215,41 @@ document.getElementById('soundToggle').addEventListener('click', () => {
 
 function playIntro(teamA, teamB) {
   const overlay = document.getElementById('introOverlay');
+  const countdownEl = document.getElementById('introCountdown');
   document.getElementById('introTeamA').textContent = teamA;
   document.getElementById('introTeamB').textContent = teamB;
+  countdownEl.textContent = '';
+  countdownEl.className = 'intro-countdown';
   overlay.style.display = 'flex';
   if (soundEnabled && sfxUrls && sfxUrls.intro_url) {
     new Audio(sfxUrls.intro_url).play().catch(() => {});
   }
-  setTimeout(() => { overlay.style.display = 'none'; }, 1800);
+
+  // Hold on the team names + VS for a beat before the countdown starts,
+  // then step through 3, 2, 1 — each number gets its own punch-in pulse
+  // — before the overlay finally clears and the battle is revealed.
+  const holdMs = 2200;
+  const stepMs = 900;
+  [3, 2, 1].forEach((n, i) => {
+    setTimeout(() => {
+      countdownEl.textContent = n;
+      // Removing then re-adding the class in the next frame restarts the
+      // CSS animation each time — just re-setting the same class name
+      // wouldn't replay an animation that already finished.
+      countdownEl.classList.remove('pulse');
+      void countdownEl.offsetWidth;
+      countdownEl.classList.add('pulse');
+    }, holdMs + i * stepMs);
+  });
+
+  setTimeout(() => { overlay.style.display = 'none'; }, holdMs + 3 * stepMs);
 }
 
-async function loadBattle(isPoll) {
+async function loadBattle() {
   try {
     const resp = await fetch(`/api/battles/${challengeCode}`);
     if (!resp.ok) throw new Error('not found');
     const battle = await resp.json();
-
-    // Skip re-rendering on a background poll whenever the viewer might
-    // have in-progress, unsaved typing that a full re-render would wipe:
-    // either it's genuinely their turn in an active battle (the other
-    // side literally can't act, so nothing could have changed anyway),
-    // or the battle is still waiting and they're not side A (meaning
-    // they could be mid-way through filling out the join form). Non-poll
-    // calls (initial load, right after joining or submitting) always render.
-    const mySide = getMySide();
-    const mightBeTyping = (battle.status === 'active' && mySide === battle.current_turn)
-      || (battle.status === 'waiting' && mySide !== 'a');
-    if (isPoll && mightBeTyping) {
-      return;
-    }
-
     render(battle);
   } catch (err) {
     document.getElementById('matchupHeader').innerHTML = '<p class="matchup-teams">Battle not found</p>';
@@ -237,6 +262,17 @@ function render(battle) {
   const header = document.getElementById('matchupHeader');
   const content = document.getElementById('content');
   const mySide = getMySide();
+
+  // Capture whatever's currently typed (in either the join form or the
+  // line textarea) before rebuilding the DOM, so a poll-triggered
+  // re-render doesn't wipe out someone's in-progress typing.
+  const preserved = {};
+  const existingTeamB = document.getElementById('teamBInput');
+  const existingNameB = document.getElementById('nameBInput');
+  const existingLine = document.getElementById('lineInput');
+  if (existingTeamB) preserved.teamB = existingTeamB.value;
+  if (existingNameB) preserved.nameB = existingNameB.value;
+  if (existingLine) preserved.line = existingLine.value;
 
   if (battle.status === 'waiting') {
     header.innerHTML = `<p class="matchup-teams"><span class="side-a">${escapeHtml(battle.team_a)}</span></p><p class="round-indicator">Waiting for a challenger</p>`;
@@ -259,6 +295,8 @@ function render(battle) {
           <button id="joinBtn" class="btn btn-flare">Accept the challenge</button>
         </div>
       `;
+      if (preserved.teamB) document.getElementById('teamBInput').value = preserved.teamB;
+      if (preserved.nameB) document.getElementById('nameBInput').value = preserved.nameB;
       document.getElementById('joinBtn').addEventListener('click', async () => {
         const teamB = document.getElementById('teamBInput').value.trim();
         const nameB = document.getElementById('nameBInput').value.trim();
@@ -362,6 +400,8 @@ function render(battle) {
   }
 
   content.innerHTML = html;
+  const restoredLine = document.getElementById('lineInput');
+  if (restoredLine && preserved.line) restoredLine.value = preserved.line;
 
   if (battle.status === 'active' && mySide === battle.current_turn) {
     document.getElementById('submitLineBtn').addEventListener('click', async () => {
@@ -407,7 +447,7 @@ function render(battle) {
 }
 
 loadBattle();
-pollInterval = setInterval(() => loadBattle(true), 4000);
+pollInterval = setInterval(loadBattle, 4000);
 </script>
 </body>
 </html>
