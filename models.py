@@ -172,3 +172,73 @@ class Smackagram(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     resolved_at = db.Column(db.DateTime, nullable=True)
+
+
+class Battle(db.Model):
+    """
+    Smack Battle — two people go head-to-head, 5 rounds of alternating
+    trash talk about their rival teams, with the audience voting on a
+    winner once it's done.
+
+    Direct-challenge matchmaking only for v1 (create a battle, share the
+    link, someone joins) — no random pairing or scheduled events yet.
+    Uses polling for live updates, not true WebSockets — the roadmap
+    flagged real-time push as needing bigger infrastructure than this app
+    currently has; polling is a real, working v1 tradeoff, not a full
+    implementation of that harder piece.
+    """
+    __tablename__ = "battles"
+
+    id = db.Column(db.Integer, primary_key=True)
+    challenge_code = db.Column(db.String(20), nullable=False, unique=True)
+    league = db.Column(db.String(20), nullable=False)
+
+    display_name_a = db.Column(db.String(40), nullable=False)
+    team_a = db.Column(db.String(80), nullable=False)
+    display_name_b = db.Column(db.String(40), nullable=True)
+    team_b = db.Column(db.String(80), nullable=True)
+
+    status = db.Column(db.String(20), default="waiting")  # waiting, active, complete
+    current_turn = db.Column(db.String(1), default="a")   # "a" or "b" — whose turn it is
+    round_number = db.Column(db.Integer, default=1)        # 1-5
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+    @property
+    def vote_count_a(self):
+        return BattleVote.query.filter_by(battle_id=self.id, voted_for="a").count()
+
+    @property
+    def vote_count_b(self):
+        return BattleVote.query.filter_by(battle_id=self.id, voted_for="b").count()
+
+
+class BattleLine(db.Model):
+    """One line of trash talk in one round of a battle, from one side."""
+    __tablename__ = "battle_lines"
+
+    id = db.Column(db.Integer, primary_key=True)
+    battle_id = db.Column(db.Integer, db.ForeignKey("battles.id"), nullable=False)
+    side = db.Column(db.String(1), nullable=False)   # "a" or "b"
+    round_number = db.Column(db.Integer, nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class BattleVote(db.Model):
+    """
+    One audience vote on a completed battle. voter_id is a browser-
+    generated anonymous ID (same pattern as Smack Chat's ratings) —
+    enforced one-vote-per-voter via a unique constraint, same seamless
+    upgrade path to real accounts later as Smack Chat's ratings have.
+    """
+    __tablename__ = "battle_votes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    battle_id = db.Column(db.Integer, db.ForeignKey("battles.id"), nullable=False)
+    voter_id = db.Column(db.String(64), nullable=False)
+    voted_for = db.Column(db.String(1), nullable=False)  # "a" or "b"
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("battle_id", "voter_id", name="one_vote_per_voter_per_battle"),)

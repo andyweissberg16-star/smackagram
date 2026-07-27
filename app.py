@@ -7,7 +7,7 @@ from sqlalchemy import func
 import requests
 from dotenv import load_dotenv
 
-from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating
+from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors
 from scheduler import check_armed_smackagrams
 
@@ -607,6 +607,152 @@ def report_chat_post(post_id):
     post.report_count += 1
     db.session.commit()
     return jsonify({"reported": True})
+
+
+@app.route("/smack-battle")
+def smack_battle_page():
+    return render_template("smack_battle.html")
+
+
+@app.route("/battle/<challenge_code>")
+def battle_room_page(challenge_code):
+    return render_template("battle_room.html", challenge_code=challenge_code)
+
+
+def _battle_state_json(battle):
+    lines = BattleLine.query.filter_by(battle_id=battle.id).order_by(BattleLine.created_at.asc()).all()
+    return {
+        "challenge_code": battle.challenge_code,
+        "league": battle.league,
+        "status": battle.status,
+        "current_turn": battle.current_turn,
+        "round_number": battle.round_number,
+        "display_name_a": battle.display_name_a,
+        "team_a": battle.team_a,
+        "display_name_b": battle.display_name_b,
+        "team_b": battle.team_b,
+        "lines": [{"side": l.side, "round": l.round_number, "message": l.message, "created_at": l.created_at.isoformat()} for l in lines],
+        "vote_count_a": battle.vote_count_a if battle.status == "complete" else None,
+        "vote_count_b": battle.vote_count_b if battle.status == "complete" else None,
+    }
+
+
+@app.route("/api/battles", methods=["POST"])
+def create_battle():
+    data = request.json
+    league = data.get("league", "")
+    team_a = (data.get("team_a") or "").strip()
+    display_name_a = (data.get("display_name_a") or "Anonymous").strip()[:40]
+
+    if not league or not team_a:
+        return jsonify({"error": "League and your team are required"}), 400
+
+    challenge_code = secrets.token_urlsafe(6).replace("_", "").replace("-", "")[:8]
+    battle = Battle(challenge_code=challenge_code, league=league, team_a=team_a, display_name_a=display_name_a or "Anonymous")
+    db.session.add(battle)
+    db.session.commit()
+
+    return jsonify({"challenge_code": challenge_code})
+
+
+@app.route("/api/battles/<challenge_code>")
+def get_battle(challenge_code):
+    battle = Battle.query.filter_by(challenge_code=challenge_code).first()
+    if not battle:
+        return jsonify({"error": "Battle not found"}), 404
+    return jsonify(_battle_state_json(battle))
+
+
+@app.route("/api/battles/<challenge_code>/join", methods=["POST"])
+def join_battle(challenge_code):
+    battle = Battle.query.filter_by(challenge_code=challenge_code).first()
+    if not battle:
+        return jsonify({"error": "Battle not found"}), 404
+    if battle.status != "waiting":
+        return jsonify({"error": "This battle already has two sides"}), 400
+
+    data = request.json
+    team_b = (data.get("team_b") or "").strip()
+    display_name_b = (data.get("display_name_b") or "Anonymous").strip()[:40]
+    if not team_b:
+        return jsonify({"error": "Your team is required"}), 400
+
+    battle.team_b = team_b
+    battle.display_name_b = display_name_b or "Anonymous"
+    battle.status = "active"
+    db.session.commit()
+
+    return jsonify(_battle_state_json(battle))
+
+
+@app.route("/api/battles/<challenge_code>/line", methods=["POST"])
+def submit_battle_line(challenge_code):
+    battle = Battle.query.filter_by(challenge_code=challenge_code).first()
+    if not battle:
+        return jsonify({"error": "Battle not found"}), 404
+    if battle.status != "active":
+        return jsonify({"error": "This battle isn't active"}), 400
+
+    data = request.json
+    side = data.get("side", "")
+    message = (data.get("message") or "").strip()
+
+    if side not in ("a", "b"):
+        return jsonify({"error": "Invalid side"}), 400
+    if side != battle.current_turn:
+        return jsonify({"error": "It's not your turn"}), 400
+    if not message:
+        return jsonify({"error": "Message can't be empty"}), 400
+    if len(message) > 500:
+        return jsonify({"error": "Keep it under 500 characters"}), 400
+
+    safety = content_moderation.check_message_safety(message)
+    if not safety["safe"]:
+        print(f"[safety] blocked battle line — reason: {safety['reason']}")
+        return jsonify({"error": "That message can't be posted — it may contain threatening, sexual, or harassing content. Try a different angle."}), 400
+
+    db.session.add(BattleLine(battle_id=battle.id, side=side, round_number=battle.round_number, message=message))
+
+    # Advance turn — a full round is one line from each side. After B goes,
+    # the round increments; after 5 completed rounds, the battle is done.
+    if side == "a":
+        battle.current_turn = "b"
+    else:
+        battle.current_turn = "a"
+        battle.round_number += 1
+        if battle.round_number > 5:
+            battle.status = "complete"
+            battle.completed_at = datetime.utcnow()
+
+    db.session.commit()
+    return jsonify(_battle_state_json(battle))
+
+
+@app.route("/api/battles/<challenge_code>/vote", methods=["POST"])
+def vote_battle(challenge_code):
+    battle = Battle.query.filter_by(challenge_code=challenge_code).first()
+    if not battle:
+        return jsonify({"error": "Battle not found"}), 404
+    if battle.status != "complete":
+        return jsonify({"error": "Voting opens once the battle is finished"}), 400
+
+    data = request.json
+    voted_for = data.get("voted_for", "")
+    voter_id = (data.get("voter_id") or "").strip()
+
+    if voted_for not in ("a", "b"):
+        return jsonify({"error": "Invalid vote"}), 400
+    if not voter_id:
+        return jsonify({"error": "Missing voter identifier"}), 400
+
+    existing = BattleVote.query.filter_by(battle_id=battle.id, voter_id=voter_id).first()
+    if existing:
+        return jsonify({"error": "You've already voted on this battle"}), 400
+
+    db.session.add(BattleVote(battle_id=battle.id, voter_id=voter_id, voted_for=voted_for))
+    db.session.commit()
+
+    return jsonify({"vote_count_a": battle.vote_count_a, "vote_count_b": battle.vote_count_b})
 
 
 @app.route("/api/check-if-smacked", methods=["POST"])

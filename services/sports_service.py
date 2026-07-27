@@ -335,15 +335,13 @@ def get_all_teams(sport: str) -> list[dict]:
     """
     path = SPORT_PATHS[sport]
     if sport == "soccer":
-        # Soccer lives on API v4, not v3 like every other sport here —
-        # same distinction _get() already has to handle. The exact Teams
-        # endpoint shape for v4 soccer isn't confirmed yet (the
-        # competition-suffixed version returned a server error) — trying
-        # the plain global Teams reference endpoint here instead. If this
-        # is also wrong, the caller now surfaces SportsDataIO's real error
-        # response instead of crashing blind, so the actual correct
-        # format can be confirmed from that.
-        url = "https://api.sportsdata.io/v4/soccer/scores/json/Teams"
+        # Soccer lives on API v4, not v3 like every other sport here, and
+        # SportsDataIO's docs confirm soccer endpoints are competition-
+        # scoped (same pattern GamesByDate already needs) — the plain
+        # /Teams attempt correctly 404'd, confirming it needs the
+        # competition ID. Back to that version, now with real error
+        # surfacing in place if this guess is still not quite right.
+        url = f"https://api.sportsdata.io/v4/soccer/scores/json/Teams/{SOCCER_TRIAL_COMPETITION_ID}"
     else:
         url = f"{BASE}/{path}/scores/json/Teams"
     resp = requests.get(url, params={"key": _api_key()}, timeout=15)

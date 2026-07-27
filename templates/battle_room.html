@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smack Battle — Smackagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D;
+    --ink-2:#1A1A1A;
+    --chalk:#F5F5F3;
+    --chalk-dim:#9A9A96;
+    --flare:#E8142C;
+    --gold:#FFD400;
+    --line:rgba(245,245,243,0.10);
+    --line-strong:rgba(245,245,243,0.24);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:620px; margin:0 auto; padding:0 24px 60px;}
+
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
+  nav a.back-link:hover{color:var(--flare);}
+
+  .matchup{text-align:center; padding:28px 0 16px;}
+  .matchup-teams{font-family:'Anton',sans-serif; font-size:24px; text-transform:uppercase; line-height:1.2;}
+  .matchup-teams .vs{color:var(--chalk-dim); font-size:16px; margin:0 8px;}
+  .matchup-teams .side-a{color:var(--gold);}
+  .matchup-teams .side-b{color:var(--flare);}
+  .round-indicator{color:var(--chalk-dim); font-size:12px; font-family:'JetBrains Mono',monospace; margin-top:6px; text-transform:uppercase;}
+
+  .card{
+    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:24px; margin-bottom:16px;
+  }
+  label{display:block; font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;}
+  input[type=text], textarea{
+    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:4px; margin-bottom:14px;
+  }
+  input:focus, textarea:focus{outline:none; border-color:var(--flare);}
+  textarea{resize:vertical; min-height:70px;}
+
+  .btn{
+    font-weight:700; font-size:14px; padding:14px 24px; border-radius:4px; border:none; cursor:pointer;
+    text-transform:uppercase; letter-spacing:0.5px; width:100%;
+  }
+  .btn-flare{background:var(--flare); color:#fff; box-shadow:0 0 16px rgba(232,20,44,0.4);}
+  .btn-flare:disabled{opacity:0.5; cursor:not-allowed;}
+  #actionError{display:none; color:var(--flare); font-size:12px; margin-bottom:10px;}
+
+  .waiting-note{text-align:center; color:var(--chalk-dim); font-size:14px; padding:8px 0;}
+
+  .line{padding:12px 16px; border-radius:8px; margin-bottom:10px; max-width:85%;}
+  .line.side-a{background:rgba(255,212,0,0.08); border-left:3px solid var(--gold); margin-right:auto;}
+  .line.side-b{background:rgba(232,20,44,0.08); border-left:3px solid var(--flare); margin-left:auto; text-align:right;}
+  .line-name{font-size:11px; font-weight:700; margin-bottom:4px;}
+  .line.side-a .line-name{color:var(--gold);}
+  .line.side-b .line-name{color:var(--flare);}
+  .line-message{font-size:14px; color:#DCDCD9;}
+
+  .vote-row{display:flex; gap:12px;}
+  .vote-btn{
+    flex:1; background:var(--ink); border:1px solid var(--line-strong); border-radius:8px; padding:16px;
+    text-align:center; cursor:pointer;
+  }
+  .vote-btn:hover{border-color:var(--gold);}
+  .vote-btn .vote-name{font-family:'Anton',sans-serif; font-size:14px; text-transform:uppercase; margin-bottom:6px;}
+  .vote-btn .vote-count{font-family:'JetBrains Mono',monospace; font-size:20px; font-weight:700; color:var(--gold);}
+  .winner-banner{text-align:center; font-family:'Anton',sans-serif; font-size:18px; text-transform:uppercase; color:var(--gold); margin-bottom:14px;}
+
+  .empty-note{color:var(--chalk-dim); font-size:13px; text-align:center; padding:20px 0;}
+
+  footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim); border-top:1px solid var(--line); margin-top:20px;}
+  footer a{color:var(--chalk-dim); text-decoration:none;}
+  footer a:hover{color:var(--flare);}
+</style>
+</head>
+<body>
+
+<nav>
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+  <a href="/smack-battle" class="back-link">&larr; New battle</a>
+</nav>
+
+<div class="wrap">
+  <div class="matchup" id="matchupHeader">
+    <p class="matchup-teams">Loading...</p>
+  </div>
+
+  <div id="content"></div>
+</div>
+
+<footer>
+  <a href="/terms">Terms</a> &middot; <a href="/contact">Contact</a>
+</footer>
+
+<script>
+const challengeCode = "{{ challenge_code }}";
+let pollInterval = null;
+
+function getMySide() {
+  return localStorage.getItem(`battle_side_${challengeCode}`);
+}
+function setMySide(side) {
+  localStorage.setItem(`battle_side_${challengeCode}`, side);
+}
+function getVoterId() {
+  let id = localStorage.getItem('smackagram_battle_voter_id');
+  if (!id) {
+    id = 'voter-' + crypto.randomUUID();
+    localStorage.setItem('smackagram_battle_voter_id', id);
+  }
+  return id;
+}
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+async function loadBattle() {
+  try {
+    const resp = await fetch(`/api/battles/${challengeCode}`);
+    if (!resp.ok) throw new Error('not found');
+    const battle = await resp.json();
+    render(battle);
+  } catch (err) {
+    document.getElementById('matchupHeader').innerHTML = '<p class="matchup-teams">Battle not found</p>';
+    document.getElementById('content').innerHTML = '';
+    if (pollInterval) clearInterval(pollInterval);
+  }
+}
+
+function render(battle) {
+  const header = document.getElementById('matchupHeader');
+  const content = document.getElementById('content');
+  const mySide = getMySide();
+
+  if (battle.status === 'waiting') {
+    header.innerHTML = `<p class="matchup-teams"><span class="side-a">${escapeHtml(battle.team_a)}</span></p><p class="round-indicator">Waiting for a challenger</p>`;
+
+    if (mySide === 'a') {
+      content.innerHTML = `
+        <div class="card">
+          <p class="waiting-note">Share your battle link with whoever you're calling out. This page will update once they join.</p>
+        </div>
+      `;
+    } else {
+      content.innerHTML = `
+        <div class="card">
+          <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)} is calling out ${escapeHtml(battle.team_a)} fans. Step up?</p>
+          <label for="teamBInput">Your team</label>
+          <input id="teamBInput" type="text" placeholder="ex. Eagles">
+          <label for="nameBInput">Your name</label>
+          <input id="nameBInput" type="text" placeholder="ex. RivalReady" maxlength="40">
+          <div id="actionError"></div>
+          <button id="joinBtn" class="btn btn-flare">Accept the challenge</button>
+        </div>
+      `;
+      document.getElementById('joinBtn').addEventListener('click', async () => {
+        const teamB = document.getElementById('teamBInput').value.trim();
+        const nameB = document.getElementById('nameBInput').value.trim();
+        const errorEl = document.getElementById('actionError');
+        errorEl.style.display = 'none';
+        if (!teamB) {
+          errorEl.textContent = 'Enter your team first.';
+          errorEl.style.display = 'block';
+          return;
+        }
+        const resp = await fetch(`/api/battles/${challengeCode}/join`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({team_b: teamB, display_name_b: nameB})
+        });
+        const data = await resp.json();
+        if (data.error) {
+          errorEl.textContent = data.error;
+          errorEl.style.display = 'block';
+        } else {
+          setMySide('b');
+          render(data);
+        }
+      });
+    }
+    return;
+  }
+
+  header.innerHTML = `
+    <p class="matchup-teams"><span class="side-a">${escapeHtml(battle.team_a)}</span><span class="vs">vs</span><span class="side-b">${escapeHtml(battle.team_b)}</span></p>
+    <p class="round-indicator">${battle.status === 'complete' ? 'Battle complete' : `Round ${battle.round_number} of 5`}</p>
+  `;
+
+  let html = '<div class="card">';
+  if (battle.lines.length === 0) {
+    html += '<p class="empty-note">No lines yet — the battle is about to begin.</p>';
+  } else {
+    battle.lines.forEach(l => {
+      const name = l.side === 'a' ? battle.display_name_a : battle.display_name_b;
+      html += `
+        <div class="line side-${l.side}">
+          <p class="line-name">${escapeHtml(name)}</p>
+          <p class="line-message">${escapeHtml(l.message)}</p>
+        </div>
+      `;
+    });
+  }
+  html += '</div>';
+
+  if (battle.status === 'active') {
+    if (mySide === battle.current_turn) {
+      html += `
+        <div class="card">
+          <p class="waiting-note" style="margin-bottom:10px;">Your turn — round ${battle.round_number}</p>
+          <textarea id="lineInput" placeholder="Say what you came to say..." maxlength="500"></textarea>
+          <div id="actionError"></div>
+          <button id="submitLineBtn" class="btn btn-flare">Send it</button>
+        </div>
+      `;
+    } else {
+      const waitingOn = battle.current_turn === 'a' ? battle.display_name_a : battle.display_name_b;
+      html += `<div class="card"><p class="waiting-note">Waiting for ${escapeHtml(waitingOn)} to respond...</p></div>`;
+    }
+  } else if (battle.status === 'complete') {
+    if (battle.vote_count_a !== null) {
+      const winner = battle.vote_count_a > battle.vote_count_b ? battle.team_a
+        : battle.vote_count_b > battle.vote_count_a ? battle.team_b : null;
+      html += '<div class="card">';
+      if (winner) html += `<p class="winner-banner">${escapeHtml(winner)} is winning the crowd</p>`;
+      html += `
+        <div class="vote-row">
+          <div class="vote-btn" id="voteABtn">
+            <p class="vote-name">${escapeHtml(battle.team_a)}</p>
+            <p class="vote-count">${battle.vote_count_a}</p>
+          </div>
+          <div class="vote-btn" id="voteBBtn">
+            <p class="vote-name">${escapeHtml(battle.team_b)}</p>
+            <p class="vote-count">${battle.vote_count_b}</p>
+          </div>
+        </div>
+        <div id="actionError" style="margin-top:12px;"></div>
+      `;
+      html += '</div>';
+    }
+  }
+
+  content.innerHTML = html;
+
+  if (battle.status === 'active' && mySide === battle.current_turn) {
+    document.getElementById('submitLineBtn').addEventListener('click', async () => {
+      const message = document.getElementById('lineInput').value.trim();
+      const errorEl = document.getElementById('actionError');
+      errorEl.style.display = 'none';
+      if (!message) return;
+      const resp = await fetch(`/api/battles/${challengeCode}/line`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({side: mySide, message: message})
+      });
+      const data = await resp.json();
+      if (data.error) {
+        errorEl.textContent = data.error;
+        errorEl.style.display = 'block';
+      } else {
+        render(data);
+      }
+    });
+  }
+
+  if (battle.status === 'complete' && battle.vote_count_a !== null) {
+    ['a', 'b'].forEach(side => {
+      const btn = document.getElementById(side === 'a' ? 'voteABtn' : 'voteBBtn');
+      btn.addEventListener('click', async () => {
+        const resp = await fetch(`/api/battles/${challengeCode}/vote`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({voted_for: side, voter_id: getVoterId()})
+        });
+        const data = await resp.json();
+        const errorEl = document.getElementById('actionError');
+        if (data.error) {
+          errorEl.textContent = data.error;
+          errorEl.style.display = 'block';
+        } else {
+          loadBattle();
+        }
+      });
+    });
+  }
+}
+
+loadBattle();
+pollInterval = setInterval(loadBattle, 4000);
+</script>
+</body>
+</html>

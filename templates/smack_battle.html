@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smack Battle — Smackagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D;
+    --ink-2:#1A1A1A;
+    --chalk:#F5F5F3;
+    --chalk-dim:#9A9A96;
+    --flare:#E8142C;
+    --gold:#FFD400;
+    --line:rgba(245,245,243,0.10);
+    --line-strong:rgba(245,245,243,0.24);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:600px; margin:0 auto; padding:0 24px 60px;}
+
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
+  nav a.back-link:hover{color:var(--flare);}
+
+  .hero{text-align:center; padding:32px 0 8px;}
+  .sub{color:var(--chalk-dim); font-size:14px; margin-top:4px;}
+
+  .card{
+    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:28px; margin-top:24px;
+  }
+  label{display:block; font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;}
+  input[type=text], select{
+    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:4px; margin-bottom:14px;
+  }
+  input:focus, select:focus{outline:none; border-color:var(--flare);}
+
+  .btn{
+    font-weight:700; font-size:14px; padding:14px 24px; border-radius:4px; border:none; cursor:pointer;
+    text-transform:uppercase; letter-spacing:0.5px; width:100%;
+  }
+  .btn-flare{background:var(--flare); color:#fff; box-shadow:0 0 16px rgba(232,20,44,0.4);}
+  .btn-flare:disabled{opacity:0.5; cursor:not-allowed;}
+  #createError{display:none; color:var(--flare); font-size:12px; margin-bottom:10px;}
+
+  #resultCard{display:none; text-align:center;}
+  .result-title{font-family:'Anton',sans-serif; font-size:20px; text-transform:uppercase; margin-bottom:10px; color:var(--gold);}
+  .link-box{
+    background:var(--ink); border:1px solid var(--line-strong); border-radius:4px; padding:12px; font-size:13px;
+    color:var(--chalk-dim); word-break:break-all; margin-bottom:14px;
+  }
+
+  footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim); border-top:1px solid var(--line); margin-top:40px;}
+  footer a{color:var(--chalk-dim); text-decoration:none;}
+  footer a:hover{color:var(--flare);}
+</style>
+</head>
+<body>
+
+<nav>
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+  <a href="/" class="back-link">&larr; Back to home</a>
+</nav>
+
+<img src="{{ url_for('static', filename='smack-battle-hero.png') }}" alt="Smack Battle — where trash talk meets its match" style="width:100%; height:auto; display:block;">
+
+<div class="wrap">
+  <div class="hero">
+    <p class="sub">Challenge someone to 5 rounds. Send them the link. The crowd decides who wins.</p>
+  </div>
+
+  <div class="card" id="createCard">
+    <label for="leagueSelect">League</label>
+    <select id="leagueSelect">
+      <option value="nfl">NFL</option>
+      <option value="nba">NBA</option>
+      <option value="mlb">MLB</option>
+      <option value="nhl">NHL</option>
+      <option value="wnba">WNBA</option>
+      <option value="ncaaf">NCAA Football</option>
+      <option value="ncaab">NCAA Basketball</option>
+      <option value="soccer">Soccer</option>
+    </select>
+
+    <label for="teamInput">Your team</label>
+    <input id="teamInput" type="text" placeholder="ex. Cowboys">
+
+    <label for="nameInput">Your name</label>
+    <input id="nameInput" type="text" placeholder="ex. CowboysHater88" maxlength="40">
+
+    <div id="createError"></div>
+    <button id="createBtn" class="btn btn-flare">Start a battle</button>
+  </div>
+
+  <div class="card" id="resultCard">
+    <p class="result-title">Battle created</p>
+    <p style="color:var(--chalk-dim); font-size:13px; margin-bottom:12px;">Send this link to whoever you're calling out:</p>
+    <div class="link-box" id="battleLink"></div>
+    <button id="enterBtn" class="btn btn-flare">Enter your battle</button>
+  </div>
+</div>
+
+<footer>
+  <a href="/terms">Terms</a> &middot; <a href="/contact">Contact</a>
+</footer>
+
+<script>
+let createdCode = null;
+
+document.getElementById('createBtn').addEventListener('click', async () => {
+  const league = document.getElementById('leagueSelect').value;
+  const team = document.getElementById('teamInput').value.trim();
+  const name = document.getElementById('nameInput').value.trim();
+  const errorEl = document.getElementById('createError');
+  const btn = document.getElementById('createBtn');
+
+  errorEl.style.display = 'none';
+  if (!team) {
+    errorEl.textContent = 'Enter your team first.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Creating...';
+
+  try {
+    const resp = await fetch('/api/battles', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({league: league, team_a: team, display_name_a: name})
+    });
+    const data = await resp.json();
+    if (data.error) {
+      errorEl.textContent = data.error;
+      errorEl.style.display = 'block';
+    } else {
+      createdCode = data.challenge_code;
+      localStorage.setItem(`battle_side_${createdCode}`, 'a');
+      const url = `${window.location.origin}/battle/${createdCode}`;
+      document.getElementById('battleLink').textContent = url;
+      document.getElementById('createCard').style.display = 'none';
+      document.getElementById('resultCard').style.display = 'block';
+    }
+  } catch (err) {
+    errorEl.textContent = "Couldn't create the battle — try again.";
+    errorEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Start a battle';
+  }
+});
+
+document.getElementById('enterBtn').addEventListener('click', () => {
+  if (createdCode) window.location.href = `/battle/${createdCode}`;
+});
+</script>
+</body>
+</html>
