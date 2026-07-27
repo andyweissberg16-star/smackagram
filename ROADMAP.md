@@ -619,6 +619,57 @@ one at a time. Logging each as it's built:
       Added an explicit instruction: real effort always beats a
       non-attempt outright, never a tie just because the real line
       wasn't very good, and score gibberish at or near 0.
+- [x] "Judging this round..." now pulses red while it's actively
+      working, instead of sitting static — makes it visually obvious
+      something's happening in the background rather than looking
+      frozen.
+- [x] Sped up sending a smack. The content-safety check runs
+      synchronously on every single line before it can be saved (can't
+      be made async, since a message can't be shown and then
+      retroactively censored) — but it was using the full Sonnet model
+      for what's really just a binary safe/unsafe classification.
+      Switched to Haiku, which should meaningfully cut the wait on every
+      send without weakening the actual safety check. This is a shared
+      function used everywhere on the site (Smack Chat, Smack Lab,
+      Locked & Loaded, and battle lines), so the speedup applies broadly,
+      not just to Smack Battle.
+- [x] Found the real reason critique-reveal ("the rock music") kept not
+      playing on mobile specifically while working fine on desktop: the
+      one-shot sound unlock only ever happened via the hype popup, which
+      only shows to whoever *creates* the battle. Whoever joins via the
+      link never sees that popup at all, so their sounds never got a
+      genuine gesture-unlock — explains exactly the "works for the
+      creator, not for whoever joined" pattern. Added the same unlock to
+      the "Accept the challenge" join button, since that's the joining
+      side's equivalent deliberate click.
+- [ ] Wired up infrastructure for a repeating judging beep — fires
+      roughly every second while "Judging this round..." is showing,
+      stops the instant the result actually arrives (or the battle
+      completes, as a safety net for the edge case where that state
+      gets skipped over between polls). PENDING: needs the actual sound
+      file, judging-beep.mp3, dropped into static/sfx/ — everything else
+      is done and wired correctly, just silently does nothing until that
+      file exists (same graceful-null pattern as every other sound).
+- [x] Added a tone shift to the winner's final recap — if they won but
+      their own average round score was below 6.0, the recap now
+      acknowledges the win while calling out that it was genuinely a
+      weak, embarrassing performance to win with — 1-2 sentences of
+      real constructive criticism instead of a pure victory lap. The
+      "You won the battle" label stays accurate either way; the recap
+      text itself is what carries the tonal shift.
+- [x] Removed the public crowd-voting section from the final scorecard
+      — not useful yet without real audience traffic. Left the backend
+      /vote endpoint and supporting code intact (unused but harmless),
+      so it's easy to bring back later once there's a real crowd to
+      vote.
+- [x] Added each player's actual display name (not just their team) to
+      the final scorecard — sits right below the score tally, color-
+      coded gold/red matching each side, "[Name A] vs [Name B]."
+- [x] Made "You won the battle" / "You lost the battle" dramatically
+      bigger — was using the same small generic label style as every
+      other critique box, which badly undersold the actual climax of
+      the whole match. Now large Anton display type, glowing gold for a
+      win / red for a loss, with a punchy scale-in entrance animation.
 
 ---
 *Last updated: 2026-07-26*

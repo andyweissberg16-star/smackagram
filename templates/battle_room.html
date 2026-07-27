@@ -105,6 +105,14 @@
   #actionError{display:none; color:var(--flare); font-size:12px; margin-bottom:10px;}
 
   .waiting-note{text-align:center; color:var(--chalk-dim); font-size:14px; padding:8px 0;}
+  .judging-note{
+    text-align:center; font-family:'Anton',sans-serif; font-size:15px; text-transform:uppercase;
+    letter-spacing:0.5px; padding:8px 0; color:var(--flare); animation:judgingPulse 1.1s ease-in-out infinite;
+  }
+  @keyframes judgingPulse{
+    0%, 100%{opacity:1; text-shadow:0 0 8px rgba(232,20,44,0.6);}
+    50%{opacity:0.4; text-shadow:0 0 2px rgba(232,20,44,0.2);}
+  }
   .coach-notes-label{
     font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--gold); text-transform:uppercase;
     letter-spacing:1.5px; text-align:center; margin-top:14px; padding-top:14px; border-top:1px solid var(--line-strong);
@@ -148,6 +156,19 @@
   .critique-box.loss .critique-label{color:var(--flare);}
   .critique-box.tie .critique-label{color:var(--chalk-dim);}
 
+  .final-outcome-label{
+    font-family:'Anton',sans-serif; font-size:32px; text-transform:uppercase; text-align:center;
+    letter-spacing:0.5px; margin-bottom:8px; line-height:1.1; animation:outcomeSlam 0.55s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .final-outcome-label.win{color:var(--gold); text-shadow:0 0 24px rgba(255,212,0,0.6);}
+  .final-outcome-label.loss{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.6);}
+  .final-outcome-label.tie{color:var(--chalk); text-shadow:0 0 24px rgba(245,245,243,0.4);}
+  @keyframes outcomeSlam{
+    0%{opacity:0; transform:scale(1.6);}
+    60%{opacity:1; transform:scale(0.95);}
+    100%{opacity:1; transform:scale(1);}
+  }
+
   .final-scorecard{text-align:center;}
   .final-scorecard-title{
     font-family:'Anton',sans-serif; font-size:14px; text-transform:uppercase; letter-spacing:2px;
@@ -157,6 +178,13 @@
   .final-score-tally .side-a{color:var(--gold); text-shadow:0 0 20px rgba(255,212,0,0.5);}
   .final-score-tally .side-b{color:var(--flare); text-shadow:0 0 20px rgba(232,20,44,0.5);}
   .final-score-tally .final-score-dash{color:var(--chalk-dim); margin:0 14px; font-size:32px;}
+  .final-players-row{
+    display:flex; justify-content:center; align-items:center; gap:10px; margin-bottom:18px;
+    font-family:'Inter',sans-serif; font-weight:600; font-size:13px;
+  }
+  .final-player-name.side-a{color:var(--gold);}
+  .final-player-name.side-b{color:var(--flare);}
+  .final-players-vs{color:var(--chalk-dim); font-size:11px; text-transform:uppercase;}
   .final-round-row{display:flex; justify-content:center; gap:10px;}
   .final-round-chip{
     width:44px; height:44px; border-radius:8px; background:#1a1a1a; border:2px solid var(--line-strong);
@@ -271,6 +299,7 @@
 <audio id="introAudio" style="display:none;"></audio>
 <audio id="tickAudio" style="display:none;"></audio>
 <audio id="newLineAudio" style="display:none;"></audio>
+<audio id="judgingBeepAudio" style="display:none;"></audio>
 
 <div id="roundResultPopup" class="round-popup"></div>
 
@@ -307,6 +336,21 @@ let lastRoundResultsCount = 0;
 let knownRoundNumber = null;
 let lastActionSignature = null;
 let judgingStartedAt = null;
+let judgingBeepIntervalId = null;
+
+function startJudgingBeep() {
+  if (judgingBeepIntervalId !== null) return; // already running
+  const el = document.getElementById('judgingBeepAudio');
+  if (!el || !el.src) return;
+  judgingBeepIntervalId = setInterval(() => playAudioElement('judgingBeepAudio'), 1000);
+}
+
+function stopJudgingBeep() {
+  if (judgingBeepIntervalId !== null) {
+    clearInterval(judgingBeepIntervalId);
+    judgingBeepIntervalId = null;
+  }
+}
 
 async function initSound() {
   try {
@@ -332,6 +376,7 @@ async function initSound() {
       introAudio: sfxUrls.intro_url,
       tickAudio: sfxUrls.countdown_tick_url,
       newLineAudio: sfxUrls.new_line_url,
+      judgingBeepAudio: sfxUrls.judging_beep_url,
     };
     for (const [id, url] of Object.entries(sourceMap)) {
       const el = document.getElementById(id);
@@ -446,7 +491,7 @@ async function unlockOneShotSounds() {
   // (right after round 1's judging finishes), so it gets unlocked
   // before anything else that has more time before it's actually
   // needed.
-  const ids = ['critiqueRevealAudio', 'cheerAudio', 'booAudio', 'bellAudio', 'introAudio', 'tickAudio', 'newLineAudio'];
+  const ids = ['critiqueRevealAudio', 'judgingBeepAudio', 'cheerAudio', 'booAudio', 'bellAudio', 'introAudio', 'tickAudio', 'newLineAudio'];
   for (const id of ids) {
     const el = document.getElementById(id);
     if (!el || !el.src) continue;
@@ -590,7 +635,7 @@ function buildFinalScorecard(battle, mySide) {
     ? '<p class="waiting-note" style="margin-top:16px;">Writing your recap...</p>'
     : `
       <div class="critique-box ${recapClass}" style="margin-top:16px;">
-        <p class="critique-label">${recapLabel}</p>
+        <p class="final-outcome-label ${recapClass}">${recapLabel}</p>
         <p>${escapeHtml(recapText || '')}</p>
       </div>
     `;
@@ -611,6 +656,11 @@ function buildFinalScorecard(battle, mySide) {
         <span class="side-a">${winsA}</span>
         <span class="final-score-dash">–</span>
         <span class="side-b">${winsB}</span>
+      </div>
+      <div class="final-players-row">
+        <span class="final-player-name side-a">${escapeHtml(battle.display_name_a)}</span>
+        <span class="final-players-vs">vs</span>
+        <span class="final-player-name side-b">${escapeHtml(battle.display_name_b)}</span>
       </div>
       <div class="final-round-row">${rounds}</div>
       ${avgA !== null && avgB !== null ? `
@@ -703,6 +753,11 @@ function render(battle) {
             errorEl.style.display = 'block';
             return;
           }
+          // Whoever creates a battle gets the hype popup as their
+          // deliberate gesture to unlock one-shot sounds — whoever
+          // joins via the link never sees that popup at all, so this
+          // click is their equivalent moment to do the same unlock.
+          unlockOneShotSounds();
           btn.disabled = true;
           const resp = await fetch(`/api/battles/${challengeCode}/join`, {
             method: 'POST',
@@ -861,6 +916,12 @@ function render(battle) {
       if (judgingStartedAt === null) judgingStartedAt = Date.now();
       const stuckTooLong = Date.now() - judgingStartedAt > 20000;
 
+      if (stuckTooLong) {
+        stopJudgingBeep();
+      } else {
+        startJudgingBeep();
+      }
+
       actionHtml = stuckTooLong ? `
         <div class="card">
           <p class="waiting-note" style="margin-bottom:12px;">This is taking longer than it should.</p>
@@ -868,11 +929,12 @@ function render(battle) {
         </div>
       ` : `
         <div class="card">
-          <p class="waiting-note">Judging this round...</p>
+          <p class="judging-note">Judging this round...</p>
         </div>
       `;
     } else {
       judgingStartedAt = null;
+      stopJudgingBeep();
       const myCritique = mySide === 'a' ? latestResult.critique_a : latestResult.critique_b;
       const myScore = mySide === 'a' ? latestResult.score_a : latestResult.score_b;
       const outcome = latestResult.winner === 'tie' ? 'tie' : (latestResult.winner === mySide ? 'win' : 'loss');
@@ -920,27 +982,8 @@ function render(battle) {
       return;
     }
 
+    stopJudgingBeep();
     actionHtml = buildFinalScorecard(battle, mySide);
-    if (battle.vote_count_a !== null) {
-      const winner = battle.vote_count_a > battle.vote_count_b ? battle.team_a
-        : battle.vote_count_b > battle.vote_count_a ? battle.team_b : null;
-      actionHtml += '<div class="card">';
-      if (winner) actionHtml += `<p class="winner-banner">${escapeHtml(winner)} is winning the crowd</p>`;
-      actionHtml += `
-        <div class="vote-row">
-          <div class="vote-btn" id="voteABtn">
-            <p class="vote-name">${escapeHtml(battle.team_a)}</p>
-            <p class="vote-count">${battle.vote_count_a}</p>
-          </div>
-          <div class="vote-btn" id="voteBBtn">
-            <p class="vote-name">${escapeHtml(battle.team_b)}</p>
-            <p class="vote-count">${battle.vote_count_b}</p>
-          </div>
-        </div>
-        <div id="actionError" style="margin-top:12px;"></div>
-      `;
-      actionHtml += '</div>';
-    }
 
     const iRequestedRematch = mySide === 'a' ? battle.rematch_requested_a : battle.rematch_requested_b;
     actionHtml += `
@@ -1035,28 +1078,6 @@ function render(battle) {
         e.preventDefault();
         submitLine();
       }
-    });
-  }
-
-  if (battle.status === 'complete' && battle.vote_count_a !== null) {
-    ['a', 'b'].forEach(side => {
-      const btn = document.getElementById(side === 'a' ? 'voteABtn' : 'voteBBtn');
-      btn.addEventListener('click', async () => {
-        const resp = await fetch(`/api/battles/${challengeCode}/vote`, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({voted_for: side, voter_id: getVoterId()})
-        });
-        const data = await resp.json();
-        const errorEl = document.getElementById('actionError');
-        if (data.error) {
-          errorEl.textContent = data.error;
-          errorEl.style.display = 'block';
-        } else {
-          lastActionSignature = null;
-          loadBattle();
-        }
-      });
     });
   }
 

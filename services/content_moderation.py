@@ -58,7 +58,7 @@ def check_message_safety(text: str) -> dict:
 
     try:
         message = _get_client().messages.create(
-            model="claude-sonnet-4-6",
+            model="claude-haiku-4-5-20251001",
             max_tokens=100,
             system=_MODERATION_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": text}],

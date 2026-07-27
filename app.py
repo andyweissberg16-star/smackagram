@@ -770,12 +770,19 @@ def _generate_recap_async(battle_id):
             overall_winner = "a" if wins_a > wins_b else "b" if wins_b > wins_a else "tie"
             battle.overall_winner = overall_winner
 
+            scores_a = [r.score_a for r in all_results if r.score_a is not None]
+            scores_b = [r.score_b for r in all_results if r.score_b is not None]
+            avg_a = (sum(scores_a) / len(scores_a)) if scores_a else None
+            avg_b = (sum(scores_b) / len(scores_b)) if scores_b else None
+            winner_avg_score = avg_a if overall_winner == "a" else avg_b if overall_winner == "b" else None
+
             all_lines = BattleLine.query.filter_by(battle_id=battle_id).order_by(BattleLine.created_at.asc()).all()
             recap = trash_talk_service.generate_battle_recap(
                 battle.team_a, battle.team_b,
                 [{"side": l.side, "round": l.round_number, "message": l.message} for l in all_lines],
                 [{"round": r.round_number, "winner": r.winner} for r in all_results],
                 overall_winner,
+                winner_avg_score=winner_avg_score,
             )
             battle.recap_winner_text = recap["winner_recap"]
             battle.recap_loser_text = recap["loser_recap"]
@@ -955,12 +962,14 @@ def battle_sfx():
     breaks if a file hasn't been added yet):
 
     battle-intro.mp3, crowd-loop.mp3, new-line.mp3, countdown-tick.mp3,
-    bell.mp3, cheer.mp3, boo.mp3, waiting-music.mp3, critique-reveal.mp3
+    bell.mp3, cheer.mp3, boo.mp3, waiting-music.mp3, critique-reveal.mp3,
+    judging-beep.mp3
     """
     sfx_files = {
         "intro_url": "battle-intro.mp3",
         "crowd_loop_url": "crowd-loop.mp3",
         "new_line_url": "new-line.mp3",
+        "judging_beep_url": "judging-beep.mp3",
         "countdown_tick_url": "countdown-tick.mp3",
         "bell_url": "bell.mp3",
         "cheer_url": "cheer.mp3",

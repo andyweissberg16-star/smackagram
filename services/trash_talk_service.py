@@ -589,6 +589,15 @@ generic hype — the specificity is what makes it land.
 WINNER_RECAP: a victory-lap roast, hyping up how badly the winner just
 cooked their opponent's whole performance. Lean all the way into it.
 
+EXCEPTION: if the winner's own average score for the battle was below
+6.0 (you'll be told this number), they won, but their own performance
+wasn't actually good — flip the WINNER_RECAP's tone. Still acknowledge
+the win, but call out that it was an embarrassing, mediocre performance
+to win with — 1-2 sentences of genuinely constructive criticism (what
+specifically was weak) rather than a victory lap. Still savage, still
+in Smackagram's voice, just honest about the win not being earned with
+quality.
+
 LOSER_RECAP: a "you got smoked" recap tearing into the losing side's
 performance specifically — their weak lines, what fell flat, why they
 lost. Brutal and profane, but funny — not just mean for its own sake.
@@ -603,12 +612,16 @@ Respond with ONLY a JSON object, nothing else:
 {"winner_recap": "...", "loser_recap": "..."}"""
 
 
-def generate_battle_recap(team_a: str, team_b: str, all_lines: list, round_results: list, overall_winner: str) -> dict:
+def generate_battle_recap(team_a: str, team_b: str, all_lines: list, round_results: list, overall_winner: str, winner_avg_score: float = None) -> dict:
     """
     Generates the final savage recap text once a battle completes.
     all_lines: list of {"side", "round", "message"}
     round_results: list of {"round", "winner"}
     overall_winner: "a", "b", or "tie"
+    winner_avg_score: the winning side's average round score (0-10),
+    used to flip the winner_recap's tone to constructive criticism
+    instead of a pure victory lap if they won with a genuinely weak
+    overall performance (below 6.0).
 
     Returns {"winner_recap": str, "loser_recap": str}. On a tie, both
     keys still get filled (with tie-appropriate text) so the caller
@@ -623,12 +636,17 @@ def generate_battle_recap(team_a: str, team_b: str, all_lines: list, round_resul
         for r in round_results
     )
     winner_label = "Side A" if overall_winner == "a" else "Side B" if overall_winner == "b" else "Tie — nobody"
+    winner_score_line = (
+        f"The winner's average round score: {winner_avg_score:.1f}/10\n\n"
+        if winner_avg_score is not None else ""
+    )
 
     user_content = (
         f"Side A fan roots for: {team_a}\nSide B fan roots for: {team_b}\n\n"
         f"All lines from the battle:\n{lines_block}\n\n"
         f"Round-by-round results:\n{results_block}\n\n"
         f"Overall winner: {winner_label}\n\n"
+        f"{winner_score_line}"
         f"Write the recap."
     )
     try:
