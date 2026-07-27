@@ -432,6 +432,18 @@ one at a time. Logging each as it's built:
       new-line. The waiting-music (epic rock) track now also plays
       during the final scorecard reveal, not just the pre-battle waiting
       screen.
+- [x] Added no-cache headers to the battle state endpoint plus a cache-
+      busting query param on the frontend poll — mobile Safari is known
+      to be more aggressive about caching GET requests than desktop
+      browsers, which would exactly explain "works fine on desktop,
+      stuck on 'waiting for opponent' until a manual refresh on mobile."
+- [x] Trimmed the AI token budget on both the round judge and the final
+      recap calls (300→220, 400→250) — should meaningfully cut how long
+      both take to come back, addressing the slower round 4/5 responses
+      and the recap taking too long after the match ends.
+- [x] Added a 9th sound — critique-reveal.mp3, layered under cheer/boo
+      (lower volume) every time a round's critique appears, regardless
+      of win/loss/tie.
 
 ---
 *Last updated: 2026-07-26*

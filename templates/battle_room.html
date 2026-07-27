@@ -339,6 +339,11 @@ function showRoundResultPopup(outcome) {
   if (soundEnabled && sfxUrls) {
     if (outcome === 'win' && sfxUrls.cheer_url) new Audio(sfxUrls.cheer_url).play().catch(() => {});
     if (outcome === 'loss' && sfxUrls.boo_url) new Audio(sfxUrls.boo_url).play().catch(() => {});
+    if (sfxUrls.critique_reveal_url) {
+      const critiqueSound = new Audio(sfxUrls.critique_reveal_url);
+      critiqueSound.volume = 0.5;
+      critiqueSound.play().catch(() => {});
+    }
   }
 }
 
@@ -390,7 +395,7 @@ function playIntro(teamA, teamB) {
 
 async function loadBattle() {
   try {
-    const resp = await fetch(`/api/battles/${challengeCode}`);
+    const resp = await fetch(`/api/battles/${challengeCode}?_=${Date.now()}`, {cache: 'no-store'});
     if (!resp.ok) throw new Error('not found');
     const battle = await resp.json();
     render(battle);

@@ -672,7 +672,15 @@ def get_battle(challenge_code):
     battle = Battle.query.filter_by(challenge_code=challenge_code).first()
     if not battle:
         return jsonify({"error": "Battle not found"}), 404
-    return jsonify(_battle_state_json(battle))
+    resp = jsonify(_battle_state_json(battle))
+    # Mobile Safari in particular can be aggressive about caching GET
+    # responses — without this, a poll could silently get served a stale
+    # cached response instead of actually hitting the server, which
+    # would exactly explain "works fine on desktop, stuck until a manual
+    # refresh on mobile."
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 
 @app.route("/api/battles/<challenge_code>/join", methods=["POST"])
@@ -929,7 +937,7 @@ def battle_sfx():
     breaks if a file hasn't been added yet):
 
     battle-intro.mp3, crowd-loop.mp3, new-line.mp3, countdown-tick.mp3,
-    bell.mp3, cheer.mp3, boo.mp3, waiting-music.mp3
+    bell.mp3, cheer.mp3, boo.mp3, waiting-music.mp3, critique-reveal.mp3
     """
     sfx_files = {
         "intro_url": "battle-intro.mp3",
@@ -940,6 +948,7 @@ def battle_sfx():
         "cheer_url": "cheer.mp3",
         "boo_url": "boo.mp3",
         "waiting_music_url": "waiting-music.mp3",
+        "critique_reveal_url": "critique-reveal.mp3",
     }
     result = {}
     for key, filename in sfx_files.items():

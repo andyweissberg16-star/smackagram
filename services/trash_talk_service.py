@@ -504,7 +504,7 @@ def judge_battle_round(team_a: str, line_a: str, team_b: str, line_b: str) -> di
     try:
         message = _get_client().messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=300,
+            max_tokens=220,
             system=BATTLE_ROUND_JUDGE_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
         )
@@ -585,7 +585,7 @@ def generate_battle_recap(team_a: str, team_b: str, all_lines: list, round_resul
     try:
         message = _get_client().messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=400,
+            max_tokens=250,
             system=BATTLE_RECAP_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_content}],
         )
