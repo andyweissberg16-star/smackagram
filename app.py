@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from flask import Flask, render_template, request, jsonify, Response
 from sqlalchemy import func
+import requests
 from dotenv import load_dotenv
 
 from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating
@@ -931,7 +932,18 @@ def admin_check_team_codes():
         return jsonify({"error": "unauthorized"}), 401
 
     sport = request.args.get("sport", "mlb")
-    teams = sports_service.get_all_teams(sport)
+    try:
+        teams = sports_service.get_all_teams(sport)
+    except requests.exceptions.HTTPError as e:
+        # Surface exactly what SportsDataIO said instead of a generic
+        # crash — this is what should have happened the first time the
+        # soccer endpoint guess was wrong, instead of a bare 500.
+        return jsonify({
+            "sport": sport,
+            "error": "SportsDataIO request failed",
+            "status_code": e.response.status_code if e.response is not None else None,
+            "response_body": e.response.text[:500] if e.response is not None else str(e),
+        }), 502
 
     our_table = team_aliases.DISPLAY_NAMES.get(sport, {})
     real_codes = {}
