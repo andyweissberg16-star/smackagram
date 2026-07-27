@@ -634,7 +634,7 @@ def _battle_state_json(battle):
         "display_name_b": battle.display_name_b,
         "team_b": battle.team_b,
         "lines": [{"side": l.side, "round": l.round_number, "message": l.message, "created_at": l.created_at.isoformat()} for l in lines],
-        "round_results": [{"round": r.round_number, "winner": r.winner, "critique_a": r.critique_a, "critique_b": r.critique_b} for r in round_results],
+        "round_results": [{"round": r.round_number, "winner": r.winner, "critique_a": r.critique_a, "critique_b": r.critique_b, "score_a": r.score_a, "score_b": r.score_b} for r in round_results],
         "awaiting_next_round": battle.awaiting_next_round,
         "ready_a": battle.ready_a,
         "ready_b": battle.ready_b,
@@ -716,6 +716,8 @@ def _judge_round_async(battle_id, round_number, team_a, line_a_message, team_b, 
                     winner=result["winner"],
                     critique_a=result["critique_a"],
                     critique_b=result["critique_b"],
+                    score_a=result["score_a"],
+                    score_b=result["score_b"],
                 ))
                 db.session.commit()
         except Exception as e:
@@ -955,6 +957,10 @@ def battle_sfx():
             "Sports arena crowd booing loudly, disappointed jeering reaction, losing moment",
             duration_seconds=2.0,
         )
+        waiting_music_url = elevenlabs_service.generate_sound_effect(
+            "Epic cinematic rock instrumental, driving electric guitar riff and powerful drums, intense battle anticipation music, no vocals, seamless loopable",
+            duration_seconds=15.0,
+        )
         return jsonify({
             "intro_url": intro_url,
             "crowd_loop_url": crowd_loop_url,
@@ -963,10 +969,11 @@ def battle_sfx():
             "bell_url": bell_url,
             "cheer_url": cheer_url,
             "boo_url": boo_url,
+            "waiting_music_url": waiting_music_url,
         })
     except Exception as e:
         print(f"[battle-sfx] generation failed: {e}")
-        return jsonify({"intro_url": None, "crowd_loop_url": None, "new_line_url": None, "countdown_tick_url": None, "bell_url": None, "cheer_url": None, "boo_url": None})
+        return jsonify({"intro_url": None, "crowd_loop_url": None, "new_line_url": None, "countdown_tick_url": None, "bell_url": None, "cheer_url": None, "boo_url": None, "waiting_music_url": None})
 
 
 @app.route("/api/check-if-smacked", methods=["POST"])

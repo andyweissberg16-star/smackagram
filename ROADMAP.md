@@ -382,6 +382,34 @@ one at a time. Logging each as it's built:
       really on screen. Switched to `100dvh` (dynamic viewport height,
       with a fallback for older browsers), which correctly tracks the
       real visible area as the browser chrome shows and hides.
+- [x] Full battle playtest fixes, all built together:
+      · Real "Copy link" button on the share-link page instead of having
+        to manually highlight the URL
+      · Sound effects now prefetch in the background right when a battle
+        is created, giving them a head start before reaching the battle
+        room (was contributing to slow perceived load)
+      · New epic cinematic rock instrumental loop plays specifically
+        while waiting for an opponent to join
+      · Strengthened audio unlock — retries on click/touch/keyboard from
+        every button on the page, not just a single one-time listener
+        (was working on mobile but not consistently on desktop)
+      · Removed the permanent safety notice from constant display — it
+        now only appears as an error if a message actually gets blocked
+      · Fixed a real bug where refreshing mid-battle replayed the entire
+        3-2-1 countdown overlay every time, since that flag reset on any
+        fresh page load with no regard for which round it actually was
+      · Added a visibility-change listener that forces an immediate
+        refresh the moment a backgrounded mobile tab becomes visible
+        again, instead of waiting on the next regular poll tick
+      · AI judge now scores each side's line 0-10 independently every
+        round (not just win/loss), shown alongside each round's critique
+      · Final scorecard now shows each side's average smack-talk rating
+        across all 5 rounds
+      · Last round's button now reads "Take It To The Judges" instead of
+        "Start next round," signaling the battle is actually over
+      · Final scorecard was getting cut off on screen — unlocked page
+        scrolling specifically for the battle-complete view (the active
+        battle view stays locked/no-scroll as before)
 
 ---
 *Last updated: 2026-07-26*

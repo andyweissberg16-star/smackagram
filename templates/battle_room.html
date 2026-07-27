@@ -18,6 +18,13 @@
     --line-strong:rgba(245,245,243,0.24);
   }
   html, body{height:100%; overflow:hidden;}
+  /* Battle complete: the final scorecard can genuinely be taller than
+     one screen (score tally + 5 round chips + averages + recap) — unlike
+     the active battle view, it's fine to unlock scrolling here rather
+     than force everything into a fixed height that would just cut it
+     off instead. */
+  body.battle-complete, html.battle-complete{overflow:auto; height:auto;}
+  body.battle-complete .wrap, html.battle-complete .wrap{height:auto; min-height:calc(100dvh - 76px);}
   *{box-sizing:border-box; margin:0; padding:0;}
   body{
     background-color:var(--ink);
@@ -150,6 +157,9 @@
   .final-round-chip.side-b{background:rgba(232,20,44,0.15); border-color:var(--flare); box-shadow:0 0 10px rgba(232,20,44,0.4);}
   .final-round-chip.tie{background:var(--ink-2); border-color:var(--chalk-dim);}
   .final-round-num{font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:var(--chalk);}
+  .final-avg-row{display:flex; justify-content:center; gap:32px; margin-top:18px;}
+  .final-avg-label{font-size:11px; color:var(--chalk-dim); text-transform:uppercase; margin-bottom:4px;}
+  .final-avg-value{font-family:'Anton',sans-serif; font-size:20px;}
 
   .intro-team{
     font-family:'Anton',sans-serif; font-size:44px; text-transform:uppercase; text-align:center;
@@ -214,6 +224,7 @@
 </div>
 
 <audio id="crowdLoopAudio" loop style="display:none;"></audio>
+<audio id="waitingMusicAudio" loop style="display:none;"></audio>
 
 <div id="roundResultPopup" class="round-popup"></div>
 
@@ -265,27 +276,50 @@ async function initSound() {
     if (sfxUrls.crowd_loop_url) {
       crowdAudio.src = sfxUrls.crowd_loop_url;
       crowdAudio.volume = 0.15;
-      // Browsers block audio-with-sound from truly autoplaying before
-      // any interaction with the page — this attempt will likely get
-      // silently blocked on first load, which is fine; the fallback
-      // below catches the very first click/tap anywhere and retries,
-      // so sound kicks in the moment someone actually does anything.
-      crowdAudio.play().catch(() => {});
     }
+    const waitingAudio = document.getElementById('waitingMusicAudio');
+    if (sfxUrls.waiting_music_url) {
+      waitingAudio.src = sfxUrls.waiting_music_url;
+      waitingAudio.volume = 0.25;
+    }
+    // Browsers block audio-with-sound from truly autoplaying before any
+    // interaction with the page — updateBackgroundMusic figures out
+    // which loop should actually be playing for the current status;
+    // this first attempt will likely get silently blocked, which is
+    // fine, since unlockAudio() catches the first real interaction and
+    // retries from there.
+    updateBackgroundMusic(lastKnownStatus);
   } catch (err) {
     // sound just won't be available this session — not fatal
   }
 }
 
+let lastKnownStatus = 'waiting';
+
+function updateBackgroundMusic(status) {
+  const crowdAudio = document.getElementById('crowdLoopAudio');
+  const waitingAudio = document.getElementById('waitingMusicAudio');
+  if (status === 'waiting') {
+    if (crowdAudio && !crowdAudio.paused) crowdAudio.pause();
+    if (waitingAudio && waitingAudio.paused && waitingAudio.src) waitingAudio.play().catch(() => {});
+  } else {
+    if (waitingAudio && !waitingAudio.paused) waitingAudio.pause();
+    if (crowdAudio && crowdAudio.paused && crowdAudio.src) crowdAudio.play().catch(() => {});
+  }
+}
+
 initSound();
 
-document.addEventListener('click', function retryAudioOnFirstInteraction() {
-  const crowdAudio = document.getElementById('crowdLoopAudio');
-  if (crowdAudio && crowdAudio.paused && crowdAudio.src) {
-    crowdAudio.play().catch(() => {});
-  }
-  document.removeEventListener('click', retryAudioOnFirstInteraction);
-}, { once: true });
+function unlockAudio() {
+  // Called from every button click throughout the page, not just once —
+  // desktop browsers seemed to need a more persistent nudge than mobile
+  // did. Harmless no-op if everything's already playing.
+  updateBackgroundMusic(lastKnownStatus);
+}
+
+['click', 'touchstart', 'keydown'].forEach(evt => {
+  document.addEventListener(evt, unlockAudio);
+});
 
 function showRoundResultPopup(outcome) {
   // outcome: "win", "loss", or "tie" — relative to the local viewer's side
@@ -369,6 +403,11 @@ function buildFinalScorecard(battle, mySide) {
   const winsA = results.filter(r => r.winner === 'a').length;
   const winsB = results.filter(r => r.winner === 'b').length;
 
+  const scoresA = results.map(r => r.score_a).filter(s => s !== null && s !== undefined);
+  const scoresB = results.map(r => r.score_b).filter(s => s !== null && s !== undefined);
+  const avgA = scoresA.length ? (scoresA.reduce((sum, s) => sum + s, 0) / scoresA.length).toFixed(1) : null;
+  const avgB = scoresB.length ? (scoresB.reduce((sum, s) => sum + s, 0) / scoresB.length).toFixed(1) : null;
+
   let rounds = '';
   for (let round = 1; round <= 5; round++) {
     const r = results.find(x => x.round === round);
@@ -404,6 +443,12 @@ function buildFinalScorecard(battle, mySide) {
         <span class="side-b">${winsB}</span>
       </div>
       <div class="final-round-row">${rounds}</div>
+      ${avgA !== null && avgB !== null ? `
+        <div class="final-avg-row">
+          <div class="final-avg-item"><p class="final-avg-label">${escapeHtml(battle.team_a)}</p><p class="final-avg-value side-a">${avgA}/10</p></div>
+          <div class="final-avg-item"><p class="final-avg-label">${escapeHtml(battle.team_b)}</p><p class="final-avg-value side-b">${avgB}/10</p></div>
+        </div>
+      ` : ''}
       ${recapBlock}
     </div>
   `;
@@ -433,6 +478,14 @@ function render(battle) {
   const lineHistory = document.getElementById('lineHistory');
   const actionArea = document.getElementById('actionArea');
   const mySide = getMySide();
+
+  if (battle.status !== lastKnownStatus) {
+    lastKnownStatus = battle.status;
+    updateBackgroundMusic(battle.status);
+  }
+
+  document.documentElement.classList.toggle('battle-complete', battle.status === 'complete');
+  document.body.classList.toggle('battle-complete', battle.status === 'complete');
 
   if (battle.status === 'waiting') {
     content.innerHTML = '';
@@ -501,7 +554,14 @@ function render(battle) {
     introShown = true;
     knownRoundNumber = battle.round_number;
     lastRoundResultsCount = (battle.round_results || []).length;
-    playIntro(battle.team_a, battle.team_b);
+    // Only play the full countdown overlay for round 1's actual start —
+    // a refresh mid-battle (round 2+) was incorrectly replaying the
+    // whole 3-2-1 sequence every time, since introShown is just an
+    // in-memory flag that resets on every fresh page load. For any
+    // later round, skip straight to showing the current state.
+    if (battle.round_number === 1) {
+      playIntro(battle.team_a, battle.team_b);
+    }
   }
 
   // Round 1's bell is handled by playIntro (rings right as the intro
@@ -592,18 +652,20 @@ function render(battle) {
       `;
     } else {
       const myCritique = mySide === 'a' ? latestResult.critique_a : latestResult.critique_b;
+      const myScore = mySide === 'a' ? latestResult.score_a : latestResult.score_b;
       const outcome = latestResult.winner === 'tie' ? 'tie' : (latestResult.winner === mySide ? 'win' : 'loss');
       const iAmReady = mySide === 'a' ? battle.ready_a : battle.ready_b;
+      const isFinalRound = battle.round_number >= 5;
 
       actionHtml = `
         <div class="card">
           <div class="critique-box ${outcome}">
-            <p class="critique-label">${outcome === 'win' ? 'You won this round' : outcome === 'loss' ? 'You lost this round' : 'Round tied'}</p>
+            <p class="critique-label">${outcome === 'win' ? 'You won this round' : outcome === 'loss' ? 'You lost this round' : 'Round tied'}${myScore !== null && myScore !== undefined ? ` — ${myScore}/10` : ''}</p>
             <p>${escapeHtml(myCritique)}</p>
           </div>
           ${iAmReady
-            ? '<p class="waiting-note">Waiting for your opponent to start the next round...</p>'
-            : '<button id="readyBtn" class="btn btn-flare">Start next round</button>'}
+            ? '<p class="waiting-note">Waiting for your opponent...</p>'
+            : `<button id="readyBtn" class="btn btn-flare">${isFinalRound ? 'Take It To The Judges' : 'Start next round'}</button>`}
         </div>
       `;
     }
@@ -613,7 +675,6 @@ function render(battle) {
         <div class="card">
           <p class="waiting-note" style="margin-bottom:10px;">Your turn — round ${battle.round_number}</p>
           <textarea id="lineInput" placeholder="Say what you came to say..." maxlength="500"></textarea>
-          <p class="safety-note">Trash talk about the teams only. No sexual, threatening, or harassing content — messages like that are automatically blocked.</p>
           <div id="actionError"></div>
           <button id="submitLineBtn" class="btn btn-flare">Send it</button>
         </div>
@@ -779,6 +840,17 @@ function render(battle) {
 
 loadBattle();
 pollInterval = setInterval(loadBattle, 1500);
+
+// Mobile browsers throttle or pause JS timers when a tab is backgrounded
+// (screen lock, switching apps, etc.) — when someone comes back to the
+// tab, force an immediate refresh instead of waiting for the next
+// regular poll tick, so they catch up right away instead of looking
+// stuck on stale state.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    loadBattle();
+  }
+});
 </script>
 </body>
 </html>

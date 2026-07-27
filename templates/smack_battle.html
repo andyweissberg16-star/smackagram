@@ -99,6 +99,7 @@
     <p class="result-title">Battle created</p>
     <p style="color:var(--chalk-dim); font-size:13px; margin-bottom:12px;">Send this link to whoever you're calling out:</p>
     <div class="link-box" id="battleLink"></div>
+    <button id="copyLinkBtn" class="btn" style="background:transparent; border:1px solid var(--line-strong); color:var(--chalk); margin-bottom:12px;">Copy link</button>
     <button id="enterBtn" class="btn btn-flare">Enter your battle</button>
   </div>
 </div>
@@ -140,6 +141,11 @@ document.getElementById('createBtn').addEventListener('click', async () => {
     } else {
       createdCode = data.challenge_code;
       localStorage.setItem(`battle_side_${createdCode}`, 'a');
+      // Kick off sound effect generation now, in the background — by
+      // the time the person actually reaches the battle room, these are
+      // likely already generated/cached instead of adding to the wait
+      // once they get there.
+      fetch('/api/battle-sfx').catch(() => {});
       const url = `${window.location.origin}/battle/${createdCode}`;
       document.getElementById('battleLink').textContent = url;
       document.getElementById('createCard').style.display = 'none';
@@ -156,6 +162,18 @@ document.getElementById('createBtn').addEventListener('click', async () => {
 
 document.getElementById('enterBtn').addEventListener('click', () => {
   if (createdCode) window.location.href = `/battle/${createdCode}`;
+});
+
+document.getElementById('copyLinkBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('copyLinkBtn');
+  const url = `${window.location.origin}/battle/${createdCode}`;
+  try {
+    await navigator.clipboard.writeText(url);
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy link'; }, 2000);
+  } catch (err) {
+    btn.textContent = 'Tap and hold the link above to copy';
+  }
 });
 </script>
 </body>

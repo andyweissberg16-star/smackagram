@@ -467,6 +467,12 @@ Judge on actual quality, not team loyalty or which side went first.
 A tie is a legitimate call if both lines are genuinely close in quality
 — don't force a winner just to pick one.
 
+Also score EACH side's line 0-10 on how good their trash talk actually
+was this round — wit, delivery, specificity. These are independent
+scores, not just "winner gets high, loser gets low" — a genuinely weak
+round can have both sides score low, and a close, high-quality round
+can have both score high.
+
 Also write a short critique for EACH side — a few sentences, spoken
 directly to that person, in Smackagram's voice: savage, heavily
 profane, genuinely brutal — but the profanity and insults are aimed at
@@ -479,15 +485,16 @@ apply to any line aren't good enough.
 """ + _BATTLE_HARD_LIMITS + """
 
 Respond with ONLY a JSON object, nothing else:
-{"winner": "a" or "b" or "tie", "critique_a": "...", "critique_b": "..."}"""
+{"winner": "a" or "b" or "tie", "critique_a": "...", "critique_b": "...", "score_a": 0-10, "score_b": 0-10}"""
 
 
 def judge_battle_round(team_a: str, line_a: str, team_b: str, line_b: str) -> dict:
     """
-    Returns {"winner": "a"/"b"/"tie", "critique_a": str, "critique_b": str}
-    for one round of a Smack Battle. Fails to a neutral tie with generic
-    critiques if the judge call itself errors out — safer than crashing
-    the round transition.
+    Returns {"winner": "a"/"b"/"tie", "critique_a": str, "critique_b": str,
+    "score_a": int, "score_b": int} for one round of a Smack Battle.
+    Fails to a neutral tie with generic critiques and mid-scores if the
+    judge call itself errors out — safer than crashing the round
+    transition.
     """
     user_content = (
         f"Side A ({team_a} fan): {line_a}\n\n"
@@ -508,10 +515,12 @@ def judge_battle_round(team_a: str, line_a: str, team_b: str, line_b: str) -> di
             "winner": winner if winner in ("a", "b", "tie") else "tie",
             "critique_a": result.get("critique_a") or "",
             "critique_b": result.get("critique_b") or "",
+            "score_a": max(0, min(10, int(result.get("score_a", 5)))),
+            "score_b": max(0, min(10, int(result.get("score_b", 5)))),
         }
     except Exception as e:
         print(f"[battle judge] failed, defaulting to tie: {e}")
-        return {"winner": "tie", "critique_a": "Couldn't judge this round.", "critique_b": "Couldn't judge this round."}
+        return {"winner": "tie", "critique_a": "Couldn't judge this round.", "critique_b": "Couldn't judge this round.", "score_a": 5, "score_b": 5}
 
 
 BATTLE_RECAP_SYSTEM_PROMPT = """You write the final recap for a Smack
