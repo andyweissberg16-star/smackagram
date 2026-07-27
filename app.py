@@ -139,7 +139,17 @@ def api_register():
 
     # 2FA right after registration too, not just future logins — this
     # also confirms the phone number they gave us is real and reachable.
-    _send_2fa_code(user)
+    # If sending genuinely fails (bad number, Twilio issue), roll back
+    # the account entirely rather than leaving an orphaned, unverifiable
+    # user record and crashing with a generic error.
+    try:
+        _send_2fa_code(user)
+    except Exception as e:
+        print(f"[register] failed to send 2FA code: {e}")
+        db.session.delete(user)
+        db.session.commit()
+        return jsonify({"error": "Couldn't send a verification text to that phone number — please double-check it and try again."}), 400
+
     session["pending_verification_user_id"] = user.id
     return jsonify({"ok": True, "requires_verification": True})
 
@@ -174,7 +184,12 @@ def api_login():
         session["user_id"] = user.id
         return jsonify({"ok": True})
 
-    _send_2fa_code(user)
+    try:
+        _send_2fa_code(user)
+    except Exception as e:
+        print(f"[login] failed to send 2FA code: {e}")
+        return jsonify({"error": "Couldn't send a verification text right now — please try again in a moment."}), 500
+
     session["pending_verification_user_id"] = user.id
     return jsonify({"ok": True, "requires_verification": True})
 
@@ -216,7 +231,11 @@ def api_resend_2fa():
     user = User.query.get(pending_user_id)
     if not user:
         return jsonify({"error": "Something went wrong — please log in again."}), 400
-    _send_2fa_code(user)
+    try:
+        _send_2fa_code(user)
+    except Exception as e:
+        print(f"[resend-2fa] failed to send code: {e}")
+        return jsonify({"error": "Couldn't send a new code right now — please try again in a moment."}), 500
     return jsonify({"ok": True})
 
 

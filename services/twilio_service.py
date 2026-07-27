@@ -1,4 +1,5 @@
 import os
+import re
 from twilio.rest import Client
 from twilio.twiml.voice_response import VoiceResponse
 
@@ -17,15 +18,20 @@ def _get_client():
 
 def _to_e164(number: str) -> str:
     """
-    Guarantees a phone number has the leading '+' Twilio requires (E.164).
-    Without it, Twilio treats '18189262835' as a completely different,
-    unverified number from '+18189262835' — even though a human reads them
-    as the same thing.
+    Converts a phone number to E.164 format, which Twilio requires.
+    Strips any formatting (parentheses, dashes, spaces, dots) rather
+    than just prepending '+' — a naive prepend on something like
+    "(555) 555-5555" would produce "+(555) 555-5555", which Twilio
+    rejects outright as an invalid number.
     """
-    number = number.strip()
-    if not number.startswith("+"):
-        number = "+" + number
-    return number
+    digits = re.sub(r"[^\d+]", "", number.strip())
+    if not digits.startswith("+"):
+        # Assume US/Canada if it's a bare 10-digit number; otherwise
+        # just add the + and let Twilio validate the rest.
+        if len(digits) == 10:
+            digits = "1" + digits
+        digits = "+" + digits
+    return digits
 
 
 def send_sms(to_phone: str, body: str) -> str:

@@ -977,3 +977,26 @@ image or using the OS-level native share sheet, not a real web link.
       /login (preserving the page as ?next=) the moment either one
       hits the new login-required response, rather than just showing a
       generic error.
+
+## Registration crash fix (same session)
+- [x] Found and fixed the actual cause of "Couldn't create your account"
+      — the phone number field's own placeholder text ("(555) 555-5555")
+      encouraged a format that the E.164 conversion couldn't handle; it
+      only prepended a "+" rather than stripping formatting characters,
+      so a real-world input like that placeholder would produce an
+      invalid number Twilio rejects outright, crashing the whole
+      registration request with an uncaught exception. Fixed the actual
+      conversion to properly strip all non-digit characters first
+      (verified against parens, dashes, and bare digits — all correctly
+      normalize to the same valid number now). Also wrapped every SMS-
+      send call (registration, login, resend) in proper error handling,
+      so any future delivery failure fails gracefully with a specific
+      message instead of a generic crash — registration specifically
+      rolls back the just-created account rather than leaving an
+      orphaned, unverifiable user record behind.
+- [x] Fixed browser autofill showing a combined "Andy Weissberg" in
+      just the first name field instead of properly split first/last —
+      added explicit autocomplete hints (given-name, family-name,
+      nickname, email, tel, bday, new-password/current-password) to
+      every field across registration, login, and profile, so the
+      browser can't guess wrong about which field is which.
