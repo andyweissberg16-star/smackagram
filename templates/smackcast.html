@@ -91,6 +91,20 @@
       </div>
     </div>
 
+    <p class="step-label" style="margin-top:20px;">Step 2 — Pick Your Sport</p>
+    <div class="platform-row">
+      <div class="platform-tile selected" id="sportFootball" data-sport="nfl">
+        <span class="emoji">🏈</span>Football
+      </div>
+      <div class="platform-tile" id="sportBasketball" data-sport="nba">
+        <span class="emoji">🏀</span>Basketball
+      </div>
+      <div class="platform-tile disabled" id="sportBaseball" data-sport="mlb">
+        <span class="emoji">⚾</span>Baseball
+        <p class="soon" id="baseballNote">Sleeper only supports Football/Basketball</p>
+      </div>
+    </div>
+
     <div id="sleeperConnect">
       <label for="sleeperUsernameInput">Your Sleeper Username</label>
       <input id="sleeperUsernameInput" type="text" placeholder="ex. andyweissberg">
@@ -119,6 +133,10 @@
       <div id="espnLeagueResult"></div>
     </div>
   </div>
+
+  <p style="text-align:center; font-size:11px; color:var(--chalk-dim); margin-top:12px;">
+    Only head-to-head points-scoring leagues are supported right now — Rotisserie and category-scoring leagues (common especially in baseball and basketball) aren't yet.
+  </p>
 
   <div class="card" id="deliveryCard" style="display:none;">
     <p class="step-label">Step 2 — Choose Delivery</p>
@@ -168,6 +186,46 @@
 <script>
 let selectedLeague = null;
 let selectedPlatform = 'sleeper';
+let selectedSport = 'nfl';
+
+function updateBaseballAvailability() {
+  const baseballTile = document.getElementById('sportBaseball');
+  const note = document.getElementById('baseballNote');
+  if (selectedPlatform === 'espn') {
+    baseballTile.classList.remove('disabled');
+    note.style.display = 'none';
+  } else {
+    baseballTile.classList.add('disabled');
+    note.style.display = 'block';
+    if (selectedSport === 'mlb') {
+      // Sleeper doesn't support baseball - fall back to football if
+      // someone had baseball selected and then switched platforms.
+      selectedSport = 'nfl';
+      document.getElementById('sportFootball').classList.add('selected');
+      document.getElementById('sportBasketball').classList.remove('selected');
+      baseballTile.classList.remove('selected');
+    }
+  }
+}
+
+document.getElementById('sportFootball').addEventListener('click', () => {
+  selectedSport = 'nfl';
+  document.querySelectorAll('#sportFootball, #sportBasketball, #sportBaseball').forEach(el => el.classList.remove('selected'));
+  document.getElementById('sportFootball').classList.add('selected');
+});
+
+document.getElementById('sportBasketball').addEventListener('click', () => {
+  selectedSport = 'nba';
+  document.querySelectorAll('#sportFootball, #sportBasketball, #sportBaseball').forEach(el => el.classList.remove('selected'));
+  document.getElementById('sportBasketball').classList.add('selected');
+});
+
+document.getElementById('sportBaseball').addEventListener('click', () => {
+  if (selectedPlatform !== 'espn') return; // disabled for Sleeper
+  selectedSport = 'mlb';
+  document.querySelectorAll('#sportFootball, #sportBasketball, #sportBaseball').forEach(el => el.classList.remove('selected'));
+  document.getElementById('sportBaseball').classList.add('selected');
+});
 
 document.getElementById('platformSleeper').addEventListener('click', () => {
   selectedPlatform = 'sleeper';
@@ -177,6 +235,7 @@ document.getElementById('platformSleeper').addEventListener('click', () => {
   document.getElementById('espnConnect').style.display = 'none';
   selectedLeague = null;
   document.getElementById('deliveryCard').style.display = 'none';
+  updateBaseballAvailability();
 });
 
 document.getElementById('platformEspn').addEventListener('click', () => {
@@ -187,6 +246,7 @@ document.getElementById('platformEspn').addEventListener('click', () => {
   document.getElementById('espnConnect').style.display = 'block';
   selectedLeague = null;
   document.getElementById('deliveryCard').style.display = 'none';
+  updateBaseballAvailability();
 });
 
 document.getElementById('connectEspnBtn').addEventListener('click', async () => {
@@ -212,7 +272,7 @@ document.getElementById('connectEspnBtn').addEventListener('click', async () => 
     const resp = await fetch('/api/smackcast/connect-espn-league', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({league_id: leagueId, swid: swid, espn_s2: espnS2})
+      body: JSON.stringify({league_id: leagueId, sport: selectedSport, swid: swid, espn_s2: espnS2})
     });
     const data = await resp.json();
     if (data.error) {
@@ -261,7 +321,7 @@ document.getElementById('findLeaguesBtn').addEventListener('click', async () => 
     const resp = await fetch('/api/smackcast/find-sleeper-leagues', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({username: username})
+      body: JSON.stringify({username: username, sport: selectedSport})
     });
     const data = await resp.json();
     if (data.error) {
@@ -306,6 +366,7 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
 
   const payload = {
     platform: selectedPlatform,
+    sport: selectedSport,
     league_id: selectedLeague.league_id,
     league_name: selectedLeague.name,
     team_count: selectedLeague.team_count,

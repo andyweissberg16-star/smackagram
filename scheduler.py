@@ -118,37 +118,64 @@ def generate_weekly_smackcasts():
     gotten this week's recap, so it's safe to hit more often than
     strictly necessary without generating duplicates.
 
-    Handles Sleeper and ESPN. Yahoo follows once OAuth credentials exist
-    for it. The actual NFL week number is universal regardless of
-    platform, so Sleeper's week-detection endpoint is used as the
-    single source of truth even for ESPN subscriptions — only the
-    matchup data pull itself is platform-specific.
-    """
-    current_week = sleeper_service.get_current_nfl_week()
-    if not current_week:
-        print("[smackcast] No current NFL week available (likely offseason) — skipping")
-        return
+    Handles Sleeper (NFL, NBA — Sleeper has no real baseball leagues)
+    and ESPN (NFL, NBA, MLB). Yahoo follows once OAuth credentials
+    exist for it. Current week/period is determined per-subscription
+    rather than once globally, since football, basketball, and
+    baseball each have entirely different current periods, and ESPN's
+    own numbering isn't guaranteed to match Sleeper's anyway — Sleeper
+    subscriptions ask Sleeper's own week-state endpoint (cached per
+    sport within a single run, since that's identical across every
+    subscription for that sport), ESPN subscriptions ask ESPN's own
+    league status directly (can't be cached the same way, since it
+    needs that specific league's own credentials).
 
+    Only supports Head-to-Head Points scoring for now, on all three
+    sports — Rotisserie and Head-to-Head Categories are common
+    especially in baseball and basketball, but need a genuinely
+    different data model (no weekly matchups at all for Roto; multiple
+    separate stat comparisons instead of one combined score for
+    Categories) that isn't built yet.
+    """
     subscriptions = SmackcastSubscription.query.filter(
         SmackcastSubscription.is_active == True,
         SmackcastSubscription.platform.in_(["sleeper", "espn"]),
     ).all()
-    print(f"[smackcast] Week {current_week} — checking {len(subscriptions)} active subscription(s)")
+    print(f"[smackcast] Checking {len(subscriptions)} active subscription(s)")
+
+    sleeper_week_cache = {}  # sport -> current week, computed once per sport per run
 
     for sub in subscriptions:
-        if sub.last_recap_week == current_week:
-            continue  # already generated this week's recap for this league
-
         try:
             if sub.platform == "sleeper":
-                week_data = sleeper_service.get_week_recap_data(sub.league_id, current_week)
+                if sub.sport not in sleeper_service.SUPPORTED_SPORTS:
+                    print(f"[smackcast] Subscription {sub.id} has unsupported Sleeper sport {sub.sport!r} — skipping")
+                    continue
+                if sub.sport not in sleeper_week_cache:
+                    sleeper_week_cache[sub.sport] = sleeper_service.get_current_week(sub.sport)
+                current_week = sleeper_week_cache[sub.sport]
             elif sub.platform == "espn":
-                week_data = espn_service.get_week_recap_data(
-                    sub.league_id, str(sub.season_year), current_week,
+                current_week = espn_service.get_current_matchup_period(
+                    sub.league_id, str(sub.season_year), sport=sub.sport,
                     swid=sub.espn_swid, espn_s2=sub.espn_s2,
                 )
             else:
                 continue  # unsupported platform, shouldn't happen given the query filter above
+
+            if not current_week:
+                print(f"[smackcast] No current week available for subscription {sub.id} (likely offseason) — skipping")
+                continue
+
+            if sub.last_recap_week == current_week:
+                continue  # already generated this week's recap for this league
+
+            if sub.platform == "sleeper":
+                week_data = sleeper_service.get_week_recap_data(sub.league_id, current_week)
+            else:
+                week_data = espn_service.get_week_recap_data(
+                    sub.league_id, str(sub.season_year), current_week, sport=sub.sport,
+                    swid=sub.espn_swid, espn_s2=sub.espn_s2,
+                )
 
             if not week_data or not week_data["matchups"]:
                 print(f"[smackcast] No matchup data yet for subscription {sub.id}, week {current_week} — will retry next check")

@@ -11,10 +11,19 @@ friends) require the league owner to grab two cookie values from their
 own browser session — SWID and espn_s2 — since ESPN has no OAuth-style
 flow for third parties the way Yahoo does. The connect wizard walks
 them through getting these.
+
+Supports football, basketball, and baseball — ESPN uses a different
+internal game code per sport in the URL itself.
 """
 import requests
 
-BASE_URL = "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons"
+# ESPN's internal game codes per sport, baked into the URL path itself.
+GAME_CODES = {"nfl": "ffl", "nba": "fba", "mlb": "flb"}
+
+
+def _base_url(sport: str) -> str:
+    game_code = GAME_CODES.get(sport, "ffl")
+    return f"https://lm-api-reads.fantasy.espn.com/apis/v3/games/{game_code}/seasons"
 
 
 def _cookies(swid: str = None, espn_s2: str = None) -> dict:
@@ -25,14 +34,33 @@ def _cookies(swid: str = None, espn_s2: str = None) -> dict:
     return {"swid": swid, "espn_s2": espn_s2}
 
 
-def get_league_info(league_id: str, season: str, swid: str = None, espn_s2: str = None) -> dict | None:
+def get_current_matchup_period(league_id: str, season: str, sport: str = "nfl", swid: str = None, espn_s2: str = None) -> int | None:
+    """
+    ESPN's own league status includes the current matchup period
+    directly — using this instead of borrowing Sleeper's week-state
+    endpoint, since that doesn't exist for baseball at all (Sleeper has
+    no MLB leagues) and isn't guaranteed to line up with ESPN's own
+    internal period numbering even for football/basketball.
+    """
+    resp = requests.get(
+        f"{_base_url(sport)}/{season}/segments/0/leagues/{league_id}",
+        params={"view": "mStatus"},
+        cookies=_cookies(swid, espn_s2),
+        timeout=10,
+    )
+    if resp.status_code != 200:
+        return None
+    return resp.json().get("status", {}).get("currentMatchupPeriod")
+
+
+def get_league_info(league_id: str, season: str, sport: str = "nfl", swid: str = None, espn_s2: str = None) -> dict | None:
     """
     Basic league details — name and team count, and also doubles as the
     connection test: if the cookies are wrong or missing for a private
     league, ESPN returns a 401/403 here rather than partial data.
     """
     resp = requests.get(
-        f"{BASE_URL}/{season}/segments/0/leagues/{league_id}",
+        f"{_base_url(sport)}/{season}/segments/0/leagues/{league_id}",
         params={"view": "mTeam"},
         cookies=_cookies(swid, espn_s2),
         timeout=10,
@@ -48,7 +76,7 @@ def get_league_info(league_id: str, season: str, swid: str = None, espn_s2: str 
     }
 
 
-def get_week_recap_data(league_id: str, season: str, week: int, swid: str = None, espn_s2: str = None) -> dict | None:
+def get_week_recap_data(league_id: str, season: str, week: int, sport: str = "nfl", swid: str = None, espn_s2: str = None) -> dict | None:
     """
     Pulls one week's matchup data. ESPN returns team names as separate
     location + nickname fields (e.g. "Andy's" + "Avengers") rather than
@@ -56,9 +84,15 @@ def get_week_recap_data(league_id: str, season: str, week: int, swid: str = None
     to keep the shape of the returned data identical to
     sleeper_service.get_week_recap_data — this is what lets
     scheduler.py treat both platforms the same way downstream.
+
+    Only supports Head-to-Head Points scoring right now — Rotisserie
+    leagues have no weekly matchups at all (nothing to recap week to
+    week), and Head-to-Head Categories compares several stats
+    separately rather than one combined score, a genuinely different
+    data shape this doesn't attempt to handle yet.
     """
     resp = requests.get(
-        f"{BASE_URL}/{season}/segments/0/leagues/{league_id}",
+        f"{_base_url(sport)}/{season}/segments/0/leagues/{league_id}",
         params={"view": "mMatchupScore", "scoringPeriodId": week},
         cookies=_cookies(swid, espn_s2),
         timeout=10,

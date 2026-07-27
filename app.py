@@ -1686,12 +1686,15 @@ def smackcast_page():
 def api_find_sleeper_leagues():
     data = request.json or {}
     username = (data.get("username") or "").strip()
+    sport = (data.get("sport") or "nfl").strip()
     if not username:
         return jsonify({"error": "Enter your Sleeper username."}), 400
+    if sport not in sleeper_service.SUPPORTED_SPORTS:
+        return jsonify({"error": "Unsupported sport for Sleeper."}), 400
 
     from datetime import datetime as _dt
     season = str(_dt.utcnow().year)
-    leagues = sleeper_service.find_leagues_by_username(username, season)
+    leagues = sleeper_service.find_leagues_by_username(username, season, sport=sport)
     if not leagues:
         return jsonify({"error": "No leagues found for that username this season."}), 404
     return jsonify({"leagues": leagues, "season": season})
@@ -1710,16 +1713,19 @@ def api_connect_espn_league():
     """
     data = request.json or {}
     league_id = (data.get("league_id") or "").strip()
+    sport = (data.get("sport") or "nfl").strip()
     swid = (data.get("swid") or "").strip() or None
     espn_s2 = (data.get("espn_s2") or "").strip() or None
 
     if not league_id:
         return jsonify({"error": "Enter your ESPN league ID."}), 400
+    if sport not in espn_service.GAME_CODES:
+        return jsonify({"error": "Unsupported sport for ESPN."}), 400
 
     from datetime import datetime as _dt
     season = str(_dt.utcnow().year)
 
-    info = espn_service.get_league_info(league_id, season, swid=swid, espn_s2=espn_s2)
+    info = espn_service.get_league_info(league_id, season, sport=sport, swid=swid, espn_s2=espn_s2)
     if not info:
         return jsonify({"error": "Couldn't connect to that league. Double-check the league ID — if it's private, you'll need to add your SWID and espn_s2 cookies too."}), 404
 
@@ -1735,6 +1741,12 @@ def api_create_smackcast_subscription():
     platform = (data.get("platform") or "sleeper").strip()
     if platform not in ("sleeper", "espn"):
         return jsonify({"error": "Unsupported platform."}), 400
+
+    sport = (data.get("sport") or "nfl").strip()
+    if platform == "sleeper" and sport not in sleeper_service.SUPPORTED_SPORTS:
+        return jsonify({"error": "Sleeper doesn't support that sport — only football and basketball leagues exist there."}), 400
+    if platform == "espn" and sport not in espn_service.GAME_CODES:
+        return jsonify({"error": "Unsupported sport."}), 400
 
     league_id = (data.get("league_id") or "").strip()
     league_name = (data.get("league_name") or "").strip()
@@ -1755,6 +1767,7 @@ def api_create_smackcast_subscription():
     subscription = SmackcastSubscription(
         user_id=user.id,
         platform=platform,
+        sport=sport,
         league_id=league_id,
         league_name=league_name,
         team_count=team_count,

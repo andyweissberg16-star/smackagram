@@ -1130,3 +1130,44 @@ these are delivered as a separate small zip alongside the main code
 zip, since the main zip deliberately excludes all of static/ to avoid
 the deletion issue from earlier tonight, and this is a brand new
 subfolder with zero overwrite risk.
+
+## Smackcast Phase 4: basketball + baseball support (same session)
+Research done first, changed the actual scope:
+- Confirmed (user directly verified) Sleeper only offers real
+  season-long leagues for football and basketball — no baseball at
+  all, resolving earlier uncertainty from search results.
+- Confirmed via ESPN's own documentation: basketball's most common
+  format is Head-to-Head Points (matches football's existing
+  structure), but baseball's most common formats are Rotisserie and
+  Head-to-Head Categories — NOT points. Rotisserie has no weekly
+  matchups at all; Categories compares several stats separately
+  instead of one combined score. Built for Head-to-Head Points only
+  for now across all three sports — Roto/Categories support is a
+  separate, bigger future undertaking, not silently ignored.
+
+### Built:
+- [x] Added sport field to SmackcastSubscription (was a real gap —
+      previously silently assumed football)
+- [x] Generalized sleeper_service.py — SUPPORTED_SPORTS = (nfl, nba),
+      get_current_week(sport) and find_leagues_by_username(...sport)
+      both now sport-aware
+- [x] Generalized espn_service.py — GAME_CODES mapping (nfl->ffl,
+      nba->fba, mlb->flb) baked into the URL, all functions sport-aware.
+      Added get_current_matchup_period() using ESPN's own league status
+      directly, rather than borrowing Sleeper's week-state as a
+      "universal clock" — that breaks down for baseball (Sleeper has
+      none) and isn't guaranteed to match ESPN's own numbering anyway.
+- [x] Restructured scheduler.py's generate_weekly_smackcasts() —
+      current week/period now determined per-subscription based on
+      platform+sport rather than once globally; Sleeper weeks cached
+      per-sport within a run (identical across every subscription for
+      that sport), ESPN periods fetched per-subscription (needs that
+      league's own credentials, can't be cached the same way)
+- [x] All three API endpoints (find-sleeper-leagues, connect-espn-
+      league, create-subscription) now accept and validate sport,
+      matching each platform's actual real support
+- [x] Frontend wizard — added a full sport-selection step; baseball
+      tile automatically disables with an explanatory note when
+      Sleeper is selected, re-enables for ESPN; a scope disclaimer
+      about points-only scoring shown directly in the UI, not just
+      buried in a doc

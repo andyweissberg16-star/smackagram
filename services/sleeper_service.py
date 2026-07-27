@@ -1,9 +1,9 @@
 """
-Sleeper integration for Smackcast — the first fantasy platform supported,
-since Sleeper has a genuinely open, free, public API (no auth, no OAuth,
-just a username or league ID). ESPN and Yahoo follow the same general
-shape but need private-league cookies or OAuth respectively; those live
-in their own service files once built.
+Sleeper integration for Smackcast. Supports NFL and NBA, since those are
+the only sports Sleeper actually offers real season-long fantasy
+leagues for (confirmed directly, not an assumption) — no MLB support
+exists on the platform at all, so baseball leagues route through ESPN
+only.
 
 Sleeper's own API docs: https://docs.sleeper.com/
 """
@@ -11,33 +11,35 @@ import requests
 
 BASE_URL = "https://api.sleeper.app/v1"
 
+SUPPORTED_SPORTS = ("nfl", "nba")
 
-def get_current_nfl_week() -> int | None:
+
+def get_current_week(sport: str = "nfl") -> int | None:
     """
-    Sleeper exposes the current NFL week directly — no need to
+    Sleeper exposes the current week directly per sport — no need to
     calculate it from season start dates ourselves. Returns None if the
     league year hasn't started (offseason) or the request fails.
     """
-    resp = requests.get(f"{BASE_URL}/state/nfl", timeout=10)
+    resp = requests.get(f"{BASE_URL}/state/{sport}", timeout=10)
     if resp.status_code != 200:
         return None
     data = resp.json()
     return data.get("week")
 
 
-def find_leagues_by_username(username: str, season: str) -> list:
+def find_leagues_by_username(username: str, season: str, sport: str = "nfl") -> list:
     """
-    Given a Sleeper username, returns every NFL league that user is in
-    for the given season. Each entry includes league_id and name, which
-    is enough for the connect wizard to show a "pick your league" list
-    when someone has more than one.
+    Given a Sleeper username, returns every league that user is in for
+    the given sport and season. Each entry includes league_id and name,
+    which is enough for the connect wizard to show a "pick your league"
+    list when someone has more than one.
     """
     user_resp = requests.get(f"{BASE_URL}/user/{username}", timeout=10)
     if user_resp.status_code != 200 or not user_resp.json():
         return []
     sleeper_user_id = user_resp.json()["user_id"]
 
-    leagues_resp = requests.get(f"{BASE_URL}/user/{sleeper_user_id}/leagues/nfl/{season}", timeout=10)
+    leagues_resp = requests.get(f"{BASE_URL}/user/{sleeper_user_id}/leagues/{sport}/{season}", timeout=10)
     if leagues_resp.status_code != 200:
         return []
 

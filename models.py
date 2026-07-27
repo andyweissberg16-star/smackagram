@@ -365,6 +365,7 @@ class SmackcastSubscription(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
 
     platform = db.Column(db.String(20), nullable=False)  # "sleeper", "espn", "yahoo"
+    sport = db.Column(db.String(10), nullable=False, default="nfl")  # "nfl", "nba", "mlb" - mlb is ESPN-only, Sleeper has no baseball leagues
     league_id = db.Column(db.String(100), nullable=False)
     league_name = db.Column(db.String(200), nullable=True)  # fetched from the platform once connected
     team_count = db.Column(db.Integer, nullable=True)  # drives recap length scaling
