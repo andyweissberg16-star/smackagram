@@ -1,14 +1,15 @@
 import os
+import functools
 import secrets
 import threading
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date
 
-from flask import Flask, render_template, request, jsonify, Response, url_for
+from flask import Flask, render_template, request, jsonify, Response, url_for, session, redirect
 from sqlalchemy import func
 import requests
 from dotenv import load_dotenv
 
-from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleRoundResult
+from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleRoundResult, User
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors
 from scheduler import check_armed_smackagrams
 
@@ -29,6 +30,263 @@ if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite"):
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"connect_args": {"check_same_thread": False}}
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-me")
 db.init_app(app)
+
+
+def get_current_user():
+    """Returns the logged-in User object, or None if nobody's logged in."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    return User.query.get(user_id)
+
+
+def login_required(view_func):
+    """
+    Gates a route behind having a real account. API routes (path starts
+    with /api/) get a clean 401 JSON response — the frontend can show its
+    own login prompt. Page routes redirect straight to /login, preserving
+    where they were trying to go via ?next=.
+    """
+    @functools.wraps(view_func)
+    def wrapped(*args, **kwargs):
+        if not get_current_user():
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Please log in to do that.", "login_required": True}), 401
+            return redirect(f"/login?next={request.path}")
+        return view_func(*args, **kwargs)
+    return wrapped
+
+
+@app.route("/register")
+def register_page():
+    return render_template("register.html")
+
+
+def _send_2fa_code(user):
+    """
+    Generates a fresh 6-digit code, stores it with a 10-minute
+    expiration, and texts it via Twilio. Shared by registration and
+    login so both go through the exact same path.
+    """
+    code = f"{secrets.randbelow(1000000):06d}"
+    user.two_factor_code = code
+    user.two_factor_expires_at = datetime.utcnow() + timedelta(minutes=10)
+    db.session.commit()
+    twilio_service.send_sms(user.phone, f"Your Smackagram verification code is {code}. It expires in 10 minutes.")
+
+
+@app.route("/api/register", methods=["POST"])
+def api_register():
+    data = request.json or {}
+    first_name = (data.get("first_name") or "").strip()
+    last_name = (data.get("last_name") or "").strip()
+    screen_name = (data.get("screen_name") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    phone = (data.get("phone") or "").strip()
+    dob_str = (data.get("date_of_birth") or "").strip()
+    password = data.get("password") or ""
+    terms_accepted = bool(data.get("terms_accepted"))
+
+    if not all([first_name, last_name, screen_name, email, phone, dob_str, password]):
+        return jsonify({"error": "All fields are required."}), 400
+    if not terms_accepted:
+        return jsonify({"error": "You must agree to the Terms & Conditions."}), 400
+    if len(password) < 6:
+        return jsonify({"error": "Password must be at least 6 characters."}), 400
+    if len(screen_name) < 3:
+        return jsonify({"error": "Screen name must be at least 3 characters."}), 400
+
+    try:
+        dob = datetime.strptime(dob_str, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"error": "Invalid date of birth."}), 400
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({"error": "An account with this email already exists."}), 400
+
+    # Case-insensitive uniqueness check — "CowboysHater" and "cowboyshater"
+    # shouldn't both be allowed to exist, since they're indistinguishable
+    # everywhere the screen name actually gets displayed.
+    if User.query.filter(db.func.lower(User.screen_name) == screen_name.lower()).first():
+        return jsonify({"error": "That screen name is already taken."}), 400
+
+    # Same moderation standard used everywhere else on the site — this
+    # is what actually catches slurs and hate speech, not just an
+    # obvious-word blocklist that's trivial to get around.
+    safety = content_moderation.check_message_safety(screen_name)
+    if not safety["safe"]:
+        return jsonify({"error": "That screen name isn't allowed. Please choose another."}), 400
+
+    # customer_number starts at 1,000,001 for the first real registered
+    # customer — the seeded admin account sits at 1,000,000, just below
+    # that range, so this naturally continues from there.
+    highest = db.session.query(db.func.max(User.customer_number)).scalar() or 1000000
+    new_customer_number = highest + 1
+
+    user = User(
+        customer_number=new_customer_number,
+        first_name=first_name,
+        last_name=last_name,
+        screen_name=screen_name,
+        email=email,
+        phone=phone,
+        date_of_birth=dob,
+        terms_accepted_at=datetime.utcnow(),
+    )
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+
+    # 2FA right after registration too, not just future logins — this
+    # also confirms the phone number they gave us is real and reachable.
+    _send_2fa_code(user)
+    session["pending_verification_user_id"] = user.id
+    return jsonify({"ok": True, "requires_verification": True})
+
+
+@app.route("/verify")
+def verify_page():
+    return render_template("verify.html")
+
+
+@app.route("/login")
+def login_page():
+    return render_template("login.html")
+
+
+@app.route("/api/login", methods=["POST"])
+def api_login():
+    data = request.json or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+
+    if not email or not password:
+        return jsonify({"error": "Email and password are required."}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user or not user.check_password(password):
+        return jsonify({"error": "Incorrect email or password."}), 401
+
+    # The seeded admin test account skips 2FA entirely — it exists
+    # specifically for quick, frictionless testing, and doesn't have a
+    # real phone number behind it anyway.
+    if user.is_admin:
+        session["user_id"] = user.id
+        return jsonify({"ok": True})
+
+    _send_2fa_code(user)
+    session["pending_verification_user_id"] = user.id
+    return jsonify({"ok": True, "requires_verification": True})
+
+
+@app.route("/api/verify-2fa", methods=["POST"])
+def api_verify_2fa():
+    pending_user_id = session.get("pending_verification_user_id")
+    if not pending_user_id:
+        return jsonify({"error": "Nothing to verify — please log in again."}), 400
+
+    user = User.query.get(pending_user_id)
+    if not user:
+        return jsonify({"error": "Something went wrong — please log in again."}), 400
+
+    code = (request.json or {}).get("code", "").strip()
+    if not code:
+        return jsonify({"error": "Enter the code we texted you."}), 400
+    if not user.two_factor_code or not user.two_factor_expires_at:
+        return jsonify({"error": "No active code — request a new one."}), 400
+    if datetime.utcnow() > user.two_factor_expires_at:
+        return jsonify({"error": "That code expired — request a new one."}), 400
+    if code != user.two_factor_code:
+        return jsonify({"error": "Incorrect code."}), 400
+
+    # Correct — clear the code so it can't be reused, complete login.
+    user.two_factor_code = None
+    user.two_factor_expires_at = None
+    db.session.commit()
+    session.pop("pending_verification_user_id", None)
+    session["user_id"] = user.id
+    return jsonify({"ok": True})
+
+
+@app.route("/api/resend-2fa", methods=["POST"])
+def api_resend_2fa():
+    pending_user_id = session.get("pending_verification_user_id")
+    if not pending_user_id:
+        return jsonify({"error": "Nothing to resend — please log in again."}), 400
+    user = User.query.get(pending_user_id)
+    if not user:
+        return jsonify({"error": "Something went wrong — please log in again."}), 400
+    _send_2fa_code(user)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/logout", methods=["POST"])
+def api_logout():
+    session.pop("user_id", None)
+    return jsonify({"ok": True})
+
+
+@app.route("/profile")
+@login_required
+def profile_page():
+    return render_template("profile.html")
+
+
+@app.route("/api/profile", methods=["GET"])
+@login_required
+def api_get_profile():
+    user = get_current_user()
+    return jsonify({
+        "customer_number": user.customer_number,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "screen_name": user.screen_name,
+        "email": user.email,
+        "phone": user.phone,
+        "date_of_birth": user.date_of_birth.isoformat(),
+    })
+
+
+@app.route("/api/profile", methods=["POST"])
+@login_required
+def api_update_profile():
+    user = get_current_user()
+    data = request.json or {}
+
+    first_name = (data.get("first_name") or "").strip()
+    last_name = (data.get("last_name") or "").strip()
+    screen_name = (data.get("screen_name") or "").strip()
+    phone = (data.get("phone") or "").strip()
+    dob_str = (data.get("date_of_birth") or "").strip()
+
+    if not all([first_name, last_name, screen_name, phone, dob_str]):
+        return jsonify({"error": "All fields are required."}), 400
+    if len(screen_name) < 3:
+        return jsonify({"error": "Screen name must be at least 3 characters."}), 400
+
+    try:
+        dob = datetime.strptime(dob_str, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"error": "Invalid date of birth."}), 400
+
+    # Only re-check uniqueness/moderation if they actually changed it —
+    # no need to re-flag their own existing, already-approved name.
+    if screen_name.lower() != user.screen_name.lower():
+        existing = User.query.filter(db.func.lower(User.screen_name) == screen_name.lower()).first()
+        if existing and existing.id != user.id:
+            return jsonify({"error": "That screen name is already taken."}), 400
+        safety = content_moderation.check_message_safety(screen_name)
+        if not safety["safe"]:
+            return jsonify({"error": "That screen name isn't allowed. Please choose another."}), 400
+
+    user.first_name = first_name
+    user.last_name = last_name
+    user.screen_name = screen_name
+    user.phone = phone
+    user.date_of_birth = dob
+    db.session.commit()
+    return jsonify({"ok": True})
+
 
 # Pre-resolved audio URLs for calls about to be placed, keyed by record id.
 # Generating the message/sfx/tagline audio takes a few seconds (multiple
@@ -71,12 +329,13 @@ def require_site_password():
 @app.route("/")
 def home():
     scenarios = Scenario.query.filter_by(active=True).all()
-    return render_template("index.html", scenarios=scenarios)
+    return render_template("index.html", scenarios=scenarios, current_user=get_current_user())
 
 
 # ---------- Immediate "send it now" flow ----------
 
 @app.route("/api/orders", methods=["POST"])
+@login_required
 def create_order():
     data = request.json
     price = 200 if data.get("include_recording", True) else 100
@@ -192,6 +451,7 @@ def stripe_webhook():
 
 
 @app.route("/api/generate-trash-talk", methods=["POST"])
+@login_required
 def generate_trash_talk():
     data = request.json
     team = data.get("team", "").strip()
@@ -220,6 +480,7 @@ def get_sensitivity_levels():
 
 
 @app.route("/api/smack-lab/respond", methods=["POST"])
+@login_required
 def smack_lab_respond():
     """
     Powers Smack Lab — live back-and-forth trash-talk sparring with a
@@ -254,6 +515,7 @@ def smack_lab_respond():
 
 
 @app.route("/api/smack-lab/verdict", methods=["POST"])
+@login_required
 def smack_lab_verdict():
     """
     Delivers the session-ending report card after 5 rounds of Smack Lab —
@@ -297,6 +559,7 @@ def voice_sample(voice_key):
 
 
 @app.route("/api/preview-audio", methods=["POST"])
+@login_required
 def preview_audio():
     """
     Free preview — lets someone hear a generated line before buying.
@@ -395,6 +658,7 @@ def recording_done(record_id):
 # ---------- Locked-and-loaded smackagrams ----------
 
 @app.route("/locked-n-loaded")
+@login_required
 def locked_n_loaded_page():
     return render_template("locked_n_loaded.html")
 
@@ -405,6 +669,7 @@ def send_a_smack_page():
 
 
 @app.route("/smack-lab")
+@login_required
 def smack_lab_page():
     return render_template("smack_lab.html")
 
@@ -420,21 +685,25 @@ def contact_page():
 
 
 @app.route("/did-you-get-smacked")
+@login_required
 def did_you_get_smacked_page():
     return render_template("did_you_get_smacked.html")
 
 
 @app.route("/reply/<token>")
+@login_required
 def reply_page(token):
     return render_template("reply.html", reply_token=token)
 
 
 @app.route("/conversation/<int:reply_id>")
+@login_required
 def conversation_page(reply_id):
     return render_template("conversation.html", reply_id=reply_id)
 
 
 @app.route("/api/conversation/<int:reply_id>")
+@login_required
 def conversation_data(reply_id):
     """
     Both sides of a completed reply exchange — the original smack and the
@@ -464,6 +733,7 @@ def conversation_data(reply_id):
 
 
 @app.route("/smack-chat")
+@login_required
 def smack_chat_page():
     return render_template("smack_chat.html")
 
@@ -543,6 +813,7 @@ def chat_posts():
 
 
 @app.route("/api/chat/posts", methods=["POST"])
+@login_required
 def create_chat_post():
     """
     A real person posting their own manually-typed trash talk — no AI
@@ -581,6 +852,7 @@ def create_chat_post():
 
 
 @app.route("/api/chat/posts/<int:post_id>/rate", methods=["POST"])
+@login_required
 def rate_chat_post(post_id):
     """
     Records one rating, enforced server-side — the database itself
@@ -616,6 +888,7 @@ def rate_chat_post(post_id):
 
 
 @app.route("/api/chat/posts/<int:post_id>/report", methods=["POST"])
+@login_required
 def report_chat_post(post_id):
     post = ChatPost.query.get(post_id)
     if not post:
@@ -627,11 +900,13 @@ def report_chat_post(post_id):
 
 
 @app.route("/smack-battle")
+@login_required
 def smack_battle_page():
     return render_template("smack_battle.html")
 
 
 @app.route("/battle/<challenge_code>")
+@login_required
 def battle_room_page(challenge_code):
     return render_template("battle_room.html", challenge_code=challenge_code)
 
@@ -694,6 +969,7 @@ def _battle_state_json(battle):
 
 
 @app.route("/api/battles", methods=["POST"])
+@login_required
 def create_battle():
     data = request.json
     league = data.get("league", "")
@@ -712,6 +988,7 @@ def create_battle():
 
 
 @app.route("/api/battles/<challenge_code>")
+@login_required
 def get_battle(challenge_code):
     battle = Battle.query.filter_by(challenge_code=challenge_code).first()
     if not battle:
@@ -728,6 +1005,7 @@ def get_battle(challenge_code):
 
 
 @app.route("/api/battles/<challenge_code>/join", methods=["POST"])
+@login_required
 def join_battle(challenge_code):
     battle = Battle.query.filter_by(challenge_code=challenge_code).first()
     if not battle:
@@ -825,6 +1103,7 @@ def _generate_recap_async(battle_id):
 
 
 @app.route("/api/battles/<challenge_code>/line", methods=["POST"])
+@login_required
 def submit_battle_line(challenge_code):
     battle = Battle.query.filter_by(challenge_code=challenge_code).first()
     if not battle:
@@ -878,6 +1157,7 @@ def submit_battle_line(challenge_code):
 
 
 @app.route("/api/battles/<challenge_code>/ready", methods=["POST"])
+@login_required
 def ready_for_next_round(challenge_code):
     """
     Either side confirming they're ready moves the round forward
@@ -916,6 +1196,7 @@ def ready_for_next_round(challenge_code):
 
 
 @app.route("/api/battles/<challenge_code>/typing", methods=["POST"])
+@login_required
 def battle_typing_ping(challenge_code):
     """
     Lightweight ping saying "I'm actively typing right now" — the
@@ -941,6 +1222,7 @@ def battle_typing_ping(challenge_code):
 
 
 @app.route("/api/battles/<challenge_code>/vote", methods=["POST"])
+@login_required
 def vote_battle(challenge_code):
     battle = Battle.query.filter_by(challenge_code=challenge_code).first()
     if not battle:
@@ -968,6 +1250,7 @@ def vote_battle(challenge_code):
 
 
 @app.route("/api/battles/<challenge_code>/rematch", methods=["POST"])
+@login_required
 def request_rematch(challenge_code):
     """
     One side asking for a rematch — same "both sides have to agree" gate
@@ -1043,6 +1326,7 @@ def battle_sfx():
 
 
 @app.route("/api/check-if-smacked", methods=["POST"])
+@login_required
 def check_if_smacked():
     """
     The "Smack Inbox" — returns EVERY delivered smack for a phone number,
@@ -1107,6 +1391,7 @@ def _find_by_reply_token(token):
 
 
 @app.route("/api/reply-context/<token>")
+@login_required
 def reply_context(token):
     """
     Powers the reply page's "instant replay" — the original message text
@@ -1126,6 +1411,7 @@ def reply_context(token):
 
 
 @app.route("/api/generate-reply-smack", methods=["POST"])
+@login_required
 def generate_reply_smack_route():
     """
     AI-assisted comeback — reads the ORIGINAL message server-side (never
@@ -1146,6 +1432,7 @@ def generate_reply_smack_route():
 
 
 @app.route("/api/reply-orders", methods=["POST"])
+@login_required
 def create_reply_order():
     """
     Submits the actual reply smack. The real recipient phone number is
@@ -1224,6 +1511,7 @@ def upcoming_games():
 
 
 @app.route("/api/smackagrams", methods=["POST"])
+@login_required
 def arm_smackagram():
     """
     Locks in a smackagram against a future game. Uses the same hosted-
@@ -1400,6 +1688,28 @@ def admin_check_team_codes():
 
 with app.app_context():
     db.create_all()
+
+    # Seed the always-available admin test account, per explicit request.
+    # SECURITY NOTE: admin/admin is a deliberately weak, publicly-known
+    # credential — acceptable for internal testing before launch, but
+    # this MUST be changed or removed before any real public launch.
+    admin_user = User.query.filter_by(email="admin").first()
+    if not admin_user:
+        admin_user = User(
+            customer_number=1000000,
+            first_name="Admin",
+            last_name="Test",
+            screen_name="Admin",
+            email="admin",
+            phone="0000000000",
+            date_of_birth=date(1990, 1, 1),
+            terms_accepted_at=datetime.utcnow(),
+            is_admin=True,
+        )
+        admin_user.set_password("admin")
+        db.session.add(admin_user)
+        db.session.commit()
+        print("[auth] seeded admin test account (admin/admin)")
 
 if __name__ == "__main__":
     app.run(debug=True)

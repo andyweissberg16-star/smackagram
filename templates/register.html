@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Register — Smackagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D; --ink-2:#1A1A1A; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
+    --flare:#E8142C; --gold:#FFD400; --line:rgba(245,245,243,0.10); --line-strong:rgba(245,245,243,0.24);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:460px; margin:0 auto; padding:0 24px 60px;}
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  nav a{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
+  nav a:hover{color:var(--flare);}
+  .hero{text-align:center; padding:36px 0 8px;}
+  .hero h1{font-family:'Anton',sans-serif; font-size:26px; text-transform:uppercase; letter-spacing:0.5px;}
+  .hero p{color:var(--chalk-dim); font-size:13px; margin-top:8px;}
+  .card{background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:28px; margin-top:24px;}
+  label{display:block; font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;}
+  input[type=text], input[type=email], input[type=tel], input[type=password], input[type=date]{
+    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:4px; margin-bottom:14px;
+  }
+  input:focus{outline:none; border-color:var(--flare);}
+  .field-hint{font-size:11px; color:var(--chalk-dim); margin:-8px 0 14px; line-height:1.4;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .row2 > div{min-width:0;}
+  .terms-row{display:flex; align-items:flex-start; gap:10px; margin:4px 0 18px;}
+  .terms-row input{width:auto; margin:3px 0 0;}
+  .terms-row label{text-transform:none; letter-spacing:normal; font-size:13px; color:var(--chalk); margin:0;}
+  .terms-row a{color:var(--gold);}
+  .btn{font-weight:700; font-size:14px; padding:14px 24px; border-radius:4px; border:none; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; width:100%;}
+  .btn-flare{background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(232,20,44,0.4);}
+  .btn-flare:disabled{opacity:0.5; cursor:not-allowed;}
+  #formError{display:none; color:var(--flare); font-size:12px; margin-bottom:12px;}
+  .switch-link{text-align:center; font-size:13px; color:var(--chalk-dim); margin-top:18px;}
+  .switch-link a{color:var(--gold); text-decoration:none;}
+</style>
+</head>
+<body>
+
+<nav>
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+  <a href="/">&larr; Back to home</a>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <h1>Create Your Account</h1>
+    <p>Registered users only — this is how we know who's talking smack.</p>
+  </div>
+
+  <div class="card">
+    <div class="row2">
+      <div>
+        <label for="firstNameInput">First Name</label>
+        <input id="firstNameInput" type="text" placeholder="Andy">
+      </div>
+      <div>
+        <label for="lastNameInput">Last Name</label>
+        <input id="lastNameInput" type="text" placeholder="Weissberg">
+      </div>
+    </div>
+
+    <label for="screenNameInput">Screen Name</label>
+    <input id="screenNameInput" type="text" placeholder="ex. CowboysHater88">
+    <p class="field-hint">This is what shows up in chat and battles — must be unique.</p>
+
+    <label for="emailInput">Email Address</label>
+    <input id="emailInput" type="email" placeholder="you@example.com">
+
+    <label for="phoneInput">Mobile Phone</label>
+    <input id="phoneInput" type="tel" placeholder="(555) 555-5555">
+
+    <label for="dobInput">Date of Birth</label>
+    <input id="dobInput" type="date">
+
+    <label for="passwordInput">Password</label>
+    <input id="passwordInput" type="password" placeholder="At least 6 characters">
+
+    <div class="terms-row">
+      <input id="termsCheckbox" type="checkbox">
+      <label for="termsCheckbox">I agree to the <a href="/terms" target="_blank">Terms &amp; Conditions</a></label>
+    </div>
+
+    <div id="formError"></div>
+    <button id="registerBtn" class="btn btn-flare">Create Account</button>
+    <p class="switch-link">Already registered? <a href="/login">Log in</a></p>
+  </div>
+</div>
+
+<script>
+function getNextParam() {
+  return new URLSearchParams(window.location.search).get('next') || '/';
+}
+
+async function submitRegistration() {
+  const errorEl = document.getElementById('formError');
+  const btn = document.getElementById('registerBtn');
+  errorEl.style.display = 'none';
+
+  const payload = {
+    first_name: document.getElementById('firstNameInput').value.trim(),
+    last_name: document.getElementById('lastNameInput').value.trim(),
+    screen_name: document.getElementById('screenNameInput').value.trim(),
+    email: document.getElementById('emailInput').value.trim(),
+    phone: document.getElementById('phoneInput').value.trim(),
+    date_of_birth: document.getElementById('dobInput').value,
+    password: document.getElementById('passwordInput').value,
+    terms_accepted: document.getElementById('termsCheckbox').checked,
+  };
+
+  if (!payload.first_name || !payload.last_name || !payload.screen_name || !payload.email || !payload.phone || !payload.date_of_birth || !payload.password) {
+    errorEl.textContent = 'Please fill out every field.';
+    errorEl.style.display = 'block';
+    return;
+  }
+  if (!payload.terms_accepted) {
+    errorEl.textContent = 'You must agree to the Terms & Conditions.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Creating account...';
+
+  try {
+    const resp = await fetch('/api/register', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    if (data.error) {
+      errorEl.textContent = data.error;
+      errorEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Create Account';
+    } else {
+      window.location.href = `/verify?next=${encodeURIComponent(getNextParam())}`;
+    }
+  } catch (err) {
+    errorEl.textContent = "Couldn't create your account — try again.";
+    errorEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Create Account';
+  }
+}
+
+document.getElementById('registerBtn').addEventListener('click', submitRegistration);
+</script>
+</body>
+</html>

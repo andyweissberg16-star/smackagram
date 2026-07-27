@@ -938,3 +938,42 @@ image or using the OS-level native share sheet, not a real web link.
       rule alone. This is the shared _HARD_LIMITS constant, so it applies
       across the main generator, game recap roasts, and the reply-smack
       feature all at once — not just the one flow that was tested.
+
+## User accounts: SMS 2FA and screen names (same session)
+- [x] Added SMS-based 2FA. A fresh 6-digit code is texted (via the same
+      Twilio account already used for prank calls) at every login and
+      right after registration, expires after 10 minutes. New /verify
+      page for entering the code, with a resend option. The seeded
+      admin test account skips 2FA entirely for frictionless testing.
+      Email 2FA deliberately deferred — no email-sending infrastructure
+      exists on this site at all yet (a known, pre-existing gap), so
+      building it now would mean silently pretending it works.
+- [x] Added a required, unique screen name to registration — this is
+      what displays anywhere identity is shown (chat, battles) instead
+      of the person's real name. Same content moderation check used
+      everywhere else on the site (catches slurs/hate speech, not just
+      an obvious-word blocklist), plus case-insensitive uniqueness so
+      "CowboysHater" and "cowboyshater" can't both exist. Editable later
+      from the profile page, re-checked for uniqueness/moderation only
+      if actually changed.
+
+## Gated every real feature behind login (same session)
+- [x] Applied @login_required across 33 routes: main generator's
+      actual generate/send/preview actions (page itself stays viewable
+      per the explicit instruction — the login prompt fires only when
+      actually initiating a smackogram), Locked & Loaded (full page),
+      Smack Lab (page + respond/verdict), Smack Chat (page + post/rate/
+      report), Smack Battle (create page, battle room itself — so
+      whoever clicks a shared link while logged out gets sent to log in
+      first — plus every action: create, join, submit line, ready,
+      typing, vote, rematch, even the read-only status poll), and the
+      whole "Did You Get Smacked" / reply / conversation flow.
+      Deliberately left ungated: home page, terms/contact, Stripe/
+      Twilio webhooks, cron endpoint, and pure reference-data endpoints
+      (sensitivity levels, voice options, sports schedules) that don't
+      let anyone actually do anything.
+- [x] Updated the main generator's frontend specifically — both the
+      generate call and the checkout call now redirect straight to
+      /login (preserving the page as ?next=) the moment either one
+      hits the new login-required response, rather than just showing a
+      generic error.

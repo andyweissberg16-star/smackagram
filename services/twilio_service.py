@@ -28,6 +28,22 @@ def _to_e164(number: str) -> str:
     return number
 
 
+def send_sms(to_phone: str, body: str) -> str:
+    """
+    Sends a plain SMS — used for 2FA verification codes. Returns the
+    Twilio message SID. Same account/from-number as the prank calls,
+    just the messages API instead of calls.
+    """
+    client = _get_client()
+    from_number = _to_e164(os.environ["TWILIO_PHONE_NUMBER"])
+    message = client.messages.create(
+        to=_to_e164(to_phone),
+        from_=from_number,
+        body=body,
+    )
+    return message.sid
+
+
 def place_prank_call(order_or_smackagram_id: int, recipient_phone: str, record: bool = True) -> str:
     """
     Fires the actual outbound call. Twilio hits our /call-instructions

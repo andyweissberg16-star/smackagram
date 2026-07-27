@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log In — Smackagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D; --ink-2:#1A1A1A; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
+    --flare:#E8142C; --gold:#FFD400; --line:rgba(245,245,243,0.10); --line-strong:rgba(245,245,243,0.24);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:420px; margin:0 auto; padding:0 24px 60px;}
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  nav a{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
+  nav a:hover{color:var(--flare);}
+  .hero{text-align:center; padding:36px 0 8px;}
+  .hero h1{font-family:'Anton',sans-serif; font-size:26px; text-transform:uppercase; letter-spacing:0.5px;}
+  .hero p{color:var(--chalk-dim); font-size:13px; margin-top:8px;}
+  .card{background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:28px; margin-top:24px;}
+  label{display:block; font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;}
+  input[type=email], input[type=password]{
+    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:4px; margin-bottom:14px;
+  }
+  input:focus{outline:none; border-color:var(--flare);}
+  .btn{font-weight:700; font-size:14px; padding:14px 24px; border-radius:4px; border:none; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; width:100%;}
+  .btn-flare{background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(232,20,44,0.4);}
+  .btn-flare:disabled{opacity:0.5; cursor:not-allowed;}
+  #formError{display:none; color:var(--flare); font-size:12px; margin-bottom:12px;}
+  .switch-link{text-align:center; font-size:13px; color:var(--chalk-dim); margin-top:18px;}
+  .switch-link a{color:var(--gold); text-decoration:none;}
+</style>
+</head>
+<body>
+
+<nav>
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+  <a href="/">&larr; Back to home</a>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <h1>Log In</h1>
+    <p>Welcome back. Let's talk some smack.</p>
+  </div>
+
+  <div class="card">
+    <label for="emailInput">Email Address</label>
+    <input id="emailInput" type="email" placeholder="you@example.com">
+
+    <label for="passwordInput">Password</label>
+    <input id="passwordInput" type="password" placeholder="Your password">
+
+    <div id="formError"></div>
+    <button id="loginBtn" class="btn btn-flare">Log In</button>
+    <p class="switch-link">Need an account? <a href="/register">Register</a></p>
+  </div>
+</div>
+
+<script>
+function getNextParam() {
+  return new URLSearchParams(window.location.search).get('next') || '/';
+}
+
+async function submitLogin() {
+  const errorEl = document.getElementById('formError');
+  const btn = document.getElementById('loginBtn');
+  errorEl.style.display = 'none';
+
+  const email = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('passwordInput').value;
+
+  if (!email || !password) {
+    errorEl.textContent = 'Enter your email and password.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Logging in...';
+
+  try {
+    const resp = await fetch('/api/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email: email, password: password})
+    });
+    const data = await resp.json();
+    if (data.error) {
+      errorEl.textContent = data.error;
+      errorEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Log In';
+    } else {
+      if (data.requires_verification) {
+        window.location.href = `/verify?next=${encodeURIComponent(getNextParam())}`;
+      } else {
+        window.location.href = getNextParam();
+      }
+    }
+  } catch (err) {
+    errorEl.textContent = "Couldn't log in — try again.";
+    errorEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Log In';
+  }
+}
+
+document.getElementById('loginBtn').addEventListener('click', submitLogin);
+['emailInput', 'passwordInput'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitLogin();
+    }
+  });
+});
+</script>
+</body>
+</html>

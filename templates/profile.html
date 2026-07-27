@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Profile — Smackagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D; --ink-2:#1A1A1A; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
+    --flare:#E8142C; --gold:#FFD400; --line:rgba(245,245,243,0.10); --line-strong:rgba(245,245,243,0.24);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:460px; margin:0 auto; padding:0 24px 60px;}
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  nav a{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
+  nav a:hover{color:var(--flare);}
+  .hero{text-align:center; padding:36px 0 8px;}
+  .hero h1{font-family:'Anton',sans-serif; font-size:26px; text-transform:uppercase; letter-spacing:0.5px;}
+  .customer-number{
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--gold); margin-top:8px;
+    text-transform:uppercase; letter-spacing:1px;
+  }
+  .card{background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:28px; margin-top:24px;}
+  label{display:block; font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;}
+  input[type=text], input[type=tel], input[type=date], input[type=email]{
+    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:4px; margin-bottom:14px;
+  }
+  input:focus{outline:none; border-color:var(--flare);}
+  input:disabled{color:var(--chalk-dim); cursor:not-allowed;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .row2 > div{min-width:0;}
+  .btn{font-weight:700; font-size:14px; padding:14px 24px; border-radius:4px; border:none; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; width:100%;}
+  .btn-flare{background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(232,20,44,0.4);}
+  .btn-flare:disabled{opacity:0.5; cursor:not-allowed;}
+  .btn-logout{background:transparent; border:1px solid var(--line-strong); color:var(--chalk); margin-top:12px;}
+  #formError{display:none; color:var(--flare); font-size:12px; margin-bottom:12px;}
+  #formSuccess{display:none; color:var(--gold); font-size:12px; margin-bottom:12px;}
+</style>
+</head>
+<body>
+
+<nav>
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+  <a href="/">&larr; Back to home</a>
+</nav>
+
+<div class="wrap">
+  <div class="hero">
+    <h1>My Profile</h1>
+    <p class="customer-number" id="customerNumberDisplay"></p>
+  </div>
+
+  <div class="card">
+    <label for="emailDisplay">Email Address</label>
+    <input id="emailDisplay" type="email" disabled>
+
+    <label for="screenNameInput">Screen Name</label>
+    <input id="screenNameInput" type="text">
+
+    <div class="row2">
+      <div>
+        <label for="firstNameInput">First Name</label>
+        <input id="firstNameInput" type="text">
+      </div>
+      <div>
+        <label for="lastNameInput">Last Name</label>
+        <input id="lastNameInput" type="text">
+      </div>
+    </div>
+
+    <label for="phoneInput">Mobile Phone</label>
+    <input id="phoneInput" type="tel">
+
+    <label for="dobInput">Date of Birth</label>
+    <input id="dobInput" type="date">
+
+    <div id="formError"></div>
+    <div id="formSuccess"></div>
+    <button id="saveBtn" class="btn btn-flare">Save Changes</button>
+    <button id="logoutBtn" class="btn btn-logout">Log Out</button>
+  </div>
+</div>
+
+<script>
+async function loadProfile() {
+  const resp = await fetch('/api/profile');
+  if (!resp.ok) {
+    window.location.href = '/login';
+    return;
+  }
+  const data = await resp.json();
+  document.getElementById('customerNumberDisplay').textContent = `Customer #${data.customer_number}`;
+  document.getElementById('emailDisplay').value = data.email;
+  document.getElementById('firstNameInput').value = data.first_name;
+  document.getElementById('screenNameInput').value = data.screen_name;
+  document.getElementById('lastNameInput').value = data.last_name;
+  document.getElementById('phoneInput').value = data.phone;
+  document.getElementById('dobInput').value = data.date_of_birth;
+}
+
+document.getElementById('saveBtn').addEventListener('click', async () => {
+  const errorEl = document.getElementById('formError');
+  const successEl = document.getElementById('formSuccess');
+  const btn = document.getElementById('saveBtn');
+  errorEl.style.display = 'none';
+  successEl.style.display = 'none';
+
+  const payload = {
+    first_name: document.getElementById('firstNameInput').value.trim(),
+    screen_name: document.getElementById('screenNameInput').value.trim(),
+    last_name: document.getElementById('lastNameInput').value.trim(),
+    phone: document.getElementById('phoneInput').value.trim(),
+    date_of_birth: document.getElementById('dobInput').value,
+  };
+
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    const resp = await fetch('/api/profile', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    if (data.error) {
+      errorEl.textContent = data.error;
+      errorEl.style.display = 'block';
+    } else {
+      successEl.textContent = 'Saved.';
+      successEl.style.display = 'block';
+    }
+  } catch (err) {
+    errorEl.textContent = "Couldn't save — try again.";
+    errorEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Changes';
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await fetch('/api/logout', {method: 'POST'});
+  window.location.href = '/';
+});
+
+loadProfile();
+</script>
+</body>
+</html>

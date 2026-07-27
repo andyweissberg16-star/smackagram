@@ -1,4 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 
 db = SQLAlchemy()
@@ -302,3 +303,47 @@ class BattleRoundResult(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint("battle_id", "round_number", name="one_result_per_round_per_battle"),)
+
+
+class User(db.Model):
+    """
+    Registered user account — required to use any real feature on the
+    site (sending smacks, battles, chat, etc). customer_number is a
+    separate, business-facing ID from the internal db id, starting at
+    1,000,001 for the first real registered customer (assigned in the
+    registration endpoint, not via DB auto-increment, since starting
+    values for auto-increment aren't portably configurable across
+    SQLite vs Postgres). The admin test account is seeded below that
+    range at customer_number 1,000,000.
+    """
+    __tablename__ = "users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    customer_number = db.Column(db.Integer, unique=True, nullable=False)
+
+    first_name = db.Column(db.String(80), nullable=False)
+    last_name = db.Column(db.String(80), nullable=False)
+    screen_name = db.Column(db.String(30), unique=True, nullable=False)  # displayed everywhere identity is shown (chat, battles) instead of real name
+    email = db.Column(db.String(255), unique=True, nullable=False)
+    phone = db.Column(db.String(30), nullable=False)
+    date_of_birth = db.Column(db.Date, nullable=False)
+
+    password_hash = db.Column(db.String(255), nullable=False)
+    terms_accepted_at = db.Column(db.DateTime, nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
+
+    # 2FA — a fresh code is generated and texted at every login (and
+    # right after registration, to confirm the phone number is real).
+    # Only email 2FA is deferred until email-sending infrastructure
+    # exists on this site — SMS is the only channel actually wired up
+    # right now.
+    two_factor_code = db.Column(db.String(10), nullable=True)
+    two_factor_expires_at = db.Column(db.DateTime, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def set_password(self, raw_password):
+        self.password_hash = generate_password_hash(raw_password)
+
+    def check_password(self, raw_password):
+        return check_password_hash(self.password_hash, raw_password)
