@@ -521,6 +521,10 @@ one at a time. Logging each as it's built:
       labels, a red/gold accent stripe, a VS divider between team and
       name, stronger button glow. Button now reads "Start a Smack
       Battle."
+- [x] Reverted the full-page background per follow-up — back to the
+      hero image as a simple banner up top, plain dark background below.
+      Kept the fight-card form styling (Anton labels, accent stripe, VS
+      divider, button glow) from the redesign.
 
 ---
 *Last updated: 2026-07-26*
