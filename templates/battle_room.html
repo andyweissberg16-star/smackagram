@@ -225,6 +225,13 @@
 
 <audio id="crowdLoopAudio" loop style="display:none;"></audio>
 <audio id="waitingMusicAudio" loop style="display:none;"></audio>
+<audio id="cheerAudio" style="display:none;"></audio>
+<audio id="booAudio" style="display:none;"></audio>
+<audio id="critiqueRevealAudio" style="display:none;"></audio>
+<audio id="bellAudio" style="display:none;"></audio>
+<audio id="introAudio" style="display:none;"></audio>
+<audio id="tickAudio" style="display:none;"></audio>
+<audio id="newLineAudio" style="display:none;"></audio>
 
 <div id="roundResultPopup" class="round-popup"></div>
 
@@ -232,7 +239,6 @@
 
 <script>
 const challengeCode = "{{ challenge_code }}";
-let pollInterval = null;
 
 function getMySide() {
   return localStorage.getItem(`battle_side_${challengeCode}`);
@@ -261,7 +267,7 @@ let lastLineCount = 0;
 let lastRoundResultsCount = 0;
 let knownRoundNumber = null;
 let lastActionSignature = null;
-const newLineDing = new Audio();
+let judgingStartedAt = null;
 
 async function initSound() {
   try {
@@ -270,7 +276,31 @@ async function initSound() {
       sfxUrls = await resp.json();
     }
     soundEnabled = true;
-    if (sfxUrls.new_line_url) newLineDing.src = sfxUrls.new_line_url;
+
+    // Every sound effect lives on a persistent, pre-existing <audio>
+    // element with its src set once here, rather than a fresh
+    // `new Audio()` created at the moment each sound needs to play.
+    // Mobile Safari in particular is strict about only allowing a
+    // brand-new Audio object to play if it's directly tied to a user
+    // gesture — but replaying an element that was already unlocked once
+    // (see handlePageInteraction) is reliably allowed from anywhere,
+    // including from inside a poll callback.
+    const sourceMap = {
+      cheerAudio: sfxUrls.cheer_url,
+      booAudio: sfxUrls.boo_url,
+      critiqueRevealAudio: sfxUrls.critique_reveal_url,
+      bellAudio: sfxUrls.bell_url,
+      introAudio: sfxUrls.intro_url,
+      tickAudio: sfxUrls.countdown_tick_url,
+      newLineAudio: sfxUrls.new_line_url,
+    };
+    for (const [id, url] of Object.entries(sourceMap)) {
+      const el = document.getElementById(id);
+      if (el && url) el.src = url;
+    }
+    if (document.getElementById('critiqueRevealAudio')) {
+      document.getElementById('critiqueRevealAudio').volume = 0.5;
+    }
 
     const crowdAudio = document.getElementById('crowdLoopAudio');
     if (sfxUrls.crowd_loop_url) {
@@ -286,8 +316,8 @@ async function initSound() {
     // interaction with the page — updateBackgroundMusic figures out
     // which loop should actually be playing for the current status;
     // this first attempt will likely get silently blocked, which is
-    // fine, since unlockAudio() catches the first real interaction and
-    // retries from there.
+    // fine, since handlePageInteraction catches the first real
+    // interaction and retries from there.
     updateBackgroundMusic(lastKnownStatus);
   } catch (err) {
     // sound just won't be available this session — not fatal
@@ -295,8 +325,6 @@ async function initSound() {
 }
 
 let lastKnownStatus = 'waiting';
-
-let musicMuted = false;
 
 function updateBackgroundMusic(status) {
   const crowdAudio = document.getElementById('crowdLoopAudio');
@@ -306,45 +334,52 @@ function updateBackgroundMusic(status) {
     // the final scorecard reveal — the crowd loop is specifically for
     // the live back-and-forth of an active battle.
     if (crowdAudio && !crowdAudio.paused) crowdAudio.pause();
-    if (!musicMuted && waitingAudio && waitingAudio.paused && waitingAudio.src) waitingAudio.play().catch(() => {});
+    if (waitingAudio && waitingAudio.paused && waitingAudio.src) waitingAudio.play().catch(() => {});
   } else {
     if (waitingAudio && !waitingAudio.paused) waitingAudio.pause();
-    if (!musicMuted && crowdAudio && crowdAudio.paused && crowdAudio.src) crowdAudio.play().catch(() => {});
+    if (crowdAudio && crowdAudio.paused && crowdAudio.src) crowdAudio.play().catch(() => {});
   }
 }
 
 initSound();
 
+const unlockedAudioIds = new Set();
+
 function handlePageInteraction() {
-  // Browsers block real autoplay-with-sound before any interaction —
-  // this is a hard restriction on every site, not something any code
-  // can bypass. Closest real behavior: the very first tap/click
-  // anywhere on the page starts the music; every tap after that toggles
-  // mute/unmute, since by then the audio element is already "unlocked"
-  // and just needs pausing/resuming rather than a fresh play() call.
-  const currentAudio = (lastKnownStatus === 'waiting' || lastKnownStatus === 'complete')
-    ? document.getElementById('waitingMusicAudio')
-    : document.getElementById('crowdLoopAudio');
+  // Browsers block real autoplay-with-sound before any interaction on
+  // every site — the first tap/click anywhere on the page unlocks and
+  // starts the music. Permanent from there — no mute toggle.
+  updateBackgroundMusic(lastKnownStatus);
 
-  if (!currentAudio || !currentAudio.src) return;
-
-  if (currentAudio.paused && !musicMuted) {
-    // Not playing yet at all — this is the unlock moment, start it.
-    updateBackgroundMusic(lastKnownStatus);
-  } else {
-    // Already been unlocked once — toggle mute/unmute from here on.
-    musicMuted = !musicMuted;
-    if (musicMuted) {
-      currentAudio.pause();
-    } else {
-      currentAudio.play().catch(() => {});
+  // Also unlock every one-shot sound effect element — mobile Safari in
+  // particular will reject play() on an element later (e.g. from inside
+  // a poll callback) if that exact element was never successfully
+  // played during a real gesture first. Tracked per-element (not a
+  // single one-time flag) so this safely retries only the ones that
+  // still need it — covers the case where the very first click happens
+  // before the sound URLs have finished loading — without repeating a
+  // play-then-pause on every single keystroke once everything's already
+  // unlocked, which would otherwise cause audible blips while typing.
+  ['cheerAudio', 'booAudio', 'critiqueRevealAudio', 'bellAudio', 'introAudio', 'tickAudio', 'newLineAudio'].forEach(id => {
+    if (unlockedAudioIds.has(id)) return;
+    const el = document.getElementById(id);
+    if (el && el.src) {
+      el.play().then(() => { el.pause(); unlockedAudioIds.add(id); }).catch(() => {});
     }
-  }
+  });
 }
 
 ['click', 'touchstart', 'keydown'].forEach(evt => {
   document.addEventListener(evt, handlePageInteraction);
 });
+
+function playAudioElement(id) {
+  const el = document.getElementById(id);
+  if (el && el.src) {
+    el.currentTime = 0;
+    el.play().catch(() => {});
+  }
+}
 
 function showRoundResultPopup(outcome) {
   // outcome: "win", "loss", or "tie" — relative to the local viewer's side
@@ -359,19 +394,15 @@ function showRoundResultPopup(outcome) {
   setTimeout(() => { popup.classList.remove('show'); }, 5000);
 
   if (soundEnabled && sfxUrls) {
-    if (outcome === 'win' && sfxUrls.cheer_url) new Audio(sfxUrls.cheer_url).play().catch(() => {});
-    if (outcome === 'loss' && sfxUrls.boo_url) new Audio(sfxUrls.boo_url).play().catch(() => {});
-    if (sfxUrls.critique_reveal_url) {
-      const critiqueSound = new Audio(sfxUrls.critique_reveal_url);
-      critiqueSound.volume = 0.5;
-      critiqueSound.play().catch(() => {});
-    }
+    if (outcome === 'win' && sfxUrls.cheer_url) playAudioElement('cheerAudio');
+    if (outcome === 'loss' && sfxUrls.boo_url) playAudioElement('booAudio');
+    if (sfxUrls.critique_reveal_url) playAudioElement('critiqueRevealAudio');
   }
 }
 
 function ringBell() {
   if (soundEnabled && sfxUrls && sfxUrls.bell_url) {
-    new Audio(sfxUrls.bell_url).play().catch(() => {});
+    playAudioElement('bellAudio');
   }
 }
 
@@ -384,7 +415,7 @@ function playIntro(teamA, teamB) {
   countdownEl.className = 'intro-countdown';
   overlay.style.display = 'flex';
   if (soundEnabled && sfxUrls && sfxUrls.intro_url) {
-    new Audio(sfxUrls.intro_url).play().catch(() => {});
+    playAudioElement('introAudio');
   }
 
   // Hold on the team names + VS for a beat before the countdown starts,
@@ -402,7 +433,7 @@ function playIntro(teamA, teamB) {
       void countdownEl.offsetWidth;
       countdownEl.classList.add('pulse');
       if (soundEnabled && sfxUrls && sfxUrls.countdown_tick_url) {
-        new Audio(sfxUrls.countdown_tick_url).play().catch(() => {});
+        playAudioElement('tickAudio');
       }
     }, holdMs + i * stepMs);
   });
@@ -410,7 +441,7 @@ function playIntro(teamA, teamB) {
   setTimeout(() => {
     overlay.style.display = 'none';
     if (soundEnabled && sfxUrls && sfxUrls.bell_url) {
-      new Audio(sfxUrls.bell_url).play().catch(() => {});
+      playAudioElement('bellAudio');
     }
   }, holdMs + 3 * stepMs);
 }
@@ -418,13 +449,20 @@ function playIntro(teamA, teamB) {
 async function loadBattle() {
   try {
     const resp = await fetch(`/api/battles/${challengeCode}?_=${Date.now()}`, {cache: 'no-store'});
-    if (!resp.ok) throw new Error('not found');
+    if (resp.status === 404) {
+      document.getElementById('matchupHeader').innerHTML = '<p class="matchup-teams">Battle not found</p>';
+      document.getElementById('content').innerHTML = '';
+      return;
+    }
+    if (!resp.ok) throw new Error(`unexpected status ${resp.status}`);
     const battle = await resp.json();
     render(battle);
   } catch (err) {
-    document.getElementById('matchupHeader').innerHTML = '<p class="matchup-teams">Battle not found</p>';
-    document.getElementById('content').innerHTML = '';
-    if (pollInterval) clearInterval(pollInterval);
+    // A transient network error (much more common on mobile than
+    // desktop) should never permanently end polling — that was the
+    // actual cause of needing a hard refresh to recover. Just skip this
+    // one cycle silently; the next scheduled poll will try again.
+    console.warn('loadBattle poll failed, will retry:', err);
   }
 }
 
@@ -619,8 +657,9 @@ function render(battle) {
   // A new line arrived since the last render — celebrate it with a quick
   // crowd-pop sound, but only once sound has actually been enabled.
   if (soundEnabled && battle.lines.length > lastLineCount && lastLineCount > 0) {
-    newLineDing.currentTime = 0;
-    newLineDing.play().catch(() => {});
+    const newLineAudio = document.getElementById('newLineAudio');
+    newLineAudio.currentTime = 0;
+    newLineAudio.play().catch(() => {});
   }
   lastLineCount = battle.lines.length;
 
@@ -666,7 +705,17 @@ function render(battle) {
   // string captures everything that would legitimately require a
   // rebuild; if it's unchanged since last render, the DOM (and whatever
   // the user is doing in it right now) is left completely alone.
-  const actionSignature = `${battle.status}|${battle.current_turn}|${mySide}|${battle.round_number}|${battle.vote_count_a}|${battle.awaiting_next_round}|${battle.ready_a}|${battle.ready_b}|${(battle.round_results || []).length}|${battle.overall_winner}|${battle.rematch_requested_a}|${battle.rematch_requested_b}`;
+  // While judging is pending with no result yet, fold in a coarse
+  // time-bucket so the action area re-checks periodically instead of
+  // getting stuck skipping its own rebuild forever — otherwise the
+  // 20-second "try again" fallback below would never actually get a
+  // chance to render, since none of the underlying battle fields change
+  // while genuinely stuck waiting.
+  const isPendingJudgment = battle.status === 'active' && battle.awaiting_next_round
+    && !(battle.round_results || []).some(r => r.round === battle.round_number);
+  const timeBucket = isPendingJudgment ? Math.floor(Date.now() / 5000) : 0;
+
+  const actionSignature = `${battle.status}|${battle.current_turn}|${mySide}|${battle.round_number}|${battle.vote_count_a}|${battle.awaiting_next_round}|${battle.ready_a}|${battle.ready_b}|${(battle.round_results || []).length}|${battle.overall_winner}|${battle.rematch_requested_a}|${battle.rematch_requested_b}|${timeBucket}`;
   if (lastActionSignature === actionSignature) {
     return;
   }
@@ -679,13 +728,27 @@ function render(battle) {
     if (!latestResult) {
       // Judging happens in the background now (so submitting a line
       // responds instantly) — this is the brief window before that
-      // finishes. Keep polling picks it up within ~1.5s.
-      actionHtml = `
+      // finishes. Keep polling picks it up within ~1.5s. Track how long
+      // this has been pending — if it drags on well past a normal AI
+      // call (20s+), something's actually gone wrong server-side rather
+      // than just being mid-flight, so offer a way out instead of
+      // leaving the person stuck looking at this forever with no
+      // recourse but abandoning the battle.
+      if (judgingStartedAt === null) judgingStartedAt = Date.now();
+      const stuckTooLong = Date.now() - judgingStartedAt > 20000;
+
+      actionHtml = stuckTooLong ? `
+        <div class="card">
+          <p class="waiting-note" style="margin-bottom:12px;">This is taking longer than it should.</p>
+          <button id="retryJudgingBtn" class="btn" style="background:transparent; border:1px solid var(--line-strong); color:var(--chalk);">Try again</button>
+        </div>
+      ` : `
         <div class="card">
           <p class="waiting-note">Judging this round...</p>
         </div>
       `;
     } else {
+      judgingStartedAt = null;
       const myCritique = mySide === 'a' ? latestResult.critique_a : latestResult.critique_b;
       const myScore = mySide === 'a' ? latestResult.score_a : latestResult.score_b;
       const outcome = latestResult.winner === 'tie' ? 'tie' : (latestResult.winner === mySide ? 'win' : 'loss');
@@ -760,6 +823,11 @@ function render(battle) {
   }
 
   actionArea.innerHTML = actionHtml;
+
+  const retryJudgingBtn = document.getElementById('retryJudgingBtn');
+  if (retryJudgingBtn) {
+    retryJudgingBtn.addEventListener('click', () => window.location.reload());
+  }
 
   if (battle.status === 'active' && battle.awaiting_next_round) {
     const readyBtn = document.getElementById('readyBtn');
@@ -873,8 +941,25 @@ function render(battle) {
   }
 }
 
-loadBattle();
-pollInterval = setInterval(loadBattle, 1500);
+// A self-scheduling loop rather than a raw setInterval — each poll only
+// gets scheduled after the previous one actually finishes, which avoids
+// overlapping/stacked calls if a single request is ever slow, and tends
+// to recover more predictably than setInterval after a mobile browser
+// throttles or suspends timers in the background.
+let pollTimeoutId = null;
+async function pollLoop() {
+  try {
+    await loadBattle();
+  } catch (err) {
+    // loadBattle already catches its own errors internally, but this is
+    // a final safety net — nothing should ever be able to break the
+    // recursive scheduling below and silently end polling for the rest
+    // of the session.
+    console.warn('pollLoop unexpected error:', err);
+  }
+  pollTimeoutId = setTimeout(pollLoop, 1500);
+}
+pollLoop();
 
 // Mobile browsers throttle or pause JS timers when a tab is backgrounded
 // (screen lock, switching apps, etc.) — when someone comes back to the
@@ -883,7 +968,8 @@ pollInterval = setInterval(loadBattle, 1500);
 // stuck on stale state.
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
-    loadBattle();
+    if (pollTimeoutId) clearTimeout(pollTimeoutId);
+    pollLoop();
   }
 });
 </script>

@@ -111,7 +111,7 @@
 <script>
 let createdCode = null;
 
-document.getElementById('createBtn').addEventListener('click', async () => {
+async function createBattle() {
   const league = document.getElementById('leagueSelect').value;
   const team = document.getElementById('teamInput').value.trim();
   const name = document.getElementById('nameInput').value.trim();
@@ -121,6 +121,11 @@ document.getElementById('createBtn').addEventListener('click', async () => {
   errorEl.style.display = 'none';
   if (!team) {
     errorEl.textContent = 'Enter your team first.';
+    errorEl.style.display = 'block';
+    return;
+  }
+  if (!name) {
+    errorEl.textContent = 'Enter your name first.';
     errorEl.style.display = 'block';
     return;
   }
@@ -158,6 +163,16 @@ document.getElementById('createBtn').addEventListener('click', async () => {
     btn.disabled = false;
     btn.textContent = 'Start a battle';
   }
+}
+
+document.getElementById('createBtn').addEventListener('click', createBattle);
+['teamInput', 'nameInput'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      createBattle();
+    }
+  });
 });
 
 document.getElementById('enterBtn').addEventListener('click', () => {

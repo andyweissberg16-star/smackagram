@@ -451,6 +451,47 @@ one at a time. Logging each as it's built:
       and every tap after that toggles mute/unmute (also fixed a bug
       where changing battle status, like the opponent joining, would
       have silently un-muted the music against the user's choice).
+- [x] Reverted the mute toggle above per follow-up request — back to a
+      one-way permanent unlock (first click starts it, stays on, no way
+      to mute again). Same behavior on mobile and desktop since it's one
+      universal click/touch/keydown listener.
+- [x] Create-battle page: team and name are both now required, and
+      pressing Enter in either field submits, same as clicking the
+      button.
+- [x] Fixed critique-reveal (and cheer/boo/bell/tick/intro/new-line)
+      sounds not playing on mobile. Root cause: every one of these was
+      created as a brand-new Audio object at the moment it needed to
+      play, from inside a poll callback rather than a direct user
+      gesture — mobile Safari specifically rejects that. Converted all
+      of them to persistent, pre-existing audio elements that get
+      "unlocked" via a real play-then-pause during actual clicks/taps,
+      then simply replayed from poll callbacks after that — which mobile
+      Safari reliably allows.
+- [x] Found and fixed a serious bug likely explaining most of the
+      "freezes after every round, needs a hard refresh" reports: any
+      transient network error during a poll (far more common on mobile
+      connections than stable desktop ones) was permanently killing
+      polling for the rest of the session via clearInterval, with no way
+      to recover except a hard refresh. Removed that entirely — a failed
+      poll now just retries next cycle, and "Battle not found" only
+      shows for a genuine 404, not a network hiccup. Also switched from
+      setInterval to a self-scheduling loop (more resilient to mobile
+      timer throttling) with an extra safety net so nothing can silently
+      end polling again.
+- [x] MAJOR FIX: found the real cause of getting permanently stuck on
+      "Judging this round..." — SQLite's default driver flatly refuses
+      to let a database connection be used from a different thread than
+      the one that created it, and both round judging and recap
+      generation run in background threads specifically so submitting a
+      line responds instantly. Every database write from those threads
+      was throwing, silently caught by a broad exception handler and
+      logged only to server logs (never visible to the user), meaning
+      the round's result genuinely never got saved — stuck forever, not
+      just slow. Added check_same_thread=False to the SQLite connection
+      (harmless no-op if this ever migrates to Postgres). Also added a
+      20-second timeout fallback with a manual "Try again" button on the
+      judging screen, as a safety net against any future issue leaving
+      someone stuck with literally no way out but abandoning the battle.
 
 ---
 *Last updated: 2026-07-26*

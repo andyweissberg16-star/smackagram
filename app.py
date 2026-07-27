@@ -16,6 +16,17 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///smackagram.db")
+# SQLite's default driver flatly refuses to let a connection be used
+# from a different thread than the one that created it — which is
+# exactly what the background round-judging and recap-generation
+# threads do. Without this, every database write from those threads
+# throws (silently caught and logged, not visible to the user), leaving
+# a round permanently stuck showing "Judging this round..." since the
+# result never actually gets saved. Harmless if/when this migrates to
+# Postgres later — this option is SQLite-specific and just gets ignored
+# by other database engines.
+if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite"):
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"connect_args": {"check_same_thread": False}}
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-me")
 db.init_app(app)
 
