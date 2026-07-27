@@ -285,5 +285,29 @@ to what a full account/profile page should eventually look like.
       "your profile" once Postgres + accounts exist, rather than as a
       fully separate, throwaway system.
 
+## Built, waiting to deploy (Smack Battle audio polish)
+User is queueing up a list of fixes to be deployed together later, not
+one at a time. Logging each as it's built:
+- [x] Countdown tick/click sound on each 3-2-1 number
+- [x] Boxing ring bell sound when the battle starts, right as the
+      countdown finishes and the overlay clears
+- [x] LED-style round scorecard under the team names — 5 rounds, blinks
+      on the current round, lights up gold/red for whoever the AI judged
+      as the round winner once both sides have gone (tie shows a split
+      gold/red LED). AI decides each round's winner for now — real
+      per-round audience voting is a possible future upgrade.
+- [x] Removed the "Enable sound" button — sound is on by default now,
+      no toggle needed. Honest note: browsers still block audio-with-
+      sound from truly autoplaying before any interaction with the
+      page — handled with a fallback that catches the very first
+      click/tap anywhere and starts the crowd loop then, so it's not
+      silent, just possibly starts a beat later than page load on some
+      browsers.
+- [x] Per-person round result popup after every round — each viewer sees
+      their own personalized "You won that round!" or "You lost that
+      round" (or "Round tied"), 4 seconds on screen, with cheers for the
+      winner and boos for the loser. Match bell now also rings at the
+      start of every round, not just the very first one.
+
 ---
 *Last updated: 2026-07-26*

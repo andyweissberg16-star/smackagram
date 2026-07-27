@@ -242,3 +242,22 @@ class BattleVote(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint("battle_id", "voter_id", name="one_vote_per_voter_per_battle"),)
+
+
+class BattleRoundResult(db.Model):
+    """
+    AI-judged outcome of one completed round (both sides have gone).
+    Powers the LED-style scorecard under the team names. For now the
+    generator decides each round's winner — real per-round audience
+    voting is a possible future upgrade, but this is the reasonable
+    default until that's worth building.
+    """
+    __tablename__ = "battle_round_results"
+
+    id = db.Column(db.Integer, primary_key=True)
+    battle_id = db.Column(db.Integer, db.ForeignKey("battles.id"), nullable=False)
+    round_number = db.Column(db.Integer, nullable=False)
+    winner = db.Column(db.String(4), nullable=False)  # "a", "b", or "tie"
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("battle_id", "round_number", name="one_result_per_round_per_battle"),)

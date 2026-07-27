@@ -40,6 +40,37 @@
   .matchup-teams .side-b{color:var(--flare);}
   .round-indicator{color:var(--chalk-dim); font-size:12px; font-family:'JetBrains Mono',monospace; margin-top:6px; text-transform:uppercase;}
 
+  .led-row{display:flex; justify-content:center; gap:12px; margin-top:16px;}
+  .led{
+    width:22px; height:22px; border-radius:50%; background:#1a1a1a; border:2px solid var(--line-strong);
+    box-shadow:inset 0 0 6px rgba(0,0,0,0.6); position:relative;
+  }
+  .led.side-a{background:var(--gold); border-color:var(--gold); box-shadow:0 0 12px 2px rgba(255,212,0,0.8), inset 0 0 4px rgba(0,0,0,0.3);}
+  .led.side-b{background:var(--flare); border-color:var(--flare); box-shadow:0 0 12px 2px rgba(232,20,44,0.8), inset 0 0 4px rgba(0,0,0,0.3);}
+  .led.tie{background:linear-gradient(90deg, var(--gold) 50%, var(--flare) 50%); border-color:var(--chalk-dim); box-shadow:0 0 10px 1px rgba(255,255,255,0.4);}
+  .led.active{animation:ledBlink 1s ease-in-out infinite;}
+  @keyframes ledBlink{
+    0%, 100%{background:#1a1a1a; border-color:var(--line-strong); box-shadow:inset 0 0 6px rgba(0,0,0,0.6);}
+    50%{background:var(--chalk); border-color:var(--chalk); box-shadow:0 0 14px 3px rgba(245,245,243,0.8);}
+  }
+
+  .round-popup{
+    position:fixed; top:24px; left:50%; transform:translateX(-50%) translateY(-100px);
+    z-index:250; padding:16px 32px; border-radius:8px; font-family:'Anton',sans-serif;
+    font-size:22px; text-transform:uppercase; text-align:center; opacity:0; pointer-events:none;
+    box-shadow:0 8px 24px rgba(0,0,0,0.5);
+  }
+  .round-popup.win{background:var(--gold); color:var(--ink); box-shadow:0 8px 24px rgba(255,212,0,0.5);}
+  .round-popup.loss{background:var(--flare); color:#fff; box-shadow:0 8px 24px rgba(232,20,44,0.5);}
+  .round-popup.tie{background:var(--ink-2); color:var(--chalk); border:2px solid var(--chalk-dim);}
+  .round-popup.show{animation:popupSlide 4s ease-in-out forwards;}
+  @keyframes popupSlide{
+    0%{opacity:0; transform:translateX(-50%) translateY(-40px);}
+    10%{opacity:1; transform:translateX(-50%) translateY(0);}
+    85%{opacity:1; transform:translateX(-50%) translateY(0);}
+    100%{opacity:0; transform:translateX(-50%) translateY(-40px);}
+  }
+
   .card{
     background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:24px; margin-bottom:16px;
   }
@@ -127,10 +158,6 @@
 </nav>
 
 <div class="wrap">
-  <div style="text-align:right; margin-top:8px;">
-    <button id="soundToggle" class="btn" style="width:auto; padding:8px 16px; font-size:11px; background:transparent; border:1px solid var(--line-strong); color:var(--chalk-dim);">Enable sound</button>
-  </div>
-
   <div class="matchup" id="matchupHeader">
     <p class="matchup-teams">Loading...</p>
   </div>
@@ -146,6 +173,8 @@
 </div>
 
 <audio id="crowdLoopAudio" loop style="display:none;"></audio>
+
+<div id="roundResultPopup" class="round-popup"></div>
 
 <footer>
   <a href="/terms">Terms</a> &middot; <a href="/contact">Contact</a>
@@ -175,43 +204,72 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-let soundEnabled = false;
+let soundEnabled = true;
 let sfxUrls = null;
 let introShown = false;
 let lastLineCount = 0;
+let lastRoundResultsCount = 0;
+let knownRoundNumber = null;
 const newLineDing = new Audio();
 
-async function enableSound() {
-  const btn = document.getElementById('soundToggle');
-  btn.textContent = 'Loading sound...';
-  btn.disabled = true;
+async function initSound() {
   try {
     if (!sfxUrls) {
       const resp = await fetch('/api/battle-sfx');
       sfxUrls = await resp.json();
     }
     soundEnabled = true;
-    btn.textContent = 'Sound on';
-    btn.style.borderColor = 'var(--gold)';
-    btn.style.color = 'var(--gold)';
     if (sfxUrls.new_line_url) newLineDing.src = sfxUrls.new_line_url;
 
     const crowdAudio = document.getElementById('crowdLoopAudio');
     if (sfxUrls.crowd_loop_url) {
       crowdAudio.src = sfxUrls.crowd_loop_url;
       crowdAudio.volume = 0.15;
+      // Browsers block audio-with-sound from truly autoplaying before
+      // any interaction with the page — this attempt will likely get
+      // silently blocked on first load, which is fine; the fallback
+      // below catches the very first click/tap anywhere and retries,
+      // so sound kicks in the moment someone actually does anything.
       crowdAudio.play().catch(() => {});
     }
   } catch (err) {
-    btn.textContent = 'Enable sound';
-  } finally {
-    btn.disabled = false;
+    // sound just won't be available this session — not fatal
   }
 }
 
-document.getElementById('soundToggle').addEventListener('click', () => {
-  if (!soundEnabled) enableSound();
-});
+initSound();
+
+document.addEventListener('click', function retryAudioOnFirstInteraction() {
+  const crowdAudio = document.getElementById('crowdLoopAudio');
+  if (crowdAudio && crowdAudio.paused && crowdAudio.src) {
+    crowdAudio.play().catch(() => {});
+  }
+  document.removeEventListener('click', retryAudioOnFirstInteraction);
+}, { once: true });
+
+function showRoundResultPopup(outcome) {
+  // outcome: "win", "loss", or "tie" — relative to the local viewer's side
+  const popup = document.getElementById('roundResultPopup');
+  popup.className = 'round-popup';
+  popup.textContent = outcome === 'win' ? 'You won that round!'
+    : outcome === 'loss' ? 'You lost that round'
+    : 'Round tied';
+
+  void popup.offsetWidth;
+  popup.classList.add(outcome, 'show');
+  setTimeout(() => { popup.classList.remove('show'); }, 4000);
+
+  if (soundEnabled && sfxUrls) {
+    if (outcome === 'win' && sfxUrls.cheer_url) new Audio(sfxUrls.cheer_url).play().catch(() => {});
+    if (outcome === 'loss' && sfxUrls.boo_url) new Audio(sfxUrls.boo_url).play().catch(() => {});
+  }
+}
+
+function ringBell() {
+  if (soundEnabled && sfxUrls && sfxUrls.bell_url) {
+    new Audio(sfxUrls.bell_url).play().catch(() => {});
+  }
+}
 
 function playIntro(teamA, teamB) {
   const overlay = document.getElementById('introOverlay');
@@ -239,10 +297,18 @@ function playIntro(teamA, teamB) {
       countdownEl.classList.remove('pulse');
       void countdownEl.offsetWidth;
       countdownEl.classList.add('pulse');
+      if (soundEnabled && sfxUrls && sfxUrls.countdown_tick_url) {
+        new Audio(sfxUrls.countdown_tick_url).play().catch(() => {});
+      }
     }, holdMs + i * stepMs);
   });
 
-  setTimeout(() => { overlay.style.display = 'none'; }, holdMs + 3 * stepMs);
+  setTimeout(() => {
+    overlay.style.display = 'none';
+    if (soundEnabled && sfxUrls && sfxUrls.bell_url) {
+      new Audio(sfxUrls.bell_url).play().catch(() => {});
+    }
+  }, holdMs + 3 * stepMs);
 }
 
 async function loadBattle() {
@@ -256,6 +322,24 @@ async function loadBattle() {
     document.getElementById('content').innerHTML = '';
     if (pollInterval) clearInterval(pollInterval);
   }
+}
+
+function buildLedRow(battle) {
+  const results = {};
+  (battle.round_results || []).forEach(r => { results[r.round] = r.winner; });
+
+  let leds = '';
+  for (let round = 1; round <= 5; round++) {
+    if (results[round]) {
+      const winner = results[round]; // "a", "b", or "tie"
+      leds += `<div class="led ${winner === 'tie' ? 'tie' : 'side-' + winner}"></div>`;
+    } else if (battle.status === 'active' && round === battle.round_number) {
+      leds += `<div class="led active"></div>`;
+    } else {
+      leds += `<div class="led"></div>`;
+    }
+  }
+  return leds;
 }
 
 function render(battle) {
@@ -330,8 +414,32 @@ function render(battle) {
   // into an already-active battle").
   if (!introShown) {
     introShown = true;
+    knownRoundNumber = battle.round_number;
+    lastRoundResultsCount = (battle.round_results || []).length;
     playIntro(battle.team_a, battle.team_b);
   }
+
+  // Round 1's bell is handled by playIntro (rings right as the intro
+  // countdown finishes). This covers every round after that — the
+  // moment round_number ticks up while still active, ring the bell
+  // again to mark the new round starting.
+  if (knownRoundNumber !== null && battle.status === 'active' && battle.round_number > knownRoundNumber) {
+    ringBell();
+  }
+  knownRoundNumber = battle.round_number;
+
+  // A new round result landed — tell the local viewer whether they won,
+  // lost, or tied that round, with the matching cheer/boo sound. Only
+  // fires for results that are actually new since the last render, and
+  // only once mySide is known (so this doesn't fire for pure spectators
+  // watching without having joined either side).
+  const results = battle.round_results || [];
+  if (results.length > lastRoundResultsCount && mySide) {
+    const latest = results[results.length - 1];
+    const outcome = latest.winner === 'tie' ? 'tie' : (latest.winner === mySide ? 'win' : 'loss');
+    showRoundResultPopup(outcome);
+  }
+  lastRoundResultsCount = results.length;
 
   // A new line arrived since the last render — celebrate it with a quick
   // crowd-pop sound, but only once sound has actually been enabled.
@@ -344,6 +452,7 @@ function render(battle) {
   header.innerHTML = `
     <p class="matchup-teams"><span class="side-a">${escapeHtml(battle.team_a)}</span><span class="vs">vs</span><span class="side-b">${escapeHtml(battle.team_b)}</span></p>
     <p class="round-indicator">${battle.status === 'complete' ? 'Battle complete' : `Round ${battle.round_number} of 5`}</p>
+    <div class="led-row">${buildLedRow(battle)}</div>
   `;
 
   let html = '<div class="card">';

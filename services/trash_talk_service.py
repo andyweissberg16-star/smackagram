@@ -441,3 +441,44 @@ def generate_reply_smack(original_message: str, sensitivity: int = 4) -> str:
         messages=[{"role": "user", "content": user_content}],
     )
     return message.content[0].text.strip()
+
+
+BATTLE_ROUND_JUDGE_SYSTEM_PROMPT = """You judge one round of a Smack
+Battle — two people going back and forth talking trash about their
+rival sports teams. You'll get both lines from this round. Decide which
+one actually landed harder: funnier, sharper, more specific, better
+comeback energy — not just more aggressive or more profane.
+
+Judge on actual quality, not team loyalty or which side went first.
+A tie is a legitimate call if both lines are genuinely close in quality
+— don't force a winner just to pick one.
+
+Respond with ONLY a JSON object, nothing else:
+{"winner": "a" or "b" or "tie"}"""
+
+
+def judge_battle_round(team_a: str, line_a: str, team_b: str, line_b: str) -> str:
+    """
+    Returns "a", "b", or "tie" for who won this round of a Smack Battle.
+    Fails to "tie" if the judge call itself errors out — a neutral
+    result is the safer default than crashing the round transition.
+    """
+    user_content = (
+        f"Side A ({team_a} fan): {line_a}\n\n"
+        f"Side B ({team_b} fan): {line_b}\n\n"
+        f"Who won this round?"
+    )
+    try:
+        message = _get_client().messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=50,
+            system=BATTLE_ROUND_JUDGE_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_content}],
+        )
+        raw = message.content[0].text.strip().replace("```json", "").replace("```", "").strip()
+        result = json.loads(raw)
+        winner = result.get("winner")
+        return winner if winner in ("a", "b", "tie") else "tie"
+    except Exception as e:
+        print(f"[battle judge] failed, defaulting to tie: {e}")
+        return "tie"

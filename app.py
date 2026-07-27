@@ -7,7 +7,7 @@ from sqlalchemy import func
 import requests
 from dotenv import load_dotenv
 
-from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote
+from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleRoundResult
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors
 from scheduler import check_armed_smackagrams
 
@@ -621,6 +621,7 @@ def battle_room_page(challenge_code):
 
 def _battle_state_json(battle):
     lines = BattleLine.query.filter_by(battle_id=battle.id).order_by(BattleLine.created_at.asc()).all()
+    round_results = BattleRoundResult.query.filter_by(battle_id=battle.id).order_by(BattleRoundResult.round_number.asc()).all()
     return {
         "challenge_code": battle.challenge_code,
         "league": battle.league,
@@ -632,6 +633,7 @@ def _battle_state_json(battle):
         "display_name_b": battle.display_name_b,
         "team_b": battle.team_b,
         "lines": [{"side": l.side, "round": l.round_number, "message": l.message, "created_at": l.created_at.isoformat()} for l in lines],
+        "round_results": [{"round": r.round_number, "winner": r.winner} for r in round_results],
         "vote_count_a": battle.vote_count_a if battle.status == "complete" else None,
         "vote_count_b": battle.vote_count_b if battle.status == "complete" else None,
     }
@@ -714,10 +716,15 @@ def submit_battle_line(challenge_code):
     db.session.add(BattleLine(battle_id=battle.id, side=side, round_number=battle.round_number, message=message))
 
     # Advance turn — a full round is one line from each side. After B goes,
-    # the round increments; after 5 completed rounds, the battle is done.
+    # the round is complete: judge it, then increment; after 5 completed
+    # rounds, the battle is done.
     if side == "a":
         battle.current_turn = "b"
     else:
+        line_a = BattleLine.query.filter_by(battle_id=battle.id, round_number=battle.round_number, side="a").first()
+        winner = trash_talk_service.judge_battle_round(battle.team_a, line_a.message if line_a else "", battle.team_b, message)
+        db.session.add(BattleRoundResult(battle_id=battle.id, round_number=battle.round_number, winner=winner))
+
         battle.current_turn = "a"
         battle.round_number += 1
         if battle.round_number > 5:
@@ -776,10 +783,34 @@ def battle_sfx():
             "Short crowd pop and cheer reaction, quick arena crowd 'ooh' burst, half a second, punchy",
             duration_seconds=1.0,
         )
-        return jsonify({"intro_url": intro_url, "crowd_loop_url": crowd_loop_url, "new_line_url": new_line_url})
+        countdown_tick_url = elevenlabs_service.generate_sound_effect(
+            "Single sharp mechanical countdown tick, like a boxing round timer click, short and punchy, quarter second",
+            duration_seconds=0.5,
+        )
+        bell_url = elevenlabs_service.generate_sound_effect(
+            "Boxing ring bell, single clear ding-ding ring bell strike signaling the start of a round",
+            duration_seconds=1.5,
+        )
+        cheer_url = elevenlabs_service.generate_sound_effect(
+            "Excited sports arena crowd cheering and applauding loudly, celebratory roar, winning moment reaction",
+            duration_seconds=2.0,
+        )
+        boo_url = elevenlabs_service.generate_sound_effect(
+            "Sports arena crowd booing loudly, disappointed jeering reaction, losing moment",
+            duration_seconds=2.0,
+        )
+        return jsonify({
+            "intro_url": intro_url,
+            "crowd_loop_url": crowd_loop_url,
+            "new_line_url": new_line_url,
+            "countdown_tick_url": countdown_tick_url,
+            "bell_url": bell_url,
+            "cheer_url": cheer_url,
+            "boo_url": boo_url,
+        })
     except Exception as e:
         print(f"[battle-sfx] generation failed: {e}")
-        return jsonify({"intro_url": None, "crowd_loop_url": None, "new_line_url": None})
+        return jsonify({"intro_url": None, "crowd_loop_url": None, "new_line_url": None, "countdown_tick_url": None, "bell_url": None, "cheer_url": None, "boo_url": None})
 
 
 @app.route("/api/check-if-smacked", methods=["POST"])
