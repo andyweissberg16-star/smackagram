@@ -186,6 +186,7 @@ def generate_weekly_smackcasts():
                 week=current_week,
                 matchups=week_data["matchups"],
                 team_count=sub.team_count or week_data["team_count"],
+                sport=sub.sport,
             )
             script = result["script"]
             best_line = result["best_line"]

@@ -48,7 +48,10 @@ def _target_word_count(team_count: int) -> int:
     return round(min_words + fraction * (max_words - min_words))
 
 
-def generate_weekly_recap_script(league_name: str, week: int, matchups: list, team_count: int) -> dict:
+_SPORT_LABELS = {"nfl": "fantasy football", "nba": "fantasy basketball", "mlb": "fantasy baseball"}
+
+
+def generate_weekly_recap_script(league_name: str, week: int, matchups: list, team_count: int, sport: str = "nfl") -> dict:
     """
     matchups: list of {team_a, team_a_score, team_b, team_b_score}
     Returns {"script": str, "best_line": str} — script is the full
@@ -57,6 +60,7 @@ def generate_weekly_recap_script(league_name: str, week: int, matchups: list, te
     same call rather than a separate one.
     """
     target_words = _target_word_count(team_count)
+    sport_label = _SPORT_LABELS.get(sport, "fantasy football")
 
     matchup_lines = []
     for m in matchups:
@@ -69,7 +73,7 @@ def generate_weekly_recap_script(league_name: str, week: int, matchups: list, te
     matchups_block = "\n".join(matchup_lines)
 
     system_prompt = f"""You write the weekly Smackcast — a savage, heavily
-profane fantasy football recap read aloud to an entire league. This is
+profane {sport_label} recap read aloud to an entire league. This is
 Smackagram's established voice: real cursing throughout, genuinely
 brutal, but funny and specific rather than mean for its own sake. Cover
 EVERY matchup given to you, not just the most dramatic one — call out

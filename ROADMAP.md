@@ -1188,3 +1188,22 @@ Research done first, changed the actual scope:
     MLB ~90-260), correctly pairs into matchups regardless of team count
   - Test page shows everything: the sample matchups used, the full
     script, the best line, playable audio, and the meme image
+
+## Real bug found: sport wasn't reaching script generation (same session)
+- [x] Fixed a genuine bug caught while answering "does this look the
+      same for every sport" — generate_weekly_recap_script() never
+      accepted a sport parameter at all, and the system prompt was
+      hardcoded to say "fantasy football" regardless of which sport was
+      actually being generated for. Basketball and baseball recaps
+      (including in the test tool) were silently being told they were
+      writing football recaps. Added a sport parameter with correct
+      per-sport labeling (fantasy football/basketball/baseball), wired
+      through both real call sites (the weekly scheduler and the test
+      tool) that were missing it.
+- [x] Also root-caused and fixed the test tool's actual crash — it
+      wasn't the ffmpeg timeout (though that was a real, worthwhile fix
+      too), it was gunicorn's own default 30-second worker timeout
+      killing the whole process before a multi-step pipeline (Claude +
+      ElevenLabs + ffmpeg + image generation, all sequential) could
+      finish. Fixed via Render's Start Command setting (--timeout 180),
+      not something fixable from code alone.

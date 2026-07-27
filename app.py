@@ -1718,7 +1718,7 @@ def api_smackcast_test_generate():
         matchups = smackcast_service.generate_sample_matchups(sport, team_count)
 
         result = smackcast_service.generate_weekly_recap_script(
-            league_name=league_name, week=week, matchups=matchups, team_count=team_count,
+            league_name=league_name, week=week, matchups=matchups, team_count=team_count, sport=sport,
         )
         script = result["script"]
         best_line = result["best_line"]
