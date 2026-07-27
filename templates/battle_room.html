@@ -73,6 +73,29 @@
 
   .empty-note{color:var(--chalk-dim); font-size:13px; text-align:center; padding:20px 0;}
 
+  .intro-team{
+    font-family:'Anton',sans-serif; font-size:44px; text-transform:uppercase; text-align:center;
+    opacity:0; transform:scale(0.6);
+  }
+  .intro-team.side-a{color:var(--gold); text-shadow:0 0 30px rgba(255,212,0,0.6); animation:introSlideLeft 0.6s ease-out forwards;}
+  .intro-team.side-b{color:var(--flare); text-shadow:0 0 30px rgba(232,20,44,0.6); animation:introSlideRight 0.6s ease-out 0.15s forwards;}
+  .intro-vs{
+    font-family:'Anton',sans-serif; font-size:28px; color:var(--chalk-dim); margin:16px 0;
+    opacity:0; animation:introFlash 0.4s ease-out 0.5s forwards;
+  }
+  @keyframes introSlideLeft{
+    0%{opacity:0; transform:translateX(-60px) scale(0.6);}
+    100%{opacity:1; transform:translateX(0) scale(1);}
+  }
+  @keyframes introSlideRight{
+    0%{opacity:0; transform:translateX(60px) scale(0.6);}
+    100%{opacity:1; transform:translateX(0) scale(1);}
+  }
+  @keyframes introFlash{
+    0%{opacity:0; transform:scale(1.8);}
+    100%{opacity:1; transform:scale(1);}
+  }
+
   footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim); border-top:1px solid var(--line); margin-top:20px;}
   footer a{color:var(--chalk-dim); text-decoration:none;}
   footer a:hover{color:var(--flare);}
@@ -86,12 +109,24 @@
 </nav>
 
 <div class="wrap">
+  <div style="text-align:right; margin-top:8px;">
+    <button id="soundToggle" class="btn" style="width:auto; padding:8px 16px; font-size:11px; background:transparent; border:1px solid var(--line-strong); color:var(--chalk-dim);">Enable sound</button>
+  </div>
+
   <div class="matchup" id="matchupHeader">
     <p class="matchup-teams">Loading...</p>
   </div>
 
   <div id="content"></div>
 </div>
+
+<div id="introOverlay" style="display:none; position:fixed; inset:0; background:#000; z-index:200; align-items:center; justify-content:center; flex-direction:column;">
+  <p id="introTeamA" class="intro-team side-a"></p>
+  <p class="intro-vs">VS</p>
+  <p id="introTeamB" class="intro-team side-b"></p>
+</div>
+
+<audio id="crowdLoopAudio" loop style="display:none;"></audio>
 
 <footer>
   <a href="/terms">Terms</a> &middot; <a href="/contact">Contact</a>
@@ -121,11 +156,75 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-async function loadBattle() {
+let soundEnabled = false;
+let sfxUrls = null;
+let introShown = false;
+let lastLineCount = 0;
+const newLineDing = new Audio();
+
+async function enableSound() {
+  const btn = document.getElementById('soundToggle');
+  btn.textContent = 'Loading sound...';
+  btn.disabled = true;
+  try {
+    if (!sfxUrls) {
+      const resp = await fetch('/api/battle-sfx');
+      sfxUrls = await resp.json();
+    }
+    soundEnabled = true;
+    btn.textContent = 'Sound on';
+    btn.style.borderColor = 'var(--gold)';
+    btn.style.color = 'var(--gold)';
+    if (sfxUrls.new_line_url) newLineDing.src = sfxUrls.new_line_url;
+
+    const crowdAudio = document.getElementById('crowdLoopAudio');
+    if (sfxUrls.crowd_loop_url) {
+      crowdAudio.src = sfxUrls.crowd_loop_url;
+      crowdAudio.volume = 0.15;
+      crowdAudio.play().catch(() => {});
+    }
+  } catch (err) {
+    btn.textContent = 'Enable sound';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('soundToggle').addEventListener('click', () => {
+  if (!soundEnabled) enableSound();
+});
+
+function playIntro(teamA, teamB) {
+  const overlay = document.getElementById('introOverlay');
+  document.getElementById('introTeamA').textContent = teamA;
+  document.getElementById('introTeamB').textContent = teamB;
+  overlay.style.display = 'flex';
+  if (soundEnabled && sfxUrls && sfxUrls.intro_url) {
+    new Audio(sfxUrls.intro_url).play().catch(() => {});
+  }
+  setTimeout(() => { overlay.style.display = 'none'; }, 1800);
+}
+
+async function loadBattle(isPoll) {
   try {
     const resp = await fetch(`/api/battles/${challengeCode}`);
     if (!resp.ok) throw new Error('not found');
     const battle = await resp.json();
+
+    // Skip re-rendering on a background poll whenever the viewer might
+    // have in-progress, unsaved typing that a full re-render would wipe:
+    // either it's genuinely their turn in an active battle (the other
+    // side literally can't act, so nothing could have changed anyway),
+    // or the battle is still waiting and they're not side A (meaning
+    // they could be mid-way through filling out the join form). Non-poll
+    // calls (initial load, right after joining or submitting) always render.
+    const mySide = getMySide();
+    const mightBeTyping = (battle.status === 'active' && mySide === battle.current_turn)
+      || (battle.status === 'waiting' && mySide !== 'a');
+    if (isPoll && mightBeTyping) {
+      return;
+    }
+
     render(battle);
   } catch (err) {
     document.getElementById('matchupHeader').innerHTML = '<p class="matchup-teams">Battle not found</p>';
@@ -187,6 +286,22 @@ function render(battle) {
     }
     return;
   }
+
+  // Fires once per page view, the first moment the battle is seen as
+  // active or complete (covers both "I just joined" and "I refreshed
+  // into an already-active battle").
+  if (!introShown) {
+    introShown = true;
+    playIntro(battle.team_a, battle.team_b);
+  }
+
+  // A new line arrived since the last render — celebrate it with a quick
+  // crowd-pop sound, but only once sound has actually been enabled.
+  if (soundEnabled && battle.lines.length > lastLineCount && lastLineCount > 0) {
+    newLineDing.currentTime = 0;
+    newLineDing.play().catch(() => {});
+  }
+  lastLineCount = battle.lines.length;
 
   header.innerHTML = `
     <p class="matchup-teams"><span class="side-a">${escapeHtml(battle.team_a)}</span><span class="vs">vs</span><span class="side-b">${escapeHtml(battle.team_b)}</span></p>
@@ -292,7 +407,7 @@ function render(battle) {
 }
 
 loadBattle();
-pollInterval = setInterval(loadBattle, 4000);
+pollInterval = setInterval(() => loadBattle(true), 4000);
 </script>
 </body>
 </html>

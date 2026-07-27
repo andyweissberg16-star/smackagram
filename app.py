@@ -755,6 +755,33 @@ def vote_battle(challenge_code):
     return jsonify({"vote_count_a": battle.vote_count_a, "vote_count_b": battle.vote_count_b})
 
 
+@app.route("/api/battle-sfx")
+def battle_sfx():
+    """
+    Sound effects for the battle room — reuses the same ElevenLabs Sound
+    Effects generation already built for the call slap sound. Each prompt
+    is cached (see generate_sound_effect), so this only actually costs
+    credits once total, not once per request.
+    """
+    try:
+        intro_url = elevenlabs_service.generate_sound_effect(
+            "Dramatic boxing match intro whoosh with a deep bass hit and crowd anticipation swell, arena sound, cinematic sports intro sting",
+            duration_seconds=3.0,
+        )
+        crowd_loop_url = elevenlabs_service.generate_sound_effect(
+            "Large sports arena crowd ambience, murmuring and cheering continuously, seamless loopable background crowd noise, no announcer voice",
+            duration_seconds=10.0,
+        )
+        new_line_url = elevenlabs_service.generate_sound_effect(
+            "Short crowd pop and cheer reaction, quick arena crowd 'ooh' burst, half a second, punchy",
+            duration_seconds=1.0,
+        )
+        return jsonify({"intro_url": intro_url, "crowd_loop_url": crowd_loop_url, "new_line_url": new_line_url})
+    except Exception as e:
+        print(f"[battle-sfx] generation failed: {e}")
+        return jsonify({"intro_url": None, "crowd_loop_url": None, "new_line_url": None})
+
+
 @app.route("/api/check-if-smacked", methods=["POST"])
 def check_if_smacked():
     """
