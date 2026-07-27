@@ -631,9 +631,33 @@ def battle_room_page(challenge_code):
     return render_template("battle_room.html", challenge_code=challenge_code)
 
 
+def _lookup_team_color(league, team_name):
+    """
+    Matches a free-text team name (whatever the person typed when
+    creating/joining a battle) to that team's real brand color, using
+    the same alias-matching already built for search. Returns None for
+    leagues without color data (college sports, soccer) or no match —
+    the frontend keeps the default gold/red theme in that case.
+    """
+    if not team_name:
+        return None
+    colors = chat_team_colors.TEAM_COLORS.get(league, {})
+    for code in colors:
+        if team_aliases.matches_search(league, code, team_name):
+            return colors[code]
+    return None
+
+
 def _battle_state_json(battle):
     lines = BattleLine.query.filter_by(battle_id=battle.id).order_by(BattleLine.created_at.asc()).all()
     round_results = BattleRoundResult.query.filter_by(battle_id=battle.id).order_by(BattleRoundResult.round_number.asc()).all()
+    # Computed server-side (comparing against utcnow() here, not on the
+    # client) specifically to avoid any client/server clock skew — a
+    # 3-second "still typing" window is a reasonable match for how
+    # Slack/iMessage-style indicators typically behave.
+    now = datetime.utcnow()
+    is_typing_a = bool(battle.last_typed_a and (now - battle.last_typed_a).total_seconds() < 3)
+    is_typing_b = bool(battle.last_typed_b and (now - battle.last_typed_b).total_seconds() < 3)
     return {
         "challenge_code": battle.challenge_code,
         "league": battle.league,
@@ -655,6 +679,10 @@ def _battle_state_json(battle):
         "rematch_requested_a": battle.rematch_requested_a,
         "rematch_requested_b": battle.rematch_requested_b,
         "rematch_challenge_code": battle.rematch_challenge_code,
+        "is_typing_a": is_typing_a,
+        "is_typing_b": is_typing_b,
+        "team_a_color": _lookup_team_color(battle.league, battle.team_a),
+        "team_b_color": _lookup_team_color(battle.league, battle.team_b),
         "vote_count_a": battle.vote_count_a if battle.status == "complete" else None,
         "vote_count_b": battle.vote_count_b if battle.status == "complete" else None,
     }
@@ -880,6 +908,31 @@ def ready_for_next_round(challenge_code):
 
     db.session.commit()
     return jsonify(_battle_state_json(battle))
+
+
+@app.route("/api/battles/<challenge_code>/typing", methods=["POST"])
+def battle_typing_ping(challenge_code):
+    """
+    Lightweight ping saying "I'm actively typing right now" — the
+    frontend throttles these to at most once every couple seconds while
+    someone's typing in their turn. No response body needed beyond
+    success; the opponent picks this up via their next regular poll.
+    """
+    battle = Battle.query.filter_by(challenge_code=challenge_code).first()
+    if not battle:
+        return jsonify({"error": "Battle not found"}), 404
+
+    data = request.json
+    side = data.get("side", "")
+    if side not in ("a", "b"):
+        return jsonify({"error": "Invalid side"}), 400
+
+    if side == "a":
+        battle.last_typed_a = datetime.utcnow()
+    else:
+        battle.last_typed_b = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/battles/<challenge_code>/vote", methods=["POST"])

@@ -223,6 +223,14 @@ class Battle(db.Model):
     recap_winner_text = db.Column(db.Text, nullable=True)
     recap_loser_text = db.Column(db.Text, nullable=True)
 
+    # Live typing indicator — just a timestamp per side, "is typing"
+    # gets computed server-side (comparing to utcnow()) rather than
+    # storing a boolean directly, so it naturally expires without
+    # needing an explicit "stopped typing" signal (which isn't reliable
+    # anyway — someone can just close the tab mid-keystroke).
+    last_typed_a = db.Column(db.DateTime, nullable=True)
+    last_typed_b = db.Column(db.DateTime, nullable=True)
+
     # Rematch — same "both sides have to agree" gate as advancing a
     # round. Once both flags are true, a brand new Battle gets created
     # (same teams/names) and its challenge_code is stashed here so both

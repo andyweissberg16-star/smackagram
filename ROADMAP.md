@@ -809,6 +809,30 @@ one at a time. Logging each as it's built:
       feedback and replaced it with a subtle, finite border-blink on
       the message bubble itself instead (plays twice then settles,
       correctly only once per real new message now).
+- [ ] Countdown tick sounds (3-2-1) reported not playing on mobile OR
+      desktop. Traced the code path thoroughly and found no logic bug —
+      it's identical to the intro/bell sound calls in the same function,
+      which apparently do work. Best working theory (not confirmed,
+      since I can't hear the actual audio files myself): the intro
+      whoosh plays for up to 3 seconds, and the first tick was firing at
+      2.2s — likely still overlapping with and getting masked by the
+      still-playing intro sound's tail end, on both platforms equally
+      since this is a timing/mixing issue rather than an autoplay quirk.
+      Pushed the countdown start to 3.2s to give the intro sound room to
+      finish first. Flagging honestly that this is a diagnosis-driven
+      fix, not a confirmed root cause — worth confirming it actually
+      resolves this on the next test.
+- [x] Fixed having to click "Take It To The Judges" twice to actually
+      reach the scorecard. Direct side effect of the manual-unlock
+      feature built earlier tonight: that feature added a SECOND "Take
+      It To The Judges" button (the local per-device unlock, meant for
+      whoever DIDN'T click first) — but whoever DID personally click the
+      original button was also being shown this second one, forcing a
+      redundant confirmation of their own already-made choice. Now
+      auto-unlocks the scorecard for whoever personally triggered the
+      transition; the separate local confirmation only applies to their
+      opponent, who didn't click and whose status just changed
+      underneath them via polling.
 
 ## Future: shareable final scorecard
 Saved for later per user request — a real feature, worth doing
@@ -830,3 +854,26 @@ image or using the OS-level native share sheet, not a real web link.
 
 ---
 *Last updated: 2026-07-26*
+
+## Session addendum — four visual features added
+- [x] Live typing indicator — opponent's box pings the backend
+      (throttled to once every 2s) while they're actively typing;
+      the waiting side sees "[Name] is typing..." with pulsing dots.
+      Typing status computed server-side to avoid client/server
+      clock skew.
+- [x] Round-by-round momentum bar — a slim bar above the LED row
+      that fills proportionally toward whichever side is winning
+      based on decided rounds (ties don't push it either way).
+- [x] Confetti burst for the winner — fires once when their
+      scorecard appears, 60 gold/red/white pieces, self-cleans after
+      ~3.5s.
+- [x] Real team color theming — a new backend helper matches each
+      side's free-text team name (e.g. "Cowboys") to its actual
+      brand color using the existing alias-matching system, falls
+      back to default gold/red for leagues without color data
+      (college, soccer). Honest scope note: this re-themes solid
+      colors (text/backgrounds/borders) since those use CSS
+      variables directly, but glow/shadow effects throughout the
+      file are hardcoded rgba values, not tied to these variables —
+      those keep the original gold/red glow regardless of team
+      colors unless that's expanded separately later.
