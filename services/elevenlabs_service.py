@@ -116,9 +116,14 @@ def _normalize_loudness(audio_bytes: bytes, target_lufs: int = TARGET_LUFS) -> b
     available on the server for any reason, fails safe by returning the
     original, unnormalized audio rather than breaking the call — you'd
     just be back to the volume mismatch, not a broken feature.
-    broken feature.
+
+    Timeout scales with audio size — the original 15s was set for a
+    15-20 second prank-call clip; a multi-minute Smackcast script is a
+    much larger file for ffmpeg to process, and legitimately needs more
+    time, especially on Render's limited free-tier CPU.
     """
     try:
+        timeout_seconds = max(15, len(audio_bytes) // 20000)  # rough scaling, floor of 15s
         process = subprocess.run(
             [
                 "ffmpeg", "-i", "pipe:0",
@@ -127,7 +132,7 @@ def _normalize_loudness(audio_bytes: bytes, target_lufs: int = TARGET_LUFS) -> b
             ],
             input=audio_bytes,
             capture_output=True,
-            timeout=15,
+            timeout=timeout_seconds,
         )
         if process.returncode != 0 or not process.stdout:
             print(f"[elevenlabs] loudness normalization failed, using original audio: {process.stderr[:300]}")
