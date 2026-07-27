@@ -474,6 +474,17 @@ talk, the real effort wins this round outright. Never call it a tie
 just because the real line wasn't very good — a weak real line still
 beats no real line at all. Score the non-attempt at or near 0.
 
+Apply this test literally: does the line form real, readable words that
+add up to an actual sentence or phrase, even a short simple one? If
+yes, it's a real attempt, no matter how weak. If no — it's just random
+letters with no readable meaning, like "dhfjhfdj" or "kjhigufvhbj" —
+it is NOT a real attempt, full stop, regardless of length or how
+aggressive-looking the string is. Example: "go home, loser" is a real
+(if simple) attempt and beats "dhfjhfdj" outright — that is not a tie
+under any circumstance, since one side said something and the other
+didn't. Only call it a tie if BOTH sides wrote real, readable attempts
+that are genuinely close in quality.
+
 Also score EACH side's line 0-10 on how good their trash talk actually
 was this round — wit, delivery, specificity. These are independent
 scores, not just "winner gets high, loser gets low" — a genuinely weak
@@ -578,12 +589,14 @@ roasting each other's sports teams. You'll get every line from the
 whole battle, the round-by-round results, the overall winner, and the
 winner's average round score (0-10).
 
-Write TWO separate pieces, each 2-4 sentences, in Smackagram's voice:
-savage, heavily profane, genuinely brutal — real cursing throughout,
-not just edgy phrasing, the same energy as the rest of the site.
-Reference specific real moments from the actual battle (a real line
-someone said, a round that swung it) rather than generic hype — the
-specificity is what makes it land.
+Write TWO separate pieces, each 2 SENTENCES MAX, no more — short,
+sharp, punchy. Every word has to earn its place, don't ramble or pad
+it out. In Smackagram's voice: savage, heavily profane, genuinely
+brutal — real cursing throughout, not just edgy phrasing, the same
+energy as the rest of the site. Reference ONE specific real moment from
+the actual battle (a real line someone said, a round that swung it)
+rather than generic hype — pick the single sharpest moment, don't try
+to cram in more than that.
 
 WINNER_RECAP tone depends entirely on the winner's average score —
 this is the most important instruction, follow it exactly:
@@ -664,7 +677,7 @@ def generate_battle_recap(team_a: str, team_b: str, all_lines: list, round_resul
         try:
             message = _get_client().messages.create(
                 model="claude-sonnet-4-6",
-                max_tokens=350,
+                max_tokens=220,
                 system=BATTLE_RECAP_SYSTEM_PROMPT,
                 messages=[{"role": "user", "content": user_content}],
             )

@@ -17,7 +17,7 @@
     --line:rgba(245,245,243,0.10);
     --line-strong:rgba(245,245,243,0.24);
   }
-  html, body{height:100%; overflow:hidden;}
+  html, body{height:100%; overflow:hidden; overflow-x:hidden; max-width:100vw;}
   /* Battle complete: the final scorecard can genuinely be taller than
      one screen (score tally + 5 round chips + averages + recap) — unlike
      the active battle view, it's fine to unlock scrolling here rather
@@ -41,6 +41,7 @@
     height:calc(100dvh - 76px);
   }
   #lineHistory{flex:1; overflow-y:auto; min-height:0; padding:4px 0;}
+  body.waiting-room #lineHistory{flex:none;}
   #actionArea{flex-shrink:0; padding-bottom:16px;}
 
   nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
@@ -147,7 +148,10 @@
   .line-name{font-size:12px; font-weight:700; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.3px;}
   .line.side-a .line-name{color:var(--gold);}
   .line.side-b .line-name{color:var(--flare);}
-  .line-message{font-size:14px; color:#DCDCD9;}
+  .line-message{
+    font-size:14px; color:#DCDCD9; overflow-wrap:anywhere; word-break:break-word;
+    max-height:180px; overflow-y:auto;
+  }
 
   .vote-row{display:flex; gap:12px;}
   .vote-btn{
@@ -166,7 +170,8 @@
   }
   .critique-box{
     background:var(--ink); border:1px solid var(--line-strong); border-radius:6px; padding:14px 16px;
-    font-size:13px; color:#DCDCD9; line-height:1.5; margin-bottom:14px;
+    font-size:13px; color:#DCDCD9; line-height:1.5; margin-bottom:14px; overflow-wrap:anywhere; word-break:break-word;
+    max-height:220px; overflow-y:auto;
   }
   .critique-label{font-family:'JetBrains Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; font-weight:700;}
   .critique-box.win .critique-label{color:var(--gold);}
@@ -358,6 +363,7 @@ let lastRoundResultsCount = 0;
 let knownRoundNumber = null;
 let lastActionSignature = null;
 let judgingStartedAt = null;
+let myScorecardUnlocked = false;
 let judgingBeepIntervalId = null;
 
 function startJudgingBeep() {
@@ -742,11 +748,13 @@ function render(battle) {
 
   document.documentElement.classList.toggle('battle-complete', battle.status === 'complete');
   document.body.classList.toggle('battle-complete', battle.status === 'complete');
+  document.body.classList.toggle('waiting-room', battle.status === 'waiting');
 
   if (battle.status === 'waiting') {
     content.innerHTML = '';
     lineHistory.innerHTML = '';
-    header.innerHTML = `<p class="matchup-teams"><span class="side-a">${escapeHtml(battle.team_a)}</span></p><p class="round-indicator">Waiting for a challenger</p>`;
+    const waitingHeaderText = mySide === 'a' ? 'Waiting for a challenger' : 'Waiting for you to accept';
+    header.innerHTML = `<p class="matchup-teams"><span class="side-a">${escapeHtml(battle.team_a)}</span></p><p class="round-indicator">${waitingHeaderText}</p>`;
 
     const waitingSignature = `waiting|${mySide}`;
     if (lastActionSignature !== waitingSignature) {
@@ -928,7 +936,7 @@ function render(battle) {
     && !(battle.round_results || []).some(r => r.round === battle.round_number);
   const timeBucket = isPendingJudgment ? Math.floor(Date.now() / 5000) : 0;
 
-  const actionSignature = `${battle.status}|${battle.current_turn}|${mySide}|${battle.round_number}|${battle.vote_count_a}|${battle.awaiting_next_round}|${battle.ready_a}|${battle.ready_b}|${(battle.round_results || []).length}|${battle.overall_winner}|${battle.rematch_requested_a}|${battle.rematch_requested_b}|${timeBucket}`;
+  const actionSignature = `${battle.status}|${battle.current_turn}|${mySide}|${battle.round_number}|${battle.vote_count_a}|${battle.awaiting_next_round}|${battle.ready_a}|${battle.ready_b}|${(battle.round_results || []).length}|${battle.overall_winner}|${battle.rematch_requested_a}|${battle.rematch_requested_b}|${timeBucket}|${myScorecardUnlocked}`;
   if (lastActionSignature === actionSignature) {
     return;
   }
@@ -1013,6 +1021,68 @@ function render(battle) {
     if (battle.rematch_challenge_code) {
       if (mySide) localStorage.setItem(`battle_side_${battle.rematch_challenge_code}`, mySide);
       window.location.href = `/battle/${battle.rematch_challenge_code}`;
+      return;
+    }
+
+    // The backend finalizes the battle the instant EITHER side clicks
+    // "Take It To The Judges" — that's still correct, both people's
+    // data needs to be ready right away. But revealing the SCORECARD
+    // itself is a more personal, deliberate moment than just advancing
+    // a round, so it shouldn't be forced on someone just because their
+    // opponent happened to click first. A real participant (not a
+    // spectator with no side) has to see their own round 5 critique and
+    // click through it themselves — independent of battle.status, which
+    // may already say "complete" behind the scenes.
+    if (mySide && !myScorecardUnlocked) {
+      const round5Result = (battle.round_results || []).find(r => r.round === 5);
+      if (!round5Result) {
+        // Round 5 hasn't actually finished judging yet on the backend —
+        // same "Judging this round..." holding state as any other
+        // round, with the same stuck-timeout protection.
+        if (judgingStartedAt === null) judgingStartedAt = Date.now();
+        const stuckTooLong = Date.now() - judgingStartedAt > 20000;
+        if (stuckTooLong) {
+          stopJudgingBeep();
+          actionHtml = `
+            <div class="card">
+              <p class="waiting-note" style="margin-bottom:12px;">This is taking longer than it should.</p>
+              <button id="retryJudgingBtn" class="btn" style="background:transparent; border:1px solid var(--line-strong); color:var(--chalk);">Try again</button>
+            </div>
+          `;
+        } else {
+          startJudgingBeep();
+          actionHtml = `<div class="card"><p class="judging-note">Judging this round...</p></div>`;
+        }
+      } else {
+        judgingStartedAt = null;
+        stopJudgingBeep();
+        const myCritique = mySide === 'a' ? round5Result.critique_a : round5Result.critique_b;
+        const myScore = mySide === 'a' ? round5Result.score_a : round5Result.score_b;
+        const outcome = round5Result.winner === 'tie' ? 'tie' : (round5Result.winner === mySide ? 'win' : 'loss');
+        actionHtml = `
+          <div class="card">
+            <div class="critique-box ${outcome}">
+              <p class="critique-label">${outcome === 'win' ? 'You won this round' : outcome === 'loss' ? 'You lost this round' : 'Round tied'}${myScore !== null && myScore !== undefined ? ` — ${myScore}/10` : ''}</p>
+              <p>${escapeHtml(myCritique)}</p>
+            </div>
+            <button id="unlockScorecardBtn" class="btn btn-flare">Take It To The Judges</button>
+          </div>
+        `;
+      }
+      actionArea.innerHTML = actionHtml;
+      const unlockBtn = document.getElementById('unlockScorecardBtn');
+      if (unlockBtn) {
+        unlockBtn.addEventListener('click', () => {
+          ringBell();
+          myScorecardUnlocked = true;
+          lastActionSignature = null;
+          render(battle);
+        });
+      }
+      const localRetryBtn = document.getElementById('retryJudgingBtn');
+      if (localRetryBtn) {
+        localRetryBtn.addEventListener('click', () => window.location.reload());
+      }
       return;
     }
 

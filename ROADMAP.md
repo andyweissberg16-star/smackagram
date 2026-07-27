@@ -726,6 +726,79 @@ one at a time. Logging each as it's built:
       and each message now punches in from its own side (side A slides
       from the left, side B from the right) instead of just fading in
       generically.
+- [x] All 10 sound files complete — judging-beep.mp3 wired in, fires in
+      sync with the pulsing "Judging this round..." text.
+- [x] Fixed the header text for whoever's about to accept a challenge —
+      it said "Waiting for a challenger" even from the joining side's
+      own perspective, which is backwards since they ARE the challenger
+      about to join. Now perspective-aware: the creator still sees
+      "Waiting for a challenger," whoever's joining sees "Waiting for
+      you to accept."
+- [x] Fixed a large empty gap between the header and the join form on
+      the waiting/accept screen. Root cause: the line-history container
+      has flex:1 so it grows to fill available space during an active
+      battle, but that same flex-grow was still active while completely
+      empty during the waiting state, pushing the join form all the way
+      down. Disabled that flex-grow specifically during the waiting
+      state.
+- [x] Strengthened the gibberish-vs-real-effort judging rule again —
+      the earlier fix wasn't reliable enough on its own (a real line
+      like "go home, loser" still tied against pure keyboard mashing).
+      Added an explicit, literal test the judge has to apply (does it
+      form real readable words, yes or no) plus a worked example using
+      this exact scenario, instead of just describing the rule in the
+      abstract.
+- [x] Fixed a real layout-breaking bug: a long message typed as one
+      continuous unbroken string (no spaces) had nowhere natural to
+      wrap, so it just overflowed its container instead of staying
+      inside it — created a full page horizontal scrollbar on mobile
+      and got cut off on desktop. Added proper word-breaking to message
+      bubbles and critique boxes so long unbroken text is now forced to
+      wrap within its box, plus an explicit overflow-x safety net on the
+      whole page as a backstop against this class of bug from any other
+      source in the future.
+- [x] Capped message bubbles and critique boxes at a max height with
+      their own internal scroll, rather than letting a genuinely long
+      (but properly wrapped, multi-line) message expand the whole bubble
+      and push everything else on the page down with it.
+- [x] Made "Take It To The Judges" require each person's own personal
+      click, on their own device, rather than one person's click
+      auto-forcing their opponent straight into the scorecard. The
+      backend still finalizes the battle instantly either click (both
+      people's data needs to be ready right away), but the frontend now
+      gates the actual scorecard reveal behind a local, per-device flag
+      — a real participant sees their own round 5 critique and has to
+      click through it themselves, independent of what their opponent
+      has already done server-side. Same stuck-timeout/retry protection
+      applied here too, matching every other round.
+- [x] Shortened the final recap text — was running 4-5 sentences per
+      side, genuinely too long. Down to a hard 2-3 sentence cap, one or
+      two specific real moments instead of several crammed in. Note:
+      the earlier page-expansion issue from a long recap is already
+      fixed separately (critique boxes got a max-height with internal
+      scroll) — that fix just hasn't been deployed yet, this recap
+      length trim is on top of that, not instead of it.
+- [x] Tightened further per follow-up — down to a hard 2-sentence
+      max, one single sharpest moment referenced instead of two.
+      Token budget trimmed to match.
+
+## Future: shareable final scorecard
+Saved for later per user request — a real feature, worth doing
+properly rather than rushed. Key finding worth remembering: Instagram
+and TikTok genuinely have no share-intent URL at all (deliberate
+platform restriction, not a buildable gap) — every app that "shares to
+Instagram/TikTok" is actually just handing the person a downloadable
+image or using the OS-level native share sheet, not a real web link.
+- [ ] Twitter/X and Facebook real one-click share buttons (both have
+      genuine share-intent URLs; Facebook can't pre-fill caption text
+      though, that's a platform restriction too)
+- [ ] Generate a downloadable "battle card" image of the final
+      scorecard — this is the actual real path for Instagram/TikTok,
+      since people manually post a nice pre-made graphic themselves
+- [ ] Consider the native Web Share API (navigator.share()) on mobile
+      as a bonus catch-all, which can surface whatever's installed
+      (possibly including Instagram/TikTok) — not guaranteed or
+      controllable, just an extra option where available
 
 ---
 *Last updated: 2026-07-26*
