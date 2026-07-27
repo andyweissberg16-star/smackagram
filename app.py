@@ -1,5 +1,6 @@
 import os
 import secrets
+import threading
 from datetime import datetime, timedelta, timezone
 
 from flask import Flask, render_template, request, jsonify, Response
@@ -640,6 +641,9 @@ def _battle_state_json(battle):
         "overall_winner": battle.overall_winner,
         "recap_winner_text": battle.recap_winner_text,
         "recap_loser_text": battle.recap_loser_text,
+        "rematch_requested_a": battle.rematch_requested_a,
+        "rematch_requested_b": battle.rematch_requested_b,
+        "rematch_challenge_code": battle.rematch_challenge_code,
         "vote_count_a": battle.vote_count_a if battle.status == "complete" else None,
         "vote_count_b": battle.vote_count_b if battle.status == "complete" else None,
     }
@@ -693,6 +697,58 @@ def join_battle(challenge_code):
     return jsonify(_battle_state_json(battle))
 
 
+def _judge_round_async(battle_id, round_number, team_a, line_a_message, team_b, line_b_message):
+    """
+    Runs the actual AI judging in a background thread so submitting a
+    line responds instantly for both people instead of making whoever
+    completes the round sit through a real Claude API call before they
+    even see their own message land. Needs its own app context since
+    this runs outside the normal request/response cycle.
+    """
+    with app.app_context():
+        try:
+            result = trash_talk_service.judge_battle_round(team_a, line_a_message, team_b, line_b_message)
+            existing = BattleRoundResult.query.filter_by(battle_id=battle_id, round_number=round_number).first()
+            if not existing:
+                db.session.add(BattleRoundResult(
+                    battle_id=battle_id,
+                    round_number=round_number,
+                    winner=result["winner"],
+                    critique_a=result["critique_a"],
+                    critique_b=result["critique_b"],
+                ))
+                db.session.commit()
+        except Exception as e:
+            print(f"[battle judge async] failed for battle {battle_id} round {round_number}: {e}")
+
+
+def _generate_recap_async(battle_id):
+    """Same idea as _judge_round_async — the final recap is a real AI call, run in the background so finishing the battle doesn't hang whoever clicks last."""
+    with app.app_context():
+        try:
+            battle = Battle.query.get(battle_id)
+            if not battle:
+                return
+            all_results = BattleRoundResult.query.filter_by(battle_id=battle_id).order_by(BattleRoundResult.round_number.asc()).all()
+            wins_a = sum(1 for r in all_results if r.winner == "a")
+            wins_b = sum(1 for r in all_results if r.winner == "b")
+            overall_winner = "a" if wins_a > wins_b else "b" if wins_b > wins_a else "tie"
+            battle.overall_winner = overall_winner
+
+            all_lines = BattleLine.query.filter_by(battle_id=battle_id).order_by(BattleLine.created_at.asc()).all()
+            recap = trash_talk_service.generate_battle_recap(
+                battle.team_a, battle.team_b,
+                [{"side": l.side, "round": l.round_number, "message": l.message} for l in all_lines],
+                [{"round": r.round_number, "winner": r.winner} for r in all_results],
+                overall_winner,
+            )
+            battle.recap_winner_text = recap["winner_recap"]
+            battle.recap_loser_text = recap["loser_recap"]
+            db.session.commit()
+        except Exception as e:
+            print(f"[battle recap async] failed for battle {battle_id}: {e}")
+
+
 @app.route("/api/battles/<challenge_code>/line", methods=["POST"])
 def submit_battle_line(challenge_code):
     battle = Battle.query.filter_by(challenge_code=challenge_code).first()
@@ -723,25 +779,26 @@ def submit_battle_line(challenge_code):
 
     if side == "a":
         battle.current_turn = "b"
+        db.session.commit()
     else:
-        # Round complete — judge it, save the critique for each side, then
-        # PAUSE. No auto-advance, no timer: the round only actually moves
-        # forward once both sides hit "Start next round" themselves (see
-        # the /ready endpoint below).
-        line_a = BattleLine.query.filter_by(battle_id=battle.id, round_number=battle.round_number, side="a").first()
-        result = trash_talk_service.judge_battle_round(battle.team_a, line_a.message if line_a else "", battle.team_b, message)
-        db.session.add(BattleRoundResult(
-            battle_id=battle.id,
-            round_number=battle.round_number,
-            winner=result["winner"],
-            critique_a=result["critique_a"],
-            critique_b=result["critique_b"],
-        ))
+        # Round complete — pause immediately (no timer, no auto-advance;
+        # the round only actually moves forward once both sides hit
+        # "Start next round" via the /ready endpoint). The actual AI
+        # judging happens in the background so this response comes back
+        # right away — both people see the line land instantly instead
+        # of waiting on a real Claude API call first.
         battle.awaiting_next_round = True
         battle.ready_a = False
         battle.ready_b = False
+        db.session.commit()
 
-    db.session.commit()
+        line_a = BattleLine.query.filter_by(battle_id=battle.id, round_number=battle.round_number, side="a").first()
+        threading.Thread(
+            target=_judge_round_async,
+            args=(battle.id, battle.round_number, battle.team_a, line_a.message if line_a else "", battle.team_b, message),
+            daemon=True,
+        ).start()
+
     return jsonify(_battle_state_json(battle))
 
 
@@ -778,22 +835,13 @@ def ready_for_next_round(challenge_code):
         if battle.round_number > 5:
             battle.status = "complete"
             battle.completed_at = datetime.utcnow()
+            db.session.commit()
 
-            all_results = BattleRoundResult.query.filter_by(battle_id=battle.id).order_by(BattleRoundResult.round_number.asc()).all()
-            wins_a = sum(1 for r in all_results if r.winner == "a")
-            wins_b = sum(1 for r in all_results if r.winner == "b")
-            overall_winner = "a" if wins_a > wins_b else "b" if wins_b > wins_a else "tie"
-            battle.overall_winner = overall_winner
-
-            all_lines = BattleLine.query.filter_by(battle_id=battle.id).order_by(BattleLine.created_at.asc()).all()
-            recap = trash_talk_service.generate_battle_recap(
-                battle.team_a, battle.team_b,
-                [{"side": l.side, "round": l.round_number, "message": l.message} for l in all_lines],
-                [{"round": r.round_number, "winner": r.winner} for r in all_results],
-                overall_winner,
-            )
-            battle.recap_winner_text = recap["winner_recap"]
-            battle.recap_loser_text = recap["loser_recap"]
+            # Recap generation is a real AI call — run it in the
+            # background so whoever clicks the second "ready" doesn't sit
+            # there waiting for it before seeing the battle end.
+            threading.Thread(target=_generate_recap_async, args=(battle.id,), daemon=True).start()
+            return jsonify(_battle_state_json(battle))
 
     db.session.commit()
     return jsonify(_battle_state_json(battle))
@@ -826,6 +874,49 @@ def vote_battle(challenge_code):
     return jsonify({"vote_count_a": battle.vote_count_a, "vote_count_b": battle.vote_count_b})
 
 
+@app.route("/api/battles/<challenge_code>/rematch", methods=["POST"])
+def request_rematch(challenge_code):
+    """
+    One side asking for a rematch — same "both sides have to agree" gate
+    used for advancing rounds. Once both have requested it, a brand new
+    Battle is created with the same teams and names, and its code is
+    stashed on the old (completed) battle so both people's clients —
+    still polling this old battle — pick it up and redirect themselves.
+    """
+    battle = Battle.query.filter_by(challenge_code=challenge_code).first()
+    if not battle:
+        return jsonify({"error": "Battle not found"}), 404
+    if battle.status != "complete":
+        return jsonify({"error": "Rematch is only available once the battle is finished"}), 400
+
+    data = request.json
+    side = data.get("side", "")
+    if side not in ("a", "b"):
+        return jsonify({"error": "Invalid side"}), 400
+
+    if side == "a":
+        battle.rematch_requested_a = True
+    else:
+        battle.rematch_requested_b = True
+
+    if battle.rematch_requested_a and battle.rematch_requested_b and not battle.rematch_challenge_code:
+        new_code = secrets.token_urlsafe(6).replace("_", "").replace("-", "")[:8]
+        new_battle = Battle(
+            challenge_code=new_code,
+            league=battle.league,
+            team_a=battle.team_a,
+            display_name_a=battle.display_name_a,
+            team_b=battle.team_b,
+            display_name_b=battle.display_name_b,
+            status="active",
+        )
+        db.session.add(new_battle)
+        battle.rematch_challenge_code = new_code
+
+    db.session.commit()
+    return jsonify(_battle_state_json(battle))
+
+
 @app.route("/api/battle-sfx")
 def battle_sfx():
     """
@@ -854,6 +945,7 @@ def battle_sfx():
         bell_url = elevenlabs_service.generate_sound_effect(
             "Boxing ring bell, single clear ding-ding ring bell strike signaling the start of a round",
             duration_seconds=1.5,
+            target_lufs=-4,  # noticeably louder than the general SFX target — this one needs to cut through
         )
         cheer_url = elevenlabs_service.generate_sound_effect(
             "Excited sports arena crowd cheering and applauding loudly, celebratory roar, winning moment reaction",

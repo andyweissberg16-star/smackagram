@@ -339,6 +339,49 @@ one at a time. Logging each as it's built:
       won overall, a "you got smoked" recap for whoever lost, both
       referencing real specific lines from the actual battle rather than
       generic hype.
+- [x] Fixed real lag on both ends. Two separate causes: (1) the person
+      submitting a line that completes a round had to wait for a real
+      Claude API judging call to finish before seeing anything update —
+      moved judging (and the final recap generation) to a background
+      thread, so the response comes back instantly and the critique/
+      recap fills in a moment later via polling instead of blocking the
+      whole request. (2) The waiting side was capped by a 4-second
+      polling interval — cut to 1.5 seconds. Added proper loading states
+      ("Judging this round...", "Writing your recap...") for the brief
+      real gap while the AI call is still running in the background.
+- [x] "Start New Smack Battle" rematch button below the final scorecard
+      — same both-sides-must-agree gate as advancing a round, no
+      auto-start. Once both click it, a brand new battle is created with
+      the same two teams/names and both people get auto-redirected to
+      it (each browser correctly carries its own side over to the new
+      battle).
+- [x] Round critiques and the final recap are now heavily profane and
+      brutal — but scoped specifically to roasting the QUALITY of each
+      side's actual lines/performance, never the real person. Same
+      "roast the content, never fabricate personal details" boundary
+      already used successfully elsewhere in the app (no slurs, no
+      threats, no sexual content, no real personal attacks).
+- [x] Added a visible on-page notice above the message box, stating
+      clearly that sexual, threatening, or harassing content isn't
+      allowed and gets automatically blocked — reinforces what the
+      backend moderation already enforces, now visible upfront instead
+      of only surfacing as an error after the fact.
+- [x] Pressing Enter now submits your line, same as clicking the send
+      button — Shift+Enter still works for an actual line break if
+      someone wants a multi-line message.
+- [x] Boxing bell (both at battle start and every round after) pushed
+      noticeably louder than the other sound effects (-4 LUFS vs the
+      general -10 SFX target) so it actually cuts through instead of
+      blending in with everything else.
+- [x] Fixed mobile layout cutting off the bottom of the screen (submit
+      button and text field going off-screen, needing a refresh to
+      reach). Root cause: the page used `100vh` for its height, which on
+      mobile browsers measures the largest possible viewport as if the
+      address bar were fully hidden — but the actual visible space
+      shrinks when that bar is showing, pushing content below what's
+      really on screen. Switched to `100dvh` (dynamic viewport height,
+      with a fallback for older browsers), which correctly tracks the
+      real visible area as the browser chrome shows and hides.
 
 ---
 *Last updated: 2026-07-26*

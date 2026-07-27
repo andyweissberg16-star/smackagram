@@ -20,7 +20,7 @@ _voice_preview_cache = {}
 _sfx_cache = {}
 
 
-def generate_sound_effect(prompt: str, duration_seconds: float = 1.5) -> str:
+def generate_sound_effect(prompt: str, duration_seconds: float = 1.5, target_lufs: int = None) -> str:
     """
     Generates a short sound effect from a text description using ElevenLabs'
     Sound Effects endpoint — a different feature from voice TTS, built for
@@ -28,12 +28,18 @@ def generate_sound_effect(prompt: str, duration_seconds: float = 1.5) -> str:
     Requires the API key to have "Sound Effects" access enabled.
 
     Runs through the same loudness normalization as speech, but targeting
-    a louder level (-10 LUFS vs speech's -16) — effects like a bell or
-    crowd cheer are supposed to hit hard and punchy, not sit at a
-    conversational volume like a voice line.
+    a louder level by default (-10 LUFS vs speech's -16) — effects like a
+    bell or crowd cheer are supposed to hit hard and punchy, not sit at a
+    conversational volume like a voice line. Pass target_lufs explicitly
+    for an effect that needs to stand out even louder than the rest
+    (e.g. the ring bell).
     """
-    if prompt in _sfx_cache:
-        return _sfx_cache[prompt]
+    if target_lufs is None:
+        target_lufs = SFX_TARGET_LUFS
+
+    cache_key = f"{prompt}::{target_lufs}"
+    if cache_key in _sfx_cache:
+        return _sfx_cache[cache_key]
 
     s3_bucket = os.environ["AUDIO_S3_BUCKET"]
     s3_region = os.environ.get("AWS_REGION", "us-east-1")
@@ -53,7 +59,7 @@ def generate_sound_effect(prompt: str, duration_seconds: float = 1.5) -> str:
     )
     resp.raise_for_status()
 
-    normalized_audio = _normalize_loudness(resp.content, target_lufs=SFX_TARGET_LUFS)
+    normalized_audio = _normalize_loudness(resp.content, target_lufs=target_lufs)
 
     filename = f"sfx/{uuid.uuid4()}.mp3"
     s3 = boto3.client("s3", region_name=s3_region)
@@ -65,7 +71,7 @@ def generate_sound_effect(prompt: str, duration_seconds: float = 1.5) -> str:
     )
 
     url = f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/{filename}"
-    _sfx_cache[prompt] = url
+    _sfx_cache[cache_key] = url
     return url
 
 

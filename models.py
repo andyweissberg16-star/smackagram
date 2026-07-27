@@ -223,6 +223,15 @@ class Battle(db.Model):
     recap_winner_text = db.Column(db.Text, nullable=True)
     recap_loser_text = db.Column(db.Text, nullable=True)
 
+    # Rematch — same "both sides have to agree" gate as advancing a
+    # round. Once both flags are true, a brand new Battle gets created
+    # (same teams/names) and its challenge_code is stashed here so both
+    # people's clients (still polling this old, completed battle) can
+    # detect it and redirect themselves to the new one.
+    rematch_requested_a = db.Column(db.Boolean, default=False)
+    rematch_requested_b = db.Column(db.Boolean, default=False)
+    rematch_challenge_code = db.Column(db.String(20), nullable=True)
+
     @property
     def vote_count_a(self):
         return BattleVote.query.filter_by(battle_id=self.id, voted_for="a").count()

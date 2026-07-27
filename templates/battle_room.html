@@ -28,7 +28,11 @@
     background-repeat:no-repeat;
     color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;
   }
-  .wrap{max-width:620px; margin:0 auto; padding:0 24px; display:flex; flex-direction:column; height:calc(100vh - 76px);}
+  .wrap{
+    max-width:620px; margin:0 auto; padding:0 24px; display:flex; flex-direction:column;
+    height:calc(100vh - 76px);
+    height:calc(100dvh - 76px);
+  }
   #lineHistory{flex:1; overflow-y:auto; min-height:0; padding:4px 0;}
   #actionArea{flex-shrink:0; padding-bottom:16px;}
 
@@ -94,6 +98,7 @@
   #actionError{display:none; color:var(--flare); font-size:12px; margin-bottom:10px;}
 
   .waiting-note{text-align:center; color:var(--chalk-dim); font-size:14px; padding:8px 0;}
+  .safety-note{font-size:11px; color:var(--chalk-dim); margin:8px 0 14px; line-height:1.4;}
 
   .line{padding:12px 16px; border-radius:8px; margin-bottom:10px; max-width:85%;}
   .line.side-a{background:rgba(255,212,0,0.08); border-left:3px solid var(--gold); margin-right:auto;}
@@ -379,6 +384,17 @@ function buildFinalScorecard(battle, mySide) {
   const recapClass = battle.overall_winner === 'tie' ? 'tie' : isWinner ? 'win' : 'loss';
   const recapLabel = battle.overall_winner === 'tie' ? "It's a tie" : isWinner ? 'You won the battle' : 'You lost the battle';
 
+  // Recap generation is a real AI call running in the background — this
+  // covers the brief window before overall_winner has actually arrived.
+  const recapBlock = !battle.overall_winner
+    ? '<p class="waiting-note" style="margin-top:16px;">Writing your recap...</p>'
+    : `
+      <div class="critique-box ${recapClass}" style="margin-top:16px;">
+        <p class="critique-label">${recapLabel}</p>
+        <p>${escapeHtml(recapText || '')}</p>
+      </div>
+    `;
+
   return `
     <div class="card final-scorecard">
       <p class="final-scorecard-title">Final Scorecard</p>
@@ -388,10 +404,7 @@ function buildFinalScorecard(battle, mySide) {
         <span class="side-b">${winsB}</span>
       </div>
       <div class="final-round-row">${rounds}</div>
-      <div class="critique-box ${recapClass}" style="margin-top:16px;">
-        <p class="critique-label">${recapLabel}</p>
-        <p>${escapeHtml(recapText || '')}</p>
-      </div>
+      ${recapBlock}
     </div>
   `;
 }
@@ -558,7 +571,7 @@ function render(battle) {
   // string captures everything that would legitimately require a
   // rebuild; if it's unchanged since last render, the DOM (and whatever
   // the user is doing in it right now) is left completely alone.
-  const actionSignature = `${battle.status}|${battle.current_turn}|${mySide}|${battle.round_number}|${battle.vote_count_a}|${battle.awaiting_next_round}|${battle.ready_a}|${battle.ready_b}`;
+  const actionSignature = `${battle.status}|${battle.current_turn}|${mySide}|${battle.round_number}|${battle.vote_count_a}|${battle.awaiting_next_round}|${battle.ready_a}|${battle.ready_b}|${(battle.round_results || []).length}|${battle.overall_winner}|${battle.rematch_requested_a}|${battle.rematch_requested_b}`;
   if (lastActionSignature === actionSignature) {
     return;
   }
@@ -567,27 +580,40 @@ function render(battle) {
   let actionHtml = '';
   if (battle.status === 'active' && battle.awaiting_next_round) {
     const latestResult = (battle.round_results || []).find(r => r.round === battle.round_number);
-    const myCritique = latestResult ? (mySide === 'a' ? latestResult.critique_a : latestResult.critique_b) : '';
-    const outcome = !latestResult ? 'tie' : latestResult.winner === 'tie' ? 'tie' : (latestResult.winner === mySide ? 'win' : 'loss');
-    const iAmReady = mySide === 'a' ? battle.ready_a : battle.ready_b;
 
-    actionHtml = `
-      <div class="card">
-        <div class="critique-box ${outcome}">
-          <p class="critique-label">${outcome === 'win' ? 'You won this round' : outcome === 'loss' ? 'You lost this round' : 'Round tied'}</p>
-          <p>${escapeHtml(myCritique)}</p>
+    if (!latestResult) {
+      // Judging happens in the background now (so submitting a line
+      // responds instantly) — this is the brief window before that
+      // finishes. Keep polling picks it up within ~1.5s.
+      actionHtml = `
+        <div class="card">
+          <p class="waiting-note">Judging this round...</p>
         </div>
-        ${iAmReady
-          ? '<p class="waiting-note">Waiting for your opponent to start the next round...</p>'
-          : '<button id="readyBtn" class="btn btn-flare">Start next round</button>'}
-      </div>
-    `;
+      `;
+    } else {
+      const myCritique = mySide === 'a' ? latestResult.critique_a : latestResult.critique_b;
+      const outcome = latestResult.winner === 'tie' ? 'tie' : (latestResult.winner === mySide ? 'win' : 'loss');
+      const iAmReady = mySide === 'a' ? battle.ready_a : battle.ready_b;
+
+      actionHtml = `
+        <div class="card">
+          <div class="critique-box ${outcome}">
+            <p class="critique-label">${outcome === 'win' ? 'You won this round' : outcome === 'loss' ? 'You lost this round' : 'Round tied'}</p>
+            <p>${escapeHtml(myCritique)}</p>
+          </div>
+          ${iAmReady
+            ? '<p class="waiting-note">Waiting for your opponent to start the next round...</p>'
+            : '<button id="readyBtn" class="btn btn-flare">Start next round</button>'}
+        </div>
+      `;
+    }
   } else if (battle.status === 'active') {
     if (mySide === battle.current_turn) {
       actionHtml = `
         <div class="card">
           <p class="waiting-note" style="margin-bottom:10px;">Your turn — round ${battle.round_number}</p>
           <textarea id="lineInput" placeholder="Say what you came to say..." maxlength="500"></textarea>
+          <p class="safety-note">Trash talk about the teams only. No sexual, threatening, or harassing content — messages like that are automatically blocked.</p>
           <div id="actionError"></div>
           <button id="submitLineBtn" class="btn btn-flare">Send it</button>
         </div>
@@ -597,6 +623,14 @@ function render(battle) {
       actionHtml = `<div class="card"><p class="waiting-note">Waiting for ${escapeHtml(waitingOn)} to respond...</p></div>`;
     }
   } else if (battle.status === 'complete') {
+    // Both sides have requested a rematch and the new battle already
+    // exists — send both people there automatically.
+    if (battle.rematch_challenge_code) {
+      if (mySide) localStorage.setItem(`battle_side_${battle.rematch_challenge_code}`, mySide);
+      window.location.href = `/battle/${battle.rematch_challenge_code}`;
+      return;
+    }
+
     actionHtml = buildFinalScorecard(battle, mySide);
     if (battle.vote_count_a !== null) {
       const winner = battle.vote_count_a > battle.vote_count_b ? battle.team_a
@@ -618,6 +652,15 @@ function render(battle) {
       `;
       actionHtml += '</div>';
     }
+
+    const iRequestedRematch = mySide === 'a' ? battle.rematch_requested_a : battle.rematch_requested_b;
+    actionHtml += `
+      <div class="card">
+        ${iRequestedRematch
+          ? '<p class="waiting-note">Waiting for your opponent to start a rematch...</p>'
+          : '<button id="rematchBtn" class="btn btn-flare">Start New Smack Battle</button>'}
+      </div>
+    `;
   }
 
   actionArea.innerHTML = actionHtml;
@@ -647,8 +690,10 @@ function render(battle) {
 
   if (battle.status === 'active' && mySide === battle.current_turn) {
     const submitBtn = document.getElementById('submitLineBtn');
-    submitBtn.addEventListener('click', async () => {
-      const message = document.getElementById('lineInput').value.trim();
+    const lineInput = document.getElementById('lineInput');
+
+    async function submitLine() {
+      const message = lineInput.value.trim();
       const errorEl = document.getElementById('actionError');
       errorEl.style.display = 'none';
       if (!message) return;
@@ -678,6 +723,14 @@ function render(battle) {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Send it';
       }
+    }
+
+    submitBtn.addEventListener('click', submitLine);
+    lineInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitLine();
+      }
     });
   }
 
@@ -702,10 +755,30 @@ function render(battle) {
       });
     });
   }
+
+  if (battle.status === 'complete') {
+    const rematchBtn = document.getElementById('rematchBtn');
+    if (rematchBtn) {
+      rematchBtn.addEventListener('click', async () => {
+        rematchBtn.disabled = true;
+        rematchBtn.textContent = 'Waiting for opponent...';
+        const resp = await fetch(`/api/battles/${challengeCode}/rematch`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({side: mySide})
+        });
+        const data = await resp.json();
+        if (!data.error) {
+          lastActionSignature = null;
+          render(data);
+        }
+      });
+    }
+  }
 }
 
 loadBattle();
-pollInterval = setInterval(loadBattle, 4000);
+pollInterval = setInterval(loadBattle, 1500);
 </script>
 </body>
 </html>
