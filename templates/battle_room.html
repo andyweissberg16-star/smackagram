@@ -105,9 +105,12 @@
   #actionError{display:none; color:var(--flare); font-size:12px; margin-bottom:10px;}
 
   .waiting-note{text-align:center; color:var(--chalk-dim); font-size:14px; padding:8px 0;}
+  .coach-notes-label{
+    font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--gold); text-transform:uppercase;
+    letter-spacing:1.5px; text-align:center; margin-top:14px; padding-top:14px; border-top:1px solid var(--line-strong);
+  }
   .coach-message{
-    text-align:center; font-size:14px; color:var(--chalk); font-style:italic; padding:14px 18px 0;
-    margin-top:10px; border-top:1px solid var(--line-strong); position:relative;
+    text-align:center; font-size:14px; color:var(--chalk); font-style:italic; padding-top:8px; position:relative;
   }
   .coach-message::before{content:'"'; color:var(--gold); font-family:'Anton',sans-serif; font-size:18px; margin-right:2px;}
   .coach-message::after{content:'"'; color:var(--gold); font-family:'Anton',sans-serif; font-size:18px; margin-left:2px;}
@@ -166,6 +169,29 @@
   .final-avg-row{display:flex; justify-content:center; gap:32px; margin-top:18px;}
   .final-avg-label{font-size:11px; color:var(--chalk-dim); text-transform:uppercase; margin-bottom:4px;}
   .final-avg-value{font-family:'Anton',sans-serif; font-size:20px;}
+  .smack-lab-nudge{
+    text-align:center; margin-top:16px; padding-top:16px; border-top:1px solid var(--line-strong);
+  }
+  .smack-lab-nudge p{font-size:12px; color:var(--chalk-dim); margin-bottom:10px; line-height:1.5;}
+  .smack-lab-link{
+    display:inline-block; font-family:'Inter',sans-serif; font-weight:600; font-size:12px; color:var(--gold);
+    text-decoration:none; border:1px solid rgba(255,212,0,0.4); border-radius:20px; padding:7px 16px;
+    transition:background 0.15s, border-color 0.15s;
+  }
+  .smack-lab-link:hover{background:rgba(255,212,0,0.1); border-color:var(--gold);}
+
+  .hype-card{
+    background:var(--ink-2); border:2px solid var(--flare); border-radius:8px; padding:36px 32px; text-align:center;
+    max-width:320px; box-shadow:0 0 50px rgba(232,20,44,0.5); animation:hypePunch 0.5s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes hypePunch{
+    0%{opacity:0; transform:scale(0.7) rotate(-3deg);}
+    100%{opacity:1; transform:scale(1) rotate(0);}
+  }
+  .hype-headline{
+    font-family:'Anton',sans-serif; font-size:26px; text-transform:uppercase; color:var(--chalk);
+    margin-bottom:22px; line-height:1.15;
+  }
 
   .intro-team{
     font-family:'Anton',sans-serif; font-size:44px; text-transform:uppercase; text-align:center;
@@ -220,6 +246,13 @@
   <div id="content"></div>
   <div id="lineHistory"></div>
   <div id="actionArea"></div>
+</div>
+
+<div id="hypeOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:190; align-items:center; justify-content:center;">
+  <div class="hype-card">
+    <p class="hype-headline">You ready for this?</p>
+    <button id="hypeBtn" class="btn btn-flare">Prove It</button>
+  </div>
 </div>
 
 <div id="introOverlay" style="display:none; position:fixed; inset:0; background:#000; z-index:200; align-items:center; justify-content:center; flex-direction:column;">
@@ -381,6 +414,54 @@ function handlePageInteraction() {
   document.addEventListener(evt, handlePageInteraction);
 });
 
+let hypeShown = false;
+
+function showHypePopup() {
+  if (hypeShown) return;
+  hypeShown = true;
+  const overlay = document.getElementById('hypeOverlay');
+  overlay.style.display = 'flex';
+  document.getElementById('hypeBtn').addEventListener('click', () => {
+    // The click itself already runs through the page's global
+    // click listener (handlePageInteraction), which is what actually
+    // starts the waiting-room music.
+    overlay.style.display = 'none';
+    unlockOneShotSounds();
+  });
+}
+
+async function unlockOneShotSounds() {
+  // The one-shot effects (critique reveal, cheer, boo, bell, intro,
+  // tick, new-line) only ever get played later from inside poll
+  // callbacks, never a direct click — without an explicit unlock during
+  // a real gesture first, mobile browsers reject them outright, and
+  // even more lenient desktop browsers can still cut them off
+  // unreliably since they were never genuinely granted permission. This
+  // is the single deliberate moment (the hype button click) to unlock
+  // all of them properly — one at a time, awaiting each fully finishing
+  // before starting the next, and using both muted+volume together
+  // (not just volume=0, which wasn't reliably silent on its own) so
+  // there's no chance of the earlier overlapping-blips bug coming back.
+  const ids = ['cheerAudio', 'booAudio', 'critiqueRevealAudio', 'bellAudio', 'introAudio', 'tickAudio', 'newLineAudio'];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (!el || !el.src) continue;
+    const originalVolume = el.volume;
+    el.muted = true;
+    el.volume = 0;
+    try {
+      await el.play();
+      el.pause();
+      el.currentTime = 0;
+    } catch (err) {
+      // Fine if this one didn't unlock — later attempts to play it will
+      // just silently fail via the existing .catch(() => {}) handling.
+    }
+    el.muted = false;
+    el.volume = originalVolume;
+  }
+}
+
 function playAudioElement(id) {
   const el = document.getElementById(id);
   if (el && el.src) {
@@ -510,6 +591,15 @@ function buildFinalScorecard(battle, mySide) {
       </div>
     `;
 
+  // Only for whoever lost — a nudge toward Smack Lab (free 1-on-1 AI
+  // coaching) as the natural next step after a rough outing.
+  const smackLabBlock = isLoser ? `
+    <div class="smack-lab-nudge">
+      <p>Might be time to work on your bars. Smack Lab's got a coach ready — go sharpen up and come back when you're actually prepared.</p>
+      <a href="/smack-lab" class="smack-lab-link">Train at Smack Lab &rarr;</a>
+    </div>
+  ` : '';
+
   return `
     <div class="card final-scorecard">
       <p class="final-scorecard-title">Final Scorecard</p>
@@ -526,6 +616,7 @@ function buildFinalScorecard(battle, mySide) {
         </div>
       ` : ''}
       ${recapBlock}
+      ${smackLabBlock}
     </div>
   `;
 }
@@ -555,10 +646,16 @@ function render(battle) {
   const actionArea = document.getElementById('actionArea');
   const mySide = getMySide();
 
-  if (battle.status !== lastKnownStatus) {
-    lastKnownStatus = battle.status;
-    updateBackgroundMusic(battle.status);
-  }
+  // Always sync against the freshly-fetched status, every render — not
+  // gated behind "did status change since last time," since that check
+  // relies on lastKnownStatus staying accurate, and a missed or delayed
+  // poll (more common on mobile) could leave it stale, causing the
+  // wrong loop (e.g. waiting-room music) to keep playing into moments
+  // it shouldn't, like reading a round's critique. updateBackgroundMusic
+  // itself is already safe to call repeatedly with the same status —
+  // it only actually starts/stops audio when something needs to change.
+  lastKnownStatus = battle.status;
+  updateBackgroundMusic(battle.status);
 
   document.documentElement.classList.toggle('battle-complete', battle.status === 'complete');
   document.body.classList.toggle('battle-complete', battle.status === 'complete');
@@ -578,6 +675,7 @@ function render(battle) {
             <p class="waiting-note">Share your battle link with whoever you're calling out. This page will update once they join.</p>
           </div>
         `;
+        showHypePopup();
       } else {
         actionArea.innerHTML = `
           <div class="card">
@@ -795,7 +893,7 @@ function render(battle) {
       actionHtml = `
         <div class="card">
           <p class="waiting-note">Waiting for ${escapeHtml(waitingOn)} to respond...</p>
-          ${myCoachMessage ? `<p class="coach-message">${escapeHtml(myCoachMessage)}</p>` : ''}
+          ${myCoachMessage ? `<p class="coach-notes-label">Coach's Notes</p><p class="coach-message">${escapeHtml(myCoachMessage)}</p>` : ''}
         </div>
       `;
     }

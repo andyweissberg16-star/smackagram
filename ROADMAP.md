@@ -546,6 +546,43 @@ one at a time. Logging each as it's built:
       (rounds won, average score). Lights a fire under whoever's behind,
       tells whoever's ahead not to get comfortable, raises the stakes if
       it's close — grounded in the real numbers, not generic hype.
+- [x] Added a "You ready for this?" hype popup that punches onto the
+      screen the moment someone enters the waiting room — clicking
+      "Prove It" dismisses it and, since it's a genuine click, also
+      naturally triggers the browser's audio unlock and starts the
+      waiting-room music as a side effect, without needing to explain
+      to the person that they're "unlocking sound."
+- [x] Fixed critique-reveal (and other one-shot) sounds not playing at
+      all on mobile, and cutting off unreliably on desktop. Root cause:
+      after removing the earlier broken "unlock everything on every
+      click" approach, these sounds never got a genuine gesture-unlock
+      at all — they only ever play from inside poll callbacks now, which
+      strict mobile browsers reject outright, and even lenient desktop
+      browsers can still interrupt since permission was never really
+      granted. Used the hype popup click (a single, real, deliberate
+      gesture) to properly unlock all one-shot sounds — one at a time,
+      each one fully finishing before the next starts, muted+volume
+      zeroed together (more reliably silent than volume alone) so there's
+      no risk of the earlier overlapping-blips bug returning.
+- [x] Fixed the waiting-room rock music playing during round critiques
+      on mobile. Root cause: which music loop should be playing was only
+      ever re-checked when a status *change* was detected via a cached
+      variable — if a poll update was ever missed or delayed (known to
+      happen more on mobile), that cached value went stale, so clicks
+      kept incorrectly playing the waiting-room track based on outdated
+      info even after the battle had actually moved into a round.
+      Switched to always syncing the music against the real,
+      freshly-fetched status on every single render, not a cached
+      status-change flag.
+- [x] Added a proper "Coach's Notes" label above the personalized
+      standing-based message shown while waiting on the opponent —
+      previously just floated on its own as unlabeled italic text.
+- [x] Added a Smack Lab nudge on the final scorecard, shown only to
+      whoever lost the battle — a small callout pointing them toward
+      Smack Lab's free 1-on-1 AI coaching to sharpen up before their
+      next battle. Deliberately styled small and understated (a pill
+      link, not a full button) so it doesn't visually compete with the
+      rematch button right below it.
 
 ---
 *Last updated: 2026-07-26*
