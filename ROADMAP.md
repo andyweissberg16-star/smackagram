@@ -1396,3 +1396,22 @@ this is an actual live product with real paying users, upgrade to a
 Pro-tier (or higher) Postgres instance and turn HA on — that's the
 actual "system redundancy" piece of the original requirement, and it
 genuinely isn't covered by the current Basic tier.
+
+## TODO before real launch: upgrade ElevenLabs to Enterprise tier
+Currently on Creator ($22/mo, 121K credits). Confirmed via math: even
+the top-shown Scale tier ($299/mo, 1.8M credits) only supports roughly
+225 active Smackcast subscribers/month using the site's actual Turbo
+model rate (0.5 credits/character) - none of the public tiers are
+built for real scale (tens/hundreds of thousands of users). REMINDER:
+once there's real subscriber volume to justify it, contact ElevenLabs
+about Enterprise pricing (custom, not on the public pricing page).
+
+## Real contact emails wired in (same session)
+- [x] Updated Contact page with the 2 real working @smackagram.com
+      inboxes, replacing placeholder addresses. support@ stays as-is
+      (already matched), report@ and billing@ both now point to
+      owners@ since those categories need direct founder attention for
+      a solo-operated business. Note: these are real inboxes a human
+      checks manually - not the same as automated email-sending
+      infrastructure (still a known, separate gap for things like
+      email-based 2FA).
