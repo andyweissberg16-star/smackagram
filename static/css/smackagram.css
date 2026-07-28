@@ -74,7 +74,7 @@ nav{display:flex; justify-content:space-between; align-items:center; padding:20p
   border-bottom:1px solid var(--line);
 }
 .nav-drawer a:last-child{border-bottom:0;}
-.nav-drawer a:hover,.nav-drawer a:focus-visible{color:var(--flare); outline:none;}
+.nav-drawer a:hover,.nav-drawer a:focus-visible{color:var(--flare);}
 .nav-drawer a.is-flare{color:var(--flare);}
 .nav-drawer a.is-gold{color:var(--gold);}
 
@@ -111,3 +111,63 @@ nav > a:first-of-type{min-height:44px; display:flex; align-items:center;}
 /* Text fields measured 43px - one pixel under the minimum, everywhere. */
 input[type=text],input[type=tel],input[type=email],input[type=password],
 input[type=number],input[type=date],select,textarea{min-height:44px;}
+
+/* ---------------------------------------------------------------------------
+   KEYBOARD FOCUS
+   16 templates carried `input:focus{outline:none; border-color:var(--flare);}`.
+   A 1px border tint is a weak indicator, and on a checkbox it is invisible -
+   tabbing through the site, 12 of 40 elements showed no focus state at all.
+
+   `html body` is here on purpose: it lifts specificity to (0,1,2) so this beats
+   those `input:focus` rules at (0,1,1), which would otherwise win on source
+   order since the page's inline <style> loads after this file. That avoids
+   having to touch 16 templates, and avoids !important.
+
+   :focus-visible (not :focus) means mouse users don't get a ring on every
+   click - only keyboard users, and text fields, which browsers always treat
+   as focus-visible.
+--------------------------------------------------------------------------- */
+html body :focus-visible{
+  outline:2px solid var(--chalk);
+  outline-offset:2px;
+}
+/* smack_chat and smack_lab suppress the ring with class-level selectors like
+   `.search-input:focus` (0,2,0) and `input[type=text]:focus` (0,2,1), which
+   outrank the rule above at (0,1,2). :is() takes the specificity of its
+   heaviest argument, lifting this to (0,2,2) so it wins - still no !important. */
+html body :is(a,button,input,select,textarea,[tabindex]):focus-visible{
+  outline:2px solid var(--chalk);
+  outline-offset:2px;
+}
+/* Checkboxes are small and sit inside dark rows; give them a little more. */
+html body input[type=checkbox]:focus-visible,
+html body input[type=radio]:focus-visible{
+  outline:2px solid var(--gold);
+  outline-offset:3px;
+}
+
+/* ---------------------------------------------------------------------------
+   TYPE SCALE
+   The site had 25 distinct font sizes across 297 declarations. These are the
+   steps everything should land on. Headings use clamp() so a 36px desktop
+   headline drops to 28px on a phone instead of wrapping awkwardly.
+
+   Three heading tiers, deliberately:
+     hero    clamp(38px,6vw,64px)  index only - the landing page
+     page    clamp(28px,5vw,36px)  feature pages, confirmations, recaps
+     form    clamp(22px,4vw,26px)  login / register / profile / verify
+--------------------------------------------------------------------------- */
+:root{
+  --fs-2xs:10px;
+  --fs-xs:11px;
+  --fs-sm:12px;
+  --fs-base:13px;
+  --fs-md:14px;
+  --fs-lg:16px;
+  --fs-xl:18px;
+  --fs-2xl:22px;
+  --fs-3xl:26px;
+  --h1-hero:clamp(38px,6vw,64px);
+  --h1-page:clamp(28px,5vw,36px);
+  --h1-form:clamp(22px,4vw,26px);
+}
