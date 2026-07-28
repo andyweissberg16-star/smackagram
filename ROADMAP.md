@@ -1424,3 +1424,12 @@ about Enterprise pricing (custom, not on the public pricing page).
       converted to JPEG (no transparency needed, RGB not RGBA), down
       to 120KB - a 17x reduction with no visible quality loss at
       header size.
+
+## Support header image sizing fix (same session)
+- [x] Fixed the header image looking small/undersized on desktop -
+      root cause was the image being trapped inside the page's narrow
+      640px text-reading container (.wrap), when its actual aspect
+      ratio (wide banner shape) needs real room to display properly.
+      Moved it outside that container into its own wider (1400px max)
+      section, letting it actually use available desktop screen space
+      as a real hero-style banner instead of shrinking down small.
