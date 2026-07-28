@@ -94,7 +94,14 @@
 
 {% include '_nav.html' %}
 
-<img src="{{ url_for('static', filename='smack-battle-hero.png') }}" alt="Smack Battle — where trash talk meets its match" style="width:100%; height:auto; display:block;">
+<picture>
+  <source type="image/webp" sizes="100vw"
+          srcset="{{ url_for('static', filename='img/smack-battle-hero-780.webp') }} 780w,
+                  {{ url_for('static', filename='img/smack-battle-hero-1560.webp') }} 1560w,
+                  {{ url_for('static', filename='img/smack-battle-hero-1983.webp') }} 1983w">
+  <img src="{{ url_for('static', filename='img/smack-battle-hero-1560.jpg') }}" alt="Smack Battle — where trash talk meets its match"
+       width="1983" height="793" style="width:100%; height:auto; display:block;">
+</picture>
 
 <div class="wrap">
   <div class="hero">

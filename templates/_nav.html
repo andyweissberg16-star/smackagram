@@ -1,6 +1,10 @@
 <nav>
   <a href="/" style="display:flex; align-items:center; text-decoration:none;">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+    <picture>
+      <source type="image/webp" srcset="{{ url_for('static', filename='img/logo-204.webp') }}">
+      <img src="{{ url_for('static', filename='img/logo-204.png') }}" alt="Smackagram"
+           width="51" height="34" style="height:34px; width:auto; display:block;">
+    </picture>
   </a>
   <div class="nav-links">
     <a href="/#how-it-works" style="color:inherit; text-decoration:none;">How it works</a>

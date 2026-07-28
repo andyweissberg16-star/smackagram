@@ -115,7 +115,14 @@
 
 {% include '_nav.html' %}
 
-<img src="{{ url_for('static', filename='hero-mascot.png') }}" alt="Send a Smackagram" style="width:100%; height:auto; display:block;">
+<picture>
+  <source type="image/webp" sizes="100vw"
+          srcset="{{ url_for('static', filename='img/hero-mascot-780.webp') }} 780w,
+                  {{ url_for('static', filename='img/hero-mascot-1560.webp') }} 1560w,
+                  {{ url_for('static', filename='img/hero-mascot-1983.webp') }} 1983w">
+  <img src="{{ url_for('static', filename='img/hero-mascot-1560.jpg') }}" alt="Send a Smackagram"
+       width="1983" height="793" style="width:100%; height:auto; display:block;">
+</picture>
 
 <div class="wrap" style="padding-top:24px;">
 

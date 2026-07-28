@@ -126,7 +126,14 @@
 
 {% include '_nav.html' %}
 
-<img src="{{ url_for('static', filename='smack-lab-hero.png') }}" alt="Smack Lab — 1 on 1 coaching to take your smack to the big leagues" style="width:100%; height:auto; display:block;">
+<picture>
+  <source type="image/webp" sizes="100vw"
+          srcset="{{ url_for('static', filename='img/smack-lab-hero-780.webp') }} 780w,
+                  {{ url_for('static', filename='img/smack-lab-hero-1560.webp') }} 1560w,
+                  {{ url_for('static', filename='img/smack-lab-hero-1983.webp') }} 1983w">
+  <img src="{{ url_for('static', filename='img/smack-lab-hero-1560.jpg') }}" alt="Smack Lab — 1 on 1 coaching to take your smack to the big leagues"
+       width="1983" height="793" style="width:100%; height:auto; display:block;">
+</picture>
 
 <div class="wrap">
   <div class="hero">

@@ -295,7 +295,14 @@
 </div>
 
 <div style="width:100%; overflow:hidden; line-height:0;">
-  <img id="heroBanner" src="{{ url_for('static', filename='hero-mascot.png') }}" alt="Smackagram — let the smack talk begin" style="width:100%; height:auto; display:block;">
+  <picture>
+  <source type="image/webp" sizes="100vw"
+          srcset="{{ url_for('static', filename='img/hero-mascot-780.webp') }} 780w,
+                  {{ url_for('static', filename='img/hero-mascot-1560.webp') }} 1560w,
+                  {{ url_for('static', filename='img/hero-mascot-1983.webp') }} 1983w">
+  <img id="heroBanner" src="{{ url_for('static', filename='img/hero-mascot-1560.jpg') }}" alt="Smackagram — let the smack talk begin"
+       width="1983" height="793" style="width:100%; height:auto; display:block;">
+</picture>
 </div>
 
 <div class="wrap field-lines">

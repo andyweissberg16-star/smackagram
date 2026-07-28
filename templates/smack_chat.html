@@ -165,7 +165,14 @@
 
 {% include '_nav.html' %}
 
-<img src="{{ url_for('static', filename='smack-chat-hero.png') }}" alt="Smack Chat — the ultimate arena for sports trash talk" style="width:100%; height:auto; display:block;">
+<picture>
+  <source type="image/webp" sizes="100vw"
+          srcset="{{ url_for('static', filename='img/smack-chat-hero-780.webp') }} 780w,
+                  {{ url_for('static', filename='img/smack-chat-hero-1560.webp') }} 1560w,
+                  {{ url_for('static', filename='img/smack-chat-hero-1983.webp') }} 1983w">
+  <img src="{{ url_for('static', filename='img/smack-chat-hero-1560.jpg') }}" alt="Smack Chat — the ultimate arena for sports trash talk"
+       width="1983" height="793" style="width:100%; height:auto; display:block;">
+</picture>
 
 <div class="wrap">
   <div class="hero">
