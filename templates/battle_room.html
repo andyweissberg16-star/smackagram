@@ -909,7 +909,7 @@ function render(battle) {
             <input id="teamBInput" type="text" placeholder="ex. Eagles">
             <label for="nameBInput">Your name</label>
             <input id="nameBInput" type="text" placeholder="ex. RivalReady" maxlength="40">
-            <div id="actionError"></div>
+            <div id="actionError" role="alert"></div>
             <button id="joinBtn" class="btn btn-flare">Accept the challenge</button>
           </div>
         `;
@@ -1142,7 +1142,7 @@ function render(battle) {
         <div class="card">
           <p class="waiting-note" style="margin-bottom:10px;">Your turn — round ${battle.round_number}</p>
           <textarea id="lineInput" placeholder="Say what you came to say..." maxlength="500"></textarea>
-          <div id="actionError"></div>
+          <div id="actionError" role="alert"></div>
           <button id="submitLineBtn" class="btn btn-flare">Send it</button>
         </div>
       `;
