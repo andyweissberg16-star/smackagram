@@ -1433,3 +1433,46 @@ about Enterprise pricing (custom, not on the public pricing page).
       Moved it outside that container into its own wider (1400px max)
       section, letting it actually use available desktop screen space
       as a real hero-style banner instead of shrinking down small.
+
+## Second admin account (same session)
+- [x] Added admin1/admin as a second seeded admin account, same pattern
+      as the original admin/admin - lets two people (founder +
+      administrator) be logged in simultaneously with separate
+      accounts rather than sharing one session. Verified the existing
+      2FA-skip logic checks the is_admin flag generically (not
+      hardcoded to a specific email), so this new account correctly
+      skips 2FA automatically too, with zero additional changes needed.
+
+## Site-wide nav consistency (same session)
+The HTML structure and {% include '_nav.html' %} directives already
+existed across all 21 non-index pages, but real gaps were found and
+fixed:
+- [x] Added @app.context_processor for current_user - without this,
+      only the home page route manually passed current_user into its
+      template, meaning the Login/Register vs My Profile state in the
+      nav would have been broken/undefined on every other page. Now
+      automatically available site-wide, no per-route changes needed.
+- [x] Found and fixed: 19 of 21 pages were missing the .nav-links and
+      .auth-links CSS classes entirely - the nav HTML was included
+      correctly but would have rendered without proper spacing/layout,
+      looking visually broken compared to the home page. Fixed via a
+      systematic script insertion after each page's existing (identical
+      across all 19) nav{} CSS rule.
+- [x] Fixed 2 outlier "success" confirmation pages (locked_n_loaded_
+      success.html, order_success.html) that had zero nav CSS at all -
+      these use a centered full-screen layout for the confirmation
+      message. Also caught and fixed a real layout bug here: the body's
+      flex-centering would have centered the NAV ITSELF vertically
+      alongside the main content, rather than keeping it as a proper
+      top bar - restructured into a separate .center-wrap div so the
+      nav sits correctly at top and only the confirmation content
+      centers below it. order_success.html was also missing CSS
+      variables entirely (hardcoded hex colors) - added the standard
+      :root block to match the rest of the site.
+- [x] Switched index.html itself to use the shared _nav.html partial
+      too (was previously an inline duplicate) - avoids future
+      divergence between the two if either gets updated separately.
+- [x] Verified: full Jinja2 template syntax validation across every
+      .html file (catches include/syntax errors a div-count check
+      would miss), HTML div-balance check across all 21 updated files,
+      full Python compile check.

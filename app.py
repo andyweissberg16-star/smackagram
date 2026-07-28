@@ -55,6 +55,19 @@ def get_current_user():
     return User.query.get(user_id)
 
 
+@app.context_processor
+def inject_current_user():
+    """
+    Makes current_user automatically available in every template's
+    context, site-wide — without this, only routes that manually
+    passed current_user=get_current_user() into render_template() would
+    have it, which is what the shared site-wide nav partial needs to
+    correctly show Login/Register vs My Profile on every single page,
+    not just the ones that happened to already pass it.
+    """
+    return {"current_user": get_current_user()}
+
+
 def login_required(view_func):
     """
     Gates a route behind having a real account. API routes (path starts
@@ -1991,6 +2004,27 @@ with app.app_context():
         db.session.add(admin_user)
         db.session.commit()
         print("[auth] seeded admin test account (admin/admin)")
+
+    # Second admin account — same reasoning, but a separate login so two
+    # people (e.g. the founder and an administrator) can both be logged
+    # in simultaneously without sharing one session/account.
+    admin1_user = User.query.filter_by(email="admin1").first()
+    if not admin1_user:
+        admin1_user = User(
+            customer_number=999999,
+            first_name="Admin",
+            last_name="One",
+            screen_name="Admin1",
+            email="admin1",
+            phone="0000000001",
+            date_of_birth=date(1990, 1, 1),
+            terms_accepted_at=datetime.utcnow(),
+            is_admin=True,
+        )
+        admin1_user.set_password("admin")
+        db.session.add(admin1_user)
+        db.session.commit()
+        print("[auth] seeded second admin test account (admin1/admin)")
 
 if __name__ == "__main__":
     app.run(debug=True)

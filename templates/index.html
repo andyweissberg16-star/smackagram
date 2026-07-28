@@ -276,27 +276,7 @@
 </head>
 <body>
 
-<nav>
-  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
-  <div class="nav-links">
-    <a href="#how-it-works" style="color:inherit; text-decoration:none;">How it works</a>
-    <a href="/send-a-smack" style="color:inherit; text-decoration:none;">Generator</a>
-    <a href="/locked-n-loaded" style="color:var(--flare); text-decoration:none; font-weight:600;">Locked &amp; Loaded</a>
-    <a href="/smack-lab" style="color:inherit; text-decoration:none;">Smack Lab</a>
-    <a href="/smack-chat" style="color:inherit; text-decoration:none;">Smack Chat</a>
-    <a href="/smack-battle" style="color:inherit; text-decoration:none;">Smack Battle</a>
-    <a href="/smackcast" style="color:var(--gold); text-decoration:none; font-weight:600;">Smackcast</a>
-    <a href="/did-you-get-smacked" style="color:inherit; text-decoration:none;">Did You Get Smacked?</a>
-  </div>
-  <div class="auth-links">
-    {% if current_user %}
-      <a href="/profile" style="color:var(--gold); text-decoration:none; font-weight:600;">My Profile</a>
-    {% else %}
-      <a href="/login" style="color:inherit; text-decoration:none;">Log In</a>
-      <a href="/register" style="color:var(--flare); text-decoration:none; font-weight:600;">Register</a>
-    {% endif %}
-  </div>
-</nav>
+{% include '_nav.html' %}
 
 <div style="background:var(--ink-2); padding:20px 24px; text-align:center; border-bottom:1px solid var(--line);">
   <p style="font-family:'Anton',sans-serif; font-size:15px; text-transform:uppercase; letter-spacing:0.5px; color:var(--chalk-dim); margin-bottom:12px;">Did you just get smacked? Click here to send a smackback</p>

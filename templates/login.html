@@ -15,6 +15,12 @@
   body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
   .wrap{max-width:420px; margin:0 auto; padding:0 24px 60px;}
   nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+  .auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+  @media(max-width:760px){
+    nav{flex-wrap:wrap; gap:12px;}
+    .nav-links{display:none;}
+  }
   nav a{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
   nav a:hover{color:var(--flare);}
   .hero{text-align:center; padding:36px 0 8px;}
@@ -37,10 +43,7 @@
 </head>
 <body>
 
-<nav>
-  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
-  <a href="/">&larr; Back to home</a>
-</nav>
+{% include '_nav.html' %}
 
 <div class="wrap">
   <div class="hero">
