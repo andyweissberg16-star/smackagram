@@ -5,3 +5,12 @@ __pycache__/
 instance/
 .DS_Store
 venv/
+
+# Claude helper scripts (generated, never part of the app)
+focus_fix.py
+optimize_images.py
+extract_css.py
+mobile_nav.py
+p2_fixes.py
+polish_pass.py
+cleanup_images.py
