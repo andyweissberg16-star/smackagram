@@ -171,3 +171,47 @@ html body input[type=radio]:focus-visible{
   --h1-page:clamp(28px,5vw,36px);
   --h1-form:clamp(22px,4vw,26px);
 }
+
+/* ---------------------------------------------------------------------------
+   LOADING / PENDING STATE
+   The site makes 48 fetch() calls and had zero spinners. Feedback was limited
+   to disabling the button and swapping its label - and two templates
+   (index.html, locked_n_loaded.html) had no :disabled styling at all, so on the
+   paid Locked & Loaded flow the button looked completely unchanged after you
+   pressed it.
+
+   Pure CSS, no template changes needed, which is only safe because `disabled`
+   is used almost exclusively for in-flight operations here - never for form
+   validation, never set in markup at load. So a disabled button IS a pending
+   operation and gets a spinner.
+
+   The one exception is a button disabled to express a permanent state rather
+   than a wait (conversation.html, "Audio unavailable"). Add `.no-spinner` to
+   any such button so it doesn't spin forever.
+
+   The ring uses currentColor, so it works on red, gold and ghost buttons alike.
+--------------------------------------------------------------------------- */
+button:disabled{
+  opacity:0.6;
+  cursor:not-allowed;
+}
+button:disabled:not(.no-spinner)::before{
+  content:'';
+  display:inline-block;
+  width:0.85em;
+  height:0.85em;
+  margin-right:0.55em;
+  vertical-align:-0.1em;
+  border:2px solid currentColor;
+  border-right-color:transparent;
+  border-radius:50%;
+  animation:smk-spin 0.7s linear infinite;
+}
+@keyframes smk-spin{to{transform:rotate(360deg);}}
+
+/* Reduced motion: keep the ring so the state is still legible, drop the spin. */
+@media(prefers-reduced-motion:reduce){
+  button:disabled:not(.no-spinner)::before{
+    animation:none; border-right-color:currentColor; opacity:0.5;
+  }
+}

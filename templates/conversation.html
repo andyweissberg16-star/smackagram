@@ -101,12 +101,14 @@ const replyId = {{ reply_id }};
       document.getElementById('originalAudio').src = data.original.audio_url;
     } else {
       document.getElementById('originalPlayBtn').disabled = true;
+      document.getElementById('originalPlayBtn').classList.add('no-spinner');
       document.getElementById('originalPlayBtn').textContent = 'Audio unavailable';
     }
     if (data.reply.audio_url) {
       document.getElementById('replyAudio').src = data.reply.audio_url;
     } else {
       document.getElementById('replyPlayBtn').disabled = true;
+      document.getElementById('replyPlayBtn').classList.add('no-spinner');
       document.getElementById('replyPlayBtn').textContent = 'Audio unavailable';
     }
 
