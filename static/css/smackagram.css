@@ -1,7 +1,6 @@
 /* Smackagram - shared site chrome.
    Loaded by every template BEFORE its own inline <style>, so any page-specific
-   rule still wins by source order. Edit nav/brand styling HERE, once,
-   instead of in 21 separate templates. */
+   rule still wins by source order. Edit nav/brand styling HERE, once. */
 
 :root{
   --ink:#0D0D0D;
@@ -20,14 +19,70 @@
 *{box-sizing:border-box; margin:0; padding:0;}
 
 /* NOTE: `body` is deliberately NOT here. Line-height genuinely varies per page
-   (1.5 / 1.6 / 1.65) and two pages set none at all, so hoisting it silently
-   changed their layout. Page typography stays with the page. */
+   (1.5 / 1.6 / 1.65) and two pages set none at all. Page typography stays with
+   the page. */
 
 nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
 .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
 .auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
 
-@media(max-width:760px){
-  nav{flex-wrap:wrap; gap:12px;}
-  .nav-links{display:none;}
+/* MOBILE / TABLET NAV
+   The desktop link row needs ~1250px to sit on one line. Below that it wrapped
+   mid-phrase, and below 761px it vanished with nothing to replace it - leaving
+   7 of 9 features unreachable on a phone. Below 1180px: slide-in drawer. */
+
+.nav-toggle{
+  display:none; width:44px; height:44px; padding:10px; margin:-10px -8px -10px 0;
+  background:none; border:0; cursor:pointer; color:var(--chalk); flex-shrink:0;
 }
+.nav-toggle span{display:block; height:2px; background:currentColor; border-radius:2px; margin:4px 0;}
+
+.nav-drawer{
+  position:fixed; top:0; right:0; bottom:0; width:min(82vw, 340px);
+  background:var(--ink-2); border-left:1px solid var(--line-strong);
+  transform:translateX(100%); transition:transform .28s ease;
+  z-index:9999; display:flex; flex-direction:column;
+  padding:18px 22px calc(22px + env(safe-area-inset-bottom));
+  overflow-y:auto; overscroll-behavior:contain;
+  visibility:hidden;
+}
+.nav-drawer.open{transform:translateX(0); visibility:visible;}
+
+.nav-scrim{
+  position:fixed; inset:0; background:rgba(0,0,0,0.62); backdrop-filter:blur(2px);
+  opacity:0; pointer-events:none; transition:opacity .28s ease; z-index:9998;
+}
+.nav-scrim.open{opacity:1; pointer-events:auto;}
+
+.nav-drawer-close{
+  align-self:flex-end; width:44px; height:44px; background:none; border:0;
+  color:var(--chalk-dim); font-size:26px; line-height:1; cursor:pointer;
+}
+.nav-drawer-close:hover{color:var(--flare);}
+
+.nav-drawer a{
+  display:block; padding:13px 0; min-height:48px;
+  font-family:'Anton',sans-serif; font-size:19px; letter-spacing:0.4px;
+  text-transform:uppercase; text-decoration:none; color:var(--chalk);
+  border-bottom:1px solid var(--line);
+}
+.nav-drawer a:last-child{border-bottom:0;}
+.nav-drawer a:hover,.nav-drawer a:focus-visible{color:var(--flare); outline:none;}
+.nav-drawer a.is-flare{color:var(--flare);}
+.nav-drawer a.is-gold{color:var(--gold);}
+
+.nav-drawer-auth{margin-top:20px; padding-top:14px; border-top:1px solid var(--line-strong);}
+.nav-drawer-auth a{font-size:17px;}
+
+@media(max-width:1180px){
+  .nav-links{display:none;}
+  .auth-links{display:none;}
+  .nav-toggle{display:block;}
+}
+@media(min-width:1181px){
+  .nav-drawer,.nav-scrim{display:none;}
+}
+@media(prefers-reduced-motion:reduce){
+  .nav-drawer,.nav-scrim{transition:none;}
+}
+body.nav-open{overflow:hidden;}
