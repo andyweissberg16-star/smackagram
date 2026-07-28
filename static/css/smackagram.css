@@ -1,0 +1,33 @@
+/* Smackagram - shared site chrome.
+   Loaded by every template BEFORE its own inline <style>, so any page-specific
+   rule still wins by source order. Edit nav/brand styling HERE, once,
+   instead of in 21 separate templates. */
+
+:root{
+  --ink:#0D0D0D;
+  --ink-2:#1A1A1A;
+  --chalk:#F5F5F3;
+  --chalk-dim:#9A9A96;
+  --flare:#E8142C;
+  --flare-dim:#3A0810;
+  --turf:#39FF6A;
+  --gold:#FFD400;
+  --cyan:#F5F5F3;
+  --line:rgba(245,245,243,0.10);
+  --line-strong:rgba(245,245,243,0.24);
+}
+
+*{box-sizing:border-box; margin:0; padding:0;}
+
+/* NOTE: `body` is deliberately NOT here. Line-height genuinely varies per page
+   (1.5 / 1.6 / 1.65) and two pages set none at all, so hoisting it silently
+   changed their layout. Page typography stays with the page. */
+
+nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+.nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+.auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+
+@media(max-width:760px){
+  nav{flex-wrap:wrap; gap:12px;}
+  .nav-links{display:none;}
+}

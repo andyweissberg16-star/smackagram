@@ -6,6 +6,7 @@
 <title>Smack Battle — Smackagram</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
   :root{
     --ink:#0D0D0D;
@@ -25,7 +26,6 @@
      off instead. */
   body.battle-complete, html.battle-complete{overflow:auto; height:auto;}
   body.battle-complete .wrap, html.battle-complete .wrap{height:auto; min-height:calc(100dvh - 76px);}
-  *{box-sizing:border-box; margin:0; padding:0;}
   body{
     background-color:var(--ink);
     background-image:linear-gradient(rgba(13,13,13,0.88), rgba(13,13,13,0.88)), url('{{ url_for('static', filename='img/smack-battle-hero-1560.webp') }}');
@@ -43,14 +43,6 @@
   #lineHistory{flex:1; overflow-y:auto; min-height:0; padding:4px 0;}
   body.waiting-room #lineHistory{flex:none;}
   #actionArea{flex-shrink:0; padding-bottom:16px;}
-
-  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
-  .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
-  .auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
-  @media(max-width:760px){
-    nav{flex-wrap:wrap; gap:12px;}
-    .nav-links{display:none;}
-  }
   nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
   nav a.back-link:hover{color:var(--flare);}
 

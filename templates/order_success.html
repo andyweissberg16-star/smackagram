@@ -6,22 +6,15 @@
 <title>Smack sent — Smackagram</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
   :root{
     --ink:#0D0D0D; --ink-2:#1A1A1A; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
     --flare:#E8142C; --gold:#FFD400; --line:rgba(245,245,243,0.10);
   }
-  *{box-sizing:border-box; margin:0; padding:0;}
   body{
     background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif;
     min-height:100vh;
-  }
-  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
-  .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
-  .auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
-  @media(max-width:760px){
-    nav{flex-wrap:wrap; gap:12px;}
-    .nav-links{display:none;}
   }
   .center-wrap{
     min-height:calc(100vh - 77px); display:flex; align-items:center; justify-content:center;
