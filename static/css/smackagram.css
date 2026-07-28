@@ -215,3 +215,45 @@ button:disabled:not(.no-spinner)::before{
     animation:none; border-right-color:currentColor; opacity:0.5;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   REDUCED MOTION
+   The site has 25 animations, 11 of them infinite - including a 28s marquee
+   ticker that never stops. Continuous motion is a vestibular trigger, and only
+   the drawer and the loading spinner respected the preference before this.
+
+   The blanket rule finishes every animation instantly rather than removing it,
+   which is the standard pattern. But three animations needed handling by hand,
+   because their END state is not their resting state - finishing them instantly
+   would leave the element hidden or displaced.
+--------------------------------------------------------------------------- */
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:0.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:0.01ms !important;
+    scroll-behavior:auto !important;
+  }
+
+  /* The ticker ends at translateX(-50%), so finishing instantly would freeze it
+     scrolled halfway off screen. Park it at the start instead. */
+  .ticker-track{animation:none !important; transform:none !important;}
+
+  /* These two do not decorate - they ARE how the element becomes visible, and
+     both end at opacity:0. Finishing instantly would mean a reduced-motion user
+     never sees the round result or the countdown at all. Both are hidden again
+     by JS afterwards (the popup via a 5s timeout, the countdown per tick), so
+     showing them statically is safe. */
+  .round-popup.show{
+    animation:none !important; opacity:1 !important;
+    transform:translate(-50%,-50%) scale(1) !important;
+  }
+  .intro-countdown.pulse{
+    animation:none !important; opacity:1 !important; transform:none !important;
+  }
+
+  /* Keep the loading ring visible as a static indicator. */
+  button:disabled:not(.no-spinner)::before{
+    animation:none !important; border-right-color:currentColor; opacity:0.5;
+  }
+}
