@@ -452,30 +452,58 @@ def assemble_recap_audio(intro: str, segments: list, outro: str) -> str:
 
     combined = AudioSegment.empty()
 
+    def _standardize(segment):
+        """
+        Forces consistent audio properties before concatenation.
+        Mismatched sample rates/channel counts between pieces (real,
+        confirmed here — some sfx files are 96000Hz, others 44100Hz;
+        some mono, some stereo) is a known source of corruption when
+        concatenating with pydub, which could plausibly explain audio
+        overlapping or playing incorrectly instead of sequentially.
+        """
+        return segment.set_frame_rate(44100).set_channels(2)
+
+    # Sound effects were coming through louder than the speech — the
+    # final loudness normalization step balances the AVERAGE loudness
+    # of the whole combined file, but doesn't balance the RELATIVE
+    # level between speech and sfx portions within it. These sound
+    # effects are professionally mixed/mastered clips, punchy and loud
+    # on their own; ElevenLabs' speech output sits at a more modest,
+    # conversational level by comparison. Without this explicit
+    # reduction, the sfx will naturally overpower the speech regardless
+    # of the overall normalization pass.
+    SFX_VOLUME_REDUCTION_DB = -10
+
     intro_bytes = elevenlabs_service.generate_speech_bytes(intro)
-    combined += AudioSegment.from_mp3(io.BytesIO(intro_bytes))
+    combined += _standardize(AudioSegment.from_mp3(io.BytesIO(intro_bytes)))
 
     for seg in segments:
         seg_bytes = elevenlabs_service.generate_speech_bytes(seg["text"])
-        combined += AudioSegment.from_mp3(io.BytesIO(seg_bytes))
+        combined += _standardize(AudioSegment.from_mp3(io.BytesIO(seg_bytes)))
 
         sfx = _pick_random_sfx(seg.get("reaction", "none"))
         if sfx is not None:
             # A brief pause before the effect so it doesn't feel like it's
             # cutting off the last word of the segment.
             combined += AudioSegment.silent(duration=200)
-            combined += sfx
+            combined += _standardize(sfx) + SFX_VOLUME_REDUCTION_DB
 
     if outro:
         outro_bytes = elevenlabs_service.generate_speech_bytes(outro)
-        combined += AudioSegment.from_mp3(io.BytesIO(outro_bytes))
+        combined += _standardize(AudioSegment.from_mp3(io.BytesIO(outro_bytes)))
 
     # Export the fully-assembled audio back to raw mp3 bytes, then run it
     # through the same loudness normalization every other spoken clip on
     # the site gets, so the overall recap doesn't sound quieter/louder
     # than everything else.
+    #
+    # Explicit constant bitrate (not pydub's default, which can produce
+    # variable bitrate output) — VBR MP3s are a known source of seek/
+    # playback miscalculation in some browsers, which could plausibly
+    # explain garbled or overlapping-sounding playback without showing
+    # up as any duration mismatch in the file itself.
     buffer = io.BytesIO()
-    combined.export(buffer, format="mp3")
+    combined.export(buffer, format="mp3", parameters=["-b:a", "192k"])
     combined_bytes = buffer.getvalue()
     normalized_bytes = elevenlabs_service.normalize_loudness(combined_bytes)
 

@@ -1315,3 +1315,49 @@ sfx-uploads/ folder should be deleted from the repo at that point too.
       which matches exactly why it's needed here) that transparently
       restores the audioop module under its original import name, so
       no code changes needed elsewhere.
+
+## Sound effect playing on top of / drowning out voice (same session)
+Genuinely could not reproduce this through isolated testing, despite
+thorough attempts:
+- Tested pydub concatenation (+=) with simulated silence AND real audio
+  files on both sides — duration always matched expectations exactly,
+  no overlap at the logical level in any test
+- Tested the full export -> reload cycle — duration preserved correctly
+- Tested the actual ffmpeg loudness normalization step on combined
+  audio — duration preserved correctly there too
+- Ruled out double-generation/multiple-tabs as the cause (confirmed
+  directly with the user — this was a single generation)
+
+Applied two defensive fixes addressing the most plausible explanations,
+even without being able to definitively prove either was the exact
+root cause (no ElevenLabs API access in this sandbox to generate real
+speech audio and fully reproduce the exact real-world scenario):
+- [x] Standardize every audio piece (speech AND sfx) to the same frame
+      rate/channel count before concatenating — confirmed real,
+      inconsistent properties across the actual sfx files (96000Hz vs
+      44100Hz, mono vs stereo)
+- [x] Force constant bitrate (192k) MP3 export instead of pydub's
+      default, which can produce variable bitrate output — VBR MP3s
+      are a documented source of seek/playback miscalculation in some
+      browsers, which could explain garbled/overlapping playback
+      without showing up as any duration mismatch in the file itself
+
+HONEST FLAG: this is a best-effort fix based on the most likely
+explanations, not a confirmed root-cause fix the way most other bugs
+tonight were — worth confirming directly on the next real test whether
+this actually resolved it before considering it closed.
+
+## Sound effects too loud relative to speech (same session)
+- [x] Real, separate issue from the overlap bug — the final loudness
+      normalization step balances the AVERAGE loudness of the whole
+      combined file, but doesn't balance the RELATIVE level between
+      speech and sfx portions within it. Sound effects are
+      professionally mixed/mastered clips (punchy, loud on their own);
+      ElevenLabs speech sits at a more modest conversational level by
+      comparison — without explicit reduction, sfx naturally overpower
+      speech regardless of overall normalization. Applied a -10dB
+      reduction to every sound effect specifically before splicing it
+      in (verified: produces exactly the intended reduction). This
+      value may need tuning after a real listen — 10dB is a reasonable
+      starting point, not something tested against real speech audio
+      given no ElevenLabs API access in this sandbox.
