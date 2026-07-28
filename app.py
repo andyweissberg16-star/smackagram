@@ -24,6 +24,14 @@ app = Flask(__name__)
 # so re-enabling is just this one line.
 TWO_FACTOR_ENABLED = False
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///smackagram.db")
+# Render (and Heroku before it) provides Postgres connection strings
+# starting with "postgres://" — modern SQLAlchemy (1.4+) requires
+# "postgresql://" instead and will raise an error on startup otherwise.
+# This is a well-known, common gotcha when moving off SQLite onto a
+# managed Postgres instance; harmless no-op for SQLite or any URL that
+# doesn't start with the old scheme.
+if app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgres://"):
+    app.config["SQLALCHEMY_DATABASE_URI"] = app.config["SQLALCHEMY_DATABASE_URI"].replace("postgres://", "postgresql://", 1)
 # SQLite's default driver flatly refuses to let a connection be used
 # from a different thread than the one that created it — which is
 # exactly what the background round-judging and recap-generation

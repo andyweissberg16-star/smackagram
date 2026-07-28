@@ -1361,3 +1361,38 @@ this actually resolved it before considering it closed.
       value may need tuning after a real listen — 10dB is a reasonable
       starting point, not something tested against real speech audio
       given no ElevenLabs API access in this sandbox.
+
+## Postgres migration (same session, not yet deployed)
+Site currently runs on SQLite (wipes on restart, known issue flagged
+all night). App was already architected well for this migration —
+reads connection string from DATABASE_URL env var, falls back to
+SQLite only if unset. Made two defensive code additions:
+- [x] Fixed Render's postgres:// -> postgresql:// scheme (modern
+      SQLAlchemy 1.4+ requires the newer scheme; this is a well-known
+      gotcha that would crash the app on startup on first connecting
+      to a real Postgres instance without this fix)
+- [x] Added psycopg2-binary==2.9.12 to requirements.txt (verified real
+      package/version on PyPI) - the actual Postgres driver, required
+      since SQLite's driver is built into Python but Postgres needs a
+      separate package
+
+Given SQLite wipes on every restart anyway, there's no meaningful
+existing data to actually migrate over - db.create_all() already runs
+on startup and will automatically create all tables fresh on the new
+Postgres instance the first time the app starts against it.
+
+NEXT STEPS (Render dashboard, user's side): create a Postgres instance
+on Render, link it to the web service (Render auto-sets DATABASE_URL
+when you do this), deploy this code, tables get created automatically
+on first startup.
+
+## TODO before real launch: upgrade Postgres to Pro tier for HA
+Currently running Basic-256mb ($6/mo instance + $4.50/mo for 15GB
+storage = $10.50/mo), with Storage Autoscaling ON and High Availability
+OFF. HA (automatic failover to a standby database) only unlocks on Pro
+instances and higher — deliberately deferred for now since there's no
+real production traffic yet to justify the extra cost. REMINDER: once
+this is an actual live product with real paying users, upgrade to a
+Pro-tier (or higher) Postgres instance and turn HA on — that's the
+actual "system redundancy" piece of the original requirement, and it
+genuinely isn't covered by the current Basic tier.
