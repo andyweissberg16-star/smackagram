@@ -1415,3 +1415,12 @@ about Enterprise pricing (custom, not on the public pricing page).
       checks manually - not the same as automated email-sending
       infrastructure (still a known, separate gap for things like
       email-based 2FA).
+
+## Support page header image (same session)
+- [x] Added header image to Contact page, pulled via the same GitHub
+      public-repo workaround used for the earlier sound effect files
+      (chat upload limit still in effect). Optimized before adding -
+      original was 2MB PNG at 1983x793; resized to 1200px wide and
+      converted to JPEG (no transparency needed, RGB not RGBA), down
+      to 120KB - a 17x reduction with no visible quality loss at
+      header size.
