@@ -61,7 +61,27 @@
   .btn-ghost{background:transparent; color:var(--chalk); border:1px solid var(--line-strong);}
 
   /* TICKER */
-  .ticker-bar{background:var(--flare); overflow:hidden; white-space:nowrap; padding:8px 0;}
+  .ticker-bar{background:var(--flare); overflow:hidden; white-space:nowrap; padding:8px 0; position:relative;}
+  /* WCAG 2.2.2 (Pause, Stop, Hide): content that moves automatically for more
+     than five seconds needs a way to stop it - for everyone, not only people
+     who set the reduced-motion preference. */
+  .ticker-pause{
+    position:absolute; top:0; right:0; bottom:0; width:44px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--flare); border:0; padding:0; cursor:pointer; color:#fff;
+    box-shadow:-16px 0 16px 10px var(--flare);
+  }
+  .ticker-pause .glyph{
+    display:block; width:12px; height:14px;
+    border-left:4px solid currentColor; border-right:4px solid currentColor;
+  }
+  .ticker-pause.is-paused .glyph{
+    width:0; height:0; border-left:13px solid currentColor; border-right:0;
+    border-top:8px solid transparent; border-bottom:8px solid transparent;
+  }
+  .ticker-pause:hover{color:var(--gold);}
+  /* If motion is already off, the control would be a no-op - hide it. */
+  @media(prefers-reduced-motion:reduce){ .ticker-pause{display:none;} }
   .ticker-track{display:inline-block; animation:scroll 28s linear infinite;}
   .ticker-track span{font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:#fff; margin-right:16px; text-transform:uppercase; letter-spacing:0.5px;}
   .ticker-track span.ticker-bolt{margin-right:16px; font-size:13px; color:var(--gold); text-shadow:0 0 6px rgba(255,212,0,0.8); text-transform:none; letter-spacing:0;}
@@ -302,6 +322,8 @@
     <span>EAGLES JUST GOT RUNG UP AFTER THE 4TH QUARTER COLLAPSE</span><span class="ticker-bolt">⚡</span>
     <span>LIVE — SUNDAY SLATE SMACK VOLUME UP 3X</span><span class="ticker-bolt">⚡</span>
   </div>
+  <button class="ticker-pause" id="tickerPause" type="button"
+          aria-pressed="false" aria-label="Pause the ticker"><span class="glyph"></span></button>
 </div>
 
 <div style="width:100%; overflow:hidden; line-height:0;">
@@ -455,5 +477,20 @@ document.getElementById('heroLockedTeamInput').addEventListener('keydown', (e) =
   </div>
 </footer>
 
+
+<script>
+(function(){
+  var track = document.querySelector('.ticker-track');
+  var btn   = document.getElementById('tickerPause');
+  if (!track || !btn) return;
+  btn.addEventListener('click', function(){
+    var nowPaused = track.style.animationPlayState !== 'paused';
+    track.style.animationPlayState = nowPaused ? 'paused' : 'running';
+    btn.classList.toggle('is-paused', nowPaused);
+    btn.setAttribute('aria-pressed', String(nowPaused));
+    btn.setAttribute('aria-label', nowPaused ? 'Resume the ticker' : 'Pause the ticker');
+  });
+})();
+</script>
 </body>
 </html>
