@@ -2026,5 +2026,29 @@ with app.app_context():
         db.session.commit()
         print("[auth] seeded second admin test account (admin1/admin)")
 
+
+# ---------- Branded error pages ----------
+# Without these, Flask serves its default white "Not Found" page, which on a
+# black site reads as broken rather than as a wrong URL. Smackcast recap links
+# and battle codes both expire, so real people hit these.
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template("404.html"), 404
+
+
+@app.errorhandler(500)
+def internal_error(e):
+    # A 500 is often a database problem - and the site-wide context processor
+    # that injects current_user queries the database on every render. So the
+    # error page itself can fail for exactly the same reason. Fall back to
+    # plain text rather than letting the error handler raise its own error.
+    try:
+        return render_template("500.html"), 500
+    except Exception:
+        return ("Something broke on our end, not yours. "
+                "Give it a second and try again."), 500
+
+
 if __name__ == "__main__":
     app.run(debug=True)

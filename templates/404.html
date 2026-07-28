@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wide left — Smackagram</title>
+<meta name="description" content="This page doesn't exist. Head back and send a smack instead.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+<meta name="theme-color" content="#0D0D0D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
+<style>
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased; min-height:100dvh;}
+  .center-wrap{
+    min-height:calc(100dvh - var(--nav-h)); display:flex; align-items:center; justify-content:center;
+    text-align:center; padding:24px; position:relative;
+  }
+  .halftone-bg{
+    position:fixed; inset:0; z-index:0;
+    background-image:radial-gradient(rgba(245,245,243,0.08) 1.5px, transparent 1.5px);
+    background-size:9px 9px;
+  }
+  .content{position:relative; z-index:1; max-width:520px;}
+  .code{
+    font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; letter-spacing:2px;
+    color:var(--gold); text-transform:uppercase; margin-bottom:18px;
+  }
+  h1{
+    font-family:'Anton',sans-serif; font-size:var(--h1-page); text-transform:uppercase;
+    margin-bottom:18px; text-shadow:3px 3px 0 var(--flare); letter-spacing:0.5px;
+  }
+  p{color:var(--chalk-dim); font-size:16px; margin-bottom:14px; line-height:1.6;}
+  .zinger{color:var(--chalk); font-weight:600;}
+  .actions{display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:28px;}
+  .cta-btn{
+    display:inline-block; background:var(--flare); color:#fff; text-decoration:none;
+    padding:14px 28px; font-weight:600; border-radius:2px; min-height:44px;
+    box-shadow:0 0 20px rgba(232,20,44,0.45), 4px 4px 0 var(--ink);
+    border:2px solid #fff; text-transform:uppercase; letter-spacing:0.5px; font-size:14px;
+    transition:transform 0.12s ease;
+  }
+  .cta-btn:hover{transform:scale(1.04) rotate(-0.5deg);}
+  .cta-ghost{
+    display:inline-block; background:transparent; color:var(--chalk-dim); text-decoration:none;
+    padding:14px 28px; font-weight:600; border-radius:2px; min-height:44px;
+    border:1px solid var(--line-strong); text-transform:uppercase; letter-spacing:0.5px; font-size:14px;
+  }
+  .cta-ghost:hover{border-color:var(--flare); color:var(--chalk);}
+</style>
+</head>
+<body>
+
+{% include '_nav.html' %}
+
+<div class="center-wrap">
+  <div class="halftone-bg"></div>
+  <div class="content">
+    <p class="code">Error 404 — no play found</p>
+    <h1>Wide left.</h1>
+    <p>This page doesn't exist. You either typed it wrong or followed a link
+       that's been dead longer than your team's playoff hopes.</p>
+    <p class="zinger">Nothing personal. Well — a little personal.</p>
+    <div class="actions">
+      <a class="cta-btn" href="/">Back to home</a>
+      <a class="cta-ghost" href="/send-a-smack">Send a smack instead</a>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
