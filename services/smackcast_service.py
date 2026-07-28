@@ -51,13 +51,22 @@ def _target_word_count(team_count: int) -> int:
 _SPORT_LABELS = {"nfl": "fantasy football", "nba": "fantasy basketball", "mlb": "fantasy baseball"}
 
 
+_REACTION_TYPES = ("boo", "laugh", "cheer", "gasp", "trombone", "flourish", "aww", "none")
+
+
 def generate_weekly_recap_script(league_name: str, week: int, matchups: list, team_count: int, sport: str = "nfl") -> dict:
     """
     matchups: list of {team_a, team_a_score, team_b, team_b_score}
-    Returns {"script": str, "best_line": str} — script is the full
-    recap ready for ElevenLabs, best_line is the single most quotable
-    line pulled out for the shareable meme image, extracted in the
-    same call rather than a separate one.
+    Returns {"intro": str, "segments": [{"text": str, "reaction": str}],
+    "outro": str, "best_line": str, "full_text": str}. Segments are
+    per-matchup, each tagged with a reaction type (boo/laugh/cheer/
+    gasp/none) — this is what lets assemble_recap_audio() splice in the
+    right sound effect after each one, based on what the AI itself
+    judged that matchup's tone to be while writing about it, rather
+    than a hardcoded rule. full_text is intro+segments+outro joined
+    together, for display/storage purposes (the public recap page, etc)
+    — the audio assembly step uses the segmented structure directly
+    instead, since that's what it needs for splicing in sound effects.
     """
     target_words = _target_word_count(team_count)
     sport_label = _SPORT_LABELS.get(sport, "fantasy football")
@@ -75,25 +84,71 @@ def generate_weekly_recap_script(league_name: str, week: int, matchups: list, te
     system_prompt = f"""You write the weekly Smackcast — a savage, heavily
 profane {sport_label} recap read aloud to an entire league. This is
 Smackagram's established voice: real cursing throughout, genuinely
-brutal, but funny and specific rather than mean for its own sake. Cover
-EVERY matchup given to you, not just the most dramatic one — call out
-blowouts specifically, give close games their due tension, and name
-whoever had the week's most embarrassing loss and biggest win by name.
+brutal, but funny and specific rather than mean for its own sake.
 
-Target length: approximately {target_words} words — this scales with
-how many matchups are in the league this week, so hit it reasonably
-closely rather than running short or padding it out.
+Structure your response as an intro, one segment PER MATCHUP given to
+you (every single one, not just the most dramatic), and an outro. For
+EACH segment, also tag it with the single reaction that best fits the
+tone of what you just wrote about that matchup — this tag controls a
+real sound effect that gets spliced in right after your words, so pick
+whichever one actually matches:
+- "boo" — a blowout loss, a genuinely bad performance the crowd would
+  be angry about
+- "laugh" — a genuinely funny/savage line you wrote landed hard
+- "cheer" — an impressive win, a nail-biter finish — the OUTCOME itself
+  is exciting
+- "gasp" — a shocking upset, a surprising stat
+- "trombone" — a comedic, pathetic, "well that's just sad" moment —
+  an embarrassing stat, a terrible bench decision, a low/losing score
+  that's more sad-funny than blowout-bad. Different feel from "boo":
+  boo is the crowd genuinely mad, trombone is a "womp womp" gag
+- "flourish" — a rising brass sting used to punctuate a particularly
+  sharp, well-delivered line or a "mic drop" stat reveal — this is
+  about how SHARP the line itself landed, not about the matchup's
+  outcome the way "cheer" is
+- "aww" — a sad, sympathetic crowd sound — genuine disappointment or
+  bad luck, NOT anger like "boo" and not comedic like "trombone." Use
+  this for a close, unlucky loss or a rough break that deserves
+  sympathy rather than mockery or anger
+- "none" — nothing about this matchup calls for a sound effect
+
+IMPORTANT — "none" should be your DEFAULT, not just one option among
+several. The writing itself is already funny; sound effects are
+support to keep a listener engaged, not something to lean on for every
+single matchup. Reserve an actual reaction tag for the moments that
+genuinely earn it — the biggest blowout, the single funniest line, the
+one real gut-punch loss — not routinely for every matchup in the
+league. As a rough guide: in a typical week, only about 1 in every 3-4
+matchups should get an actual sound effect — the rest should be
+"none." If you're tagging most segments with something other than
+"none," you're overdoing it.
+
+CRITICAL — this gets read aloud by text-to-speech, not displayed as
+text: every single time you mention a number tied to scoring — a
+team's total, a margin of victory, a point differential, anything —
+you MUST say the word "points" (or "pts" spoken as "points") right
+after it, never just state a bare number on its own. Say "96.2
+points," never just "96.2"; say "won by 14.7 points," never just "won
+by 14.7." A listener hearing a random number with zero context has no
+idea what it means, since they can't see parenthetical score data the
+way a reader could. This applies throughout, every time, not just the
+first mention.
+
+Target length: approximately {target_words} words total across intro,
+all segments, and outro combined — this scales with how many matchups
+are in the league this week, so hit it reasonably closely rather than
+running short or padding it out.
 
 {_HARD_LIMITS}
 
-After writing the script, pull out the single most quotable, savage
-line from it verbatim (word-for-word as it appears in the script) —
-this gets used on its own as a shareable image, so it needs to land
+After writing everything, pull out the single most quotable, savage
+line from anywhere in it verbatim (word-for-word as it appears) — this
+gets used on its own as a shareable image, so it needs to land
 completely out of context, not rely on the rest of the recap to make
 sense.
 
 Respond with ONLY a JSON object, nothing else:
-{{"script": "...", "best_line": "..."}}"""
+{{"intro": "...", "segments": [{{"text": "...", "reaction": "boo|laugh|cheer|gasp|trombone|flourish|aww|none"}}], "outro": "...", "best_line": "..."}}"""
 
     user_content = (
         f"League: {league_name}\n"
@@ -107,14 +162,32 @@ Respond with ONLY a JSON object, nothing else:
         try:
             message = _get_client().messages.create(
                 model="claude-sonnet-4-6",
-                max_tokens=1600,
+                max_tokens=1800,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_content}],
             )
             raw = message.content[0].text.strip().replace("```json", "").replace("```", "").strip()
             result = json.loads(raw)
-            if result.get("script"):
-                return {"script": result["script"], "best_line": result.get("best_line") or ""}
+            segments = result.get("segments") or []
+            if result.get("intro") and segments:
+                # Sanitize reaction tags — an unrecognized value falls back
+                # to "none" rather than crashing the whole pipeline over one
+                # bad tag on one segment.
+                for seg in segments:
+                    if seg.get("reaction") not in _REACTION_TYPES:
+                        seg["reaction"] = "none"
+
+                full_text = " ".join(
+                    [result["intro"]] + [seg["text"] for seg in segments] + [result.get("outro") or ""]
+                ).strip()
+
+                return {
+                    "intro": result["intro"],
+                    "segments": segments,
+                    "outro": result.get("outro") or "",
+                    "best_line": result.get("best_line") or "",
+                    "full_text": full_text,
+                }
         except Exception as e:
             last_error = e
             print(f"[smackcast] script generation attempt {attempt + 1} failed: {e}")
@@ -125,7 +198,6 @@ Respond with ONLY a JSON object, nothing else:
     # since there's no sensible generic fallback for an entire league's
     # weekly recap.
     raise RuntimeError(f"Failed to generate Smackcast script after 2 attempts: {last_error}")
-
 
 def deliver_to_discord(webhook_url: str, league_name: str, week: int, audio_url: str, share_url: str, meme_url: str = None) -> bool:
     """
@@ -322,3 +394,95 @@ def generate_sample_matchups(sport: str, team_count: int) -> list:
             "team_b_score": round(random.uniform(low, high), 1),
         })
     return matchups
+
+
+_SFX_DIR = os.path.join(os.path.dirname(__file__), "..", "static", "sfx")
+_MAX_SFX_VARIANTS = 10  # checks smackcast-{reaction}-1.mp3 through -10.mp3
+
+
+def _pick_random_sfx(reaction: str):
+    """
+    Randomly picks one variant of a given reaction's sound effect, so
+    the same "boo" or "laugh" clip isn't used every single week for
+    every single subscriber. Checks however many numbered variants
+    actually exist on disk (1 through _MAX_SFX_VARIANTS) rather than
+    requiring a fixed count — gracefully returns None if none exist yet
+    for that reaction, same pattern as every other optional sound on
+    this site (silently does nothing until the file is actually there).
+    """
+    import random
+    from pydub import AudioSegment
+
+    if reaction == "none":
+        return None
+
+    existing_paths = []
+    for i in range(1, _MAX_SFX_VARIANTS + 1):
+        path = os.path.join(_SFX_DIR, f"smackcast-{reaction}-{i}.mp3")
+        if os.path.exists(path):
+            existing_paths.append(path)
+
+    if not existing_paths:
+        return None
+
+    chosen_path = random.choice(existing_paths)
+    try:
+        return AudioSegment.from_mp3(chosen_path)
+    except Exception as e:
+        print(f"[smackcast] failed to load sound effect {chosen_path}: {e}")
+        return None
+
+
+def assemble_recap_audio(intro: str, segments: list, outro: str) -> str:
+    """
+    Generates speech for the intro, each segment, and the outro
+    separately, splicing in a randomly-chosen sound effect after each
+    segment based on its reaction tag, then combines everything into
+    one final audio file — normalized for consistent loudness the same
+    way every other spoken audio on this site is — and uploads it to
+    S3. Returns the final public URL.
+
+    segments: list of {"text": str, "reaction": str}
+    """
+    from pydub import AudioSegment
+    import io
+    import uuid
+    import boto3
+    from services import elevenlabs_service
+
+    combined = AudioSegment.empty()
+
+    intro_bytes = elevenlabs_service.generate_speech_bytes(intro)
+    combined += AudioSegment.from_mp3(io.BytesIO(intro_bytes))
+
+    for seg in segments:
+        seg_bytes = elevenlabs_service.generate_speech_bytes(seg["text"])
+        combined += AudioSegment.from_mp3(io.BytesIO(seg_bytes))
+
+        sfx = _pick_random_sfx(seg.get("reaction", "none"))
+        if sfx is not None:
+            # A brief pause before the effect so it doesn't feel like it's
+            # cutting off the last word of the segment.
+            combined += AudioSegment.silent(duration=200)
+            combined += sfx
+
+    if outro:
+        outro_bytes = elevenlabs_service.generate_speech_bytes(outro)
+        combined += AudioSegment.from_mp3(io.BytesIO(outro_bytes))
+
+    # Export the fully-assembled audio back to raw mp3 bytes, then run it
+    # through the same loudness normalization every other spoken clip on
+    # the site gets, so the overall recap doesn't sound quieter/louder
+    # than everything else.
+    buffer = io.BytesIO()
+    combined.export(buffer, format="mp3")
+    combined_bytes = buffer.getvalue()
+    normalized_bytes = elevenlabs_service.normalize_loudness(combined_bytes)
+
+    s3_bucket = os.environ["AUDIO_S3_BUCKET"]
+    s3_region = os.environ.get("AWS_REGION", "us-east-1")
+    filename = f"tts/{uuid.uuid4()}.mp3"
+    s3 = boto3.client("s3", region_name=s3_region)
+    s3.put_object(Bucket=s3_bucket, Key=filename, Body=normalized_bytes, ContentType="audio/mpeg")
+
+    return f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/{filename}"

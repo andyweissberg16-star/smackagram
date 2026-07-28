@@ -188,9 +188,11 @@ def generate_weekly_smackcasts():
                 team_count=sub.team_count or week_data["team_count"],
                 sport=sub.sport,
             )
-            script = result["script"]
+            script = result["full_text"]
             best_line = result["best_line"]
-            audio_url = elevenlabs_service.generate_audio_url(script)
+            audio_url = smackcast_service.assemble_recap_audio(
+                result["intro"], result["segments"], result["outro"]
+            )
 
             # Meme generation failure shouldn't block the actual recap
             # from delivering — the audio/script are the core product,

@@ -59,7 +59,7 @@ def generate_sound_effect(prompt: str, duration_seconds: float = 1.5, target_luf
     )
     resp.raise_for_status()
 
-    normalized_audio = _normalize_loudness(resp.content, target_lufs=target_lufs)
+    normalized_audio = normalize_loudness(resp.content, target_lufs=target_lufs)
 
     filename = f"sfx/{uuid.uuid4()}.mp3"
     s3 = boto3.client("s3", region_name=s3_region)
@@ -109,7 +109,7 @@ TARGET_LUFS = -16
 SFX_TARGET_LUFS = -10
 
 
-def _normalize_loudness(audio_bytes: bytes, target_lufs: int = TARGET_LUFS) -> bytes:
+def normalize_loudness(audio_bytes: bytes, target_lufs: int = TARGET_LUFS) -> bytes:
     """
     Runs generated audio through ffmpeg loudness normalization to match
     target_lufs (defaults to TARGET_LUFS, speech's level). If ffmpeg isn't
@@ -141,6 +141,37 @@ def _normalize_loudness(audio_bytes: bytes, target_lufs: int = TARGET_LUFS) -> b
     except Exception as e:
         print(f"[elevenlabs] loudness normalization error, using original audio: {e}")
         return audio_bytes
+
+
+def generate_speech_bytes(text: str, voice_id: str = None) -> bytes:
+    """
+    Same ElevenLabs TTS call as generate_audio_url, but returns raw,
+    un-normalized audio bytes instead of uploading to S3 — used when
+    multiple pieces of speech need to be stitched together with sound
+    effects in between before one final upload (Smackcast's segmented
+    recaps), rather than each piece needing its own separate URL.
+    """
+    if voice_id is None:
+        voice_id = os.environ["ELEVENLABS_VOICE_ID"]
+
+    resp = requests.post(
+        f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+        headers={
+            "xi-api-key": os.environ["ELEVENLABS_API_KEY"],
+            "Content-Type": "application/json",
+        },
+        json={
+            "text": text,
+            "model_id": "eleven_turbo_v2",
+            "voice_settings": {
+                "stability": 0.4,
+                "similarity_boost": 0.8,
+            },
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.content
 
 
 def generate_audio_url(message: str, voice_id: str = None) -> str:
@@ -184,7 +215,7 @@ def generate_audio_url(message: str, voice_id: str = None) -> str:
     )
     resp.raise_for_status()
 
-    normalized_audio = _normalize_loudness(resp.content)
+    normalized_audio = normalize_loudness(resp.content)
 
     filename = f"tts/{uuid.uuid4()}.mp3"
     s3 = boto3.client("s3", region_name=s3_region)

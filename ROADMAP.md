@@ -1220,3 +1220,87 @@ Research done first, changed the actual scope:
       path audio already uses successfully — inherits the same public
       access automatically, zero AWS console changes needed (useful
       since account access was temporarily lost).
+
+## Script reading bare numbers instead of "X points" (same session)
+- [x] Since this audio gets read aloud (not read as text), a bare
+      number like "96.2" means nothing to a listener without context —
+      but the input data format (team scores in parentheses) was
+      apparently getting carried straight into spoken script text
+      sometimes without translation. Added an explicit instruction
+      requiring "points" attached to every scoring-related number
+      mentioned (team totals, margins, differentials), with concrete
+      before/after examples in the prompt itself for reliability.
+
+## Contextual sound effects (same session) - major restructuring
+Restructured the entire audio pipeline from "one continuous script ->
+one TTS call" to "intro/per-matchup segments/outro, each segment
+tagged with a reaction -> separate TTS per piece -> stitched together
+with sound effects spliced in based on tags."
+
+- [x] generate_weekly_recap_script() now returns {intro, segments
+      (each with text + reaction tag: boo/laugh/cheer/gasp/none),
+      outro, best_line, full_text}. The AI tags each matchup segment
+      itself based on the tone of what it just wrote about that
+      matchup — not a hardcoded rule matching score thresholds.
+      Malformed/unrecognized reaction tags sanitize to "none" rather
+      than crashing.
+- [x] New assemble_recap_audio() in smackcast_service.py — generates
+      speech per-segment via a new low-level generate_speech_bytes()
+      (extracted from the existing audio function, returns raw bytes
+      instead of uploading), splices in a sound effect after each
+      segment via _pick_random_sfx(), combines everything with pydub,
+      runs the FINAL combined audio through the same loudness
+      normalization every other clip gets, uploads once.
+- [x] _pick_random_sfx() — randomized selection among however many
+      numbered variants actually exist (smackcast-{reaction}-1.mp3
+      through -10.mp3), so the same sound doesn't repeat every week.
+      Verified: gracefully returns None with zero crash when no files
+      exist yet for a reaction type (confirmed in isolation).
+- [x] Added pydub to requirements.txt (wraps ffmpeg, already confirmed
+      present and used for loudness normalization).
+- [x] Exposed elevenlabs_service's loudness normalization as a public
+      function (was previously private/underscore-prefixed), since
+      smackcast_service now needs to call it directly on the final
+      assembled audio.
+- [x] Both real callers (scheduler.py's weekly generation, and the
+      test tool) updated to use the new structure.
+
+SOUND EFFECT FILES NEEDED (user is creating these, not pulling from
+ElevenLabs) — drop into static/fonts/../sfx/ as: smackcast-boo-1.mp3
+through smackcast-boo-N.mp3, same pattern for laugh/cheer/gasp. Fully
+wired and ready — works with however many variants exist, silently
+does nothing extra until at least one exists per reaction type.
+
+HONEST FLAG: this trades one API call for several (intro + one per
+matchup + outro) instead of one big call — total character count and
+therefore cost should stay roughly the same, but total generation TIME
+increases due to sequential network round-trips per call. For a large
+league (7+ matchups), this could meaningfully eat into the 180s
+gunicorn timeout already set. Worth watching once real testing happens
+with sound effect files in place — if this becomes a real bottleneck,
+parallelizing the TTS calls (instead of sequential) would be the fix,
+not something built yet since it adds real complexity and wasn't
+needed until this restructuring.
+
+## Sound effects added, restraint guidance (same session, not deployed)
+Files pulled and placed via a GitHub-based workaround for the chat's
+file upload limit (repo temporarily made public for transfer, raw
+content URLs pulled directly, converted to mp3, placed with correct
+naming). Reaction types expanded beyond the original 4:
+- trombone (6 variants) — descending brass, sad/pathetic moments
+- flourish (3 variants) — rising brass, punctuates a sharp line/stat
+- aww (2 variants) — sympathetic sad crowd, NOT anger (distinct from boo)
+- gasp (2 variants), laugh (3 variants), boo (1 variant, more coming)
+- cheer — still 0, not yet provided
+
+Also added explicit restraint guidance to the prompt per direct
+feedback: "none" is now framed as the actual default (not just one of
+seven equal options), with a concrete rough ratio (~1 in 3-4 matchups
+should get an actual sound effect) — the writing is already funny on
+its own, effects are meant to support engagement, not replace/overtake
+the content.
+
+NOT YET DEPLOYED — holding per explicit instruction while more files
+get added. Repo currently public (temporarily, for file transfer) —
+needs switching back to private once done, and the temporary
+sfx-uploads/ folder should be deleted from the repo at that point too.
