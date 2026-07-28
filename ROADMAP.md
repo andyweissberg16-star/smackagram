@@ -1304,3 +1304,14 @@ NOT YET DEPLOYED — holding per explicit instruction while more files
 get added. Repo currently public (temporarily, for file transfer) —
 needs switching back to private once done, and the temporary
 sfx-uploads/ folder should be deleted from the repo at that point too.
+
+## Real deploy bug: pydub broken on Python 3.13+ (same session)
+- [x] Test tool crashed with "No module named 'pyaudioop'" — confirmed
+      via research: Python 3.13+ removed the audioop stdlib module
+      entirely (PEP 594), which pydub depends on internally. Render
+      runs Python 3.14. Fixed by adding audioop-lts==0.2.2 to
+      requirements.txt — a real, verified PyPI package (confirmed
+      genuinely published, correctly restricted to Python >=3.13 only,
+      which matches exactly why it's needed here) that transparently
+      restores the audioop module under its original import name, so
+      no code changes needed elsewhere.
