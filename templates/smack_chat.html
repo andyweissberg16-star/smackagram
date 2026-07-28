@@ -86,7 +86,7 @@
   .general-chat-label{font-family:'Anton',sans-serif; font-size:15px; text-transform:uppercase; letter-spacing:0.5px; color:var(--gold);}
   .general-chat-card .chat-count{margin-top:0;}
 
-  #roomView{display:none; flex-direction:column; height:calc(100vh - 76px); max-width:720px; margin:0 auto;}
+  #roomView{display:none; flex-direction:column; height:calc(100dvh - var(--nav-h)); max-width:720px; margin:0 auto;}
 
   .chat-header{
     display:flex; align-items:center; gap:14px; padding:14px 24px; border-bottom:1px solid var(--line-strong);
@@ -129,7 +129,7 @@
   .input-bar{
     flex-shrink:0; border-top:1px solid var(--line-strong); padding:12px 24px; background:var(--ink);
   }
-  #postError{display:none; color:var(--flare); font-size:11px; margin-bottom:6px;}
+  #postError{display:none; color:var(--flare-text); font-size:11px; margin-bottom:6px;}
   .input-row{display:flex; gap:8px; align-items:center;}
   .name-field{
     width:90px; flex-shrink:0; background:var(--ink-2); border:1px solid var(--line-strong); color:var(--chalk);

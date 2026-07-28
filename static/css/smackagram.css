@@ -8,12 +8,19 @@
   --chalk:#F5F5F3;
   --chalk-dim:#9A9A96;
   --flare:#E8142C;
+  /* #E8142C only reaches 4.23:1 on --ink and 3.79:1 on --ink-2, so it fails
+     WCAG AA (4.5:1) for anything under 18px. Use --flare-text for small text;
+     --flare stays exactly as-is for buttons, borders and display type. */
+  --flare-text:#FF3B50;
   --flare-dim:#3A0810;
   --turf:#39FF6A;
   --gold:#FFD400;
   --cyan:#F5F5F3;
   --line:rgba(245,245,243,0.10);
   --line-strong:rgba(245,245,243,0.24);
+  /* Measured, not guessed: the nav is 75px at every breakpoint.
+     Templates used to hardcode 76px and 77px, both wrong. */
+  --nav-h:75px;
 }
 
 *{box-sizing:border-box; margin:0; padding:0;}
@@ -86,3 +93,21 @@ nav{display:flex; justify-content:space-between; align-items:center; padding:20p
   .nav-drawer,.nav-scrim{transition:none;}
 }
 body.nav-open{overflow:hidden;}
+
+/* Footer links: contact.html had a completely unstyled <a>, which rendered as
+   default browser blue (#0000EE) on black - 2.07:1. Also brings the tap target
+   up from ~33x14 to the 44px minimum. */
+footer a{display:inline-block; padding:13px 6px; color:var(--chalk-dim); text-decoration:none;}
+footer a:hover{color:var(--flare-text);}
+
+/* The logo link was 51x34 on all 19 pages. The nav is 75px tall regardless, so
+   growing the hit area to 44px costs no layout. */
+nav > a:first-of-type{min-height:44px; display:flex; align-items:center;}
+
+/* Buttons measured 37-42px. Not applied to `button` generally, because small
+   icon buttons (the 16px sensitivity "i") would stretch and break their rows. */
+.btn,.btn-play,.btn-flare,.btn-ghost{min-height:44px;}
+
+/* Text fields measured 43px - one pixel under the minimum, everywhere. */
+input[type=text],input[type=tel],input[type=email],input[type=password],
+input[type=number],input[type=date],select,textarea{min-height:44px;}

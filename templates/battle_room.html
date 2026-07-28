@@ -25,7 +25,7 @@
      than force everything into a fixed height that would just cut it
      off instead. */
   body.battle-complete, html.battle-complete{overflow:auto; height:auto;}
-  body.battle-complete .wrap, html.battle-complete .wrap{height:auto; min-height:calc(100dvh - 76px);}
+  body.battle-complete .wrap, html.battle-complete .wrap{height:auto; min-height:calc(100dvh - var(--nav-h));}
   body{
     background-color:var(--ink);
     background-image:linear-gradient(rgba(13,13,13,0.88), rgba(13,13,13,0.88)), url('{{ url_for('static', filename='img/smack-battle-hero-1560.webp') }}');
@@ -37,8 +37,8 @@
   }
   .wrap{
     max-width:620px; margin:0 auto; padding:0 24px; display:flex; flex-direction:column;
-    height:calc(100vh - 76px);
-    height:calc(100dvh - 76px);
+    height:calc(100dvh - var(--nav-h));
+    height:calc(100dvh - var(--nav-h));
   }
   #lineHistory{flex:1; overflow-y:auto; min-height:0; padding:4px 0;}
   body.waiting-room #lineHistory{flex:none;}
@@ -115,7 +115,7 @@
   }
   .btn-flare{background:var(--flare); color:#fff; box-shadow:0 0 16px rgba(232,20,44,0.4);}
   .btn-flare:disabled{opacity:0.5; cursor:not-allowed;}
-  #actionError{display:none; color:var(--flare); font-size:12px; margin-bottom:10px;}
+  #actionError{display:none; color:var(--flare-text); font-size:12px; margin-bottom:10px;}
 
   .waiting-note{text-align:center; color:var(--chalk-dim); font-size:14px; padding:8px 0;}
   .typing-indicator{
@@ -135,7 +135,7 @@
   }
   .judging-note{
     text-align:center; font-family:'Anton',sans-serif; font-size:15px; text-transform:uppercase;
-    letter-spacing:0.5px; padding:8px 0; color:var(--flare); animation:judgingPulse 1.1s ease-in-out infinite;
+    letter-spacing:0.5px; padding:8px 0; color:var(--flare-text); animation:judgingPulse 1.1s ease-in-out infinite;
   }
   @keyframes judgingPulse{
     0%, 100%{opacity:1; text-shadow:0 0 8px rgba(232,20,44,0.6);}
@@ -312,6 +312,26 @@
   footer a{color:var(--chalk-dim); text-decoration:none;}
   footer a:hover{color:var(--flare);}
 </style>
+<script>
+// Real team brand colours are often near-black (Eagles #004C54 = 2.0:1,
+// Cowboys #003594 = 1.79:1 against this background) which makes team names
+// almost unreadable. Keep the hue, raise the lightness until the text clears
+// WCAG AA, so the team is still recognisable but legible.
+function readableColor(hex, fallback){
+  if(!hex) return fallback;
+  var m=/^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if(!m) return hex;
+  var v=parseInt(m[1],16), r=(v>>16)&255, g=(v>>8)&255, b=v&255;
+  function lum(r,g,b){
+    var a=[r,g,b].map(function(c){c/=255; return c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4);});
+    return 0.2126*a[0]+0.7152*a[1]+0.0722*a[2];
+  }
+  function ratio(r,g,b){ var L=lum(r,g,b); return (Math.max(L,0.0085)+0.05)/(Math.min(L,0.0085)+0.05); }
+  var i=0;
+  while(ratio(r,g,b)<4.5 && i<60){ r=Math.min(255,r+6); g=Math.min(255,g+6); b=Math.min(255,b+6); i++; }
+  return 'rgb('+r+','+g+','+b+')';
+}
+</script>
 </head>
 <body>
 
@@ -636,8 +656,8 @@ function playIntro(teamA, teamB, teamAColor, teamBColor) {
   const introTeamBEl = document.getElementById('introTeamB');
   introTeamAEl.textContent = teamA;
   introTeamBEl.textContent = teamB;
-  introTeamAEl.style.color = teamAColor || '';
-  introTeamBEl.style.color = teamBColor || '';
+  introTeamAEl.style.color = readableColor(teamAColor, '');
+  introTeamBEl.style.color = readableColor(teamBColor, '');
   countdownEl.textContent = '';
   countdownEl.className = 'intro-countdown';
   overlay.style.display = 'flex';
@@ -779,8 +799,8 @@ function buildFinalScorecard(battle, mySide) {
       <div class="final-round-row">${rounds}</div>
       ${avgA !== null && avgB !== null ? `
         <div class="final-avg-row">
-          <div class="final-avg-item"><p class="final-avg-label" style="color:${battle.team_a_color || 'var(--chalk-dim)'};">${escapeHtml(battle.team_a)}</p><p class="final-avg-value side-a">${avgA}/10</p></div>
-          <div class="final-avg-item"><p class="final-avg-label" style="color:${battle.team_b_color || 'var(--chalk-dim)'};">${escapeHtml(battle.team_b)}</p><p class="final-avg-value side-b">${avgB}/10</p></div>
+          <div class="final-avg-item"><p class="final-avg-label" style="color:${readableColor(battle.team_a_color, 'var(--chalk-dim)')};">${escapeHtml(battle.team_a)}</p><p class="final-avg-value side-a">${avgA}/10</p></div>
+          <div class="final-avg-item"><p class="final-avg-label" style="color:${readableColor(battle.team_b_color, 'var(--chalk-dim)')};">${escapeHtml(battle.team_b)}</p><p class="final-avg-value side-b">${avgB}/10</p></div>
         </div>
       ` : ''}
       ${recapBlock}
@@ -868,7 +888,7 @@ function render(battle) {
     content.innerHTML = '';
     lineHistory.innerHTML = '';
     const waitingHeaderText = mySide === 'a' ? 'Waiting for a challenger' : 'Waiting for you to accept';
-    header.innerHTML = `<p class="matchup-teams"><span class="side-a" style="color:${battle.team_a_color || 'var(--gold)'};">${escapeHtml(battle.team_a)}</span></p><p class="round-indicator">${waitingHeaderText}</p>`;
+    header.innerHTML = `<p class="matchup-teams"><span class="side-a" style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span></p><p class="round-indicator">${waitingHeaderText}</p>`;
 
     const waitingSignature = `waiting|${mySide}`;
     if (lastActionSignature !== waitingSignature) {
@@ -884,7 +904,7 @@ function render(battle) {
       } else {
         actionArea.innerHTML = `
           <div class="card">
-            <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)} is calling out <span style="color:${battle.team_a_color || 'var(--gold)'};">${escapeHtml(battle.team_a)}</span> fans. Step up?</p>
+            <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)} is calling out <span style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span> fans. Step up?</p>
             <label for="teamBInput">Your team</label>
             <input id="teamBInput" type="text" placeholder="ex. Eagles">
             <label for="nameBInput">Your name</label>
@@ -988,7 +1008,7 @@ function render(battle) {
   lastLineCount = battle.lines.length;
 
   header.innerHTML = `
-    <p class="matchup-teams"><span class="side-a" style="color:${battle.team_a_color || 'var(--gold)'};">${escapeHtml(battle.team_a)}</span><span class="vs">vs</span><span class="side-b" style="color:${battle.team_b_color || 'var(--flare)'};">${escapeHtml(battle.team_b)}</span></p>
+    <p class="matchup-teams"><span class="side-a" style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span><span class="vs">vs</span><span class="side-b" style="color:${readableColor(battle.team_b_color, 'var(--flare)')};">${escapeHtml(battle.team_b)}</span></p>
     <p class="round-indicator">${battle.status === 'complete' ? 'Battle complete' : `Round ${battle.round_number} of 5`}</p>
     ${buildMomentumBar(battle)}
     <div class="led-row">${buildLedRow(battle)}</div>
