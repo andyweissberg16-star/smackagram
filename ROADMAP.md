@@ -1476,3 +1476,24 @@ fixed:
       .html file (catches include/syntax errors a div-count check
       would miss), HTML div-balance check across all 21 updated files,
       full Python compile check.
+
+## Two real bugs caught by the design project's audit (same session)
+Genuine credit here - these were caught by the separate design-focused
+project's headless browser audit, not found independently here. Both
+verified directly against the actual files and fixed:
+
+- [x] order_success.html and locked_n_loaded_success.html had a
+      generic `a{...}` CSS selector styling EVERY link on the page as
+      a big red button - written back when each page had exactly one
+      link (the CTA). This was a real bug introduced by ME earlier
+      tonight when adding the shared nav include to these pages,
+      without noticing this pre-existing conflicting CSS - the nav's
+      8 links all inherited the red button styling, causing sideways
+      scrolling and broken layout, worst on the Locked & Loaded
+      success page (broken at every width including desktop). Fixed
+      by scoping the styling to a new .cta-btn class instead of the
+      generic tag selector, applied only to the actual CTA link.
+- [x] verify.html referenced 'JetBrains Mono' in its CSS but the
+      Google Fonts link tag only loaded Anton and Inter - font was
+      silently falling back to generic monospace. Added JetBrains
+      Mono to the font link.
