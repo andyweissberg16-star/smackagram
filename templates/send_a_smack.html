@@ -140,7 +140,7 @@
     <p class="card-sub">Type a team and who this is for — we'll write the roast.</p>
 
     <label for="teamInput">Team to trash talk</label>
-    <input id="teamInput" type="text" placeholder="ex. New York Yankees">
+    <input id="teamInput" type="text" placeholder="ex. New York Yankees" data-team-search>
 
     <label for="roastTopicsInput">Specific things to roast them about (optional)</label>
     <input id="roastTopicsInput" type="text" placeholder="Up to 3, comma-separated — ex. Dusty Baker, trash cans, cheating">
@@ -586,6 +586,7 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
   }
   if (replyOptIn && !senderPhone) {
     errorEl.textContent = 'Please enter your number, or uncheck the reply option.';
+    smkInvalid(document.getElementById('orderSenderPhone'));
     errorEl.style.display = 'block';
     return;
   }

@@ -135,6 +135,7 @@ async function submitRegistration() {
   }
   if (!payload.terms_accepted) {
     errorEl.textContent = 'You must agree to the Terms & Conditions.';
+    smkInvalid(document.getElementById('termsCheckbox'));
     errorEl.style.display = 'block';
     return;
   }

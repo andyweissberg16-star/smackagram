@@ -922,7 +922,7 @@ function render(battle) {
           <div class="card">
             <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)} is calling out <span style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span> fans. Step up?</p>
             <label for="teamBInput">Your team</label>
-            <input id="teamBInput" type="text" placeholder="ex. Eagles">
+            <input id="teamBInput" type="text" placeholder="ex. Eagles" data-team-search>
             <label for="nameBInput">Your name</label>
             <input id="nameBInput" type="text" placeholder="ex. RivalReady" maxlength="40">
             <div id="actionError" role="alert"></div>
@@ -937,6 +937,7 @@ function render(battle) {
           errorEl.style.display = 'none';
           if (!teamB) {
             errorEl.textContent = 'Enter your team first.';
+            smkInvalid(document.getElementById('teamBInput'));
             errorEl.style.display = 'block';
             return;
           }

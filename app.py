@@ -2027,6 +2027,26 @@ with app.app_context():
         print("[auth] seeded second admin test account (admin1/admin)")
 
 
+
+@app.route("/api/teams/all")
+def all_teams():
+    """
+    Every team we know about, flattened across all leagues, for the site-wide
+    team autocomplete. Smack Chat originally fetched this as 16 separate
+    per-league calls; one cached call is cheaper and lets any page reuse it.
+    """
+    out = []
+    for league, teams in chat_team_lists.CHAT_LEAGUES.items():
+        for code, name in teams.items():
+            out.append({"code": code, "name": name, "league": league})
+    out.sort(key=lambda t: t["name"])
+    resp = jsonify({"teams": out})
+    # The list only changes when we edit chat_team_lists.py, so let browsers
+    # keep it for an hour rather than refetching on every page view.
+    resp.headers["Cache-Control"] = "public, max-age=3600"
+    return resp
+
+
 # ---------- Branded error pages ----------
 # Without these, Flask serves its default white "Not Found" page, which on a
 # black site reads as broken rather than as a wrong URL. Smackcast recap links

@@ -272,6 +272,7 @@ document.getElementById('connectEspnBtn').addEventListener('click', async () => 
 
   if (!leagueId) {
     errorEl.textContent = 'Enter your ESPN league ID first.';
+    smkInvalid(document.getElementById('espnLeagueIdInput'));
     errorEl.style.display = 'block';
     return;
   }
@@ -321,6 +322,7 @@ document.getElementById('findLeaguesBtn').addEventListener('click', async () => 
 
   if (!username) {
     errorEl.textContent = 'Enter your Sleeper username first.';
+    smkInvalid(document.getElementById('sleeperUsernameInput'));
     errorEl.style.display = 'block';
     return;
   }

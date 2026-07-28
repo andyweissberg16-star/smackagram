@@ -132,7 +132,7 @@
     </select>
 
     <label for="teamInput">Your team</label>
-    <input id="teamInput" type="text" placeholder="ex. Cowboys">
+    <input id="teamInput" type="text" placeholder="ex. Cowboys" data-team-search>
 
     <div class="vs-divider">VS whoever's next</div>
 
@@ -169,11 +169,13 @@ async function createBattle() {
   errorEl.style.display = 'none';
   if (!team) {
     errorEl.textContent = 'Enter your team first.';
+    smkInvalid(document.getElementById('teamInput'));
     errorEl.style.display = 'block';
     return;
   }
   if (!name) {
     errorEl.textContent = 'Enter your name first.';
+    smkInvalid(document.getElementById('nameInput'));
     errorEl.style.display = 'block';
     return;
   }

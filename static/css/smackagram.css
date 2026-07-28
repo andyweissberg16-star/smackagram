@@ -257,3 +257,45 @@ button:disabled:not(.no-spinner)::before{
     animation:none !important; border-right-color:currentColor; opacity:0.5;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   INVALID FIELDS
+   Errors were announced (role="alert") but the offending input itself carried
+   no marking - no aria-invalid, no visual cue. On a form with six fields that
+   leaves the person hunting for which one is wrong.
+--------------------------------------------------------------------------- */
+html body [aria-invalid="true"]{
+  border-color:var(--flare-text) !important;
+  box-shadow:0 0 0 3px rgba(255,59,80,0.18);
+}
+html body input[type=checkbox][aria-invalid="true"]{
+  outline:2px solid var(--flare-text);
+  outline-offset:3px;
+  box-shadow:none;
+}
+
+/* ---------------------------------------------------------------------------
+   TEAM AUTOCOMPLETE
+   Matches the look Smack Chat already had: team name, league abbreviation
+   right-aligned in mono. Now available on every team field on the site.
+--------------------------------------------------------------------------- */
+.smk-ac-wrap{position:relative;}
+.smk-ac-list{
+  position:absolute; left:0; right:0; top:100%; z-index:400;
+  background:var(--ink-2); border:1px solid var(--line-strong); border-top:0;
+  border-radius:0 0 4px 4px; max-height:298px; overflow-y:auto;
+  box-shadow:0 12px 28px rgba(0,0,0,0.55);
+}
+.smk-ac-item{
+  display:flex; justify-content:space-between; align-items:center; gap:12px;
+  padding:12px 14px; min-height:44px; cursor:pointer;
+  border-bottom:1px solid var(--line);
+}
+.smk-ac-item:last-child{border-bottom:0;}
+.smk-ac-item.is-active{background:rgba(232,20,44,0.14);}
+.smk-ac-name{font-size:14px; font-weight:600; color:var(--chalk);}
+.smk-ac-league{
+  font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--chalk-dim);
+  text-transform:uppercase; letter-spacing:0.5px; flex-shrink:0;
+}
+.smk-ac-item.is-active .smk-ac-league{color:var(--chalk);}

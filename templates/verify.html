@@ -84,6 +84,7 @@ async function submitCode() {
   const code = document.getElementById('codeInput').value.trim();
   if (!code) {
     errorEl.textContent = 'Enter the code we texted you.';
+    smkInvalid(document.getElementById('codeInput'));
     errorEl.style.display = 'block';
     return;
   }
