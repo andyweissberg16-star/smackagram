@@ -4,25 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smack Inbox — Smackagram</title>
-<meta name="description" content="Check whether someone sent you a Smackagram — then fire one straight back at them.">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Smackagram">
-<meta property="og:title" content="Did You Get Smacked?">
-<meta property="og:description" content="Check whether someone sent you a Smackagram — then fire one straight back at them.">
-<meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:url" content="{{ request.base_url }}">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Did You Get Smacked?">
-<meta name="twitter:description" content="Check whether someone sent you a Smackagram — then fire one straight back at them.">
-<meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
-<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
-<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
-<meta name="theme-color" content="#0D0D0D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
   :root{
     --ink:#0D0D0D;
@@ -34,13 +17,22 @@
     --line:rgba(245,245,243,0.10);
     --line-strong:rgba(245,245,243,0.24);
   }
+  *{box-sizing:border-box; margin:0; padding:0;}
   body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
   .wrap{max-width:560px; margin:0 auto; padding:0 24px 60px;}
+
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+  .auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+  @media(max-width:760px){
+    nav{flex-wrap:wrap; gap:12px;}
+    .nav-links{display:none;}
+  }
   nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
   nav a.back-link:hover{color:var(--flare);}
 
   .hero{text-align:center; padding:44px 0 20px;}
-  h1{font-family:'Anton',sans-serif; font-size:var(--h1-page); text-transform:uppercase; letter-spacing:0.5px; line-height:1.1;}
+  h1{font-family:'Anton',sans-serif; font-size:34px; text-transform:uppercase; letter-spacing:0.5px; line-height:1.1;}
   h1 span{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.5);}
   .sub{color:var(--chalk-dim); font-size:14px; margin-top:8px;}
 

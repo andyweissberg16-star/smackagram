@@ -4,37 +4,27 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Locked in — Smackagram</title>
-<meta name="description" content="Your roast is armed and waiting on the game.">
-<meta name="robots" content="noindex">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Smackagram">
-<meta property="og:title" content="Locked in — Smackagram">
-<meta property="og:description" content="Your roast is armed and waiting on the game.">
-<meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:url" content="{{ request.base_url }}">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Locked in — Smackagram">
-<meta name="twitter:description" content="Your roast is armed and waiting on the game.">
-<meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
-<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
-<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
-<meta name="theme-color" content="#0D0D0D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
   :root{
     --ink:#0D0D0D; --ink-2:#1A1A1A; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
     --flare:#E8142C; --gold:#FFD400; --line:rgba(245,245,243,0.10);
   }
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+  .auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+  @media(max-width:760px){
+    nav{flex-wrap:wrap; gap:12px;}
+    .nav-links{display:none;}
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
   body{
     background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif;
-    min-height:100dvh;
+    min-height:100vh;
   }
   .center-wrap{
-    min-height:calc(100dvh - var(--nav-h)); display:flex; align-items:center; justify-content:center;
+    min-height:calc(100vh - 77px); display:flex; align-items:center; justify-content:center;
     text-align:center; padding:24px;
   }
   .halftone-bg{
@@ -52,7 +42,7 @@
     color:var(--gold); font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700;
     letter-spacing:1px; text-transform:uppercase; margin-bottom:16px; text-shadow:0 0 8px rgba(255,212,0,0.6);
   }
-  h1{font-family:'Anton',sans-serif; font-size:var(--h1-page); margin-bottom:20px; text-transform:uppercase; text-shadow:3px 3px 0 var(--flare);}
+  h1{font-family:'Anton',sans-serif; font-size:44px; margin-bottom:20px; text-transform:uppercase; text-shadow:3px 3px 0 var(--flare);}
   p{color:var(--chalk-dim); font-size:16px; margin-bottom:14px; line-height:1.6;}
   .cta-btn{
     display:inline-block; background:var(--flare); color:#fff; text-decoration:none;

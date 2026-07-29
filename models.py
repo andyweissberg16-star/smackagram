@@ -397,6 +397,40 @@ class PendingAction(db.Model):
     completed_at = db.Column(db.DateTime, nullable=True)
 
 
+class WalletTransaction(db.Model):
+    """
+    Append-only audit log of every wallet balance change — both
+    top-ups (Stripe payments) and deductions (sending a smack, arming
+    Locked & Loaded). amount_cents is signed: positive for a credit
+    (top-up), negative for a debit (spending). This exists specifically
+    so the wallet's running balance is always reconstructable and
+    auditable, rather than trusting a single mutable balance_cents
+    field with no history behind it — important given real money is
+    involved here.
+    """
+    __tablename__ = "wallet_transactions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+
+    amount_cents = db.Column(db.Integer, nullable=False)  # signed: +credit, -debit
+    balance_after_cents = db.Column(db.Integer, nullable=False)  # snapshot for easy auditing without replaying the whole log
+
+    # What kind of transaction this was, for display/support purposes.
+    # "topup" - a Stripe purchase credited the wallet
+    # "smack" - a main-generator send debited the wallet
+    # "locked_n_loaded" - arming a Locked & Loaded hold debited the wallet
+    # "locked_n_loaded_refund" - a released hold credited the wallet back
+    transaction_type = db.Column(db.String(30), nullable=False)
+
+    # Links back to the Stripe PaymentIntent for topups (for support/
+    # dispute lookup), nullable since deductions have no Stripe object.
+    stripe_payment_intent_id = db.Column(db.String(255), nullable=True)
+
+    description = db.Column(db.String(255), nullable=True)  # human-readable note, e.g. "Loaded Package - $10 for 15 Smackagrams (5 free)"
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 
     """
     Append-only audit log of every wallet balance change — both

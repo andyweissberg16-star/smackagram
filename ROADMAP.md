@@ -1497,3 +1497,248 @@ verified directly against the actual files and fixed:
       Google Fonts link tag only loaded Anton and Inter - font was
       silently falling back to generic monospace. Added JetBrains
       Mono to the font link.
+
+## Wallet/checkout system - full spec received from Pricing project
+Received comprehensive, implementation-ready spec from the separate
+Smackagram Pricing project (David working there), plus an actual
+working HTML prototype of the checkout page (verified via real
+Playwright screenshots on both desktop 1280px and mobile 393px -
+matches spec exactly: black/red/white, 3 tiers with Loaded ($10)
+anchored/elevated with Most Popular ribbon, FREE badges as visual
+hero, order summary + payment panel, mobile sticky pay bar).
+
+KEY DECISIONS:
+- Wallet = single balance_cents field per user (not separate "smack
+  count" + "dollar" fields) - Smackagrams displayed = floor(balance/100),
+  computed at render time, never persisted separately
+- 1 Smackagram = $1 wallet deduction. Locked & Loaded = $2 deduction.
+  Smackcast stays separate ($39.99, not part of this wallet system)
+- $5 hard minimum transaction (Stripe's fixed fee makes true $1
+  charges bleed ~33% to fees)
+- 3 top-up packs: Starter $5->$6 (1 free), Loaded $10->$15 (5 free,
+  anchor/pre-selected), Arsenal $20->$30 (10 free)
+- Balances/bonus credits NEVER expire
+- Checkout: custom page on-site using Stripe Elements (Payment Element
+  + Express Checkout for Apple/Google Pay) - NOT a redirect to Stripe's
+  hosted Checkout. Amount set server-side from selected tier, NEVER
+  trusted from browser. Wallet credited via Stripe webhook on
+  payment_intent.succeeded, not from browser success screen (idempotent)
+- CONFIRMED FLOW: user completes Roast -> Voice -> Target normally;
+  Reload page only appears as a final step if wallet balance can't
+  cover the action at submit time - not a separate pre-check
+- Wallet FULLY REPLACES the existing direct-Stripe-checkout flow for
+  main generator and Locked & Loaded (confirmed directly) - not an
+  additional option alongside it
+- Auto-Reload toggle exists on the page (default OFF) but the actual
+  settings/threshold flow is NOT yet specced - defer building the
+  real off-session charging logic, just keep the toggle non-functional
+  for now until that's specified
+- Copy note: keep Locked & Loaded language in dare/prank framing, not
+  wager/bet framing (gambling-adjacent feel risk with Stripe/app stores)
+
+NEXT: building wallet data model, PaymentIntent creation endpoint,
+webhook handler, adapting the prototype into a real Flask template
+with actual Stripe Elements, then modifying the main generator and
+Locked & Loaded to check wallet balance instead of direct checkout.
+
+## Wallet/checkout system - core infrastructure built (same session)
+- [x] User.balance_cents field + smackagram_count computed property
+      (never persisted separately, always floor(balance_cents/100))
+- [x] WalletTransaction model - append-only audit log, signed
+      amount_cents (+credit/-debit), balance_after_cents snapshot for
+      easy auditing, links to stripe_payment_intent_id for topups
+- [x] services/wallet_service.py - TOPUP_PACKS as single source of
+      truth for pack amounts (starter/loaded/arsenal), credit_wallet()
+      and debit_wallet() as the ONLY sanctioned way to touch balance_cents
+- [x] stripe_service.create_wallet_topup_payment_intent() - looks up
+      amount server-side from TOPUP_PACKS by pack key, never trusts a
+      browser-supplied amount, tags metadata for the webhook to identify
+- [x] New /reload page (GET) and /api/wallet/create-payment-intent
+      (POST) endpoints
+- [x] Extended existing Stripe webhook handler with a new
+      payment_intent.succeeded branch for wallet_topup metadata type -
+      idempotent (checks for existing WalletTransaction by
+      stripe_payment_intent_id before crediting, protects against
+      Stripe's webhook redelivery)
+- [x] Built real reload.html - adapted from the verified prototype
+      (confirmed via actual Playwright screenshots matching spec
+      exactly), replaced mock card fields with real Stripe Elements
+      (Payment Element + Express Checkout Element for Apple/Google
+      Pay), wired to actually create a PaymentIntent per pack
+      selection and confirm payment for real
+- [x] reload_success.html - simple confirmation page (webhook remains
+      the authoritative source of wallet crediting, not this page)
+- [x] All verified: full Python compile across every touched file,
+      full Jinja2 template parse across every .html file, HTML
+      div-balance check, JS syntax validity
+
+CONFIRMED DURING BUILD: new flat $1 price replaces the OLD recording-
+inclusion upcharge entirely (previously $1 without recording / $2 with
+recording) - always $1 now regardless of recording option.
+
+STILL NEEDED before this is deployable:
+- STRIPE_PUBLISHABLE_KEY env var needs to be set on Render (not yet
+  requested from user) - the template reads this directly via
+  os.environ[], will crash without it
+- Apple Pay domain verification still needs doing in Stripe dashboard
+  (hosting a verification file) - not yet coordinated with user
+- Main generator and Locked & Loaded still need modifying to actually
+  check wallet balance / debit_wallet() instead of their current
+  direct-Stripe-checkout-session flow - the wallet infrastructure
+  exists but nothing debits it yet except in theory
+- "Resume original action after topping up" flow not yet built - user
+  confirmed the intended sequence (complete Roast/Voice/Target first,
+  hit Reload only if insufficient at final submit) but the actual
+  mechanism for resuming after a successful reload isn't implemented
+- Auto-Reload toggle is present but disabled/non-functional per spec
+  (settings/threshold flow not yet specced)
+
+## Steps 1-4 complete: wallet fully wired into both paid features (same session)
+- [x] STRIPE_PUBLISHABLE_KEY set on Render (user confirmed)
+- [x] Apple Pay/Google Pay domain verification confirmed - Stripe has
+      moved to simpler unified "Payment Method Domains" registration,
+      no file download/hosting needed anymore (corrected my own earlier
+      outdated guidance on this, verified via current Stripe docs).
+      This setting appears to be shared across test/live mode (no
+      per-mode toggle exists on that specific settings page) - user
+      confirmed domain shows as registered.
+- [x] Main generator (Send a Smack) fully converted from Stripe
+      Checkout redirect to wallet debit - fires the call synchronously
+      right in the request (no more async webhook wait, since wallet
+      deduction IS the payment). Consolidated the old two-tier $1/$2
+      pricing UI (recording as a paid upcharge) into a single flat $1
+      card with recording always included, confirmed directly this is
+      the intended full replacement, not additive.
+- [x] Locked & Loaded fully converted from Stripe card-hold
+      (authorize/capture/release) to wallet debit/refund. IMPORTANT
+      PRICE CORRECTION during build: corrected from the spec's original
+      $2 to $1 flat (same as a regular Smackagram) per direct
+      instruction. Mechanism: debits $1 immediately at arm time (a
+      wallet balance can't be "authorized" like a card can - it's just
+      a number), scheduler.py's resolution job now credits the $1 back
+      via wallet_service.credit_wallet() if the hold releases (target
+      won/game postponed/tied/safety-blocked at fire time), and simply
+      leaves the debit standing if the target loses (no more capture
+      step needed, since the money already moved).
+- [x] Added missing user_id field to Smackagram model - didn't exist
+      before since the old Stripe-hold flow never needed to know which
+      user account was involved, only the card/PaymentIntent. Required
+      now so the scheduler knows whose wallet to credit back on release.
+- [x] Updated Locked & Loaded's on-page copy to accurately describe the
+      new mechanism (was still describing the old card-hold language)
+- [x] Verified: full Python compile, full Jinja2 template parse, HTML
+      balance, JS syntax - AND explicitly grepped for any remaining
+      dangling references to the old create_authorized_checkout_session/
+      capture_hold/release_hold calls (none found, confirmed clean)
+
+STILL NOT BUILT: the "resume original action after topping up" flow.
+When a user gets redirected to /reload mid-flow (insufficient balance
+on either Send a Smack or Locked & Loaded), their original form data
+(roast text, voice, recipient / armed game details) is currently lost -
+they'd need to re-enter everything after a successful reload. This is
+a real, known UX gap, not yet addressed.
+
+Old Stripe hold-related service functions (create_authorized_checkout_
+session, capture_hold, release_hold, create_checkout_session) are now
+dead code - confirmed nothing calls them anymore, but left in
+stripe_service.py rather than deleted, since removing them isn't
+urgent and doing so carries small risk for no functional benefit.
+
+## Resume-after-payment built properly (same session)
+Built the full server-side, webhook-driven mechanism per direct
+instruction that this needed to be robust, not a fragile client-side
+workaround:
+
+- [x] New PendingAction model - stores the full original request
+      payload (JSON) when a user hits insufficient balance on Send a
+      Smack or Locked & Loaded, instead of just failing
+- [x] Refactored both create_order() and arm_smackagram() - extracted
+      the actual execution logic (_execute_send_smack,
+      _execute_arm_smackagram) into reusable helpers callable from
+      either the normal request flow OR the webhook's resume path.
+      _execute_arm_smackagram specifically re-validates game timing on
+      resume (not just upfront) since real time can pass during
+      payment - a game armable 48h out when first submitted could have
+      already started by the time someone finishes reloading
+- [x] _store_pending_action() helper - saves the payload, returns a
+      /reload?pending_action=<id> redirect
+- [x] pending_action_id flows through: frontend -> create-payment-
+      intent endpoint -> Stripe PaymentIntent metadata -> webhook.
+      Deliberately NOT using client-side storage (sessionStorage etc) -
+      the webhook is the one place we can be certain payment actually
+      succeeded regardless of what happens to the browser tab
+- [x] Webhook now resumes the pending action automatically right after
+      crediting the wallet: debits the actual cost, calls the
+      appropriate execute helper, marks the PendingAction
+      completed/failed with a redirect or error message
+- [x] reload.html shows reassuring "no need to redo anything" messaging
+      when a pending_action is present, passes it through the Stripe
+      return_url so reload_success.html knows to check
+- [x] reload_success.html polls a new /api/wallet/pending-action-status/
+      <id> endpoint (scoped to the current user only) for up to ~15
+      seconds - auto-redirects on completion, shows a clear error with
+      a retry link on failure, falls back to a generic "still
+      processing" message if it times out rather than hanging forever
+- [x] Fixed a subtle bug while refactoring: the extracted helper
+      functions use os.environ["BASE_URL"] directly instead of the old
+      request.url_root fallback, since these helpers are now also
+      called from the webhook context where request refers to Stripe's
+      incoming request, not the user's browser
+- [x] Verified: full Python compile, full Jinja2 template parse across
+      every .html file, HTML balance on all touched files, JS syntax
+      validity
+
+NOT YET ADDRESSED: no cleanup/expiry mechanism for old, abandoned
+PendingAction rows (someone who never completes a reload leaves one
+sitting in "pending" status forever) - minor, non-urgent, worth
+addressing eventually but doesn't block functionality.
+
+## First-time vs returning buyer copy (same session)
+Per direct feedback: "Reload" implies re-filling an existing balance,
+which doesn't fit someone who's never purchased anything. Distinguished
+two real situations (both hit the same page/route technically, just
+different copy):
+- [x] /reload route now checks WalletTransaction for any prior
+      "topup" record for this user - if none exists, this is a genuine
+      first-ever purchase
+- [x] Page title, step indicator label, hero kicker/headline/subtext,
+      and order summary header all conditionally show "Load Your
+      Account" framing (first-timer) vs "Reload" framing (returning
+      user) - verified by actually rendering both variants via Jinja2,
+      not just checking syntax
+- [x] The JS-driven pending-action message ("no need to redo anything")
+      made neutral, avoiding the word "reload" specifically, since it
+      needs to read correctly for both first-time and returning users
+- Auto-Reload toggle intentionally left as "Auto-Reload" regardless of
+  first-time status - it describes a future, ongoing behavior (auto
+  top-up when balance runs low) that makes sense as a concept
+  regardless of whether this is someone's first purchase
+- URLs/routes (/reload, /reload-success) and internal CSS class names
+  (.reload-toggle) deliberately left unchanged - these are technical
+  identifiers, not user-facing copy
+
+## PRODUCTION OUTAGE + fix: WalletTransaction class went missing (same session)
+Real incident: deploy failed with ImportError - app.py imports
+WalletTransaction from models, but the class body was entirely absent
+from models.py, despite being defined earlier in this same session.
+Traced back: NOT introduced by the merge - the bug was already present
+in my own sandbox's models.py before packaging, most likely lost during
+a later str_replace edit that used "class WalletTransaction(db.Model):"
+as an anchor point (PendingAction was inserted correctly, but the
+original class body that should have followed got dropped somewhere
+along the way).
+
+Real gap in my own verification process: python3 -m py_compile only
+checks syntax validity of a file in isolation - it does NOT verify
+that cross-file imports actually resolve. A missing class definition
+doesn't break models.py's own syntax, only the app.py import that
+depends on it - exactly the class of bug that slipped through despite
+"ALL PYTHON OK" being reported repeatedly throughout this session.
+
+Fix: re-added the complete WalletTransaction class. This time verified
+with an ACTUAL IMPORT TEST, not just syntax checking - installed the
+full requirements.txt into this sandbox and ran a real `import app`
+with dummy env vars, matching exactly what gunicorn/Render does. This
+is now the correct verification standard going forward for any change
+touching models.py or cross-file imports generally - py_compile alone
+is not sufficient.

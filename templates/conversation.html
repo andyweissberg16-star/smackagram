@@ -4,25 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Exchange — Smackagram</title>
-<meta name="description" content="The original smack and the reply, back to back. Judge for yourself who won.">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Smackagram">
-<meta property="og:title" content="The Exchange — Smackagram">
-<meta property="og:description" content="The original smack and the reply, back to back. Judge for yourself who won.">
-<meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:url" content="{{ request.base_url }}">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="The Exchange — Smackagram">
-<meta name="twitter:description" content="The original smack and the reply, back to back. Judge for yourself who won.">
-<meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
-<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
-<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
-<meta name="theme-color" content="#0D0D0D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
   :root{
     --ink:#0D0D0D;
@@ -34,12 +17,21 @@
     --line:rgba(245,245,243,0.10);
     --line-strong:rgba(245,245,243,0.24);
   }
+  *{box-sizing:border-box; margin:0; padding:0;}
   body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
   .wrap{max-width:600px; margin:0 auto; padding:0 24px 60px;}
+
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+  .auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+  @media(max-width:760px){
+    nav{flex-wrap:wrap; gap:12px;}
+    .nav-links{display:none;}
+  }
   nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
   nav a.back-link:hover{color:var(--flare);}
 
-  h1{font-family:'Anton',sans-serif; font-size:var(--h1-page); text-transform:uppercase; text-align:center; margin:36px 0 24px;}
+  h1{font-family:'Anton',sans-serif; font-size:30px; text-transform:uppercase; text-align:center; margin:36px 0 24px;}
 
   .msg-card{
     border-radius:8px; padding:22px; margin-bottom:20px; border:1px solid var(--line-strong);
@@ -48,11 +40,11 @@
   .msg-card.reply{background:var(--ink-2); border-left:3px solid var(--flare);}
   .msg-label{font-family:'JetBrains Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; font-weight:700;}
   .msg-card.original .msg-label{color:var(--chalk-dim);}
-  .msg-card.reply .msg-label{color:var(--flare-text);}
+  .msg-card.reply .msg-label{color:var(--flare);}
   .msg-text{font-size:15px; font-style:italic; color:#DCDCD9; margin-bottom:14px;}
   .btn-play{
     background:transparent; border:1px solid var(--line-strong); color:var(--chalk);
-    padding:10px 20px; border-radius:4px; font-size:var(--fs-md); font-weight:600; cursor:pointer;
+    padding:10px 20px; border-radius:4px; font-size:13px; font-weight:600; cursor:pointer;
     text-transform:uppercase; letter-spacing:0.5px;
   }
   .btn-play:hover{border-color:var(--flare); color:var(--flare);}
@@ -76,7 +68,7 @@
   <h1>The Exchange</h1>
 
   <div id="loadingState" style="text-align:center; padding:60px 24px; color:var(--chalk-dim);">Loading...</div>
-  <div id="errorState" role="alert">This conversation couldn't be found.</div>
+  <div id="errorState">This conversation couldn't be found.</div>
 
   <div id="content" style="display:none;">
     <div class="msg-card original">
@@ -117,14 +109,12 @@ const replyId = {{ reply_id }};
       document.getElementById('originalAudio').src = data.original.audio_url;
     } else {
       document.getElementById('originalPlayBtn').disabled = true;
-      document.getElementById('originalPlayBtn').classList.add('no-spinner');
       document.getElementById('originalPlayBtn').textContent = 'Audio unavailable';
     }
     if (data.reply.audio_url) {
       document.getElementById('replyAudio').src = data.reply.audio_url;
     } else {
       document.getElementById('replyPlayBtn').disabled = true;
-      document.getElementById('replyPlayBtn').classList.add('no-spinner');
       document.getElementById('replyPlayBtn').textContent = 'Audio unavailable';
     }
 

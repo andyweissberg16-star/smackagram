@@ -4,25 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Terms & Conditions — Smackagram</title>
-<meta name="description" content="The terms of service for Smackagram.">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Smackagram">
-<meta property="og:title" content="Terms — Smackagram">
-<meta property="og:description" content="The terms of service for Smackagram.">
-<meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:url" content="{{ request.base_url }}">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Terms — Smackagram">
-<meta name="twitter:description" content="The terms of service for Smackagram.">
-<meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
-<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
-<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
-<meta name="theme-color" content="#0D0D0D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
   :root{
     --ink:#0D0D0D;
@@ -34,12 +17,21 @@
     --line:rgba(245,245,243,0.10);
     --line-strong:rgba(245,245,243,0.24);
   }
+  *{box-sizing:border-box; margin:0; padding:0;}
   body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.65; -webkit-font-smoothing:antialiased;}
   .wrap{max-width:760px; margin:0 auto; padding:0 24px 80px;}
+
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+  .auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+  @media(max-width:760px){
+    nav{flex-wrap:wrap; gap:12px;}
+    .nav-links{display:none;}
+  }
   nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
   nav a.back-link:hover{color:var(--flare);}
 
-  h1{font-family:'Anton',sans-serif; font-size:var(--h1-page); text-transform:uppercase; margin:40px 0 8px; letter-spacing:0.5px;}
+  h1{font-family:'Anton',sans-serif; font-size:38px; text-transform:uppercase; margin:40px 0 8px; letter-spacing:0.5px;}
   .updated{color:var(--chalk-dim); font-size:13px; margin-bottom:36px;}
 
   h2{font-family:'Anton',sans-serif; font-size:20px; text-transform:uppercase; letter-spacing:0.5px; margin:36px 0 12px; color:var(--flare);}
