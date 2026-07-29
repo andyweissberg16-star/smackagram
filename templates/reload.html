@@ -300,10 +300,18 @@ async function initPaymentForPack(packKey) {
     paymentElementInstance = elements.create('payment');
     paymentElementInstance.mount('#payment-element');
 
-    // Isolated from the main Payment Element on purpose - if Apple/
-    // Google Pay session setup fails in the background, it should
-    // never be able to take down card payments, which are the primary
-    // path most people use.
+    // TEMPORARILY DISABLED: Express Checkout Element (Apple/Google Pay)
+    // consistently triggers a background "sessions" 400 error that
+    // corrupts the shared Stripe.js Elements state and breaks the main
+    // card payment too (confirmPayment fails with "Could not retrieve
+    // elements store due to unexpected error"). Since Payment Element
+    // and Express Checkout Element share the same underlying store when
+    // tied to the same PaymentIntent, a try/catch around setup can only
+    // catch synchronous failures here, not this kind of async internal
+    // failure - it was not sufficient to protect card payments from it.
+    // Re-enable once the Google Pay session issue is understood and
+    // fixed on its own; card payment (the primary path) works without it.
+    /*
     try {
       expressElementInstance = elements.create('expressCheckout');
       expressElementInstance.mount('#express-element');
@@ -313,6 +321,9 @@ async function initPaymentForPack(packKey) {
       document.getElementById('express-element').style.display = 'none';
       document.getElementById('orDivider').style.display = 'none';
     }
+    */
+    document.getElementById('express-element').style.display = 'none';
+    document.getElementById('orDivider').style.display = 'none';
 
     payBtn.disabled = false;
   } catch (err) {

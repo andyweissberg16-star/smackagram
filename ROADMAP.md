@@ -1650,3 +1650,33 @@ pattern rather than a defensive/diagnostic-only change - but still
 flagging honestly that it hasn't been confirmed working in the live
 payment flow, since that requires an actual browser + Stripe test
 session this sandbox can't fully replicate.
+
+## Payment freeze - Express Checkout Element disabled (same session)
+The Elements-cleanup fix did not resolve the issue - same exact error
+recurred: "Could not retrieve elements store due to unexpected error".
+The "sessions" 400 error has now appeared in every single console
+capture across all attempts, and appeared 3 times in the latest one,
+strongly implicating Express Checkout Element's (Apple/Google Pay)
+background session setup specifically.
+
+Given Payment Element and Express Checkout Element share the same
+underlying Stripe.js store when tied to one PaymentIntent, a
+synchronous try/catch around Express Checkout's setup (the prior fix)
+cannot protect against an async internal failure inside Stripe.js's
+own code corrupting that shared state - which appears to be exactly
+what's happening.
+
+DECISION: temporarily disabled Express Checkout Element entirely
+(commented out, not deleted, with a clear note on why and how to
+re-enable). The Apple/Google Pay button and "or pay with card" divider
+are hidden; only the card Payment Element shows now. This is a real
+regression in checkout options (no more one-tap Apple/Google Pay) but
+prioritizes getting the core, primary card payment path working
+reliably, which is what almost every user will use regardless.
+
+NOT YET RESOLVED: why Google Pay's session setup returns a 400 in the
+first place. This needs separate investigation (possibly: Google Pay
+merchant configuration in the Stripe dashboard is incomplete even
+though Apple Pay/domain verification was done; Google Pay may have
+distinct setup requirements). Flagged for follow-up once card payments
+are confirmed working again.
