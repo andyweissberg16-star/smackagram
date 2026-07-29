@@ -1,6 +1,11 @@
+<script src="{{ url_for('static', filename='js/smackagram.js') }}"></script>
 <nav>
   <a href="/" style="display:flex; align-items:center; text-decoration:none;">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+    <picture>
+      <source type="image/webp" srcset="{{ url_for('static', filename='img/logo-204.webp') }}">
+      <img src="{{ url_for('static', filename='img/logo-204.png') }}" alt="Smackagram"
+           width="51" height="34" style="height:34px; width:auto; display:block;">
+    </picture>
   </a>
   <div class="nav-links">
     <a href="/#how-it-works" style="color:inherit; text-decoration:none;">How it works</a>
@@ -20,4 +25,64 @@
       <a href="/register" style="color:var(--flare); text-decoration:none; font-weight:600;">Register</a>
     {% endif %}
   </div>
+  <button class="nav-toggle" id="navToggle" type="button"
+          aria-label="Open menu" aria-expanded="false" aria-controls="navDrawer">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+
+<div class="nav-scrim" id="navScrim" hidden></div>
+<div class="nav-drawer" id="navDrawer" role="dialog" aria-modal="true" aria-label="Site menu">
+  <button class="nav-drawer-close" id="navClose" type="button" aria-label="Close menu">&times;</button>
+  <a href="/#how-it-works">How it works</a>
+  <a href="/send-a-smack">Generator</a>
+  <a href="/locked-n-loaded" class="is-flare">Locked &amp; Loaded</a>
+  <a href="/smack-lab">Smack Lab</a>
+  <a href="/smack-chat">Smack Chat</a>
+  <a href="/smack-battle">Smack Battle</a>
+  <a href="/smackcast" class="is-gold">Smackcast</a>
+  <a href="/did-you-get-smacked">Did You Get Smacked?</a>
+  <div class="nav-drawer-auth">
+    {% if current_user %}
+      <a href="/profile" class="is-gold">My Profile</a>
+    {% else %}
+      <a href="/login">Log In</a>
+      <a href="/register" class="is-flare">Register</a>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+(function(){
+  var t=document.getElementById('navToggle'), d=document.getElementById('navDrawer'),
+      s=document.getElementById('navScrim'), c=document.getElementById('navClose');
+  if(!t||!d||!s) return;
+  var last=null;
+  function open(){
+    last=document.activeElement;
+    s.hidden=false;
+    requestAnimationFrame(function(){ d.classList.add('open'); s.classList.add('open'); });
+    t.setAttribute('aria-expanded','true');
+    document.body.classList.add('nav-open');
+    c.focus();
+  }
+  function close(){
+    d.classList.remove('open'); s.classList.remove('open');
+    t.setAttribute('aria-expanded','false');
+    document.body.classList.remove('nav-open');
+    setTimeout(function(){ if(!d.classList.contains('open')) s.hidden=true; }, 300);
+    if(last && last.focus) last.focus();
+  }
+  t.addEventListener('click', function(){
+    d.classList.contains('open') ? close() : open();
+  });
+  c.addEventListener('click', close);
+  s.addEventListener('click', close);
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Escape' && d.classList.contains('open')) close();
+  });
+  window.addEventListener('resize', function(){
+    if(window.innerWidth>1180 && d.classList.contains('open')) close();
+  });
+})();
+</script>

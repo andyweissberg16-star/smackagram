@@ -4,8 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Send a Smack — Smackagram</title>
+<meta name="description" content="Pick a team, we write the roast, and we call your friend and read it to them. The call gets recorded so you can hear the reaction.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Smackagram">
+<meta property="og:title" content="Send a Smackagram">
+<meta property="og:description" content="Pick a team, we write the roast, and we call your friend and read it to them. The call gets recorded so you can hear the reaction.">
+<meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="{{ request.base_url }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Send a Smackagram">
+<meta name="twitter:description" content="Pick a team, we write the roast, and we call your friend and read it to them. The call gets recorded so you can hear the reaction.">
+<meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+<meta name="theme-color" content="#0D0D0D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
   :root{
     --ink:#0D0D0D;
@@ -20,7 +37,6 @@
     --line:rgba(245,245,243,0.10);
     --line-strong:rgba(245,245,243,0.24);
   }
-  *{box-sizing:border-box; margin:0; padding:0;}
   html{scroll-behavior:smooth;}
   body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
   .wrap{max-width:720px; margin:0 auto; padding:0 24px;}
@@ -29,14 +45,6 @@
   ::-webkit-scrollbar-track{background:var(--ink);}
   ::-webkit-scrollbar-thumb{background:var(--flare); border:2px solid var(--ink); border-radius:6px;}
   html{scrollbar-color:var(--flare) var(--ink); scrollbar-width:thin;}
-
-  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
-  .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
-  .auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
-  @media(max-width:760px){
-    nav{flex-wrap:wrap; gap:12px;}
-    .nav-links{display:none;}
-  }
   nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
   nav a.back-link:hover{color:var(--flare);}
 
@@ -46,7 +54,7 @@
     animation:cardFadeIn 0.35s ease;
   }
   @keyframes cardFadeIn{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
-  .step-label{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; font-weight:700;}
+  .step-label{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare-text); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; font-weight:700;}
   .card h3{font-family:'Anton',sans-serif; font-size:22px; margin-bottom:6px; text-transform:uppercase;}
   .card-sub{color:var(--chalk-dim); font-size:13px; margin-bottom:18px;}
 
@@ -55,7 +63,7 @@
     border-bottom:1px solid var(--line-strong); cursor:pointer;
   }
   .sensitivity-row:last-child{border-bottom:none;}
-  .sensitivity-checkbox{width:16px; height:16px; accent-color:var(--flare); cursor:pointer; flex-shrink:0;}
+  .sensitivity-checkbox{width:20px; height:20px; accent-color:var(--flare); cursor:pointer; flex-shrink:0;}
   .sensitivity-label{font-size:14px; color:var(--chalk-dim); flex:1; transition:color 0.15s ease;}
   .sensitivity-row.checked .sensitivity-label{color:var(--chalk); font-weight:600;}
   .sensitivity-info-btn{
@@ -115,7 +123,14 @@
 
 {% include '_nav.html' %}
 
-<img src="{{ url_for('static', filename='hero-mascot.png') }}" alt="Send a Smackagram" style="width:100%; height:auto; display:block;">
+<picture>
+  <source type="image/webp" sizes="100vw"
+          srcset="{{ url_for('static', filename='img/hero-mascot-780.webp') }} 780w,
+                  {{ url_for('static', filename='img/hero-mascot-1560.webp') }} 1560w,
+                  {{ url_for('static', filename='img/hero-mascot-1983.webp') }} 1983w">
+  <img src="{{ url_for('static', filename='img/hero-mascot-1560.jpg') }}" alt="Send a Smackagram"
+       width="1983" height="793" style="width:100%; height:auto; display:block;">
+</picture>
 
 <div class="wrap" style="padding-top:24px;">
 
@@ -125,7 +140,7 @@
     <p class="card-sub">Type a team and who this is for — we'll write the roast.</p>
 
     <label for="teamInput">Team to trash talk</label>
-    <input id="teamInput" type="text" placeholder="ex. New York Yankees">
+    <input id="teamInput" type="text" placeholder="ex. New York Yankees" data-team-search>
 
     <label for="roastTopicsInput">Specific things to roast them about (optional)</label>
     <input id="roastTopicsInput" type="text" placeholder="Up to 3, comma-separated — ex. Dusty Baker, trash cans, cheating">
@@ -199,7 +214,7 @@
       <button id="closeModalBtn" style="background:none; border:none; color:var(--chalk-dim); font-size:22px; cursor:pointer; line-height:1;">&times;</button>
     </div>
 
-    <div id="orderError" style="display:none; background:var(--flare-dim); border:1px solid var(--flare); color:var(--flare); padding:10px 12px; border-radius:2px; font-size:13px; margin-bottom:14px;"></div>
+    <div id="orderError" style="display:none; background:var(--flare-dim); border:1px solid var(--flare); color:var(--flare); padding:10px 12px; border-radius:2px; font-size:13px; margin-bottom:14px;" role="alert"></div>
 
     <label>Message</label>
     <textarea id="orderMessage" placeholder="Your smack talk line..." style="min-height:80px;"></textarea>
@@ -559,6 +574,7 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
   }
   if (replyOptIn && !senderPhone) {
     errorEl.textContent = 'Please enter your number, or uncheck the reply option.';
+    smkInvalid(document.getElementById('orderSenderPhone'));
     errorEl.style.display = 'block';
     return;
   }

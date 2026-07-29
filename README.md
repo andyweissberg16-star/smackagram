@@ -65,3 +65,24 @@ polling job mid-cycle.
 - **Recording consent line is baked into the TwiML script itself**
   (`twilio_service.build_twiml`) since FL is a two-party consent state for
   call recording.
+
+## Docs
+
+`docs/design-notes.md` is the record of what has been changed and why — how the team data is put
+together, front-end architecture decisions, accessibility choices, what is deliberately left alone,
+and the traps that have burned past debugging sessions. Worth reading before touching team data or
+`static/css/smackagram.css`.
+
+Pointers it expands on:
+
+- `services/ncaa_d1.py` — every NCAA Division I school (365) with the conference it plays each sport
+  in: football, men's basketball, baseball. One pipe-separated row per school, so conference
+  realignment is a text edit rather than a code change.
+- `services/team_display.py` — builds the list served by `/api/teams/all` that feeds the site-wide
+  team autocomplete. 1,205 teams across pro leagues, soccer and college.
+- `services/chat_team_lists.py` — `CHAT_LEAGUES`, still the source of truth for Smack Chat rooms.
+  Note it uses internal chat-room codes, which differ from the codes SportsDataIO sends.
+- The site is password-gated except `/static/`, which is why an unauthenticated `curl` against a
+  page returns `Authentication required.` instead of your change. Check a static asset instead.
+- Bump the `?v=` number in `static/js/smackagram.js` whenever team data changes, or browsers keep
+  serving the old list.

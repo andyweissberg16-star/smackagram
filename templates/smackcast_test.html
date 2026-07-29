@@ -4,31 +4,41 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smackcast Test Tool</title>
+<meta name="description" content="Admin only.">
+<meta name="robots" content="noindex">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Smackagram">
+<meta property="og:title" content="Smackcast test tool">
+<meta property="og:description" content="Admin only.">
+<meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="{{ request.base_url }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Smackcast test tool">
+<meta name="twitter:description" content="Admin only.">
+<meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+<meta name="theme-color" content="#0D0D0D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
   :root{
     --ink:#0D0D0D; --ink-2:#1A1A1A; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
     --flare:#E8142C; --gold:#FFD400; --line:rgba(245,245,243,0.10); --line-strong:rgba(245,245,243,0.24);
   }
-  *{box-sizing:border-box; margin:0; padding:0;}
   body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
   .wrap{max-width:640px; margin:0 auto; padding:0 24px 80px;}
-  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
-  .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
-  .auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
-  @media(max-width:760px){
-    nav{flex-wrap:wrap; gap:12px;}
-    .nav-links{display:none;}
-  }
   nav a{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
   .hero{text-align:center; padding:36px 0 8px;}
-  .hero .label{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare); text-transform:uppercase; letter-spacing:1px;}
-  .hero h1{font-family:'Anton',sans-serif; font-size:26px; text-transform:uppercase; letter-spacing:0.5px; margin-top:8px;}
+  .hero .label{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare-text); text-transform:uppercase; letter-spacing:1px;}
+  .hero h1{font-family:'Anton',sans-serif; font-size:var(--h1-form); text-transform:uppercase; letter-spacing:0.5px; margin-top:8px;}
   .hero p{color:var(--chalk-dim); font-size:13px; margin-top:10px; line-height:1.5;}
 
   .card{background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:24px; margin-top:24px;}
-  label{display:block; font-size:11px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin:14px 0 6px;}
+  label{display:block; font-size:var(--fs-sm); color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin:14px 0 6px;}
   label:first-child{margin-top:0;}
   input[type=text], input[type=number]{
     width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
@@ -43,7 +53,7 @@
   .btn{font-weight:700; font-size:14px; padding:14px 24px; border-radius:4px; border:none; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; width:100%; margin-top:20px;}
   .btn-flare{background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(232,20,44,0.4);}
   .btn-flare:disabled{opacity:0.5; cursor:not-allowed;}
-  #formError{display:none; color:var(--flare); font-size:12px; margin-top:12px;}
+  #formError{display:none; color:var(--flare-text); font-size:12px; margin-top:12px;}
 
   .result-card{display:none;}
   .matchup-line{font-size:13px; color:var(--chalk-dim); padding:6px 0; border-bottom:1px solid var(--line);}
@@ -83,7 +93,7 @@
     <label for="weekInput">Week Number</label>
     <input id="weekInput" type="number" value="13" min="1" max="18">
 
-    <div id="formError"></div>
+    <div id="formError" role="alert"></div>
     <button id="generateBtn" class="btn btn-flare">Generate Test Recap</button>
   </div>
 

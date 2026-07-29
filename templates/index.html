@@ -4,8 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smackagram — Talk smack. Get it on tape.</title>
+<meta name="description" content="AI writes a savage, personalized roast from a real game result, then calls your friend and reads it out loud in a real voice. Completely anonymous.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Smackagram">
+<meta property="og:title" content="Smackagram — Talk smack. Get it on tape.">
+<meta property="og:description" content="AI writes a savage, personalized roast from a real game result, then calls your friend and reads it out loud in a real voice. Completely anonymous.">
+<meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="{{ request.base_url }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Smackagram — Talk smack. Get it on tape.">
+<meta name="twitter:description" content="AI writes a savage, personalized roast from a real game result, then calls your friend and reads it out loud in a real voice. Completely anonymous.">
+<meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+<meta name="theme-color" content="#0D0D0D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
   :root{
     --ink:#0D0D0D;
@@ -20,7 +37,6 @@
     --line:rgba(245,245,243,0.10);
     --line-strong:rgba(245,245,243,0.24);
   }
-  *{box-sizing:border-box; margin:0; padding:0;}
   html{scroll-behavior:smooth;}
   body{
     background:var(--ink);
@@ -34,14 +50,8 @@
   .wrap{max-width:1080px; margin:0 auto; padding:0 24px;}
 
   /* NAV */
-  nav{
-    display:flex; justify-content:space-between; align-items:center;
-    padding:22px 24px; border-bottom:1px solid var(--line);
-  }
   .logo{font-family:'Anton',sans-serif; font-size:22px; letter-spacing:0.5px;}
   .logo span{color:var(--flare); text-shadow:0 0 12px rgba(232,20,44,0.7);}
-  .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
-  .auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
   .btn{
     font-family:'Inter',sans-serif; font-weight:600; font-size:14px;
     padding:11px 22px; border-radius:2px; border:none; cursor:pointer;
@@ -51,7 +61,27 @@
   .btn-ghost{background:transparent; color:var(--chalk); border:1px solid var(--line-strong);}
 
   /* TICKER */
-  .ticker-bar{background:var(--flare); overflow:hidden; white-space:nowrap; padding:8px 0;}
+  .ticker-bar{background:var(--flare); overflow:hidden; white-space:nowrap; padding:8px 0; position:relative;}
+  /* WCAG 2.2.2 (Pause, Stop, Hide): content that moves automatically for more
+     than five seconds needs a way to stop it - for everyone, not only people
+     who set the reduced-motion preference. */
+  .ticker-pause{
+    position:absolute; top:0; right:0; bottom:0; width:44px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--flare); border:0; padding:0; cursor:pointer; color:#fff;
+    box-shadow:-16px 0 16px 10px var(--flare);
+  }
+  .ticker-pause .glyph{
+    display:block; width:12px; height:14px;
+    border-left:4px solid currentColor; border-right:4px solid currentColor;
+  }
+  .ticker-pause.is-paused .glyph{
+    width:0; height:0; border-left:13px solid currentColor; border-right:0;
+    border-top:8px solid transparent; border-bottom:8px solid transparent;
+  }
+  .ticker-pause:hover{color:var(--gold);}
+  /* If motion is already off, the control would be a no-op - hide it. */
+  @media(prefers-reduced-motion:reduce){ .ticker-pause{display:none;} }
   .ticker-track{display:inline-block; animation:scroll 28s linear infinite;}
   .ticker-track span{font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:#fff; margin-right:16px; text-transform:uppercase; letter-spacing:0.5px;}
   .ticker-track span.ticker-bolt{margin-right:16px; font-size:13px; color:var(--gold); text-shadow:0 0 6px rgba(255,212,0,0.8); text-transform:none; letter-spacing:0;}
@@ -76,7 +106,7 @@
   .hero-ctas .btn-flare{animation:cta-pulse 2s ease-in-out infinite;}
 
   .eyebrow{color:var(--cyan); font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; letter-spacing:1px; margin-bottom:16px; text-transform:uppercase; text-shadow:0 0 10px rgba(47,155,255,0.6);}
-  h1{font-size:clamp(38px,6vw,64px); line-height:0.98; margin-bottom:20px;}
+  h1{font-size:var(--h1-hero); line-height:0.98; margin-bottom:20px;}
   h1 .flare{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.6);}
   .sub{color:var(--chalk-dim); font-size:17px; max-width:440px; margin-bottom:32px;}
   .hero-ctas{display:flex; gap:12px;}
@@ -108,7 +138,7 @@
   .section-sub{color:var(--chalk-dim); font-size:14px; margin-bottom:40px;}
   .downs{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
   .down{border:2px solid var(--chalk); border-radius:2px; padding:22px 18px; position:relative; background:var(--ink); box-shadow:5px 5px 0 var(--flare);}
-  .down-tag{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare); font-weight:700; letter-spacing:1px; margin-bottom:14px;}
+  .down-tag{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare-text); font-weight:700; letter-spacing:1px; margin-bottom:14px;}
   .down h3{font-size:16px; margin-bottom:8px; font-weight:600;}
   .down p{font-size:13px; color:var(--chalk-dim);}
 
@@ -292,10 +322,19 @@
     <span>EAGLES JUST GOT RUNG UP AFTER THE 4TH QUARTER COLLAPSE</span><span class="ticker-bolt">⚡</span>
     <span>LIVE — SUNDAY SLATE SMACK VOLUME UP 3X</span><span class="ticker-bolt">⚡</span>
   </div>
+  <button class="ticker-pause" id="tickerPause" type="button"
+          aria-pressed="false" aria-label="Pause the ticker"><span class="glyph"></span></button>
 </div>
 
 <div style="width:100%; overflow:hidden; line-height:0;">
-  <img id="heroBanner" src="{{ url_for('static', filename='hero-mascot.png') }}" alt="Smackagram — let the smack talk begin" style="width:100%; height:auto; display:block;">
+  <picture>
+  <source type="image/webp" sizes="100vw"
+          srcset="{{ url_for('static', filename='img/hero-mascot-780.webp') }} 780w,
+                  {{ url_for('static', filename='img/hero-mascot-1560.webp') }} 1560w,
+                  {{ url_for('static', filename='img/hero-mascot-1983.webp') }} 1983w">
+  <img id="heroBanner" src="{{ url_for('static', filename='img/hero-mascot-1560.jpg') }}" alt="Smackagram — let the smack talk begin"
+       width="1983" height="793" style="width:100%; height:auto; display:block;">
+</picture>
 </div>
 
 <div class="wrap field-lines">
@@ -316,7 +355,7 @@
     <div style="background:var(--ink-2); border:1px solid var(--flare); border-radius:8px; padding:40px; box-shadow:0 0 30px rgba(232,20,44,0.35);">
       <p style="font-family:'Anton',sans-serif; font-size:32px; letter-spacing:0.5px; margin-bottom:16px; text-transform:uppercase; color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.6); line-height:1.05; text-align:center;">Send a Smackagram</p>
       <p style="font-size:15px; color:var(--chalk-dim); margin-bottom:24px; line-height:1.5; text-align:center;">Pick a team, we write the roast, and call your friend with it — live, in a real voice, completely anonymous. The call gets recorded so you can hear their reaction after.</p>
-      <input id="heroTeamInput" type="text" placeholder="Team to roast" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:14px;">
+      <input id="heroTeamInput" type="text" placeholder="Team to roast" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:14px;" data-team-search>
       <input id="heroRecipientInput" type="text" placeholder="Friend's name" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:20px;">
       <button id="heroStartBtn" class="btn btn-flare" style="width:100%; padding:18px 24px; font-size:16px;">Send a Smack</button>
     </div>
@@ -324,7 +363,7 @@
     <div style="background:var(--ink-2); border:1px solid var(--flare); border-radius:8px; padding:40px; box-shadow:0 0 30px rgba(232,20,44,0.35);">
       <p style="font-family:'Anton',sans-serif; font-size:32px; letter-spacing:0.5px; margin-bottom:16px; text-transform:uppercase; color:var(--gold); text-shadow:0 0 24px rgba(255,212,0,0.5); line-height:1.05; text-align:center;">Get Locked &amp; Loaded</p>
       <p style="font-size:15px; color:var(--chalk-dim); margin-bottom:24px; line-height:1.5; text-align:center;">Pick a team, and we watch their next game for you — if they lose, we automatically call your friend with a fresh roast, completely anonymous. If they win, you pay nothing.</p>
-      <input id="heroLockedTeamInput" type="text" placeholder="Team to watch" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:14px;">
+      <input id="heroLockedTeamInput" type="text" placeholder="Team to watch" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:14px;" data-team-search>
       <input id="heroLockedRecipientInput" type="text" placeholder="Friend's name" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:20px;">
       <button id="heroLockedBtn" class="btn btn-flare" style="width:100%; padding:18px 24px; font-size:16px;">Arm a Smack</button>
     </div>
@@ -438,5 +477,20 @@ document.getElementById('heroLockedTeamInput').addEventListener('keydown', (e) =
   </div>
 </footer>
 
+
+<script>
+(function(){
+  var track = document.querySelector('.ticker-track');
+  var btn   = document.getElementById('tickerPause');
+  if (!track || !btn) return;
+  btn.addEventListener('click', function(){
+    var nowPaused = track.style.animationPlayState !== 'paused';
+    track.style.animationPlayState = nowPaused ? 'paused' : 'running';
+    btn.classList.toggle('is-paused', nowPaused);
+    btn.setAttribute('aria-pressed', String(nowPaused));
+    btn.setAttribute('aria-label', nowPaused ? 'Resume the ticker' : 'Pause the ticker');
+  });
+})();
+</script>
 </body>
 </html>

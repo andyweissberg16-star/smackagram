@@ -11,7 +11,7 @@ import requests
 from dotenv import load_dotenv
 
 from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleRoundResult, User, SmackcastSubscription, SmackcastRecap, WalletTransaction, PendingAction
-from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, sleeper_service, smackcast_service, espn_service, wallet_service
+from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
 
 load_dotenv()
@@ -2258,6 +2258,48 @@ with app.app_context():
         db.session.add(admin1_user)
         db.session.commit()
         print("[auth] seeded second admin test account (admin1/admin)")
+
+
+
+@app.route("/api/teams/all")
+def all_teams():
+    """
+    Every team we know about, flattened across all leagues, for the site-wide
+    team autocomplete. Smack Chat originally fetched this as 16 separate
+    per-league calls; one cached call is cheaper and lets any page reuse it.
+    """
+    resp = jsonify({"teams": team_display.all_teams()})
+    # The list only changes when we edit chat_team_lists.py, so browsers may
+    # hold it for five minutes rather than refetching on every page view.
+    # stale-while-revalidate lets a stale copy render instantly while a
+    # fresh one is fetched in the background, so nobody waits and nobody
+    # is stuck on old data for long.
+    resp.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
+    return resp
+
+
+# ---------- Branded error pages ----------
+# Without these, Flask serves its default white "Not Found" page, which on a
+# black site reads as broken rather than as a wrong URL. Smackcast recap links
+# and battle codes both expire, so real people hit these.
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template("404.html"), 404
+
+
+@app.errorhandler(500)
+def internal_error(e):
+    # A 500 is often a database problem - and the site-wide context processor
+    # that injects current_user queries the database on every render. So the
+    # error page itself can fail for exactly the same reason. Fall back to
+    # plain text rather than letting the error handler raise its own error.
+    try:
+        return render_template("500.html"), 500
+    except Exception:
+        return ("Something broke on our end, not yours. "
+                "Give it a second and try again."), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True)

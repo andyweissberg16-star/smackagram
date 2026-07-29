@@ -4,8 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smack Chat — Smackagram</title>
+<meta name="description" content="Real fans, real trash talk. Pick your team's room and let it fly. Rate the best lines, bury the weak ones.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Smackagram">
+<meta property="og:title" content="Smack Chat — every team, one arena">
+<meta property="og:description" content="Real fans, real trash talk. Pick your team's room and let it fly. Rate the best lines, bury the weak ones.">
+<meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="{{ request.base_url }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Smack Chat — every team, one arena">
+<meta name="twitter:description" content="Real fans, real trash talk. Pick your team's room and let it fly. Rate the best lines, bury the weak ones.">
+<meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+<meta name="theme-color" content="#0D0D0D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
   :root{
     --ink:#0D0D0D;
@@ -17,22 +34,13 @@
     --line:rgba(245,245,243,0.10);
     --line-strong:rgba(245,245,243,0.24);
   }
-  *{box-sizing:border-box; margin:0; padding:0;}
   body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
   .wrap{max-width:720px; margin:0 auto; padding:0 24px 60px;}
-
-  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
-  .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
-  .auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
-  @media(max-width:760px){
-    nav{flex-wrap:wrap; gap:12px;}
-    .nav-links{display:none;}
-  }
   nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
   nav a.back-link:hover{color:var(--flare);}
 
   .hero{text-align:center; padding:40px 0 20px;}
-  h1{font-family:'Anton',sans-serif; font-size:36px; text-transform:uppercase; letter-spacing:0.5px;}
+  h1{font-family:'Anton',sans-serif; font-size:var(--h1-page); text-transform:uppercase; letter-spacing:0.5px;}
   h1 span{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.5);}
   .sub{color:var(--chalk-dim); font-size:14px; margin-top:8px;}
 
@@ -94,14 +102,14 @@
   .general-chat-label{font-family:'Anton',sans-serif; font-size:15px; text-transform:uppercase; letter-spacing:0.5px; color:var(--gold);}
   .general-chat-card .chat-count{margin-top:0;}
 
-  #roomView{display:none; flex-direction:column; height:calc(100vh - 76px); max-width:720px; margin:0 auto;}
+  #roomView{display:none; flex-direction:column; height:calc(100dvh - var(--nav-h)); max-width:720px; margin:0 auto;}
 
   .chat-header{
     display:flex; align-items:center; gap:14px; padding:14px 24px; border-bottom:1px solid var(--line-strong);
     flex-shrink:0;
   }
   .room-title{font-family:'Anton',sans-serif; font-size:18px; text-transform:uppercase; flex:1;}
-  .btn-back{background:none; border:none; color:var(--chalk-dim); cursor:pointer; font-size:18px; padding:0;}
+  .btn-back{background:none; border:none; color:var(--chalk-dim); cursor:pointer; font-size:var(--fs-md); padding:0;}
   .btn-back:hover{color:var(--flare);}
 
   .sort-tabs{display:flex; gap:6px;}
@@ -137,7 +145,7 @@
   .input-bar{
     flex-shrink:0; border-top:1px solid var(--line-strong); padding:12px 24px; background:var(--ink);
   }
-  #postError{display:none; color:var(--flare); font-size:11px; margin-bottom:6px;}
+  #postError{display:none; color:var(--flare-text); font-size:11px; margin-bottom:6px;}
   .input-row{display:flex; gap:8px; align-items:center;}
   .name-field{
     width:90px; flex-shrink:0; background:var(--ink-2); border:1px solid var(--line-strong); color:var(--chalk);
@@ -165,7 +173,14 @@
 
 {% include '_nav.html' %}
 
-<img src="{{ url_for('static', filename='smack-chat-hero.png') }}" alt="Smack Chat — the ultimate arena for sports trash talk" style="width:100%; height:auto; display:block;">
+<picture>
+  <source type="image/webp" sizes="100vw"
+          srcset="{{ url_for('static', filename='img/smack-chat-hero-780.webp') }} 780w,
+                  {{ url_for('static', filename='img/smack-chat-hero-1560.webp') }} 1560w,
+                  {{ url_for('static', filename='img/smack-chat-hero-1983.webp') }} 1983w">
+  <img src="{{ url_for('static', filename='img/smack-chat-hero-1560.jpg') }}" alt="Smack Chat — the ultimate arena for sports trash talk"
+       width="1983" height="793" style="width:100%; height:auto; display:block;">
+</picture>
 
 <div class="wrap">
   <div class="hero">
@@ -230,7 +245,7 @@
     </div>
 
     <div class="input-bar">
-      <div id="postError"></div>
+      <div id="postError" role="alert"></div>
       <div class="input-row">
         <input id="displayNameInput" type="text" placeholder="Name" maxlength="40" class="name-field">
         <input id="messageInput" type="text" placeholder="Say what you came to say..." maxlength="500" class="message-field">
