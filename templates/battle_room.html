@@ -86,19 +86,6 @@
   .round-indicator{color:var(--chalk-dim); font-size:12px; font-family:'JetBrains Mono',monospace; margin-top:6px; text-transform:uppercase;}
   .viewer-count{color:var(--chalk-dim); font-size:12px; font-family:'JetBrains Mono',monospace; margin-top:4px; text-align:center;}
   .smacky-waiting-img{display:block; max-width:340px; width:90%; height:auto; margin:0 auto 16px;}
-  /* Background image for the card where battle lines get typed. The
-     linear-gradient layered on top is a dark overlay - same technique
-     the page background above uses - so the text, timer and button
-     stay readable no matter how bright or busy the image itself is.
-     Drop the image in as static/img/battle-chat-bg.png (and optionally
-     battle-chat-bg.webp); until it exists, the gradient alone just
-     renders as the card's normal dark background, so nothing breaks. */
-  .chat-input-card{
-    background-image:linear-gradient(rgba(13,13,13,0.82), rgba(13,13,13,0.82)), url('{{ url_for('static', filename='img/battle-chat-bg.png') }}');
-    background-size:cover;
-    background-position:center;
-    background-repeat:no-repeat;
-  }
   .waiting-photo-card{
     border-width:2px;
     animation:flashRedBorder 1.2s ease-in-out infinite;
@@ -161,6 +148,20 @@
 
   .card{
     background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:24px; margin-bottom:16px;
+  }
+  /* Background image for the card where battle lines get typed. MUST be
+     declared AFTER .card above - .card uses the shorthand background:
+     property, which resets background-image, so an equal-specificity
+     rule placed earlier would silently get overridden (this exact bug
+     is why the background initially didn't show up at all). The
+     linear-gradient layered on top is a dark overlay - same technique
+     the page background uses - so the text, timer and button stay
+     readable no matter how bright or busy the image is. */
+  .chat-input-card{
+    background-image:linear-gradient(rgba(13,13,13,0.82), rgba(13,13,13,0.82)), url('{{ url_for('static', filename='img/battle-chat-bg.png') }}');
+    background-size:cover;
+    background-position:center;
+    background-repeat:no-repeat;
   }
   label{display:block; font-size:var(--fs-sm); color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;}
   input[type=text], textarea{
@@ -478,6 +479,15 @@ function readableColor(hex, fallback){
 const challengeCode = "{{ challenge_code }}";
 const INTENSITY_LABELS = {1: 'Clean', 2: 'Mild', 3: 'Aggressive', 4: 'Savage'};
 const LEAGUE_LABELS = {nfl: 'NFL', nba: 'NBA', mlb: 'MLB', nhl: 'NHL', wnba: 'WNBA', ncaaf: 'NCAA Football', ncaab: 'NCAA Basketball', soccer: 'Soccer'};
+// Maps Smack Battle's own league dropdown values to the `league` keys
+// actually used by /api/teams/all, for restricting the team autocomplete
+// to just that league. Most are 1:1, but "soccer" spans five separate
+// real leagues in the team data.
+const LEAGUE_TEAM_KEYS = {
+  nfl: 'nfl', nba: 'nba', mlb: 'mlb', nhl: 'nhl', wnba: 'wnba',
+  ncaaf: 'ncaaf', ncaab: 'ncaab',
+  soccer: 'mls,epl,laliga,bundesliga,seriea'
+};
 let turnTimerInterval = null;
 function clearTurnTimer() {
   if (turnTimerInterval) { clearInterval(turnTimerInterval); turnTimerInterval = null; }
@@ -1093,10 +1103,7 @@ function render(battle) {
       if (mySide === 'a') {
         actionArea.innerHTML = `
           <div class="card waiting-photo-card">
-            <picture>
-              <source type="image/webp" srcset="/static/img/battle-waiting-smacky.webp">
-              <img class="smacky-waiting-img" src="/static/img/battle-waiting-smacky.png" alt="Smacky" loading="lazy">
-            </picture>
+            <img class="smacky-waiting-img" src="/static/img/battle-waiting-smacky.png" alt="Smacky" loading="lazy">
             <p class="waiting-note">Share your battle link with whoever you're calling out. This page will update once they join.</p>
             <p class="intensity-badge">Intensity: <span>${escapeHtml(INTENSITY_LABELS[battle.intensity] || 'Savage')}</span></p>
           </div>
@@ -1106,14 +1113,11 @@ function render(battle) {
         const showAgeGate = battle.intensity !== 1;
         actionArea.innerHTML = `
           <div class="card waiting-photo-card">
-            <picture>
-              <source type="image/webp" srcset="/static/img/battle-waiting-smacky.webp">
-              <img class="smacky-waiting-img" src="/static/img/battle-waiting-smacky.png" alt="Smacky" loading="lazy">
-            </picture>
-            <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)}, a <span style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span> fan, is calling out ${escapeHtml(LEAGUE_LABELS[battle.league] || battle.league.toUpperCase())} fans. Step up?</p>
+            <img class="smacky-waiting-img" src="/static/img/battle-waiting-smacky.png" alt="Smacky" loading="lazy">
+            <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)}, a <span style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span> fan, is calling YOU out. Step up?</p>
             <p class="intensity-badge" style="margin-bottom:14px;">This battle is set to <span>${escapeHtml(INTENSITY_LABELS[battle.intensity] || 'Savage')}</span> intensity.</p>
             <label for="teamBInput">Your team</label>
-            <input id="teamBInput" type="text" placeholder="ex. Eagles" data-team-search>
+            <input id="teamBInput" type="text" placeholder="ex. Eagles" data-team-search data-team-league="${escapeHtml(LEAGUE_TEAM_KEYS[battle.league] || '')}">
             <label for="nameBInput">Your name</label>
             <input id="nameBInput" type="text" placeholder="ex. RivalReady" maxlength="40">
             ${showAgeGate ? `

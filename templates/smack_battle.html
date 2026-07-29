@@ -132,7 +132,7 @@
     </select>
 
     <label for="teamInput">Your team</label>
-    <input id="teamInput" type="text" placeholder="ex. Cowboys" data-team-search>
+    <input id="teamInput" type="text" placeholder="ex. Cowboys" data-team-search data-team-league="nfl">
 
     <label for="intensitySelect">Intensity</label>
     <select id="intensitySelect">
@@ -207,6 +207,25 @@ function updateAgeGate() {
   if (intensity === '1') document.getElementById('ageConfirmCheck').checked = false;
 }
 document.getElementById('intensitySelect').addEventListener('change', updateAgeGate);
+
+// Keep the team autocomplete restricted to whichever league is currently
+// selected. Most map 1:1 to the league keys in /api/teams/all; "soccer"
+// spans five separate real leagues there.
+const LEAGUE_TEAM_KEYS = {
+  nfl: 'nfl', nba: 'nba', mlb: 'mlb', nhl: 'nhl', wnba: 'wnba',
+  ncaaf: 'ncaaf', ncaab: 'ncaab',
+  soccer: 'mls,epl,laliga,bundesliga,seriea'
+};
+document.getElementById('leagueSelect').addEventListener('change', () => {
+  const league = document.getElementById('leagueSelect').value;
+  const teamInput = document.getElementById('teamInput');
+  teamInput.setAttribute('data-team-league', LEAGUE_TEAM_KEYS[league] || '');
+  // Whatever team was already picked may not belong to the new league,
+  // so clear it (and its "was properly selected" marker) rather than
+  // leaving a now-invalid team sitting in the box.
+  teamInput.value = '';
+  teamInput.dataset.smkSelected = '';
+});
 
 async function createBattle() {
   const league = document.getElementById('leagueSelect').value;

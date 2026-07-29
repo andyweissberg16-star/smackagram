@@ -2855,3 +2855,88 @@ computed as "flashRedBorder"), and confirmed the border's actual
 rendered color genuinely differs between two samples taken 600ms
 apart, proving it's really cycling in the browser rather than sitting
 static.
+
+## Smack Battle: fixed broken waiting-room image + chat background not rendering (same session)
+Two bugs found during live testing, both mine.
+
+### Broken image icon in the waiting room
+I'd wrapped the waiting-room image in a <picture> element with a
+<source type="image/webp"> pointing at battle-waiting-smacky.webp,
+while telling the user the .webp was optional. It isn't: a modern
+browser sees the webp <source>, treats it as authoritative, tries to
+load it, gets a 404, and shows a broken-image icon rather than falling
+back to the <img> PNG. Confirmed directly - the .png returned HTTP 200
+(1.6MB, present) while the .webp returned 404. Removed the <picture>
+wrapper and webp <source> entirely from both waiting views; now just a
+plain <img> pointing at the PNG, so the .webp really is optional as
+described.
+
+### Chat input background not showing
+The .chat-input-card rule was originally declared BEFORE .card in the
+stylesheet. .card sets the shorthand `background:` property, which
+resets background-image - so at equal specificity, the later .card
+rule silently wiped the background image out. Moved .chat-input-card
+to after .card so the override actually applies.
+
+VERIFIED with a real live test using the user's actual uploaded images
+(both present locally at full size): confirmed the waiting-room image
+genuinely loads (naturalWidth 1752 x 897, matching the real wide
+image, complete=true) and confirmed zero image-related 404s in the
+page's network activity.
+
+## Smack Battle: broken waiting image, "calling YOU out" copy, league-filtered team search (same session)
+Three fixes from live testing.
+
+### Broken waiting-room image (my bug)
+The waiting-room image rendered as a broken-image box. Root cause: the
+<picture> element listed a .webp <source> FIRST, but only the .png was
+ever actually created - and a <source> that 404s doesn't fall back to
+the <img>, it just fails. Confirmed by direct HTTP checks: the .png
+returned 200 (1.6MB, real file) while the .webp returned 404. Fixed by
+dropping the <picture>/<source> wrapper entirely and using a plain
+<img> pointing at the .png that genuinely exists. Verified with a real
+browser test checking naturalWidth > 0 (a broken image reports
+naturalWidth 0 even when "complete"), plus zero failed /static/
+requests.
+
+### Chat-input background wasn't applying (my bug)
+The .chat-input-card rule was declared BEFORE .card in the stylesheet.
+Since .card uses the shorthand `background:` property (which resets
+background-image) and both rules have equal specificity, the later
+.card rule silently won and wiped the background image out entirely.
+Moved .chat-input-card to immediately after .card and left a comment
+explaining why the order matters. Verified via computed style that both
+the gradient overlay AND the image URL are now present, and the image
+loads (HTTP 200).
+
+### "is calling YOU out" copy
+Per direct request, changed the joiner's prompt from "...is calling out
+[LEAGUE] fans. Step up?" to "...is calling YOU out. Step up?" - the
+league callout made sense for a broad open challenge, but reads oddly
+to someone who was personally sent the link.
+
+### Team search now filtered by league
+Per direct request: searching for a team on the join screen was
+returning every team across all leagues, when it should only offer
+teams from the battle's own league. Added optional league filtering to
+the shared site-wide autocomplete via a data-team-league attribute
+(comma-separated league keys, read at search time so it can change
+dynamically). Absent/empty = no restriction, so every other page using
+this autocomplete is completely unaffected.
+
+Applied it to BOTH the join screen (restricted to the battle's stored
+league) and the create form (restricted to whatever league is currently
+picked, updating live when the dropdown changes, and clearing any
+already-picked team since it may not belong to the new league). Needed
+a mapping layer because Smack Battle's dropdown value "soccer" spans
+five separate league keys in the actual team data (mls, epl, laliga,
+bundesliga, seriea); the rest are 1:1.
+
+VERIFIED with a deliberately tricky real test: searched "giants",
+which genuinely exists in BOTH the NFL (New York) and MLB (San
+Francisco). Confirmed an NFL battle returns only the NFL Giants, then
+switched the create form to MLB and confirmed it returns only the MLB
+Giants - proving the filter is real and not coincidental. Also
+confirmed the join side's attribute is correctly populated from the
+battle's league, and that changing league on the create form clears
+the previously-typed team.

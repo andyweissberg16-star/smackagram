@@ -174,10 +174,21 @@
       input.dataset.smkSelected = '';
       var q = input.value.trim().toLowerCase();
       if (q.length < 2) { close(); return; }
+      // Optional league restriction. Comma-separated list of league keys
+      // matching the `league` field on /api/teams/all entries (nfl, nba,
+      // mlb, nhl, wnba, ncaaf, ncaab, mls, epl, laliga, bundesliga,
+      // seriea, ...). Absent/empty means no restriction, so every
+      // existing page that doesn't set it keeps searching all teams
+      // exactly as before. Read here rather than at attach time so a
+      // page can change it on the fly (e.g. a league dropdown) and the
+      // very next keystroke honors it.
+      var leagueAttr = (input.getAttribute('data-team-league') || '').trim().toLowerCase();
+      var allowedLeagues = leagueAttr ? leagueAttr.split(',').map(function (s) { return s.trim(); }).filter(Boolean) : null;
       loadTeams().then(function (teams) {
         if (input.value.trim().toLowerCase() !== q) return;
         var scored = [];
         for (var i = 0; i < teams.length; i++) {
+          if (allowedLeagues && allowedLeagues.indexOf(String(teams[i].league || '').toLowerCase()) === -1) continue;
           var s = score(teams[i], q);
           if (s > -1) scored.push({ t: teams[i], s: s });
         }
