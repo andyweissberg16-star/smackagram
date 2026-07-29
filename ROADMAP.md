@@ -1680,3 +1680,61 @@ merchant configuration in the Stripe dashboard is incomplete even
 though Apple Pay/domain verification was done; Google Pay may have
 distinct setup requirements). Flagged for follow-up once card payments
 are confirmed working again.
+
+## ACTUAL root cause found: test/live Stripe key mismatch (same session)
+After 4 rounds of code-level fixes (elements.submit(), error handling,
+proper Elements cleanup on tier switch, temporarily disabling Express
+Checkout Element entirely) all failed to resolve the payment freeze,
+confirmed the real cause was environmental, not code: STRIPE_SECRET_KEY
+on Render was sk_test_... while STRIPE_PUBLISHABLE_KEY was pk_live_....
+Test and live mode are two entirely separate, walled-off environments
+on Stripe's side - a PaymentIntent created server-side in test mode
+does not exist from the perspective of a frontend initialized with a
+live-mode publishable key. This explains "Could not retrieve elements
+store due to unexpected error" precisely, and why it persisted through
+every code change: the code was never the actual problem.
+
+User is confirmed intentionally in Stripe test mode (not accidental) -
+fix is updating STRIPE_PUBLISHABLE_KEY on Render to a pk_test_... key
+matching the existing sk_test_... secret key.
+
+Re-enabled Express Checkout Element (Apple/Google Pay) - it was never
+actually the cause, despite 3 rounds of investigation pointing at it
+(the persistent "sessions" 400 error was a red herring, or itself a
+symptom of the same key mismatch). Kept the defensive try/catch
+isolation around it regardless, as reasonable practice for a
+background wallet-session setup, but the temporary full removal has
+been undone now that the real cause is understood.
+
+STILL TO CONFIRM: full payment flow working end to end once the
+publishable key is corrected on Render - not yet verified live, since
+this requires the user's own Render/Stripe dashboard changes outside
+what could be fixed in code alone this session.
+
+## Payment success page frozen - "attempts" ReferenceError (same session)
+After the key mismatch fix resolved actual payment processing (test
+card 4242... succeeded), the destination page (reload_success.html)
+got stuck on "Finishing up..." forever. Console showed:
+"ReferenceError: Can't find variable: attempts" - a real JS bug, not a
+webhook/backend issue.
+
+Rewrote the polling logic using an explicit IIFE wrapper instead of a
+bare if-block for scoping, converted the async/await + try/catch
+pattern to plain .then()/.catch() promise chaining, and added a
+console.error on the catch path (previously silent). The original
+code was arguably valid JS on paper, but rather than debug an
+ambiguous scoping edge case blind, moved to an unambiguous, explicit
+function-scope pattern instead.
+
+VERIFIED with real browser tests (not just syntax checks) using
+Playwright with a mocked pending-action-status endpoint:
+- Confirmed zero page errors and correct ~1 request/second polling
+  cadence while status stays "pending" (1 request at 0.5s, 4 requests
+  by 3.5s, heading correctly stuck on "Finishing up..." throughout -
+  matching the real user's report before the fix, minus the actual bug)
+- Confirmed the "completed" path: heading changes to "All set!" and
+  the page genuinely redirects to the server-provided redirect URL
+
+Also re-enabled Apple/Google Pay (Express Checkout Element) in
+reload.html per direct request, now that the root cause (test/live key
+mismatch) is confirmed and fixed - it was never actually the problem.

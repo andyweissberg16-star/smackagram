@@ -300,18 +300,14 @@ async function initPaymentForPack(packKey) {
     paymentElementInstance = elements.create('payment');
     paymentElementInstance.mount('#payment-element');
 
-    // TEMPORARILY DISABLED: Express Checkout Element (Apple/Google Pay)
-    // consistently triggers a background "sessions" 400 error that
-    // corrupts the shared Stripe.js Elements state and breaks the main
-    // card payment too (confirmPayment fails with "Could not retrieve
-    // elements store due to unexpected error"). Since Payment Element
-    // and Express Checkout Element share the same underlying store when
-    // tied to the same PaymentIntent, a try/catch around setup can only
-    // catch synchronous failures here, not this kind of async internal
-    // failure - it was not sufficient to protect card payments from it.
-    // Re-enable once the Google Pay session issue is understood and
-    // fixed on its own; card payment (the primary path) works without it.
-    /*
+    // Re-enabled: the actual root cause of the payment failures was a
+    // Stripe test/live key mismatch (sk_test_ secret key paired with a
+    // pk_live_ publishable key), not this Element - confirmPayment was
+    // always going to fail regardless of what was mounted here, since
+    // the frontend and backend were pointed at two separate,
+    // incompatible Stripe environments. Isolated in its own try/catch
+    // regardless, as a reasonable defensive habit for a background
+    // wallet-session setup that isn't the main payment path.
     try {
       expressElementInstance = elements.create('expressCheckout');
       expressElementInstance.mount('#express-element');
@@ -321,9 +317,6 @@ async function initPaymentForPack(packKey) {
       document.getElementById('express-element').style.display = 'none';
       document.getElementById('orDivider').style.display = 'none';
     }
-    */
-    document.getElementById('express-element').style.display = 'none';
-    document.getElementById('orDivider').style.display = 'none';
 
     payBtn.disabled = false;
   } catch (err) {

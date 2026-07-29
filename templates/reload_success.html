@@ -47,7 +47,9 @@
 <script>
 const pendingActionId = new URLSearchParams(window.location.search).get('pending_action');
 
-if (pendingActionId) {
+(function() {
+  if (!pendingActionId) return;
+
   const heading = document.getElementById('statusHeading');
   const message = document.getElementById('statusMessage');
   const btn = document.getElementById('continueBtn');
@@ -56,46 +58,53 @@ if (pendingActionId) {
   message.textContent = "We're sending your smack now that you've reloaded — this'll just take a moment.";
   btn.style.display = 'none';
 
-  let attempts = 0;
-  const maxAttempts = 15; // ~15 seconds of polling before falling back
+  var attempts = 0;
+  var maxAttempts = 15; // ~15 seconds of polling before falling back
 
-  async function poll() {
-    attempts++;
-    try {
-      const resp = await fetch(`/api/wallet/pending-action-status/${pendingActionId}`);
-      const data = await resp.json();
+  function poll() {
+    attempts = attempts + 1;
+    fetch('/api/wallet/pending-action-status/' + pendingActionId)
+      .then(function(resp) { return resp.json(); })
+      .then(function(data) {
+        if (data.status === 'completed') {
+          heading.textContent = 'All set!';
+          message.textContent = "Your smack is on its way.";
+          setTimeout(function() { window.location.href = data.redirect || '/'; }, 900);
+          return;
+        }
 
-      if (data.status === 'completed') {
-        heading.textContent = 'All set!';
-        message.textContent = "Your smack is on its way.";
-        setTimeout(() => { window.location.href = data.redirect || '/'; }, 900);
-        return;
-      }
+        if (data.status === 'failed') {
+          heading.textContent = "Reload worked, but something went wrong.";
+          message.textContent = data.error_message || "Your balance was topped up, but we couldn't complete your original request. Please try again.";
+          btn.textContent = 'Try again';
+          btn.href = '/send-a-smack';
+          btn.style.display = 'inline-block';
+          return;
+        }
 
-      if (data.status === 'failed') {
-        heading.textContent = "Reload worked, but something went wrong.";
-        message.textContent = data.error_message || "Your balance was topped up, but we couldn't complete your original request. Please try again.";
-        btn.textContent = 'Try again';
-        btn.href = '/send-a-smack';
-        btn.style.display = 'inline-block';
-        return;
-      }
+        if (attempts >= maxAttempts) {
+          heading.textContent = 'Reload confirmed.';
+          message.textContent = "Your balance is topped up. It's taking a little longer than usual to finish sending — check your account in a moment.";
+          btn.style.display = 'inline-block';
+          return;
+        }
 
-      if (attempts >= maxAttempts) {
-        heading.textContent = 'Reload confirmed.';
-        message.textContent = "Your balance is topped up. It's taking a little longer than usual to finish sending — check your account in a moment.";
-        btn.style.display = 'inline-block';
-        return;
-      }
-
-      setTimeout(poll, 1000);
-    } catch (err) {
-      setTimeout(poll, 1000);
-    }
+        setTimeout(poll, 1000);
+      })
+      .catch(function(err) {
+        console.error('Pending action status check failed:', err && err.message, err);
+        if (attempts >= maxAttempts) {
+          heading.textContent = 'Reload confirmed.';
+          message.textContent = "Your balance is topped up. It's taking a little longer than usual to finish sending — check your account in a moment.";
+          btn.style.display = 'inline-block';
+          return;
+        }
+        setTimeout(poll, 1000);
+      });
   }
 
   poll();
-}
+})();
 </script>
 </body>
 </html>
