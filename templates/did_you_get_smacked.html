@@ -83,6 +83,29 @@
   .item-preview{font-size:14px; color:#DCDCD9; font-style:italic;}
   .item-action{font-size:12px; color:var(--gold); margin-top:8px; font-weight:600;}
 
+  /* Teaser cards - shown when a match exists but the searcher hasn't
+     proven they own the number. Blurred fake text makes it look like
+     there's genuinely something there without leaking real content. */
+  .inbox-item.locked{position:relative; overflow:hidden; cursor:default;}
+  .inbox-item.locked .item-preview{filter:blur(5px); user-select:none; pointer-events:none;}
+  .lock-icon{font-size:18px; margin-right:6px;}
+
+  .verify-card{
+    background:var(--ink-2); border:1px solid var(--flare); border-radius:8px;
+    padding:24px; margin-top:8px; text-align:center;
+  }
+  .verify-card h3{font-family:'Anton',sans-serif; font-size:20px; text-transform:uppercase; margin-bottom:8px;}
+  .verify-card p{color:var(--chalk-dim); font-size:14px; margin-bottom:16px;}
+  .verify-card input[type=text]{
+    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:14px 16px; font-family:'JetBrains Mono',monospace; font-size:20px; text-align:center;
+    letter-spacing:6px; border-radius:4px; margin-bottom:12px;
+  }
+  .verify-card input[type=text]:focus{outline:none; border-color:var(--flare);}
+  .verify-note{font-size:12px; color:var(--chalk-dim); margin-top:12px;}
+  .verify-note a{color:var(--gold); text-decoration:none; cursor:pointer;}
+  .verify-error{color:var(--flare); font-size:13px; margin-top:10px; display:none;}
+
   footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim); border-top:1px solid var(--line); margin-top:40px;}
   footer a{color:var(--chalk-dim); text-decoration:none;}
   footer a:hover{color:var(--flare);}
@@ -114,10 +137,14 @@
 </footer>
 
 <script>
+const isLoggedIn = {{ 'true' if current_user else 'false' }};
+let lastSearchedPhone = '';
+
 document.getElementById('checkBtn').addEventListener('click', async () => {
   const phone = document.getElementById('phoneInput').value.trim();
   const btn = document.getElementById('checkBtn');
   if (!phone) return;
+  lastSearchedPhone = phone;
 
   btn.textContent = 'Checking...';
   btn.disabled = true;
@@ -129,7 +156,7 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
       body: JSON.stringify({phone: phone})
     });
     const data = await resp.json();
-    showInbox(data);
+    showInbox(data, phone);
   } catch (err) {
     showInbox({found: false, items: []});
   } finally {
@@ -143,15 +170,20 @@ function formatDate(isoString) {
   return d.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
 }
 
-function showInbox(data) {
+function showInbox(data, phone) {
   const inboxArea = document.getElementById('inboxArea');
   inboxArea.style.display = 'block';
 
-  if (!data.found || !data.items || data.items.length === 0) {
+  if (!data.found) {
     inboxArea.innerHTML = `
       <p class="empty-note">Nothing found for that number — could've come from a different number, or maybe you're just in the clear.</p>
       <a href="/send-a-smack" class="btn" style="display:block; text-align:center; text-decoration:none;">Send one yourself instead</a>
     `;
+    return;
+  }
+
+  if (!data.verified) {
+    showTeaser(data.count, phone);
     return;
   }
 
@@ -196,6 +228,127 @@ function showInbox(data) {
     }
   });
   inboxArea.innerHTML = html;
+}
+
+// Shows blurred, fake-content teaser cards (enough to look like there's
+// genuinely something there) plus a prompt to log in/sign up and prove
+// ownership of the number before any real content is revealed.
+function showTeaser(count, phone) {
+  const inboxArea = document.getElementById('inboxArea');
+  let teaserCards = '';
+  for (let i = 0; i < count; i++) {
+    teaserCards += `
+      <div class="inbox-item locked unreplied">
+        <div class="item-top">
+          <span class="badge new"><span class="lock-icon">&#128274;</span>New</span>
+        </div>
+        <p class="item-preview">Someone sent a smack to this number — a message is waiting here for whoever it belongs to.</p>
+      </div>
+    `;
+  }
+
+  let ctaHtml;
+  if (isLoggedIn) {
+    ctaHtml = `
+      <div class="verify-card" id="verifyCard">
+        <h3>Prove it's your number</h3>
+        <p>We'll text a 6-digit code to ${escapeHtml(phone)} — enter it here to unlock the message${count > 1 ? 's' : ''}.</p>
+        <button class="btn" id="sendCodeBtn">Text me a code</button>
+      </div>
+    `;
+  } else {
+    const returnTo = encodeURIComponent('/did-you-get-smacked');
+    ctaHtml = `
+      <div class="verify-card">
+        <h3>Is this you?</h3>
+        <p>Log in or create a free account and verify this number to see what was sent.</p>
+        <a href="/login?next=${returnTo}" class="btn" style="display:block; text-decoration:none; margin-bottom:10px;">Log In</a>
+        <a href="/register?next=${returnTo}" class="btn" style="display:block; text-decoration:none; background:transparent; border:1px solid var(--line-strong); box-shadow:none;">Sign Up</a>
+      </div>
+    `;
+  }
+
+  inboxArea.innerHTML = teaserCards + ctaHtml;
+
+  if (isLoggedIn) {
+    document.getElementById('sendCodeBtn').addEventListener('click', () => sendVerificationCode(phone));
+  }
+}
+
+async function sendVerificationCode(phone) {
+  const btn = document.getElementById('sendCodeBtn');
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/verify-phone/send', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({phone: phone})
+    });
+    const data = await resp.json();
+    if (data.error) {
+      btn.textContent = 'Text me a code';
+      btn.disabled = false;
+      alert(data.error);
+      return;
+    }
+    showCodeEntry(phone);
+  } catch (err) {
+    btn.textContent = 'Text me a code';
+    btn.disabled = false;
+    alert('Something went wrong sending the code — try again.');
+  }
+}
+
+function showCodeEntry(phone) {
+  const card = document.getElementById('verifyCard');
+  card.innerHTML = `
+    <h3>Enter your code</h3>
+    <p>We just texted a 6-digit code to ${escapeHtml(phone)}.</p>
+    <input type="text" id="codeInput" maxlength="6" inputmode="numeric" placeholder="000000">
+    <button class="btn" id="confirmCodeBtn">Unlock</button>
+    <p class="verify-error" id="verifyError"></p>
+    <p class="verify-note">Didn't get it? <a id="resendLink">Send again</a></p>
+  `;
+  document.getElementById('confirmCodeBtn').addEventListener('click', () => confirmVerificationCode(phone));
+  document.getElementById('resendLink').addEventListener('click', () => sendVerificationCode(phone));
+  document.getElementById('codeInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') confirmVerificationCode(phone);
+  });
+  document.getElementById('codeInput').focus();
+}
+
+async function confirmVerificationCode(phone) {
+  const code = document.getElementById('codeInput').value.trim();
+  const btn = document.getElementById('confirmCodeBtn');
+  const errorEl = document.getElementById('verifyError');
+  errorEl.style.display = 'none';
+  btn.textContent = 'Checking...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/verify-phone/confirm', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({phone: phone, code: code})
+    });
+    const data = await resp.json();
+    if (data.error) {
+      errorEl.textContent = data.error;
+      errorEl.style.display = 'block';
+      btn.textContent = 'Unlock';
+      btn.disabled = false;
+      return;
+    }
+    // Verified - re-run the search so the real content now unlocks.
+    document.getElementById('checkBtn').click();
+  } catch (err) {
+    errorEl.textContent = 'Something went wrong — try again.';
+    errorEl.style.display = 'block';
+    btn.textContent = 'Unlock';
+    btn.disabled = false;
+  }
 }
 
 function escapeHtml(str) {

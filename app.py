@@ -10,7 +10,7 @@ from sqlalchemy import func
 import requests
 from dotenv import load_dotenv
 
-from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleRoundResult, User, SmackcastSubscription, SmackcastRecap, WalletTransaction, PendingAction
+from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleRoundResult, User, SmackcastSubscription, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
 
@@ -1625,7 +1625,6 @@ def battle_sfx():
 
 
 @app.route("/api/check-if-smacked", methods=["POST"])
-@login_required
 def check_if_smacked():
     """
     The "Smack Inbox" — returns EVERY delivered smack for a phone number,
@@ -1634,9 +1633,17 @@ def check_if_smacked():
     link to a reply page. Digit-only comparison so formatting differences
     (+1, dashes, spaces, parens) don't cause false misses.
 
-    Note: no ownership verification exists yet — anyone can look up any
-    number. Fine for the current one-off yes/no check, but flagged on the
-    roadmap as needed before this inbox holds a fuller history long-term.
+    Searching itself is intentionally open (no login required) - the
+    person checking is often the target of a prank, not necessarily an
+    existing Smackagram user, and just wanting to know "did someone send
+    something to my number" shouldn't require an account. But the actual
+    message content is gated behind proven ownership of that exact
+    number (see VerifiedPhone) - previously ANY logged-in user could
+    read message content for ANY phone number just by typing it in,
+    with zero proof they actually owned it. If there's a match but the
+    requester hasn't verified this number, this returns just a count so
+    the frontend can show an enticing "something's here" teaser without
+    leaking the actual content.
     """
     data = request.json
     raw_phone = data.get("phone", "")
@@ -1660,6 +1667,16 @@ def check_if_smacked():
 
     all_matches.sort(key=lambda r: r.created_at, reverse=True)
 
+    user = get_current_user()
+    is_verified = False
+    if user:
+        is_verified = VerifiedPhone.query.filter_by(user_id=user.id, phone_digits=digits[-10:]).first() is not None
+
+    if not is_verified:
+        # Teaser only - enough for the frontend to show something
+        # enticing is there, without exposing any actual content.
+        return jsonify({"found": True, "verified": False, "count": len(all_matches)})
+
     items = []
     for record in all_matches:
         record_type = "order" if isinstance(record, Order) else "smackagram"
@@ -1681,7 +1698,85 @@ def check_if_smacked():
             item["reply_token"] = record.reply_token
         items.append(item)
 
-    return jsonify({"found": True, "items": items})
+    return jsonify({"found": True, "verified": True, "items": items})
+
+
+@app.route("/api/verify-phone/send", methods=["POST"])
+@login_required
+def api_verify_phone_send():
+    """
+    Sends a 6-digit SMS code to an arbitrary phone number the logged-in
+    user is trying to prove ownership of, to unlock viewing Smack Inbox
+    messages sent to that number. Deliberately separate from the
+    account-registration 2FA flow (_send_2fa_code) - that verifies the
+    account holder's OWN registered phone; this verifies an arbitrary
+    number that may differ from it.
+    """
+    user = get_current_user()
+    data = request.json or {}
+    raw_phone = data.get("phone", "")
+    digits = "".join(c for c in raw_phone if c.isdigit())
+    if len(digits) < 10:
+        return jsonify({"error": "Enter a valid phone number"}), 400
+    phone_digits = digits[-10:]
+
+    # Simple abuse guard: don't let someone repeatedly fire texts at a
+    # number that isn't theirs. One outstanding code per user+number at
+    # a time, and a short cooldown before a fresh one can be requested.
+    recent = PhoneVerificationCode.query.filter_by(user_id=user.id, phone_digits=phone_digits).order_by(PhoneVerificationCode.created_at.desc()).first()
+    if recent and recent.created_at > datetime.utcnow() - timedelta(seconds=60):
+        return jsonify({"error": "Please wait a moment before requesting another code."}), 429
+
+    code = f"{secrets.randbelow(1000000):06d}"
+    verification = PhoneVerificationCode(
+        user_id=user.id,
+        phone_digits=phone_digits,
+        code=code,
+        expires_at=datetime.utcnow() + timedelta(minutes=10),
+    )
+    db.session.add(verification)
+
+    try:
+        twilio_service.send_sms(raw_phone, f"Your Smackagram verification code is {code}. It expires in 10 minutes.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"[verify-phone] failed to send code: {e}")
+        return jsonify({"error": "Couldn't send a verification text to that number — please double-check it and try again."}), 400
+
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/verify-phone/confirm", methods=["POST"])
+@login_required
+def api_verify_phone_confirm():
+    """
+    Checks the code entered against the most recent one sent for this
+    user+number, and if it matches and hasn't expired, records a
+    VerifiedPhone so future Smack Inbox searches for this number unlock
+    full content for this user without needing to re-verify every time.
+    """
+    user = get_current_user()
+    data = request.json or {}
+    raw_phone = data.get("phone", "")
+    code = (data.get("code") or "").strip()
+    digits = "".join(c for c in raw_phone if c.isdigit())
+    if len(digits) < 10:
+        return jsonify({"error": "Enter a valid phone number"}), 400
+    phone_digits = digits[-10:]
+
+    verification = PhoneVerificationCode.query.filter_by(user_id=user.id, phone_digits=phone_digits).order_by(PhoneVerificationCode.created_at.desc()).first()
+    if not verification or verification.expires_at < datetime.utcnow():
+        return jsonify({"error": "That code has expired — request a new one."}), 400
+    if verification.code != code:
+        return jsonify({"error": "That code doesn't match — double-check it and try again."}), 400
+
+    already_verified = VerifiedPhone.query.filter_by(user_id=user.id, phone_digits=phone_digits).first()
+    if not already_verified:
+        db.session.add(VerifiedPhone(user_id=user.id, phone_digits=phone_digits))
+    db.session.commit()
+
+    return jsonify({"ok": True})
 
 
 def _find_by_reply_token(token):

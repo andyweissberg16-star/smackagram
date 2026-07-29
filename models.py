@@ -547,3 +547,46 @@ class SmackcastRecap(db.Model):
     delivered_at = db.Column(db.DateTime, nullable=True)
 
     __table_args__ = (db.UniqueConstraint("subscription_id", "week_number", "season_year", name="one_recap_per_week_per_subscription"),)
+
+
+class VerifiedPhone(db.Model):
+    """
+    Proof that a logged-in user actually controls a given phone number -
+    established once by receiving and correctly entering an SMS code
+    sent to that exact number. Powers the Smack Inbox privacy fix:
+    anyone can search whether a number has a Smackagram on record, but
+    only someone who has verified ownership of that specific number can
+    see the message content, rather than any logged-in user being able
+    to read anyone else's messages. A user can hold multiple verified
+    numbers over time (e.g. checked a work phone once, a personal phone
+    another time) - this is intentionally not just the single phone
+    field on the User's own account, since the number someone wants to
+    check might differ from what they registered with.
+    """
+    __tablename__ = "verified_phones"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    phone_digits = db.Column(db.String(15), nullable=False)  # normalized: digits only, last 10 kept for matching, same convention as check_if_smacked()'s existing matching logic
+    verified_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "phone_digits", name="uq_user_verified_phone"),)
+
+
+class PhoneVerificationCode(db.Model):
+    """
+    A single in-progress attempt to verify ownership of a phone number -
+    separate from the User model's own two_factor_code/two_factor_expires_at
+    fields, which are specifically for verifying the account holder's own
+    registered phone at login/registration. This is for verifying an
+    arbitrary number (which may or may not match the account's own phone)
+    in order to unlock viewing Smack Inbox messages sent to it.
+    """
+    __tablename__ = "phone_verification_codes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    phone_digits = db.Column(db.String(15), nullable=False)
+    code = db.Column(db.String(6), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

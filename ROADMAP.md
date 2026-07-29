@@ -1738,3 +1738,63 @@ Playwright with a mocked pending-action-status endpoint:
 Also re-enabled Apple/Google Pay (Express Checkout Element) in
 reload.html per direct request, now that the root cause (test/live key
 mismatch) is confirmed and fixed - it was never actually the problem.
+
+## Smack Inbox privacy/security fix - phone ownership verification (same session)
+Built per direct request: the existing check_if_smacked() endpoint's own
+docstring already flagged the vulnerability - any logged-in user could
+search ANY phone number and read the actual message content, with zero
+proof they owned that number.
+
+Decided against waiting on SMS specifically being blocked by A2P 10DLC
+carrier filtering (still true - TWO_FACTOR_ENABLED = False site-wide).
+Proposed voice-call verification as an alternative that would work
+today, but per direct instruction, built with SMS as originally
+requested - user will handle Twilio A2P 10DLC registration separately
+on their end.
+
+- [x] New models: VerifiedPhone (proof of ownership, supports multiple
+      verified numbers per user over time) and PhoneVerificationCode
+      (tracks an in-progress code, separate from the existing account-
+      level two_factor_code/two_factor_expires_at fields used for
+      login/registration - this verifies an arbitrary searched number,
+      not necessarily the account's own registered phone)
+- [x] Rewrote check_if_smacked(): removed @login_required from the API
+      itself (though note: the PAGE route /did-you-get-smacked already
+      had its own @login_required, discovered during testing - so in
+      practice this page has always required login to even reach the
+      search form; the API-level change is still correct defense in
+      depth). Returns only a count (no content) unless the requester
+      has a matching VerifiedPhone record for that exact number.
+- [x] Two new endpoints: /api/verify-phone/send (texts a 6-digit code,
+      simple abuse guard - 60 second cooldown between requests per
+      user+number) and /api/verify-phone/confirm (validates the code,
+      creates the VerifiedPhone record on success)
+- [x] Rewrote did_you_get_smacked.html frontend: blurred/locked teaser
+      cards with fake placeholder text (not real content) when a match
+      exists but isn't verified, inline "text me a code -> enter it"
+      flow for logged-in users, login/signup CTA for logged-out
+      visitors (currently unreachable in practice given the page-level
+      gate, but correct if that ever changes)
+
+VERIFIED END-TO-END with a real running server (not just code review):
+- Confirmed real message content is NOT leaked on an unverified search
+- Confirmed wrong code is correctly rejected with an error
+- Confirmed correct code unlocks the real content
+- Confirmed verification PERSISTS across subsequent searches (no
+  re-verification needed once done)
+- Confirmed the critical security boundary: verifying one number does
+  NOT unlock a different number for the same logged-in user - a second
+  real test record was created specifically to test this, and it
+  correctly stayed locked
+- Confirmed zero JS errors throughout the full flow
+- Confirmed database migration safety: the two new tables are created
+  automatically by db.create_all() on both a fresh Postgres database
+  and an existing one with data already in it (unlike the earlier
+  balance_cents column issue, these are brand new tables, not
+  alterations to existing ones, so no manual migration step is needed)
+
+NOT YET DONE: user needs to complete Twilio A2P 10DLC registration on
+their end before real SMS codes will actually deliver in production -
+until then, the send-code endpoint will fail with the same "couldn't
+send a verification text" error the existing registration/login 2FA
+flow already surfaces for the same underlying reason.
