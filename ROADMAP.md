@@ -3037,3 +3037,24 @@ background-attachment:scroll; all four messages from BOTH rounds
 present simultaneously (old code would show only round 2's two); both
 "Round 1" and "Round 2" dividers render; box genuinely scrolled to
 bottom on load (scrollTop 31 + clientHeight 398 = scrollHeight 429).
+
+## Smack Battle: fixed locked/unscrollable page during an active battle
+Regression from the fixed-size history box. The base rule
+`html, body{height:100%; overflow:hidden}` locked page scrolling, and
+only three state classes overrode it (battle-complete, awaiting-round,
+waiting-room). The ACTIVE battle state had no override - it never needed
+one before, because .wrap was a fixed viewport height and the history
+scrolled internally, so nothing exceeded the viewport. With the history
+box now a fixed 400px, content legitimately overflows on desktop and
+mobile, and overflow:hidden clipped it with no way to scroll down to
+the typing area.
+
+Fixed by making vertical scrolling the global default
+(min-height:100%; overflow-y:auto) rather than locking it and patching
+per-state. Horizontal scroll stays locked exactly as before.
+
+VERIFIED on both viewports in the actual typing state of a real live
+battle: desktop (1280x900) content height 1022 > 900 viewport, mobile
+(390x700) content 980 > 700 - both genuinely overflow - and in both
+cases body computes overflow-y:auto, the page reports scrollable, and
+the textarea was confirmed reachable within the viewport.
