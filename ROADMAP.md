@@ -3058,3 +3058,20 @@ battle: desktop (1280x900) content height 1022 > 900 viewport, mobile
 (390x700) content 980 > 700 - both genuinely overflow - and in both
 cases body computes overflow-y:auto, the page reports scrollable, and
 the textarea was confirmed reachable within the viewport.
+
+## Smack Battle: roast bubbles made nearly opaque for readability
+The gold (side A) and red (side B) message bubbles were only 12% opaque
+tints, so the detailed background image behind the history box cut
+straight through them and made the roast text hard to read.
+
+Rebuilt both as a near-opaque dark base (rgba(26,26,26,0.92)) with the
+coloured tint layered on top via background-image (which paints above
+background-color), rather than a single very transparent coloured wash.
+Net ~93% opaque - still faintly see-through as the user explicitly
+wanted, but the image no longer bleeds through the text. Also raised the
+border tints 0.3 -> 0.45 so the gold/red identity stays clear now that
+the fills are darker.
+
+VERIFIED with a live battle: computed styles confirm both bubbles resolve
+to background-color rgba(26,26,26,0.92) with their respective
+linear-gradient colour tint on top, and borders at ~0.46 alpha.
