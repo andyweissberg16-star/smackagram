@@ -1478,7 +1478,13 @@ def submit_battle_line(challenge_code):
 
     if side == "a":
         battle.current_turn = "b"
-        battle.turn_started_at = datetime.utcnow()
+        # Deliberately set to null, not datetime.utcnow() - side B needs
+        # unlimited time to actually read side A's line before their own
+        # 60-second clock starts. Left null until side B explicitly hits
+        # "Respond Now" (see start_turn below), which is what the
+        # frontend uses to decide whether to show the line unobstructed
+        # or show the response box + timer.
+        battle.turn_started_at = None
         db.session.commit()
     else:
         # Round complete — pause immediately (no timer, no auto-advance;
@@ -1504,6 +1510,34 @@ def submit_battle_line(challenge_code):
                 daemon=True,
             ).start()
 
+    return jsonify(_battle_state_json(battle))
+
+
+@app.route("/api/battles/<challenge_code>/start-turn", methods=["POST"])
+@login_required
+def start_turn(challenge_code):
+    """
+    Explicitly starts the 60-second turn timer - called when the user
+    clicks "Respond Now" after actually reading whatever the opponent
+    just said. Side A's turn at the start of a fresh round still starts
+    its timer immediately (set directly in ready_for_next_round) since
+    there's no prior line in that round to read yet; this endpoint is
+    specifically for side B's turn within the same round, where
+    turn_started_at is deliberately left null until this is called.
+    """
+    battle = Battle.query.filter_by(challenge_code=challenge_code).first()
+    if not battle:
+        return jsonify({"error": "Battle not found"}), 404
+
+    data = request.json
+    side = data.get("side", "")
+    if side not in ("a", "b"):
+        return jsonify({"error": "Invalid side"}), 400
+    if side != battle.current_turn:
+        return jsonify({"error": "It's not your turn"}), 400
+
+    battle.turn_started_at = datetime.utcnow()
+    db.session.commit()
     return jsonify(_battle_state_json(battle))
 
 
@@ -1551,9 +1585,11 @@ def _resolve_timeout_round(battle, a_timed_out, b_timed_out):
 @login_required
 def ready_for_next_round(challenge_code):
     """
-    Either side confirming they're ready moves the round forward
-    immediately for both — one click from whoever gets there first is
-    enough, rather than requiring both people to independently confirm.
+    Marks one side as ready for the next round. The round only actually
+    advances once BOTH sides have confirmed ready - a single side
+    clicking this no longer immediately drags the other person into the
+    next round before they've had a chance to actually read the
+    critique/coach notes for the round that just finished.
     """
     battle = Battle.query.filter_by(challenge_code=challenge_code).first()
     if not battle:
@@ -1565,6 +1601,19 @@ def ready_for_next_round(challenge_code):
     side = data.get("side", "")
     if side not in ("a", "b"):
         return jsonify({"error": "Invalid side"}), 400
+
+    if side == "a":
+        battle.ready_a = True
+    else:
+        battle.ready_b = True
+
+    if not (battle.ready_a and battle.ready_b):
+        # Only one side has confirmed so far - record it and wait for
+        # the other side. The round does NOT advance yet; the frontend
+        # shows this side a "waiting on the other person" state while
+        # polling picks up the eventual change once both are ready.
+        db.session.commit()
+        return jsonify(_battle_state_json(battle))
 
     battle.awaiting_next_round = False
     battle.ready_a = False

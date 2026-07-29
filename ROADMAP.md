@@ -2220,3 +2220,128 @@ STILL TO BUILD (same backlog thread, not started yet):
   (currently either side alone still advances both immediately)
 - Live viewer count, including both participants
 - Smacky decorative graphic in the waiting room
+
+## Smack Battle: moved age gate directly under intensity dropdown (same session)
+Per direct request - the rounds selector added last session had gotten
+inserted between the intensity dropdown and the age confirmation
+checkbox, pushing them apart. Reordered so the age gate sits
+immediately under intensity (where it logically belongs, since it's
+tied to intensity, not round count), with the rounds selector now
+below it instead.
+
+Verified live: confirmed the age gate still correctly shows for
+non-Clean intensities and hides for Clean, and confirmed via actual DOM
+position checking that the order is now intensity -> age gate -> rounds.
+
+## Smack Battle: centered the intensity badge on the waiting screen (same session)
+Per direct request - the intensity badge was sitting off to the side.
+Root cause: it used display:inline-block, which only centers the TEXT
+inside the badge (via text-align:center on itself), not the badge
+element's own position within its container. Fixed to display:table
+with margin:0 auto, which centers the badge itself while still
+shrinking to fit its content (preserving the pill shape).
+
+Verified with actual bounding-box measurements, not visual assumption:
+confirmed the gap between the badge and its container's left edge
+exactly equals the gap on the right (208px each in the test), proving
+genuine centering rather than just eyeballing a screenshot.
+
+## Smack Battle: larger, mobile-friendly age confirmation checkbox (same session)
+Per direct request - the checkbox had no explicit size at all
+(width:auto), leaving it at the browser's tiny default (~13px), a
+known mobile tap-target problem. Fixed in both places it appears
+(create form and join form) to a proper 24x24px with accent-color
+matching the brand red, flex-shrink:0 so it can't get squished in the
+label's flex layout, and cursor:pointer.
+
+Verified with real measurements on an actual mobile viewport (390px
+wide, iPhone-sized), not assumed from the CSS alone - confirmed both
+the create-side and join-side checkboxes genuinely render at 24x24px.
+
+## Smack Battle: "Respond Now" gate + fixed mobile line-covering issue (same session)
+Per direct request - the 60-second timer was starting the INSTANT the
+opponent submitted their line, giving zero time to actually read what
+was just said before being rushed into typing a response. On mobile
+specifically, the response box + timer popping up immediately also
+visually crowded out the opponent's line, making it hard to even see.
+
+Root fix, not just a layout tweak: turn_started_at is no longer set
+automatically when side A submits and it becomes side B's turn - it's
+now explicitly left null. The frontend detects this and shows a
+"Respond Now" button instead of the response box/timer, with the
+opponent's line fully visible and completely unobstructed. Only when
+the user clicks that button does the timer actually start (via a new
+POST /api/battles/<code>/start-turn endpoint) - at that point they've
+already read the line, so the box/timer appearing is no longer a
+problem, and it also directly fixes the "can't see it" mobile issue
+raised, since nothing covers the line until the user chooses to move
+on.
+
+Side A's turn at the very start of a fresh round is intentionally
+UNCHANGED - it still starts immediately (no gate), since there's
+nothing from this round to read yet at that point. Only the
+"just-received-a-response-within-the-same-round" transition needed
+gating. Confirmed both remaining immediate-start locations (join_battle
+and ready_for_next_round) were untouched by this change.
+
+VERIFIED with a real, full live-server test, not just reading the
+code:
+- Confirmed submitting side A's line leaves turn_started_at genuinely
+  null in the actual API response
+- Confirmed side B's real rendered page shows the Respond Now button,
+  NOT the text input or timer, with the opponent's line fully visible
+  and readable in the history above it
+- Simulated actual reading time (waited several real seconds) before
+  clicking Respond Now, then confirmed the timer displayed exactly 60
+  right after clicking - proving the clock genuinely starts fresh at
+  the moment of the click, not counting down from whenever the
+  opponent originally submitted
+- Confirmed turn_started_at is now set server-side after the click
+- Confirmed the join-time and new-round-start immediate-timer behaviors
+  were both left completely untouched by this change
+
+## Smack Battle: round transitions now require BOTH sides ready (same session)
+Per direct request - the "Start next round" button was previously
+advancing BOTH players the instant either one clicked it, dragging the
+other person into the next round before they'd necessarily even
+finished reading their own critique. This was also the exact "round
+transition sync" item flagged as still-to-build from earlier in this
+same session.
+
+Fixed at the source: /api/battles/<code>/ready no longer immediately
+advances the round on any single click. It now just records that side's
+own readiness (ready_a or ready_b), and the round only actually
+advances once BOTH are true. Whoever clicks first sees their button
+replaced with "Waiting for [opponent] to be ready too..." instead of
+silently assuming the round moved on.
+
+No changes needed to the polling/rebuild mechanism itself -
+ready_a/ready_b were already part of the existing render signature from
+earlier work, so both sides' pages already correctly detect and react
+to this change via normal polling.
+
+VERIFIED with a real, full live-server test, not just reading the
+code:
+- Confirmed side A clicking ready alone leaves round_number and
+  awaiting_next_round completely unchanged (round genuinely does NOT
+  advance) - this is the exact bug fixed, confirmed via the real API
+  response, not assumed
+- Confirmed side A's actual rendered page correctly shows "Waiting for
+  B to be ready too..." with the button gone, while side B's page
+  still shows their own ready button since they haven't clicked yet
+- Confirmed that once side B also clicks ready, the round genuinely
+  advances - both ready flags reset, round_number increments, and
+  current_turn resets to 'a' for the new round
+
+## Smack Battle: fixed music button overlapping the nav bar (same session)
+Per direct request - the button used position:fixed with top:16px,
+which is well within the site nav's actual height, overlapping the
+Login/Register links. Measured the real nav height on this page
+(85px) rather than guessing, and moved the button to top:101px (85px
+nav + the same 16px visual gap it originally had from the viewport
+edge, just shifted to start below the nav instead of overlapping it).
+
+Verified with real bounding-box measurements on both desktop and
+mobile viewports (nav height is identical at both sizes on this page):
+confirmed the button's top edge now sits at or below the nav's bottom
+edge in both cases, with zero overlap.
