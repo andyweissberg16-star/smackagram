@@ -10,7 +10,7 @@ import requests
 from dotenv import load_dotenv
 
 from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleRoundResult, User, SmackcastSubscription, SmackcastRecap
-from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, sleeper_service, smackcast_service, espn_service
+from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
 
 load_dotenv()
@@ -2035,12 +2035,7 @@ def all_teams():
     team autocomplete. Smack Chat originally fetched this as 16 separate
     per-league calls; one cached call is cheaper and lets any page reuse it.
     """
-    out = []
-    for league, teams in chat_team_lists.CHAT_LEAGUES.items():
-        for code, name in teams.items():
-            out.append({"code": code, "name": name, "league": league})
-    out.sort(key=lambda t: t["name"])
-    resp = jsonify({"teams": out})
+    resp = jsonify({"teams": team_display.all_teams()})
     # The list only changes when we edit chat_team_lists.py, so let browsers
     # keep it for an hour rather than refetching on every page view.
     resp.headers["Cache-Control"] = "public, max-age=3600"

@@ -54,15 +54,26 @@
   }
 
   function score(team, q) {
-    var name = team.name.toLowerCase(), code = (team.code || '').toLowerCase();
-    if (name === q || code === q) return 0;
+    var name = team.name.toLowerCase();
+    var short = (team.short || '').toLowerCase();
+    var code = (team.code || '').toLowerCase();
+    var aliases = team.aliases || [];
+    if (name === q || short === q || code === q) return 0;
     if (name.indexOf(q) === 0) return 1;
-    if (code.indexOf(q) === 0) return 2;
+    if (short.indexOf(q) === 0 || code.indexOf(q) === 0) return 2;
+    // any word in the full name starting with the query - this is what makes
+    // typing "new" surface the New York Yankees rather than nothing at all
     var words = name.split(/\s+/);
     for (var i = 0; i < words.length; i++) {
       if (words[i].indexOf(q) === 0) return 3;
     }
-    if (name.indexOf(q) > -1) return 4;
+    for (var a = 0; a < aliases.length; a++) {
+      if (aliases[a].indexOf(q) === 0) return 4;
+    }
+    if (name.indexOf(q) > -1) return 5;
+    for (var b = 0; b < aliases.length; b++) {
+      if (aliases[b].indexOf(q) > -1) return 6;   // "crimson" -> Alabama
+    }
     return -1;
   }
 
