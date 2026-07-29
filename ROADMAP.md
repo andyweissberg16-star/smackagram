@@ -1588,3 +1588,36 @@ should now show either Stripe's real error message or the
 "Something went wrong completing payment" fallback with a caught
 JS error logged above it, which will make the actual cause visible for
 the first time.
+
+## Payment freeze - diagnostic improvements round 2 (same session)
+The elements.submit()/try-catch fix stopped the silent freeze (confirmed
+by user - now shows the fallback error message), but the real
+underlying cause still isn't confirmed. Console showed BOTH a caught
+error logged as "Object" (unreadable in Safari's console as plain
+text) AND a separate "Unhandled Promise Rejection" that our try/catch
+could not be responsible for, since it wraps every await in the actual
+click handler - strongly suggesting Stripe.js itself is internally
+rejecting a promise not tied to our own awaited calls, likely related
+to the persistent "sessions" 400 error that's shown up in every console
+capture so far (probably Express Checkout Element / Google Pay session
+setup in the background).
+
+Changes made:
+- Isolated the Express Checkout Element's creation/mounting into its
+  own try/catch, separate from the main Payment Element - if wallet
+  session setup fails, it now hides itself gracefully and can no
+  longer take down card payments, which are the primary path
+- All error logging now prints error.message/type/code/name as
+  separate readable arguments instead of a single Object reference,
+  which Safari's console was collapsing to just "Object" when copied
+  as text
+- Added a window 'unhandledrejection' listener as a last-resort net,
+  since Stripe.js can reject promises internally in ways no try/catch
+  in our own code can intercept - this at least surfaces what it
+  actually is in the console instead of the opaque default message
+
+STILL NOT CONFIRMED: the exact root cause of the "sessions" 400 itself.
+If isolating the Express Checkout Element doesn't resolve the freeze
+on its own, the next round of console output (with the improved
+logging) should finally show readable error text rather than "Object",
+which should make the actual cause diagnosable for the first time.

@@ -288,12 +288,23 @@ async function initPaymentForPack(packKey) {
     const paymentElement = elements.create('payment');
     paymentElement.mount('#payment-element');
 
-    const expressElement = elements.create('expressCheckout');
-    expressElement.mount('#express-element');
-    expressElement.on('confirm', handleExpressConfirm);
+    // Isolated from the main Payment Element on purpose - if Apple/
+    // Google Pay session setup fails in the background, it should
+    // never be able to take down card payments, which are the primary
+    // path most people use.
+    try {
+      const expressElement = elements.create('expressCheckout');
+      expressElement.mount('#express-element');
+      expressElement.on('confirm', handleExpressConfirm);
+    } catch (expressErr) {
+      console.error('Express Checkout Element failed to set up (card payment is unaffected):', expressErr && expressErr.message, expressErr);
+      document.getElementById('express-element').style.display = 'none';
+      document.getElementById('orDivider').style.display = 'none';
+    }
 
     payBtn.disabled = false;
   } catch (err) {
+    console.error('Payment setup failed:', err && err.message, err);
     errorEl.textContent = "Couldn't set up payment — try again.";
     errorEl.style.display = 'block';
   }
@@ -307,11 +318,12 @@ async function handleExpressConfirm() {
       confirmParams: {return_url: window.location.origin + '/reload-success' + (pendingActionId ? '?pending_action=' + pendingActionId : '')},
     });
     if (error) {
+      console.error('Express confirmPayment returned an error:', error.type, error.code, error.message, error);
       errorEl.textContent = error.message;
       errorEl.style.display = 'block';
     }
   } catch (err) {
-    console.error('Express payment confirmation failed:', err);
+    console.error('Express payment confirmation failed:', err && err.message, err && err.name, err);
     errorEl.textContent = "Something went wrong completing payment. Please try again.";
     errorEl.style.display = 'block';
   }
@@ -379,6 +391,7 @@ document.getElementById('payBtn').addEventListener('click', async function() {
     });
 
     if (error) {
+      console.error('confirmPayment returned an error:', error.type, error.code, error.message, error);
       errorEl.textContent = error.message;
       errorEl.style.display = 'block';
       resetButton();
@@ -388,11 +401,21 @@ document.getElementById('payBtn').addEventListener('click', async function() {
     // exception, etc.) that isn't the normal {error} return shape -
     // without this, a failure here would leave the button frozen on
     // "Firing your Smackagram..." forever with no feedback at all.
-    console.error('Payment confirmation failed:', err);
+    console.error('Payment confirmation failed:', err && err.message, err && err.name, err);
     errorEl.textContent = "Something went wrong completing payment. Please try again.";
     errorEl.style.display = 'block';
     resetButton();
   }
+});
+
+// Stripe.js can occasionally reject a promise internally (e.g. around
+// Express Checkout / wallet session setup) in a way that isn't tied to
+// any specific await in this file's own code, so it can't be caught by
+// a normal try/catch here. This is a last-resort net so that failure
+// is at least visible in the console with real details, instead of
+// showing up only as an opaque "Unhandled Promise Rejection".
+window.addEventListener('unhandledrejection', function(event) {
+  console.error('Unhandled promise rejection (likely from Stripe.js internals):', event.reason && event.reason.message, event.reason);
 });
 
 // Initialize with the default pre-selected pack on page load.
