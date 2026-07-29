@@ -4,18 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smack Battle — Smackagram</title>
-<meta name="description" content="Someone challenged you to five rounds of trash talk. Real time, Smacky judges every round. Step up or step off.">
+<meta name="description" content="Someone challenged you to a round-by-round trash talk battle. Real time, Smacky judges every round. Step up or step off.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Smackagram">
 <meta property="og:title" content="You've been called out — Smack Battle">
-<meta property="og:description" content="Someone challenged you to five rounds of trash talk. Real time, Smacky judges every round. Step up or step off.">
+<meta property="og:description" content="Someone challenged you to a round-by-round trash talk battle. Real time, Smacky judges every round. Step up or step off.">
 <meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="{{ request.base_url }}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="You've been called out — Smack Battle">
-<meta name="twitter:description" content="Someone challenged you to five rounds of trash talk. Real time, Smacky judges every round. Step up or step off.">
+<meta name="twitter:description" content="Someone challenged you to a round-by-round trash talk battle. Real time, Smacky judges every round. Step up or step off.">
 <meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
@@ -140,6 +140,15 @@
   #actionError{display:none; color:var(--flare-text); font-size:12px; margin-bottom:10px;}
 
   .waiting-note{text-align:center; color:var(--chalk-dim); font-size:14px; padding:8px 0;}
+  .music-mute-btn{
+    position:fixed; top:16px; right:16px; z-index:250;
+    width:42px; height:42px; border-radius:50%; border:1px solid var(--line-strong);
+    background:var(--ink-2); color:var(--chalk); font-size:18px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 2px 10px rgba(0,0,0,0.4); transition:transform 0.15s ease, background 0.15s ease;
+  }
+  .music-mute-btn:hover{transform:scale(1.08); border-color:var(--gold);}
+  .music-mute-btn.muted{color:var(--chalk-dim); border-color:var(--flare);}
   .turn-timer{
     text-align:center; font-family:'Anton',sans-serif; font-size:32px;
     color:var(--gold); margin-bottom:10px; transition:color 0.2s ease;
@@ -373,6 +382,8 @@ function readableColor(hex, fallback){
 
 {% include '_nav.html' %}
 
+<button id="musicMuteBtn" class="music-mute-btn" aria-label="Mute background music" title="Mute music">🔊</button>
+
 <div class="wrap">
   <div class="matchup" id="matchupHeader">
     <p class="matchup-teams">Loading...</p>
@@ -558,6 +569,27 @@ window.addEventListener('beforeunload', function(e) {
 });
 
 let completeMusicStarted = false;
+let musicMuted = localStorage.getItem('smk_music_muted') === 'true';
+
+function updateMuteButtonUI() {
+  const btn = document.getElementById('musicMuteBtn');
+  if (!btn) return;
+  btn.textContent = musicMuted ? '🔇' : '🔊';
+  btn.classList.toggle('muted', musicMuted);
+  btn.setAttribute('aria-label', musicMuted ? 'Unmute background music' : 'Mute background music');
+  btn.title = musicMuted ? 'Unmute music' : 'Mute music';
+}
+updateMuteButtonUI();
+
+document.getElementById('musicMuteBtn').addEventListener('click', () => {
+  musicMuted = !musicMuted;
+  localStorage.setItem('smk_music_muted', musicMuted);
+  updateMuteButtonUI();
+  const crowdAudio = document.getElementById('crowdLoopAudio');
+  const waitingAudio = document.getElementById('waitingMusicAudio');
+  if (crowdAudio) crowdAudio.muted = musicMuted;
+  if (waitingAudio) waitingAudio.muted = musicMuted;
+});
 
 function updateBackgroundMusic(status) {
   const crowdAudio = document.getElementById('crowdLoopAudio');
@@ -570,11 +602,11 @@ function updateBackgroundMusic(status) {
     // the live back-and-forth of an active battle.
     if (crowdAudio && !crowdAudio.paused) crowdAudio.pause();
     if (waitingAudio && waitingAudio.src) {
-      // Explicitly unmute/set volume every time — the mobile unlock
-      // sequence intentionally leaves elements muted afterward (see
-      // unlockOneShotSounds), so this can't just assume it's already
-      // correctly configured.
-      waitingAudio.muted = false;
+      // Respects the user's mute preference rather than always forcing
+      // unmuted — the mobile unlock sequence intentionally leaves
+      // elements muted afterward (see unlockOneShotSounds), so this
+      // still can't just assume a prior state either way.
+      waitingAudio.muted = musicMuted;
       waitingAudio.volume = 0.25;
       if (status === 'complete' && !completeMusicStarted) {
         // The scorecard reveal should feel like a clean musical moment
@@ -595,7 +627,7 @@ function updateBackgroundMusic(status) {
   } else {
     if (waitingAudio && !waitingAudio.paused) waitingAudio.pause();
     if (crowdAudio && crowdAudio.paused && crowdAudio.src) {
-      crowdAudio.muted = false;
+      crowdAudio.muted = musicMuted;
       crowdAudio.volume = 0.15;
       crowdAudio.play().catch(() => {});
     }
@@ -608,7 +640,7 @@ initSound();
 function handlePageInteraction() {
   // Browsers block real autoplay-with-sound before any interaction on
   // every site — the first tap/click anywhere on the page unlocks and
-  // starts the music. Permanent from there — no mute toggle.
+  // starts the music (still subject to the user's own mute toggle above).
   updateBackgroundMusic(lastKnownStatus);
 }
 
@@ -1102,7 +1134,7 @@ function render(battle) {
 
   header.innerHTML = `
     <p class="matchup-teams"><span class="side-a" style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span><span class="vs">vs</span><span class="side-b" style="color:${readableColor(battle.team_b_color, 'var(--flare)')};">${escapeHtml(battle.team_b)}</span></p>
-    <p class="round-indicator">${battle.status === 'complete' ? 'Battle complete' : `Round ${battle.round_number} of 5`}</p>
+    <p class="round-indicator">${battle.status === 'complete' ? 'Battle complete' : `Round ${battle.round_number} of ${battle.max_rounds}`}</p>
     <div class="intensity-badge-wrap"><p class="intensity-badge">Intensity: <span>${escapeHtml(INTENSITY_LABELS[battle.intensity] || 'Savage')}</span></p></div>
     ${buildMomentumBar(battle)}
     <div class="led-row">${buildLedRow(battle)}</div>
@@ -1219,7 +1251,7 @@ function render(battle) {
       const myCritique = mySide === 'a' ? latestResult.critique_a : latestResult.critique_b;
       const myScore = mySide === 'a' ? latestResult.score_a : latestResult.score_b;
       const outcome = latestResult.winner === 'tie' ? 'tie' : (latestResult.winner === mySide ? 'win' : 'loss');
-      const isFinalRound = battle.round_number >= 5;
+      const isFinalRound = battle.round_number >= battle.max_rounds;
 
       actionHtml = `
         <div class="card">

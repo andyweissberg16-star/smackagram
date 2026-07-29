@@ -4,18 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smack Battle — Smackagram</title>
-<meta name="description" content="Head-to-head trash talk, five rounds, each one scored live by Smacky. Send a challenge link and find out who actually talks the better game.">
+<meta name="description" content="Head-to-head trash talk, 5 or 10 rounds, each one scored live by Smacky. Send a challenge link and find out who actually talks the better game.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Smackagram">
-<meta property="og:title" content="Smack Battle — settle it in five rounds">
-<meta property="og:description" content="Head-to-head trash talk, five rounds, each one scored live by Smacky. Send a challenge link and find out who actually talks the better game.">
+<meta property="og:title" content="Smack Battle — settle it round by round">
+<meta property="og:description" content="Head-to-head trash talk, 5 or 10 rounds, each one scored live by Smacky. Send a challenge link and find out who actually talks the better game.">
 <meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="{{ request.base_url }}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Smack Battle — settle it in five rounds">
-<meta name="twitter:description" content="Head-to-head trash talk, five rounds, each one scored live by Smacky. Send a challenge link and find out who actually talks the better game.">
+<meta name="twitter:title" content="Smack Battle — settle it round by round">
+<meta name="twitter:description" content="Head-to-head trash talk, 5 or 10 rounds, each one scored live by Smacky. Send a challenge link and find out who actually talks the better game.">
 <meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
@@ -113,7 +113,7 @@
 
 <div class="wrap">
   <div class="hero">
-    <p class="sub">Challenge someone to 5 rounds. Send them the link. The crowd decides who wins.</p>
+    <p class="sub">Challenge someone to a battle. Send them the link. The crowd decides who wins.</p>
   </div>
 
   <div class="card" id="createCard">
@@ -139,6 +139,13 @@
       <option value="4">Loading...</option>
     </select>
     <p style="font-size:12px; color:var(--chalk-dim); margin:-6px 0 14px;">Sets the tone for the whole battle — whoever you challenge will see this before they join.</p>
+
+    <label for="roundsSelect">Rounds</label>
+    <select id="roundsSelect">
+      <option value="5" selected>5 rounds</option>
+      <option value="10">10 rounds</option>
+    </select>
+    <p style="font-size:12px; color:var(--chalk-dim); margin:-6px 0 14px;">How many rounds this battle goes.</p>
 
     <div id="ageGate" style="display:none; margin-bottom:14px; padding:12px 14px; background:var(--ink); border:1px solid var(--line-strong); border-radius:6px;">
       <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; font-size:13px; color:var(--chalk); margin-bottom:0;">
@@ -206,6 +213,7 @@ async function createBattle() {
   const team = document.getElementById('teamInput').value.trim();
   const name = document.getElementById('nameInput').value.trim();
   const intensity = parseInt(document.getElementById('intensitySelect').value, 10);
+  const maxRounds = parseInt(document.getElementById('roundsSelect').value, 10);
   const errorEl = document.getElementById('createError');
   const btn = document.getElementById('createBtn');
 
@@ -241,7 +249,7 @@ async function createBattle() {
     const resp = await fetch('/api/battles', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({league: league, team_a: team, display_name_a: name, intensity: intensity})
+      body: JSON.stringify({league: league, team_a: team, display_name_a: name, intensity: intensity, max_rounds: maxRounds})
     });
     const data = await resp.json();
     if (data.error) {

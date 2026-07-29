@@ -2175,3 +2175,48 @@ VERIFIED thoroughly with a real live server, not just reading the code:
   confirmed the turn correctly auto-advanced and was marked timed_out
   within about a second - the client-side timer genuinely detected
   expiry and fired on its own
+
+## Smack Battle: music mute toggle + configurable 5/10 rounds (same session)
+Two of the five backlog items from this thread, fully built and verified.
+
+### Music mute toggle
+- Fixed-position button, top-right corner, toggles both background music
+  tracks (waiting-room music + active-battle crowd loop)
+- Preference persisted via localStorage so it sticks across battles/visits
+- Properly integrated into the existing music engine rather than bolted
+  on top - the old code's own comment said "no mute toggle" explicitly;
+  this closes that.
+
+### Configurable 5/10 rounds
+- New `max_rounds` column on Battle (default 5, migrated, tested against
+  both a fresh DB and an existing one with real data already in it)
+- Rounds selector added to battle creation, validated server-side (must
+  be exactly 5 or 10)
+- All hardcoded "5" references replaced with the battle's own
+  max_rounds: the round-completion check in ready_for_next_round(), the
+  "Round X of Y" display, and the "final round" button-label logic
+- Also fixed a related, smaller issue found while doing this: the AI
+  battle-recap prompt had "5 rounds" hardcoded directly into its system
+  prompt text, which would have given the AI wrong context on a 10-round
+  battle. Now generic, with the actual round count passed dynamically.
+- Updated all marketing copy (meta tags, hero text) that previously
+  assumed "five rounds" specifically
+
+VERIFIED with real live-server tests, not just reading the code:
+- Created an actual 10-round battle, confirmed max_rounds=10 stored
+  correctly and displayed correctly ("Round 1 of 10", not "of 5")
+- Simulated being at round 5 in a 10-round battle and advancing forward -
+  confirmed it correctly continues to round 6 (status stays "active"),
+  rather than prematurely completing the way the old hardcoded check
+  would have
+- Confirmed the reverse: a genuine default 5-round battle still
+  correctly completes at round 5 - full backward compatibility verified,
+  not just assumed
+- Confirmed the Postgres migration itself works both against a fresh
+  database and one with existing battle data already in it
+
+STILL TO BUILD (same backlog thread, not started yet):
+- Round transition sync - require BOTH sides ready before advancing
+  (currently either side alone still advances both immediately)
+- Live viewer count, including both participants
+- Smacky decorative graphic in the waiting room

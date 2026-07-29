@@ -1255,6 +1255,7 @@ def _battle_state_json(battle):
         "challenge_code": battle.challenge_code,
         "league": battle.league,
         "intensity": battle.intensity,
+        "max_rounds": battle.max_rounds,
         "status": battle.status,
         "current_turn": battle.current_turn,
         "turn_started_at": battle.turn_started_at.isoformat() if battle.turn_started_at else None,
@@ -1291,14 +1292,17 @@ def create_battle():
     team_a = (data.get("team_a") or "").strip()
     display_name_a = (data.get("display_name_a") or "Anonymous").strip()[:40]
     intensity = data.get("intensity", 4)
+    max_rounds = data.get("max_rounds", 5)
 
     if not league or not team_a:
         return jsonify({"error": "League and your team are required"}), 400
     if intensity not in trash_talk_service.SENSITIVITY_LEVELS:
         return jsonify({"error": "Invalid intensity level"}), 400
+    if max_rounds not in (5, 10):
+        return jsonify({"error": "Rounds must be 5 or 10"}), 400
 
     challenge_code = secrets.token_urlsafe(6).replace("_", "").replace("-", "")[:8]
-    battle = Battle(challenge_code=challenge_code, league=league, team_a=team_a, display_name_a=display_name_a or "Anonymous", intensity=intensity)
+    battle = Battle(challenge_code=challenge_code, league=league, team_a=team_a, display_name_a=display_name_a or "Anonymous", intensity=intensity, max_rounds=max_rounds)
     db.session.add(battle)
     db.session.commit()
 
@@ -1568,7 +1572,7 @@ def ready_for_next_round(challenge_code):
     battle.current_turn = "a"
     battle.round_number += 1
     battle.turn_started_at = datetime.utcnow()
-    if battle.round_number > 5:
+    if battle.round_number > battle.max_rounds:
         battle.status = "complete"
         battle.completed_at = datetime.utcnow()
         db.session.commit()
@@ -2452,6 +2456,7 @@ with app.app_context():
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS user_id INTEGER"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS intensity INTEGER DEFAULT 4 NOT NULL"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS turn_started_at TIMESTAMP"))
+            conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS max_rounds INTEGER DEFAULT 5 NOT NULL"))
             conn.execute(db.text("ALTER TABLE battle_lines ADD COLUMN IF NOT EXISTS timed_out BOOLEAN DEFAULT FALSE NOT NULL"))
             conn.commit()
 

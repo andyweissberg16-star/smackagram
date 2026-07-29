@@ -204,6 +204,11 @@ class Battle(db.Model):
     # original always-brutal behavior for anyone who doesn't pick.
     intensity = db.Column(db.Integer, default=4, nullable=False)
 
+    # 5 or 10 - set once by whoever creates the battle, fixed for its
+    # entire lifetime. Defaults to 5 to match the site's original
+    # fixed-length behavior for anyone who doesn't pick.
+    max_rounds = db.Column(db.Integer, default=5, nullable=False)
+
     display_name_a = db.Column(db.String(40), nullable=False)
     team_a = db.Column(db.String(80), nullable=False)
     display_name_b = db.Column(db.String(40), nullable=True)

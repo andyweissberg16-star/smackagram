@@ -652,8 +652,8 @@ def judge_battle_round(
 
 
 BATTLE_RECAP_SYSTEM_PROMPT = """You write the final recap for a Smack
-Battle that just ended — 5 rounds of trash talk between two people
-roasting each other's sports teams. You'll get every line from the
+Battle that just ended — a round-by-round trash talk battle between two
+people roasting each other's sports teams. You'll get every line from the
 whole battle, the round-by-round results, the overall winner, and the
 winner's average round score (0-10).
 
@@ -728,6 +728,7 @@ def generate_battle_recap(team_a: str, team_b: str, all_lines: list, round_resul
 
     user_content = (
         f"Side A fan roots for: {team_a}\nSide B fan roots for: {team_b}\n\n"
+        f"This battle ran {len(round_results)} rounds.\n\n"
         f"All lines from the battle:\n{lines_block}\n\n"
         f"Round-by-round results:\n{results_block}\n\n"
         f"Overall winner: {winner_label}\n\n"
