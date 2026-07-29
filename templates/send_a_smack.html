@@ -275,6 +275,50 @@ document.addEventListener('DOMContentLoaded', () => {
   if (message) document.getElementById('trashTalkOutput').value = message;
 })();
 
+// Resume from a pending action - reached via the Reload page's step
+// nav (e.g. clicking "Roast" to come back and edit), or its Go Back
+// button. Restores everything that was already typed/selected so
+// nobody has to redo their work after navigating away to reload their
+// balance. voiceSelect can't be set directly here since its options
+// load asynchronously elsewhere on the page - resumedVoiceKey is
+// applied once those options actually exist. resumedPayload is
+// consulted again when the order modal opens, since a few fields
+// (phone, reply opt-in) only live in that modal, not on this page.
+let resumedVoiceKey = null;
+let resumedPayload = null;
+
+async function resumeFromPendingAction() {
+  const pendingId = new URLSearchParams(window.location.search).get('resume');
+  if (!pendingId) return;
+
+  try {
+    const resp = await fetch(`/api/pending-action/${pendingId}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.action_type !== 'send_smack') return;
+
+    const payload = data.payload;
+    resumedPayload = payload;
+
+    if (payload.team) document.getElementById('teamInput').value = payload.team;
+    if (payload.recipient_name) document.getElementById('recipientNameInput').value = payload.recipient_name;
+    if (payload.custom_message) document.getElementById('trashTalkOutput').value = payload.custom_message;
+    if (typeof payload.sensitivity === 'number') {
+      selectedSensitivity = payload.sensitivity;
+      loadSensitivityLevels(); // re-render now that selectedSensitivity has changed
+    }
+    if (payload.voice_key) {
+      resumedVoiceKey = payload.voice_key;
+      const select = document.getElementById('voiceSelect');
+      if (select.options.length) select.value = resumedVoiceKey; // options may already be loaded
+    }
+  } catch (err) {
+    // If this fails, the page just behaves like a normal fresh visit -
+    // not worth surfacing an error for a convenience feature.
+  }
+}
+resumeFromPendingAction();
+
 let selectedSensitivity = 4;
 
 async function loadSensitivityLevels() {
@@ -486,6 +530,7 @@ document.getElementById('previewBtn').addEventListener('click', async () => {
       opt.textContent = v.label;
       select.appendChild(opt);
     });
+    if (resumedVoiceKey) select.value = resumedVoiceKey;
   } catch (err) {}
 })();
 
@@ -524,6 +569,22 @@ function openOrderModal() {
   const orderVoiceSelect = document.getElementById('orderVoice');
   if (orderVoiceSelect.options.length && generatorVoice) {
     orderVoiceSelect.value = generatorVoice;
+  }
+
+  // These fields only live in this modal, not on the main page, so a
+  // resumed payload is the only way to restore them.
+  if (resumedPayload) {
+    if (resumedPayload.recipient_phone) {
+      document.getElementById('orderRecipientPhone').value = resumedPayload.recipient_phone;
+    }
+    if (resumedPayload.reply_opt_in) {
+      document.getElementById('orderReplyOptIn').checked = true;
+      document.getElementById('orderReplyOptIn').dispatchEvent(new Event('change'));
+    }
+    if (resumedPayload.sender_phone) {
+      document.getElementById('orderSenderPhone').value = resumedPayload.sender_phone;
+    }
+    resumedPayload = null; // only apply once - don't clobber further edits on subsequent modal opens
   }
 
   // 18+ confirmation only applies above "Clean" — Clean-level content
@@ -609,7 +670,9 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
         consent_confirmed: consent,
         include_recording: true,
         reply_opt_in: document.getElementById('orderReplyOptIn').checked,
-        sender_phone: document.getElementById('orderSenderPhone').value.trim()
+        sender_phone: document.getElementById('orderSenderPhone').value.trim(),
+        team: document.getElementById('teamInput').value.trim(),
+        sensitivity: selectedSensitivity
       })
     });
     const data = await resp.json();

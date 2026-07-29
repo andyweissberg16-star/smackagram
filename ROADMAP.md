@@ -1497,3 +1497,64 @@ verified directly against the actual files and fixed:
       Google Fonts link tag only loaded Anton and Inter - font was
       silently falling back to generic monospace. Added JetBrains
       Mono to the font link.
+
+## Reload page navigation: clickable steps, Go Back, data preservation (same session)
+Built per direct request - the step indicator ("Roast Voice Target Load
+Account") was purely decorative before, with no way to go back and no
+site nav on the page at all.
+
+- [x] New GET /api/pending-action/<id> endpoint - returns a pending
+      action's stored payload + action_type, scoped to the current user
+- [x] /reload route now reads ?pending_action=<id>, looks up its
+      action_type, and passes both through to the template so step
+      labels/links adapt to whether this came from Send a Smack or
+      Locked & Loaded
+- [x] reload.html: added the standard site nav (_nav.html + shared
+      stylesheet, including the mobile hamburger drawer - previously
+      this page had neither), rebuilt the topbar with a real "<- Go
+      Back" link and clickable step words, all pointing to
+      /send-a-smack?resume=<id> (or /locked-n-loaded?resume=<id>)
+- [x] Fixed mobile: the step row previously just vanished entirely
+      below 860px (display:none) - now shows a compact wrapped version
+      instead of disappearing, per direct request that mobile needs
+      the same functionality, not a hidden/removed version
+- [x] send_a_smack.html: built the actual resume mechanism -
+      resumeFromPendingAction() fetches the stored payload and
+      repopulates team, recipient name, roast text, sensitivity level,
+      and voice selection on the main page; the order modal (phone,
+      reply opt-in, sender phone - fields that only exist in that
+      modal) gets pre-filled from the same payload when it opens.
+      Added team+sensitivity to the /api/orders request body
+      specifically so they'd be preserved in the stored payload for
+      accurate restoration (backend ignores these extra keys otherwise)
+- [x] Fixed a genuine separate bug found while working through this:
+      the @app.route decorator for /api/wallet/create-payment-intent
+      had gone missing entirely (function existed in the file but was
+      never registered as a Flask route) - confirmed this was actually
+      live in production, meaning payment completion was silently
+      broken. Fixed and confirmed the route registers correctly via
+      Flask's actual url_map, not just a syntax check.
+- [x] VERIFIED END-TO-END, not just structurally: ran a real Flask
+      server, created an actual PendingAction row with realistic test
+      data, logged in via Playwright, navigated to
+      /send-a-smack?resume=<id>, and confirmed every single field
+      (team, recipient name, roast text, voice, sensitivity level, AND
+      the three modal-only fields: phone, reply opt-in, sender phone)
+      genuinely repopulated correctly - not assumed, actually tested
+- [x] Verified desktop and mobile layouts programmatically (bounding
+      boxes, no overlaps, no zero-size elements, no viewport overflow,
+      hamburger toggle present) rather than relying only on visual
+      screenshot inspection
+- [x] Full verification suite: Python compile, full `import app` test,
+      Jinja2 parse across every template, HTML balance, JS syntax
+
+SCOPING DECISION (communicated to user): Locked & Loaded's page has a
+substantially more complex multi-step wizard structure (dynamic game
+list selection, show/hide card states with "Change" buttons) compared
+to the generator's single-scroll form. Given the user's immediate,
+active situation was specifically the Send a Smack flow, built and
+fully verified that path end-to-end this session. Locked & Loaded
+still gets a working "Go Back" link/step nav pointing back to
+/locked-n-loaded?resume=<id>, but that page does not yet have the
+resumeFromPendingAction() logic to actually repopulate its form fields
+from the resume parameter - a real gap, flagged, not yet built.

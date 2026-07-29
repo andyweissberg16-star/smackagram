@@ -417,10 +417,23 @@ def reload_page():
     """
     user = get_current_user()
     has_topped_up_before = WalletTransaction.query.filter_by(user_id=user.id, transaction_type="topup").first() is not None
+
+    # If there's a pending action, the step nav needs to know which
+    # flow it belongs to (Send a Smack vs Locked & Loaded) to show the
+    # right step labels and link back to the right page.
+    pending_action_id = request.args.get("pending_action")
+    pending_action_type = None
+    if pending_action_id:
+        pending = PendingAction.query.get(pending_action_id)
+        if pending and pending.user_id == user.id:
+            pending_action_type = pending.action_type
+
     return render_template(
         "reload.html",
         stripe_publishable_key=os.environ["STRIPE_PUBLISHABLE_KEY"],
         is_first_time_buyer=not has_topped_up_before,
+        pending_action_id=pending_action_id,
+        pending_action_type=pending_action_type,
     )
 
 
@@ -459,7 +472,29 @@ def api_pending_action_status(pending_action_id):
     })
 
 
+@app.route("/api/pending-action/<int:pending_action_id>")
+@login_required
+def api_get_pending_action(pending_action_id):
+    """
+    Returns a pending action's stored payload and type, so a page the
+    user navigates back to (e.g. the generator, after clicking "Roast"
+    in the Reload page's step nav) can repopulate its form fields with
+    whatever they'd already typed, instead of making them start over.
+    Scoped to the current user only.
+    """
+    user = get_current_user()
+    pending = PendingAction.query.get(pending_action_id)
+    if not pending or pending.user_id != user.id:
+        return jsonify({"error": "Not found"}), 404
 
+    return jsonify({
+        "action_type": pending.action_type,
+        "payload": json.loads(pending.payload_json),
+    })
+
+
+
+@app.route("/api/wallet/create-payment-intent", methods=["POST"])
 @login_required
 def api_wallet_create_payment_intent():
     """
