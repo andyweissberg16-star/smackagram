@@ -51,6 +51,12 @@
      here means both lines and the critique are always fully readable. */
   body.awaiting-round, html.awaiting-round{overflow:auto; height:auto;}
   body.awaiting-round .wrap, html.awaiting-round .wrap{height:auto; min-height:calc(100dvh - var(--nav-h));}
+  /* Same fix again for the waiting/join screen - adding the Smacky
+     image pushed this screen's total content (image + team/name
+     fields + button) past the fixed viewport height on mobile, with
+     no way to scroll down and reach the fields below the image. */
+  body.waiting-room, html.waiting-room{overflow:auto; height:auto;}
+  body.waiting-room .wrap, html.waiting-room .wrap{height:auto; min-height:calc(100dvh - var(--nav-h));}
   body{
     background-color:var(--ink);
     background-image:linear-gradient(rgba(13,13,13,0.88), rgba(13,13,13,0.88)), url('{{ url_for('static', filename='img/smack-battle-hero-1560.webp') }}');
@@ -79,7 +85,28 @@
   .matchup-teams .side-b{color:var(--flare);}
   .round-indicator{color:var(--chalk-dim); font-size:12px; font-family:'JetBrains Mono',monospace; margin-top:6px; text-transform:uppercase;}
   .viewer-count{color:var(--chalk-dim); font-size:12px; font-family:'JetBrains Mono',monospace; margin-top:4px; text-align:center;}
-  .smacky-waiting-img{display:block; max-width:180px; width:60%; height:auto; margin:0 auto 16px;}
+  .smacky-waiting-img{display:block; max-width:340px; width:90%; height:auto; margin:0 auto 16px;}
+  /* Background image for the card where battle lines get typed. The
+     linear-gradient layered on top is a dark overlay - same technique
+     the page background above uses - so the text, timer and button
+     stay readable no matter how bright or busy the image itself is.
+     Drop the image in as static/img/battle-chat-bg.png (and optionally
+     battle-chat-bg.webp); until it exists, the gradient alone just
+     renders as the card's normal dark background, so nothing breaks. */
+  .chat-input-card{
+    background-image:linear-gradient(rgba(13,13,13,0.82), rgba(13,13,13,0.82)), url('{{ url_for('static', filename='img/battle-chat-bg.png') }}');
+    background-size:cover;
+    background-position:center;
+    background-repeat:no-repeat;
+  }
+  .waiting-photo-card{
+    border-width:2px;
+    animation:flashRedBorder 1.2s ease-in-out infinite;
+  }
+  @keyframes flashRedBorder{
+    0%, 100%{border-color:var(--flare); box-shadow:0 0 8px 1px rgba(232,20,44,0.55);}
+    50%{border-color:var(--line-strong); box-shadow:none;}
+  }
   .waiting-pulse{
     font-family:'Anton',sans-serif; font-size:32px; text-transform:uppercase;
     color:var(--flare); margin-top:10px; letter-spacing:0.5px;
@@ -1032,6 +1059,7 @@ function render(battle) {
   document.documentElement.classList.toggle('battle-complete', battle.status === 'complete');
   document.body.classList.toggle('battle-complete', battle.status === 'complete');
   document.body.classList.toggle('waiting-room', battle.status === 'waiting');
+  document.documentElement.classList.toggle('waiting-room', battle.status === 'waiting');
   document.documentElement.classList.toggle('awaiting-round', battle.status === 'active' && battle.awaiting_next_round);
   document.body.classList.toggle('awaiting-round', battle.status === 'active' && battle.awaiting_next_round);
 
@@ -1064,10 +1092,10 @@ function render(battle) {
 
       if (mySide === 'a') {
         actionArea.innerHTML = `
-          <div class="card">
+          <div class="card waiting-photo-card">
             <picture>
-              <source type="image/webp" srcset="/static/img/smacky-hero.webp">
-              <img class="smacky-waiting-img" src="/static/img/smacky-hero.png" alt="Smacky" loading="lazy">
+              <source type="image/webp" srcset="/static/img/battle-waiting-smacky.webp">
+              <img class="smacky-waiting-img" src="/static/img/battle-waiting-smacky.png" alt="Smacky" loading="lazy">
             </picture>
             <p class="waiting-note">Share your battle link with whoever you're calling out. This page will update once they join.</p>
             <p class="intensity-badge">Intensity: <span>${escapeHtml(INTENSITY_LABELS[battle.intensity] || 'Savage')}</span></p>
@@ -1077,10 +1105,10 @@ function render(battle) {
       } else {
         const showAgeGate = battle.intensity !== 1;
         actionArea.innerHTML = `
-          <div class="card">
+          <div class="card waiting-photo-card">
             <picture>
-              <source type="image/webp" srcset="/static/img/smacky-hero.webp">
-              <img class="smacky-waiting-img" src="/static/img/smacky-hero.png" alt="Smacky" loading="lazy">
+              <source type="image/webp" srcset="/static/img/battle-waiting-smacky.webp">
+              <img class="smacky-waiting-img" src="/static/img/battle-waiting-smacky.png" alt="Smacky" loading="lazy">
             </picture>
             <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)}, a <span style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span> fan, is calling out ${escapeHtml(LEAGUE_LABELS[battle.league] || battle.league.toUpperCase())} fans. Step up?</p>
             <p class="intensity-badge" style="margin-bottom:14px;">This battle is set to <span>${escapeHtml(INTENSITY_LABELS[battle.intensity] || 'Savage')}</span> intensity.</p>
@@ -1379,7 +1407,7 @@ function render(battle) {
         `;
       } else {
         actionHtml = `
-          <div class="card">
+          <div class="card chat-input-card">
             <p class="waiting-note" style="margin-bottom:10px;">Your turn — round ${battle.round_number}</p>
             <p class="turn-timer" id="turnTimer">60</p>
             <textarea id="lineInput" placeholder="Say what you came to say..." maxlength="500"></textarea>

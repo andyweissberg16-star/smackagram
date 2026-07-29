@@ -2802,3 +2802,56 @@ to simulate real elapsed time, and confirmed the OTHER side's page
 correctly showed the exact right opponent name and the correct button
 - then repeated the test in the reverse direction (the other side
 leaving instead) to confirm both directions work, not just one.
+
+## Smack Battle: mobile waiting-room scroll fix + new wider waiting image (same session)
+Per direct request from live mobile testing - adding the Smacky image
+last session pushed the waiting/join screen's total content (image +
+text + team/name fields + age gate + button) past the .wrap
+container's fixed height:calc(100dvh - var(--nav-h)) on mobile, with
+no way to scroll down and reach anything below the "Your team" field.
+This is the exact same class of bug already fixed twice before for
+battle-complete and awaiting-round; applied the identical fix here:
+body.waiting-room/html.waiting-room now gets overflow:auto and
+height:auto, letting the whole page scroll naturally instead of being
+clipped. Also found and fixed a related inconsistency: the
+'waiting-room' class was only ever toggled on <body>, not <html> like
+the other two states - added the missing html toggle so the CSS
+selector (which targets both) actually works.
+
+Also swapped the waiting-room image to point at a new filename,
+battle-waiting-smacky.png/.webp, since the user has a new, wider
+replacement image to drop in (following the same "rename and drop into
+static/img/" pattern already used for smacky-hero.png). Widened the
+image's CSS sizing (max-width 180px->340px, width 60%->90%) to suit a
+wider aspect ratio instead of the roughly-square sizing that fit the
+original portrait.
+
+VERIFIED the scroll fix with a real mobile-viewport test, not just
+reading the CSS: created an actual battle with Savage intensity
+(maximizing content height via the age-gate checkbox too), loaded the
+joining side's view at a real 390x700 mobile size, confirmed the
+page's actual content height (797px) genuinely exceeds the viewport
+(700px) - proving this scenario really does overflow - confirmed
+overflow is now "auto" not clipped, and confirmed that after actually
+scrolling to the bottom, the join button is genuinely reachable within
+the viewport, not just present in the DOM.
+
+NEXT STEP: user needs to rename their new wider image to
+battle-waiting-smacky.png (and ideally also produce/rename a
+battle-waiting-smacky.webp) and drop both into static/img/ before
+deploying, or the waiting screen will show a broken image icon until
+then.
+
+## Smack Battle: flashing red border around the waiting-room photo card (same session)
+Per direct request - added a pulsing red border animation to the
+card containing the waiting-room Smacky/photo image, on both the
+creator's waiting view and the joining side's accept-challenge view.
+Scoped to a new waiting-photo-card class rather than the base .card
+style, so this doesn't affect any other card on the page.
+
+VERIFIED with a real live-server test, not just checking the CSS
+exists: confirmed the animation is genuinely applied (animationName
+computed as "flashRedBorder"), and confirmed the border's actual
+rendered color genuinely differs between two samples taken 600ms
+apart, proving it's really cycling in the browser rather than sitting
+static.
