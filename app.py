@@ -1862,6 +1862,14 @@ def battle_share_card(challenge_code):
         color_a=_readable_on_dark(_lookup_team_color(battle.league, battle.team_a), "#FFD400"),
         color_b=_readable_on_dark(_lookup_team_color(battle.league, battle.team_b), "#E8142C"),
         intensity_label=trash_talk_service.SENSITIVITY_LEVELS.get(battle.intensity, {}).get("label", "Savage"),
+        # Smacky judged every round, so the card is framed as his ruling.
+        # recap_winner_text is written in second person ("you dismantled
+        # them"), which only reads right if it's explicitly addressed -
+        # hence the "Smacky to <winner>" attribution in the template.
+        recap_text=battle.recap_winner_text,
+        # Same existence check the Meet Smacky page uses, so a missing
+        # portrait degrades to a text-only card instead of a broken image.
+        smacky_image_exists=os.path.exists(os.path.join(app.root_path, "static", "img", "smacky-hero.png")),
     )
 
 

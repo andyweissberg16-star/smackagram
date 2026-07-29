@@ -3199,3 +3199,49 @@ this is measured rather than eyeballed - user should eyeball it):
 710/762 (52px), and worst case 10-round battle with long handles 612/634
 (22px). All exactly 9:16 (ratio 0.563), footer inside bounds, no page
 errors.
+
+## Smack Battle share card: deeper Smackagram theming (2nd pass)
+First pass was a competent scoreboard but thin on brand. Two big misses
+fixed:
+
+1) SMACKY WAS ABSENT. He judges every round and is the brand character,
+   yet the card read as a neutral scoreboard. Now presented as his
+   ruling: his portrait (circular, gold-ringed) with "Judged by Smacky"
+   sitting above the score. Uses the same smacky_image_exists check the
+   Meet Smacky page uses, so a missing portrait degrades to text rather
+   than a broken image.
+
+2) THE AI RECAP WASN'T ON IT. recap_winner_text is the savage one-liner
+   the app already generates and is by far the most shareable thing on
+   the card - a scoreboard is information, the roast is what someone
+   actually wants to post. Now the hero: attributed "Smacky to <winner>"
+   (which makes its second-person voice read correctly), in the only
+   italic treatment on the card, in a gold-tinted panel.
+
+Copy moved into the product's own register throughout: "Rounds taken"
+not "Rounds won", "Reppin'" not "Side A", and the footer is now the
+taunt "Think you talk better? / smackagram.com" instead of a bout code.
+
+FIT WORK - real overflow this time, not the earlier false positive:
+adding the roast genuinely pushed content past the box (measured -106px
+on a 10-round card with a long recap). Fixed properly rather than by
+shrinking type:
+- .inner was locked to height:100%, which meant content could never
+  expand the card - it could only be clipped. Changed to min-height:100%
+  with height:auto on the card, so 9:16 is the target and long content
+  expands it slightly instead of being cut off. A card that's
+  occasionally 9:18 still posts fine to a story; clipped content never
+  does.
+- overflow:hidden moved off the card onto the decorative .clash layer,
+  which is the only thing that actually needs clipping.
+- Roast clamped to 3 lines, team names to 2, and the round strip
+  tightened when max_rounds > 5 (ten chips wrapped to two rows at the
+  five-chip size).
+
+VERIFIED by measurement across five cases - 5-round at phone/desktop/340px
+narrow, and a worst-case 10-round battle with long team names, long
+handles and a long recap at phone and desktop: nothing clipped in any
+case, footer inside bounds in all five, no page errors.
+
+STILL UNREVIEWED VISUALLY: image viewing was unavailable this session, so
+none of this has been eyeballed - only measured. Needs a human look.
