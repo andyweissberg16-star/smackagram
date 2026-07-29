@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reload Complete — Smackagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D; --ink-2:#1A1A1A; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
+    --flare:#E8142C; --gold:#FFD400; --line:rgba(245,245,243,0.10);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif;
+    min-height:100vh;
+  }
+  nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
+  .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+  .auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+  @media(max-width:760px){
+    nav{flex-wrap:wrap; gap:12px;}
+    .nav-links{display:none;}
+  }
+  .center-wrap{
+    min-height:calc(100vh - 77px); display:flex; align-items:center; justify-content:center;
+    text-align:center; padding:24px;
+  }
+  h1{font-family:'Anton',sans-serif; font-size:38px; margin-bottom:16px; text-transform:uppercase;}
+  p{color:var(--chalk-dim); font-size:16px; margin-bottom:24px; max-width:420px;}
+  .cta-btn{
+    display:inline-block; background:var(--flare); color:#fff; text-decoration:none;
+    padding:12px 28px; font-weight:600; border-radius:2px;
+  }
+</style>
+</head>
+<body>
+{% include '_nav.html' %}
+<div class="center-wrap">
+<div>
+  <h1 id="statusHeading">Reload confirmed.</h1>
+  <p id="statusMessage">Your Smackagram balance has been topped up. It'll show up in your account in just a moment.</p>
+  <a href="/send-a-smack" class="cta-btn" id="continueBtn">Continue</a>
+</div>
+</div>
+<script>
+const pendingActionId = new URLSearchParams(window.location.search).get('pending_action');
+
+if (pendingActionId) {
+  const heading = document.getElementById('statusHeading');
+  const message = document.getElementById('statusMessage');
+  const btn = document.getElementById('continueBtn');
+
+  heading.textContent = 'Finishing up...';
+  message.textContent = "We're sending your smack now that you've reloaded — this'll just take a moment.";
+  btn.style.display = 'none';
+
+  let attempts = 0;
+  const maxAttempts = 15; // ~15 seconds of polling before falling back
+
+  async function poll() {
+    attempts++;
+    try {
+      const resp = await fetch(`/api/wallet/pending-action-status/${pendingActionId}`);
+      const data = await resp.json();
+
+      if (data.status === 'completed') {
+        heading.textContent = 'All set!';
+        message.textContent = "Your smack is on its way.";
+        setTimeout(() => { window.location.href = data.redirect || '/'; }, 900);
+        return;
+      }
+
+      if (data.status === 'failed') {
+        heading.textContent = "Reload worked, but something went wrong.";
+        message.textContent = data.error_message || "Your balance was topped up, but we couldn't complete your original request. Please try again.";
+        btn.textContent = 'Try again';
+        btn.href = '/send-a-smack';
+        btn.style.display = 'inline-block';
+        return;
+      }
+
+      if (attempts >= maxAttempts) {
+        heading.textContent = 'Reload confirmed.';
+        message.textContent = "Your balance is topped up. It's taking a little longer than usual to finish sending — check your account in a moment.";
+        btn.style.display = 'inline-block';
+        return;
+      }
+
+      setTimeout(poll, 1000);
+    } catch (err) {
+      setTimeout(poll, 1000);
+    }
+  }
+
+  poll();
+}
+</script>
+</body>
+</html>

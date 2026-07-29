@@ -366,10 +366,10 @@
 
     <div class="hold-note">
       <span>&#128274;</span>
-      <span>Your card is authorized for $2 now but not charged. You're only charged if <strong id="targetTeamNote">the selected team</strong> loses. If they win, the hold is released automatically.</span>
+      <span>1 Smackagram ($1) comes out of your wallet the moment you lock this in. If <strong id="targetTeamNote">the selected team</strong> loses, that's it — the call fires. If they win instead, your $1 is automatically refunded back to your wallet.</span>
     </div>
 
-    <button id="armBtn" class="btn btn-flare">Lock it in — $2 if they lose</button>
+    <button id="armBtn" class="btn btn-flare">Lock it in — $1</button>
   </div>
 
 </div>
@@ -779,16 +779,20 @@ document.getElementById('armBtn').addEventListener('click', async () => {
       })
     });
     const data = await resp.json();
-    if (data.checkout_url) {
-      window.location.href = data.checkout_url;
+    if (data.error === 'insufficient_balance') {
+      window.location.href = data.redirect || '/reload';
+      return;
+    }
+    if (data.redirect) {
+      window.location.href = data.redirect;
     } else {
       showError(data.error || 'Something went wrong — try again.');
-      btn.textContent = 'Lock it in — $2 if they lose';
+      btn.textContent = 'Lock it in — $1';
       btn.disabled = false;
     }
   } catch (err) {
     showError('Something went wrong — try again.');
-    btn.textContent = 'Lock it in — $2 if they lose';
+    btn.textContent = 'Lock it in — $1';
     btn.disabled = false;
   }
 });

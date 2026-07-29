@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% if is_first_time_buyer %}Load Your Account{% else %}Reload{% endif %} — Smackagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://js.stripe.com/v3/"></script>
+<style>
+  :root{
+    --ink:#000000;
+    --ink-2:#0C0C0C;
+    --surface:#141414;
+    --surface-2:#1C1C1C;
+    --line:#3A1416;
+    --punch:#E01B24;
+    --free:#E01B24;
+    --ivory:#FFFFFF;
+    --muted:#B5B0B0;
+    --muted-2:#7A7575;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--ink);color:var(--ivory);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(1200px 500px at 80% -10%, rgba(224,27,36,.16), transparent 60%),
+      radial-gradient(900px 400px at 0% 110%, rgba(224,27,36,.08), transparent 55%),
+      var(--ink);
+    padding:0 20px 60px;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:22px 2px 30px}
+  .brand img{height:34px;width:auto;display:block}
+  .steps{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--muted-2);text-transform:uppercase;letter-spacing:.14em}
+  .steps .done{color:var(--muted)}
+  .steps .now{color:var(--punch)}
+  .steps .dot{width:5px;height:5px;border-radius:50%;background:var(--line)}
+  .secure{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);font-weight:500}
+  .secure svg{width:14px;height:14px;stroke:var(--muted)}
+  .hero{text-align:center;padding:6px 0 34px}
+  .hero .kicker{
+    display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.16em;color:var(--punch);
+    background:rgba(224,27,36,.12);border:1px solid rgba(224,27,36,.4);
+    padding:7px 14px;border-radius:999px;margin-bottom:18px;
+  }
+  .hero .kicker .pulse{width:7px;height:7px;border-radius:50%;background:var(--punch);box-shadow:0 0 0 0 rgba(224,27,36,.7);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(224,27,36,.55)}70%{box-shadow:0 0 0 8px rgba(224,27,36,0)}}
+  .hero h1{font-family:'Anton',sans-serif;font-weight:400;text-transform:uppercase;font-size:clamp(38px,7vw,72px);line-height:.94;letter-spacing:.5px}
+  .hero h1 .hit{color:var(--punch)}
+  .hero p{color:var(--muted);font-size:16px;margin-top:16px;max-width:440px;margin-left:auto;margin-right:auto;line-height:1.5}
+  .hero p b{color:var(--free);font-weight:700}
+  .tiers{display:grid;grid-template-columns:1fr 1.12fr 1fr;gap:16px;align-items:stretch;margin-bottom:34px}
+  .tier{position:relative;background:var(--surface);border:1.5px solid var(--line);border-radius:var(--radius);padding:26px 22px 24px;cursor:pointer;display:flex;flex-direction:column;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .tier:hover{transform:translateY(-3px);border-color:#5a1c20}
+  .tier--anchor{background:linear-gradient(180deg,#1A0E0F,#120A0B);transform:scale(1.04);z-index:2}
+  .tier--anchor:hover{transform:scale(1.04) translateY(-3px)}
+  .tier.selected{border-color:var(--punch);box-shadow:0 0 0 1.5px var(--punch),0 18px 40px -20px rgba(224,27,36,.6)}
+  .ribbon{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--punch);color:#fff;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;padding:5px 13px;border-radius:999px;white-space:nowrap}
+  .ribbon.best{background:#2A0C0E;color:var(--punch);border:1px solid var(--punch)}
+  .tier .plan-name{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.13em;color:var(--ivory);margin-bottom:12px}
+  .tier--anchor .plan-name{color:var(--punch)}
+  .tier .price{font-family:'Anton',sans-serif;font-size:38px;line-height:1;letter-spacing:.5px}
+  .tier .divider{height:1px;background:var(--line);margin:18px 0}
+  .tier .smacks{font-family:'Anton',sans-serif;font-size:52px;line-height:.9;letter-spacing:.5px}
+  .tier .smacks small{display:block;font-family:'Inter',sans-serif;font-weight:600;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+  .tier--anchor .smacks{font-size:60px}
+  .free-badge{display:inline-flex;align-items:center;gap:6px;margin-top:16px;align-self:flex-start;background:rgba(224,27,36,.12);border:1px solid rgba(224,27,36,.55);color:#fff;font-weight:800;font-size:14px;padding:7px 12px;border-radius:10px;text-transform:uppercase;letter-spacing:.04em}
+  .free-badge .n{font-family:'Anton',sans-serif;font-size:17px;letter-spacing:.5px;color:var(--punch)}
+  .tier .jump{margin-top:14px;font-size:12.5px;color:var(--muted-2);line-height:1.4;min-height:16px}
+  .tier .jump b{color:var(--muted)}
+  .tier .choose{margin-top:auto;padding-top:18px;display:flex;align-items:center;gap:9px;font-weight:700;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+  .tier .radio{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center}
+  .tier .radio i{width:8px;height:8px;border-radius:50%;background:var(--punch);transform:scale(0);transition:transform .15s ease}
+  .tier.selected .radio{border-color:var(--punch)}
+  .tier.selected .radio i{transform:scale(1)}
+  .tier.selected .choose{color:var(--punch)}
+  .grid{display:grid;grid-template-columns:1fr 1.05fr;gap:18px;align-items:start}
+  .panel{background:var(--ink-2);border:1.5px solid var(--line);border-radius:var(--radius);padding:24px}
+  .panel h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.16em;color:var(--muted);margin-bottom:18px}
+  .sum-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;font-size:15px}
+  .sum-row + .sum-row{border-top:1px solid var(--line)}
+  .sum-row .label small{display:block;color:var(--muted-2);font-size:12px;font-weight:400;margin-top:2px}
+  .sum-row .val{font-weight:700}
+  .sum-row .val.free{color:var(--free)}
+  .sum-total{margin-top:8px;padding-top:16px;border-top:1.5px solid var(--line);display:flex;align-items:baseline;justify-content:space-between}
+  .sum-total .t-label{font-size:13px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted)}
+  .sum-total .t-val{font-family:'Anton',sans-serif;font-size:38px;letter-spacing:.5px}
+  .wallet-note{margin-top:16px;display:flex;gap:9px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+  .wallet-note svg{width:16px;height:16px;stroke:var(--free);flex-shrink:0;margin-top:1px}
+  .wallet-note p{font-size:12.5px;color:var(--muted);line-height:1.45}
+  .wallet-note b{color:var(--ivory);font-weight:600}
+  .reload-toggle{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 15px}
+  .reload-toggle .rt-text b{display:block;font-size:14px;color:var(--ivory);font-weight:600}
+  .reload-toggle .rt-text p{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .switch{flex-shrink:0;width:46px;height:27px;border-radius:999px;border:none;cursor:pointer;background:var(--line);position:relative;padding:0}
+  .switch .knob{position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;background:var(--ivory);transition:left .18s ease}
+  .switch[aria-checked="true"]{background:var(--punch)}
+  .switch[aria-checked="true"] .knob{left:22px}
+  #payment-element{margin-bottom:16px;}
+  #express-element{margin-bottom:16px; min-height: 44px;}
+  .or-divider{display:flex;align-items:center;gap:12px;margin:0 0 18px;color:var(--muted-2);font-size:11.5px;text-transform:uppercase;letter-spacing:.14em}
+  .or-divider::before,.or-divider::after{content:"";flex:1;height:1px;background:var(--line)}
+  .pay-btn{width:100%;margin-top:8px;border:none;cursor:pointer;background:var(--punch);color:#fff;font-weight:800;font-size:16px;padding:17px;border-radius:12px;letter-spacing:.02em;display:flex;align-items:center;justify-content:center;gap:10px;transition:background .15s ease}
+  .pay-btn:hover{background:#f22630}
+  .pay-btn:disabled{opacity:0.5; cursor:not-allowed;}
+  .trust{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:14px;font-size:12px;color:var(--muted-2)}
+  .trust svg{width:13px;height:13px;stroke:var(--muted-2)}
+  #payError{display:none; color:var(--punch); font-size:13px; margin-top:12px; text-align:center;}
+  .foot{text-align:center;color:var(--muted-2);font-size:12px;margin-top:30px;line-height:1.5}
+  @media(max-width:860px){
+    .tiers{grid-template-columns:1fr;gap:14px}
+    .tier--anchor{transform:scale(1)}
+    .tier--anchor:hover{transform:translateY(-3px)}
+    .grid{grid-template-columns:1fr}
+    .steps{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand"><img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram"></div>
+    <div class="steps">
+      <span class="done">Roast</span><span class="dot"></span>
+      <span class="done">Voice</span><span class="dot"></span>
+      <span class="done">Target</span><span class="dot"></span>
+      <span class="now">{% if is_first_time_buyer %}Load Account{% else %}Reload{% endif %}</span>
+    </div>
+    <div class="secure">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Secure
+    </div>
+  </div>
+
+  <div class="hero">
+    {% if is_first_time_buyer %}
+    <span class="kicker" id="heroKicker"><span class="pulse"></span>One step from your first Smackagram</span>
+    <h1>Load your account <span class="hit">to get started.</span></h1>
+    {% else %}
+    <span class="kicker" id="heroKicker"><span class="pulse"></span>Your Smackagram is locked &amp; ready to fire</span>
+    <h1>You're out of <span class="hit">Smackagrams.</span></h1>
+    {% endif %}
+    <p id="heroSub">{% if is_first_time_buyer %}Pick a pack and let's go. The bigger you go, the more land <b>totally free</b>.{% else %}Reload and let it rip. The bigger you go, the more land <b>totally free</b>.{% endif %}</p>
+  </div>
+
+  <div class="tiers" id="tiers">
+    <div class="tier" data-pack="starter" data-pay="5" data-smacks="6" data-free="1" tabindex="0" role="button" aria-pressed="false">
+      <div class="plan-name">Starter Plan</div>
+      <div class="price">$5</div>
+      <div class="divider"></div>
+      <div class="smacks">6<small>Smackagrams</small></div>
+      <div class="free-badge"><span class="n">1</span> FREE</div>
+      <div class="jump">Dip a toe in.</div>
+      <div class="choose"><span class="radio"><i></i></span>Select</div>
+    </div>
+    <div class="tier tier--anchor selected" data-pack="loaded" data-pay="10" data-smacks="15" data-free="5" tabindex="0" role="button" aria-pressed="true">
+      <div class="ribbon">Most Popular</div>
+      <div class="plan-name">Loaded Package</div>
+      <div class="price">$10</div>
+      <div class="divider"></div>
+      <div class="smacks">15<small>Smackagrams</small></div>
+      <div class="free-badge"><span class="n">5</span> FREE</div>
+      <div class="jump"><b>Just $5 more than starter</b> — and 4 extra free.</div>
+      <div class="choose"><span class="radio"><i></i></span>Selected</div>
+    </div>
+    <div class="tier" data-pack="arsenal" data-pay="20" data-smacks="30" data-free="10" tabindex="0" role="button" aria-pressed="false">
+      <div class="ribbon best">Best Value</div>
+      <div class="plan-name">Arsenal Package</div>
+      <div class="price">$20</div>
+      <div class="divider"></div>
+      <div class="smacks">30<small>Smackagrams</small></div>
+      <div class="free-badge"><span class="n">10</span> FREE</div>
+      <div class="jump"><b>Just $10 more</b> — double your smacks.</div>
+      <div class="choose"><span class="radio"><i></i></span>Select</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h3>{% if is_first_time_buyer %}Your order{% else %}Your reload{% endif %}</h3>
+      <div class="sum-row">
+        <div class="label">Smackagrams<small id="s-pack">Loaded pack</small></div>
+        <div class="val" id="s-smacks">15</div>
+      </div>
+      <div class="sum-row">
+        <div class="label">Free Smackagrams included<small>Already counted in the total above</small></div>
+        <div class="val free" id="s-free">+5</div>
+      </div>
+      <div class="sum-total">
+        <span class="t-label">Total today</span>
+        <span class="t-val" id="s-total">$10.00</span>
+      </div>
+      <div class="reload-toggle">
+        <div class="rt-text">
+          <b>Auto-Reload</b>
+          <p>Top me up automatically when I run low. (Coming soon)</p>
+        </div>
+        <button class="switch" id="autoReload" role="switch" aria-checked="false" aria-label="Auto-Reload" disabled></button>
+      </div>
+      <div class="wallet-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+        <p><b>Your Smackagrams never expire.</b> Balance lives in your Smackagram wallet — use it whenever, on whatever.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Payment</h3>
+      <div id="express-element"></div>
+      <div class="or-divider" id="orDivider">or pay with card</div>
+      <div id="payment-element"></div>
+      <button class="pay-btn" id="payBtn" disabled>
+        Pay <span class="amt" id="btn-amt">$10.00</span> — Send my Smackagram
+      </button>
+      <div id="payError"></div>
+      <div class="trust">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Encrypted &amp; secured by Stripe
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">Prices shown are final — no hidden fees. Your Smackagram balance never expires.</div>
+</div>
+
+<script>
+const stripe = Stripe("{{ stripe_publishable_key }}");
+let elements = null;
+let currentPack = 'loaded';
+const packNames = {starter:'Starter pack', loaded:'Loaded pack', arsenal:'Arsenal pack'};
+const tiers = Array.prototype.slice.call(document.querySelectorAll('.tier'));
+const pendingActionId = new URLSearchParams(window.location.search).get('pending_action');
+
+if (pendingActionId) {
+  document.getElementById('heroSub').innerHTML = 'Complete this and we\'ll send it the moment payment goes through — <b>no need to redo anything.</b>';
+}
+
+async function initPaymentForPack(packKey) {
+  const payBtn = document.getElementById('payBtn');
+  const errorEl = document.getElementById('payError');
+  errorEl.style.display = 'none';
+  payBtn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/wallet/create-payment-intent', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({pack: packKey, pending_action_id: pendingActionId})
+    });
+    const data = await resp.json();
+    if (data.error) {
+      errorEl.textContent = data.error;
+      errorEl.style.display = 'block';
+      return;
+    }
+
+    elements = stripe.elements({clientSecret: data.client_secret, appearance: {theme: 'night', variables: {colorPrimary: '#E01B24', colorBackground: '#141414', colorText: '#FFFFFF'}}});
+
+    const paymentElement = elements.create('payment');
+    paymentElement.mount('#payment-element');
+
+    const expressElement = elements.create('expressCheckout');
+    expressElement.mount('#express-element');
+    expressElement.on('confirm', handleExpressConfirm);
+
+    payBtn.disabled = false;
+  } catch (err) {
+    errorEl.textContent = "Couldn't set up payment — try again.";
+    errorEl.style.display = 'block';
+  }
+}
+
+async function handleExpressConfirm() {
+  const {error} = await stripe.confirmPayment({
+    elements,
+    confirmParams: {return_url: window.location.origin + '/reload-success' + (pendingActionId ? '?pending_action=' + pendingActionId : '')},
+  });
+  if (error) {
+    const errorEl = document.getElementById('payError');
+    errorEl.textContent = error.message;
+    errorEl.style.display = 'block';
+  }
+}
+
+function select(el) {
+  tiers.forEach(function(t) {
+    t.classList.remove('selected');
+    t.setAttribute('aria-pressed', 'false');
+    t.querySelector('.choose').lastChild.textContent = 'Select';
+  });
+  el.classList.add('selected');
+  el.setAttribute('aria-pressed', 'true');
+  el.querySelector('.choose').lastChild.textContent = 'Selected';
+
+  const pay = parseInt(el.dataset.pay, 10);
+  const smacks = parseInt(el.dataset.smacks, 10);
+  const free = parseInt(el.dataset.free, 10);
+  const pack = el.dataset.pack;
+  currentPack = pack;
+
+  document.getElementById('s-pack').textContent = packNames[pack];
+  document.getElementById('s-smacks').textContent = smacks;
+  document.getElementById('s-free').textContent = '+' + free;
+  document.getElementById('s-total').textContent = '$' + pay.toFixed(2);
+  document.getElementById('btn-amt').textContent = '$' + pay.toFixed(2);
+
+  initPaymentForPack(pack);
+}
+
+tiers.forEach(function(t) {
+  t.addEventListener('click', function() { select(t); });
+  t.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); select(t); }
+  });
+});
+
+document.getElementById('payBtn').addEventListener('click', async function() {
+  const payBtn = this;
+  const errorEl = document.getElementById('payError');
+  errorEl.style.display = 'none';
+  payBtn.disabled = true;
+  payBtn.textContent = 'Firing your Smackagram…';
+
+  const {error} = await stripe.confirmPayment({
+    elements,
+    confirmParams: {return_url: window.location.origin + '/reload-success' + (pendingActionId ? '?pending_action=' + pendingActionId : '')},
+  });
+
+  if (error) {
+    errorEl.textContent = error.message;
+    errorEl.style.display = 'block';
+    payBtn.disabled = false;
+    payBtn.innerHTML = 'Pay <span class="amt" id="btn-amt">' + document.getElementById('s-total').textContent + '</span> — Send my Smackagram';
+  }
+});
+
+// Initialize with the default pre-selected pack on page load.
+initPaymentForPack(currentPack);
+</script>
+</body>
+</html>

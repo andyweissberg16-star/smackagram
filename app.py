@@ -1,4 +1,5 @@
 import os
+import json
 import functools
 import secrets
 import threading
@@ -9,8 +10,8 @@ from sqlalchemy import func
 import requests
 from dotenv import load_dotenv
 
-from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleRoundResult, User, SmackcastSubscription, SmackcastRecap
-from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service
+from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleRoundResult, User, SmackcastSubscription, SmackcastRecap, WalletTransaction, PendingAction
+from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
 
 load_dotenv()
@@ -384,13 +385,162 @@ def home():
     return render_template("index.html", scenarios=scenarios, current_user=get_current_user())
 
 
+def _store_pending_action(user, action_type: str, data: dict) -> str:
+    """
+    Saves the original request payload so the action can be resumed
+    automatically once the wallet is topped up, and returns the /reload
+    redirect URL carrying the pending action's id. See PendingAction's
+    docstring in models.py for why this is server-side/webhook-driven
+    rather than client-side storage.
+    """
+    pending = PendingAction(
+        user_id=user.id,
+        action_type=action_type,
+        payload_json=json.dumps(data),
+    )
+    db.session.add(pending)
+    db.session.commit()
+    return f"/reload?pending_action={pending.id}"
+
+
+@app.route("/reload")
+@login_required
+def reload_page():
+    """
+    The wallet top-up page. Reached as the final step of Send a Smack
+    or Locked & Loaded when the wallet balance can't cover the action -
+    not a standalone destination someone browses to directly, though
+    it works fine if they do. Shows different copy for a genuine
+    first-time buyer ("Load Your Account") versus a returning user
+    topping back up ("Reload") - "reload" doesn't make sense for
+    someone who's never had a balance to begin with.
+    """
+    user = get_current_user()
+    has_topped_up_before = WalletTransaction.query.filter_by(user_id=user.id, transaction_type="topup").first() is not None
+    return render_template(
+        "reload.html",
+        stripe_publishable_key=os.environ["STRIPE_PUBLISHABLE_KEY"],
+        is_first_time_buyer=not has_topped_up_before,
+    )
+
+
+@app.route("/reload-success")
+@login_required
+def reload_success():
+    """
+    Where Stripe redirects after a successful payment confirmation.
+    The wallet itself gets credited by the webhook handler, which may
+    still be in flight when this page loads — that's expected and fine,
+    since the webhook is the authoritative source of truth here, not
+    this page.
+    """
+    return render_template("reload_success.html")
+
+
+@app.route("/api/wallet/pending-action-status/<int:pending_action_id>")
+@login_required
+def api_pending_action_status(pending_action_id):
+    """
+    Polled by reload_success.html while a resumed Send a Smack / Locked
+    & Loaded request may still be in flight (the webhook that actually
+    completes it can take a few seconds to arrive after payment
+    confirms on the frontend). Scoped to the current user only - no
+    one should be able to check another user's pending action status.
+    """
+    user = get_current_user()
+    pending = PendingAction.query.get(pending_action_id)
+    if not pending or pending.user_id != user.id:
+        return jsonify({"error": "Not found"}), 404
+
+    return jsonify({
+        "status": pending.status,
+        "redirect": pending.result_redirect,
+        "error_message": pending.error_message,
+    })
+
+
+
+@login_required
+def api_wallet_create_payment_intent():
+    """
+    Creates a real Stripe PaymentIntent for the selected top-up pack.
+    The amount is looked up server-side from wallet_service.TOPUP_PACKS
+    by pack key — never trusts a dollar amount sent from the browser,
+    since that would let someone tamper with the price before paying.
+    """
+    user = get_current_user()
+    data = request.json or {}
+    pack_key = data.get("pack")
+    pending_action_id = data.get("pending_action_id")
+
+    if pack_key not in wallet_service.TOPUP_PACKS:
+        return jsonify({"error": "Invalid pack selected."}), 400
+
+    pack = wallet_service.TOPUP_PACKS[pack_key]
+    intent = stripe_service.create_wallet_topup_payment_intent(
+        amount_cents=pack["pay_cents"], user_id=user.id, pack_key=pack_key,
+        pending_action_id=pending_action_id,
+    )
+
+    return jsonify({"client_secret": intent.client_secret})
+
+
 # ---------- Immediate "send it now" flow ----------
+
+def _execute_send_smack(user, data: dict) -> dict:
+    """
+    The actual order-creation + call-firing logic, factored out so both
+    the normal /api/orders request AND the webhook's "resume this
+    pending action now that the wallet is topped up" path can call the
+    exact same code. Assumes the wallet has ALREADY been debited by the
+    caller - this function only creates the order and fires the call.
+    Returns {"order_id": ..., "redirect": ...} on success.
+    """
+    order = Order(
+        scenario_id=data.get("scenario_id"),
+        custom_message=data.get("custom_message", ""),
+        voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
+        recipient_name=data["recipient_name"],
+        recipient_phone=data["recipient_phone"],
+        consent_confirmed=True,
+        price_cents=wallet_service.SMACK_COST_CENTS,
+        includes_recording=data.get("include_recording", True),
+        reply_opt_in=bool(data.get("reply_opt_in")),
+        sender_phone=data.get("sender_phone") if data.get("reply_opt_in") else None,
+        reply_token=secrets.token_urlsafe(24) if data.get("reply_opt_in") else None,
+        payment_status="captured",  # wallet deduction IS the payment - no async Stripe wait needed
+    )
+    db.session.add(order)
+    db.session.commit()
+
+    try:
+        audio_urls = call_audio_service.resolve_audio_url(order, os.environ["BASE_URL"])
+        _pending_call_audio[order.id] = audio_urls
+        order.message_audio_url = audio_urls[0]  # persist for reply-flow "hear it again" replay
+        call_sid = twilio_service.place_prank_call(order.id, order.recipient_phone, record=True)
+        order.twilio_call_sid = call_sid
+        order.call_status = "ringing"
+
+        if order.replied_to_type and order.replied_to_id:
+            original_model = Order if order.replied_to_type == "order" else Smackagram
+            original_record = original_model.query.get(order.replied_to_id)
+            if original_record:
+                original_record.replied = True
+
+        db.session.commit()
+    except Exception as e:
+        order.call_status = "failed"
+        db.session.commit()
+        print(f"Call failed for order {order.id}: {e}")
+
+    return {"order_id": order.id, "redirect": "/order-success"}
+
 
 @app.route("/api/orders", methods=["POST"])
 @login_required
 def create_order():
+    user = get_current_user()
     data = request.json
-    price = 200 if data.get("include_recording", True) else 100
 
     if not data.get("consent_confirmed"):
         return jsonify({"error": "Consent confirmation required"}), 400
@@ -401,31 +551,20 @@ def create_order():
         print(f"[safety] blocked order attempt — reason: {safety['reason']}")
         return jsonify({"error": "This message can't be sent — it may contain threatening, sexual, or harassing content. Please revise it."}), 400
 
-    order = Order(
-        scenario_id=data.get("scenario_id"),
-        custom_message=custom_message,
-        voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
-        recipient_name=data["recipient_name"],
-        recipient_phone=data["recipient_phone"],
-        consent_confirmed=True,
-        price_cents=price,
-        includes_recording=data.get("include_recording", True),
-        reply_opt_in=bool(data.get("reply_opt_in")),
-        sender_phone=data.get("sender_phone") if data.get("reply_opt_in") else None,
-        reply_token=secrets.token_urlsafe(24) if data.get("reply_opt_in") else None,
-    )
-    db.session.add(order)
-    db.session.commit()  # commit first so order.id exists for the checkout metadata
+    if not wallet_service.has_sufficient_balance(user, wallet_service.SMACK_COST_CENTS):
+        redirect = _store_pending_action(user, "send_smack", data)
+        return jsonify({"error": "insufficient_balance", "redirect": redirect}), 402
 
-    session = stripe_service.create_checkout_session(
-        order_id=order.id,
-        amount_cents=price,
-        base_url=os.environ.get("BASE_URL", request.url_root.rstrip("/")),
-    )
-    order.stripe_payment_intent_id = session.id
-    db.session.commit()
+    txn = wallet_service.debit_wallet(user, wallet_service.SMACK_COST_CENTS, "smack", description="Send a Smack")
+    if txn is None:
+        # race condition fallback - balance changed between the check
+        # above and this debit (e.g. two rapid requests) - handle it
+        # the same way as the upfront insufficient-balance case
+        redirect = _store_pending_action(user, "send_smack", data)
+        return jsonify({"error": "insufficient_balance", "redirect": redirect}), 402
 
-    return jsonify({"checkout_url": session.url})
+    result = _execute_send_smack(user, data)
+    return jsonify(result)
 
 
 @app.route("/order-success")
@@ -444,6 +583,70 @@ def stripe_webhook():
         event = stripe_service.verify_webhook(payload, sig_header, webhook_secret)
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+    if event["type"] == "payment_intent.succeeded":
+        intent = event["data"]["object"]
+        metadata = intent.get("metadata", {})
+
+        if metadata.get("type") == "wallet_topup":
+            # Idempotency: Stripe can and does redeliver webhooks - if
+            # we've already logged a transaction for this exact
+            # PaymentIntent, don't credit the wallet a second time.
+            existing = WalletTransaction.query.filter_by(stripe_payment_intent_id=intent["id"]).first()
+            if existing:
+                return jsonify({"received": True})
+
+            user_id = int(metadata["user_id"])
+            pack_key = metadata["pack_key"]
+            user = User.query.get(user_id)
+            pack = wallet_service.TOPUP_PACKS.get(pack_key)
+
+            if user and pack:
+                wallet_service.credit_wallet(
+                    user, pack["credit_cents"], "topup",
+                    stripe_payment_intent_id=intent["id"],
+                    description=f"{pack['label']} - ${pack['pay_cents']/100:.2f} for {pack['credit_cents']//100} Smackagrams ({pack['free_smackagrams']} free)",
+                )
+                db.session.commit()
+
+                # If this top-up was triggered by a Send a Smack / Locked
+                # & Loaded attempt that hit insufficient balance, resume
+                # that original request now - automatically, without the
+                # user re-entering anything. This is the one place we can
+                # be certain payment actually succeeded, regardless of
+                # what happened to the browser tab in the meantime.
+                pending_action_id = metadata.get("pending_action_id")
+                if pending_action_id:
+                    pending = PendingAction.query.get(int(pending_action_id))
+                    if pending and pending.status == "pending":
+                        try:
+                            payload = json.loads(pending.payload_json)
+                            cost = (
+                                wallet_service.SMACK_COST_CENTS if pending.action_type == "send_smack"
+                                else wallet_service.LOCKED_N_LOADED_COST_CENTS
+                            )
+                            txn = wallet_service.debit_wallet(
+                                user, cost, pending.action_type,
+                                description=f"Resumed after reload - {pending.action_type}",
+                            )
+                            if txn is None:
+                                pending.status = "failed"
+                                pending.error_message = "Still insufficient balance after reload."
+                            else:
+                                if pending.action_type == "send_smack":
+                                    result = _execute_send_smack(user, payload)
+                                else:
+                                    result = _execute_arm_smackagram(user, payload)
+                                pending.status = "completed"
+                                pending.result_redirect = result["redirect"]
+                                pending.completed_at = datetime.utcnow()
+                        except Exception as e:
+                            pending.status = "failed"
+                            pending.error_message = str(e)
+                            print(f"[wallet] failed to resume pending action {pending.id}: {e}")
+                        db.session.commit()
+
+            return jsonify({"received": True})
 
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
@@ -1573,15 +1776,64 @@ def upcoming_games():
 
 @app.route("/api/smackagrams", methods=["POST"])
 @login_required
+def _execute_arm_smackagram(user, data: dict) -> dict:
+    """
+    The actual Smackagram-creation logic, factored out so both the
+    normal /api/smackagrams request AND the webhook's "resume this
+    pending action now that the wallet is topped up" path can call the
+    exact same code. Re-validates game timing here specifically (not
+    just in the route handler) since real time can pass between the
+    original attempt and a resumed one completing payment - a game
+    that was armable 48 hours out when first submitted could have
+    already started by the time someone finishes topping up. Assumes
+    the wallet has ALREADY been debited by the caller. Raises ValueError
+    with a user-facing message if the game is no longer valid to arm.
+    """
+    game_start = datetime.fromisoformat(data["game_start_time"])
+    if game_start <= datetime.now(timezone.utc):
+        raise ValueError("This game has already started, so it can no longer be armed.")
+
+    mode = data.get("mode", "custom")
+
+    smackagram = Smackagram(
+        user_id=user.id,
+        game_id=data["game_id"],
+        sport=data.get("sport", "nfl"),
+        home_team=data["home_team"],
+        away_team=data["away_team"],
+        target_team=data["target_team"],
+        game_start_time=game_start,
+        mode=mode,
+        sensitivity=data.get("sensitivity", trash_talk_service.DEFAULT_SENSITIVITY),
+        custom_message=data.get("custom_message") if mode == "custom" else None,
+        voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
+        recipient_name=data["recipient_name"],
+        recipient_phone=data["recipient_phone"],
+        consent_confirmed=True,
+        reply_opt_in=bool(data.get("reply_opt_in")),
+        sender_phone=data.get("sender_phone") if data.get("reply_opt_in") else None,
+        reply_token=secrets.token_urlsafe(24) if data.get("reply_opt_in") else None,
+        price_cents=wallet_service.LOCKED_N_LOADED_COST_CENTS,
+    )
+    db.session.add(smackagram)
+    db.session.commit()
+
+    return {"smackagram_id": smackagram.id, "redirect": "/locked-n-loaded/success"}
+
+
+@app.route("/api/smackagrams", methods=["POST"])
+@login_required
 def arm_smackagram():
     """
-    Locks in a smackagram against a future game. Uses the same hosted-
-    Checkout flow as regular orders, but with capture_method='manual' — the
-    card is authorized (held), not charged. It only actually gets charged
-    if the target team loses; otherwise the hold is released with nothing
-    charged. See scheduler.py for the polling job that resolves this once
-    the game ends.
+    Locks in a smackagram against a future game. Debits the wallet
+    immediately when armed - NOT a Stripe card hold anymore, since a
+    wallet balance is just a number and can't be "authorized" the way
+    a card can. If the target team wins (or the game is postponed/
+    canceled), scheduler.py's resolution job credits the $1 back to
+    the wallet automatically - see release logic there. If the target
+    team loses, the debit simply stands; nothing further happens.
     """
+    user = get_current_user()
     data = request.json
 
     game_start = datetime.fromisoformat(data["game_start_time"])
@@ -1608,39 +1860,20 @@ def arm_smackagram():
     if sensitivity not in trash_talk_service.SENSITIVITY_LEVELS:
         return jsonify({"error": "Invalid sensitivity level"}), 400
 
-    smackagram = Smackagram(
-        game_id=data["game_id"],
-        sport=data.get("sport", "nfl"),
-        home_team=data["home_team"],
-        away_team=data["away_team"],
-        target_team=data["target_team"],
-        game_start_time=game_start,
-        mode=mode,
-        sensitivity=sensitivity,
-        custom_message=data.get("custom_message") if mode == "custom" else None,
-        voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
-        recipient_name=data["recipient_name"],
-        recipient_phone=data["recipient_phone"],
-        consent_confirmed=True,
-        reply_opt_in=bool(data.get("reply_opt_in")),
-        sender_phone=data.get("sender_phone") if data.get("reply_opt_in") else None,
-        reply_token=secrets.token_urlsafe(24) if data.get("reply_opt_in") else None,
-    )
-    db.session.add(smackagram)
-    db.session.commit()  # commit first so smackagram.id exists for the checkout metadata
+    if not wallet_service.has_sufficient_balance(user, wallet_service.LOCKED_N_LOADED_COST_CENTS):
+        redirect = _store_pending_action(user, "locked_n_loaded", data)
+        return jsonify({"error": "insufficient_balance", "redirect": redirect}), 402
 
-    session = stripe_service.create_authorized_checkout_session(
-        smackagram_id=smackagram.id,
-        amount_cents=smackagram.price_cents,
-        base_url=os.environ.get("BASE_URL", request.url_root.rstrip("/")),
+    txn = wallet_service.debit_wallet(
+        user, wallet_service.LOCKED_N_LOADED_COST_CENTS, "locked_n_loaded",
+        description=f"Locked & Loaded - {data.get('target_team', 'target')} armed",
     )
-    # store the Checkout Session id for now — the webhook swaps this for the
-    # actual PaymentIntent id once checkout completes, since that's what
-    # capture_hold()/release_hold() actually need
-    smackagram.stripe_payment_intent_id = session.id
-    db.session.commit()
+    if txn is None:
+        redirect = _store_pending_action(user, "locked_n_loaded", data)
+        return jsonify({"error": "insufficient_balance", "redirect": redirect}), 402
 
-    return jsonify({"checkout_url": session.url})
+    result = _execute_arm_smackagram(user, data)
+    return jsonify(result)
 
 
 # ---------- Twilio status callbacks ----------

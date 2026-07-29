@@ -187,24 +187,16 @@
   <div class="card">
     <p class="step-label">Step 4</p>
     <h3>Pick your play</h3>
-    <p class="card-sub">No tokens, no subscriptions. Just pay per smack.</p>
+    <p class="card-sub">No tokens, no subscriptions. Just $1 a smack.</p>
     <div class="pricing">
       <div class="price-card featured">
-        <span class="badge">Most popular</span>
+        <span class="badge">1 Smackagram</span>
         <p class="card-sub" style="margin:0;">Call + recording</p>
-        <p class="price">$2</p>
+        <p class="price">$1</p>
         <div class="feat">✓ Call delivered</div>
         <div class="feat">✓ Reaction recorded</div>
         <div class="feat">✓ Downloadable + shareable</div>
-        <button id="sendItBundle" class="btn btn-flare" style="margin-top:16px;">Send it</button>
-      </div>
-      <div class="price-card">
-        <p class="card-sub" style="margin:0;">Call only</p>
-        <p class="price">$1</p>
-        <div class="feat">✓ Call delivered</div>
-        <div class="feat no">✗ No recording</div>
-        <div class="feat no">✗ Nothing to share</div>
-        <button id="sendItCallOnly" class="btn btn-ghost" style="margin-top:16px;">Send it</button>
+        <button id="sendIt" class="btn btn-flare" style="margin-top:16px;">Send it</button>
       </div>
     </div>
   </div>
@@ -519,10 +511,7 @@ document.getElementById('voiceSampleBtn').addEventListener('click', async () => 
   }
 });
 
-let selectedPriceCents = 200;
-
-function openOrderModal(priceCents) {
-  selectedPriceCents = priceCents;
+function openOrderModal() {
   const generatedText = document.getElementById('trashTalkOutput').value.trim();
   if (generatedText) {
     document.getElementById('orderMessage').value = generatedText;
@@ -552,8 +541,7 @@ function openOrderModal(priceCents) {
   document.getElementById('orderModal').style.display = 'flex';
 }
 
-document.getElementById('sendItBundle').addEventListener('click', () => openOrderModal(200));
-document.getElementById('sendItCallOnly').addEventListener('click', () => openOrderModal(100));
+document.getElementById('sendIt').addEventListener('click', () => openOrderModal());
 
 document.getElementById('closeModalBtn').addEventListener('click', () => {
   document.getElementById('orderModal').style.display = 'none';
@@ -619,7 +607,7 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
         recipient_name: recipientName,
         recipient_phone: recipientPhone,
         consent_confirmed: consent,
-        include_recording: selectedPriceCents === 200,
+        include_recording: true,
         reply_opt_in: document.getElementById('orderReplyOptIn').checked,
         sender_phone: document.getElementById('orderSenderPhone').value.trim()
       })
@@ -629,8 +617,12 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
       return;
     }
-    if (data.checkout_url) {
-      window.location.href = data.checkout_url;
+    if (data.error === 'insufficient_balance') {
+      window.location.href = data.redirect || '/reload';
+      return;
+    }
+    if (data.redirect) {
+      window.location.href = data.redirect;
     } else {
       errorEl.textContent = data.error || 'Something went wrong — try again.';
       errorEl.style.display = 'block';

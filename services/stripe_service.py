@@ -32,6 +32,31 @@ def create_authorized_hold(amount_cents: int) -> stripe.PaymentIntent:
     )
 
 
+def create_wallet_topup_payment_intent(amount_cents: int, user_id: int, pack_key: str, pending_action_id: int = None) -> stripe.PaymentIntent:
+    """
+    Wallet top-up flow: charges immediately (not a hold) for the
+    selected pack's real dollar amount. amount_cents must be looked up
+    server-side from wallet_service.TOPUP_PACKS by the caller — never
+    trust a client-supplied amount, since that would let someone edit
+    the price in their browser. Metadata identifies the user and pack
+    so the webhook handler knows which wallet to credit and how much
+    bonus to add once payment succeeds. pending_action_id, when present,
+    tells the webhook there's an original Send a Smack / Locked & Loaded
+    request waiting to be resumed automatically once the wallet is
+    credited - the user shouldn't have to re-enter anything.
+    """
+    _configure()
+    metadata = {"type": "wallet_topup", "user_id": str(user_id), "pack_key": pack_key}
+    if pending_action_id is not None:
+        metadata["pending_action_id"] = str(pending_action_id)
+    return stripe.PaymentIntent.create(
+        amount=amount_cents,
+        currency="usd",
+        automatic_payment_methods={"enabled": True},
+        metadata=metadata,
+    )
+
+
 def capture_hold(payment_intent_id: str):
     """Target team lost — condition met, actually charge the card now."""
     _configure()

@@ -104,7 +104,7 @@ class Order(db.Model):
     replied_to_type = db.Column(db.String(12), nullable=True)
     replied_to_id = db.Column(db.Integer, nullable=True)
 
-    price_cents = db.Column(db.Integer, default=200)     # $2 bundle default, $1 call-only option
+    price_cents = db.Column(db.Integer, default=100)     # flat $1 per smack - wallet_service.SMACK_COST_CENTS, recording always included now
     includes_recording = db.Column(db.Boolean, default=True)
 
     stripe_payment_intent_id = db.Column(db.String(120))
@@ -127,12 +127,16 @@ class Order(db.Model):
 class Smackagram(db.Model):
     """
     A 'locked and loaded' conditional smackagram — armed against a live game,
-    fires only if the target team loses. Card is authorized but not captured
-    until the outcome is known.
+    fires only if the target team loses. The $1 wallet cost is debited
+    immediately at arm time (a wallet balance can't be "authorized" the
+    way a card can); if the target team wins or the game is postponed,
+    the $1 is credited back to the wallet by scheduler.py's resolution
+    job. If the target team loses, the debit simply stands.
     """
     __tablename__ = "smackagrams"
 
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
 
     # Game + condition
     game_id = db.Column(db.String(64), nullable=False)       # ID from the sports data API
@@ -158,9 +162,7 @@ class Smackagram(db.Model):
     reply_token = db.Column(db.String(64), nullable=True, unique=True)
     replied = db.Column(db.Boolean, default=False)  # True once someone has replied to THIS smack
 
-    price_cents = db.Column(db.Integer, default=200)
-
-    # Stripe — authorized now, captured/canceled once the game resolves
+    price_cents = db.Column(db.Integer, default=100)  # flat $1, matching wallet_service.LOCKED_N_LOADED_COST_CENTS - debited immediately, refunded if the hold releases
     stripe_payment_intent_id = db.Column(db.String(120))
     auth_status = db.Column(db.String(20), default="authorized")  # authorized, captured, canceled, expired
 
@@ -342,11 +344,90 @@ class User(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Wallet: a single dollar-balance-in-cents field, per the pricing
+    # spec. Smackagram counts are NEVER stored separately — they're a
+    # display-only translation (floor(balance_cents / 100)), computed
+    # fresh every time via the smackagram_count property below. This
+    # avoids the two-units reconciliation drift that comes from
+    # tracking "15 smacks" AND "$10" as separate numbers that could
+    # drift out of sync — one ledger, one source of truth. Balances
+    # (including bonus credits from top-up packs) never expire.
+    balance_cents = db.Column(db.Integer, default=0, nullable=False)
+
+    @property
+    def smackagram_count(self):
+        """Display-only Smackagram count, computed fresh from the
+        wallet balance — never persisted as its own column."""
+        return self.balance_cents // 100
+
     def set_password(self, raw_password):
         self.password_hash = generate_password_hash(raw_password)
 
     def check_password(self, raw_password):
         return check_password_hash(self.password_hash, raw_password)
+
+
+class PendingAction(db.Model):
+    """
+    When a user tries to Send a Smack or arm Locked & Loaded but their
+    wallet balance is insufficient, the full original request payload
+    gets stored here (as JSON) instead of being lost, before redirecting
+    to /reload. Once the user successfully tops up, the Stripe webhook
+    itself (not the browser) looks up this record by id, re-runs the
+    original action using the stored payload, and marks it completed -
+    the user never has to re-enter anything. This is intentionally
+    server-side and webhook-driven rather than client-side storage
+    (sessionStorage etc), since the webhook is the one place we can be
+    certain payment actually succeeded, regardless of what happens to
+    the browser tab in between.
+    """
+    __tablename__ = "pending_actions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+
+    action_type = db.Column(db.String(30), nullable=False)  # "send_smack" or "locked_n_loaded"
+    payload_json = db.Column(db.Text, nullable=False)  # json.dumps() of the original request body
+
+    status = db.Column(db.String(20), default="pending")  # pending, completed, failed, expired
+    result_redirect = db.Column(db.String(255), nullable=True)  # where the resumed action ended up (e.g. /order-success) - lets reload_success.html show something meaningful
+    error_message = db.Column(db.Text, nullable=True)  # populated if resuming failed for some reason
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+
+
+
+    """
+    Append-only audit log of every wallet balance change — both
+    top-ups (Stripe payments) and deductions (sending a smack, arming
+    Locked & Loaded). amount_cents is signed: positive for a credit
+    (top-up), negative for a debit (spending). This exists specifically
+    so the wallet's running balance is always reconstructable and
+    auditable, rather than trusting a single mutable balance_cents
+    field with no history behind it — important given real money is
+    involved here.
+    """
+    __tablename__ = "wallet_transactions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+
+    amount_cents = db.Column(db.Integer, nullable=False)  # signed: +credit, -debit
+    balance_after_cents = db.Column(db.Integer, nullable=False)  # snapshot for easy auditing without replaying the whole log
+
+    # What kind of transaction this was, for display/support purposes.
+    # "topup" - a Stripe purchase credited the wallet
+    # "smack" - a main-generator send debited the wallet
+    # "locked_n_loaded" - arming a Locked & Loaded hold debited the wallet
+    transaction_type = db.Column(db.String(30), nullable=False)
+
+    # Links back to the Stripe PaymentIntent for topups (for support/
+    # dispute lookup), nullable since deductions have no Stripe object.
+    stripe_payment_intent_id = db.Column(db.String(255), nullable=True)
+
+    description = db.Column(db.String(255), nullable=True)  # human-readable note, e.g. "Loaded Package - $10 for 15 Smackagrams (5 free)"
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class SmackcastSubscription(db.Model):

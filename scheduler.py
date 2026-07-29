@@ -2,8 +2,23 @@ import os
 import secrets
 from datetime import datetime
 
-from models import db, Smackagram, Scenario, SmackcastSubscription, SmackcastRecap
-from services import sports_service, stripe_service, twilio_service, trash_talk_service, call_audio_service, content_moderation, sleeper_service, smackcast_service, elevenlabs_service, espn_service
+from models import db, Smackagram, Scenario, SmackcastSubscription, SmackcastRecap, User
+from services import sports_service, stripe_service, twilio_service, trash_talk_service, call_audio_service, content_moderation, sleeper_service, smackcast_service, elevenlabs_service, espn_service, wallet_service
+
+
+def _refund_released_smackagram(s):
+    """
+    Credits the $1 debited at arm-time back to the user's wallet when a
+    hold releases (target team won, game postponed/canceled) - the
+    wallet equivalent of Stripe's old release_hold(), since there's no
+    card authorization to cancel anymore, just a wallet debit to undo.
+    """
+    user = User.query.get(s.user_id)
+    if user:
+        wallet_service.credit_wallet(
+            user, wallet_service.LOCKED_N_LOADED_COST_CENTS, "locked_n_loaded_refund",
+            description=f"Locked & Loaded refund - {s.target_team} won, hold released",
+        )
 
 
 def check_armed_smackagrams():
@@ -37,7 +52,7 @@ def check_armed_smackagrams():
 
         if result["status"] == "postponed":
             for s in matching:
-                stripe_service.release_hold(s.stripe_payment_intent_id)
+                _refund_released_smackagram(s)
                 s.status = "canceled"
                 s.resolved_at = datetime.utcnow()
             db.session.commit()
@@ -45,7 +60,7 @@ def check_armed_smackagrams():
 
         if result["status"] == "tie":
             for s in matching:
-                stripe_service.release_hold(s.stripe_payment_intent_id)
+                _refund_released_smackagram(s)
                 s.status = "released"
                 s.resolved_at = datetime.utcnow()
             db.session.commit()
@@ -83,13 +98,15 @@ def check_armed_smackagrams():
                     # gate at the point of actually sending/charging.
                     safety = content_moderation.check_message_safety(s.custom_message)
                     if not safety["safe"]:
-                        stripe_service.release_hold(s.stripe_payment_intent_id)
+                        _refund_released_smackagram(s)
                         s.status = "failed"
                         print(f"[safety] Locked smackagram {s.id} blocked at fire-time — reason: {safety['reason']}")
                         s.resolved_at = datetime.utcnow()
                         continue
 
-                    stripe_service.capture_hold(s.stripe_payment_intent_id)
+                    # No capture step needed - the $1 was already debited
+                    # from the wallet at arm time, so the debit simply
+                    # stands now that the condition (target team lost) is met.
                     audio_urls = call_audio_service.resolve_audio_url(s, base_url)
                     s.message_audio_url = audio_urls[0]  # persist for reply-flow "hear it again" replay
                     call_sid = twilio_service.place_prank_call(s.id, s.recipient_phone, record=True)
@@ -99,8 +116,8 @@ def check_armed_smackagrams():
                     s.status = "failed"
                     print(f"Locked smackagram {s.id} failed to fire: {e}")
             else:
-                # target team won — release the hold, nothing charged
-                stripe_service.release_hold(s.stripe_payment_intent_id)
+                # target team won — refund the $1 back to the wallet
+                _refund_released_smackagram(s)
                 s.status = "released"
             s.resolved_at = datetime.utcnow()
 
