@@ -42,6 +42,15 @@
      off instead. */
   body.battle-complete, html.battle-complete{overflow:auto; height:auto;}
   body.battle-complete .wrap, html.battle-complete .wrap{height:auto; min-height:calc(100dvh - var(--nav-h));}
+  /* Same fix as battle-complete above, applied to the between-rounds
+     critique display - #lineHistory's flex:1/overflow-y:auto was
+     clipping the round's lines (especially the second, lower one)
+     whenever the critique card + lines together exceeded the fixed
+     viewport height, silencing part of what was actually said instead
+     of scrolling it into view. Letting the whole page scroll naturally
+     here means both lines and the critique are always fully readable. */
+  body.awaiting-round, html.awaiting-round{overflow:auto; height:auto;}
+  body.awaiting-round .wrap, html.awaiting-round .wrap{height:auto; min-height:calc(100dvh - var(--nav-h));}
   body{
     background-color:var(--ink);
     background-image:linear-gradient(rgba(13,13,13,0.88), rgba(13,13,13,0.88)), url('{{ url_for('static', filename='img/smack-battle-hero-1560.webp') }}');
@@ -58,6 +67,7 @@
   }
   #lineHistory{flex:1; overflow-y:auto; min-height:0; padding:4px 0;}
   body.waiting-room #lineHistory{flex:none;}
+  body.awaiting-round #lineHistory{flex:none;}
   #actionArea{flex-shrink:0; padding-bottom:16px;}
   nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
   nav a.back-link:hover{color:var(--flare);}
@@ -149,6 +159,16 @@
   }
   .music-mute-btn:hover{transform:scale(1.08); border-color:var(--gold);}
   .music-mute-btn.muted{color:var(--chalk-dim); border-color:var(--flare);}
+  @media(max-width:1180px){
+    /* Same breakpoint as the site's own nav drawer - below this, the
+       desktop nav-links and auth-links are both hidden (see
+       smackagram.css), leaving the nav's entire middle empty. The
+       fixed top:101px/right:16px desktop position was sitting on top
+       of the team names in the matchup header on narrow screens - this
+       moves it up into that now-empty center of the nav bar instead. */
+    .music-mute-btn{top:22px; left:50%; right:auto; transform:translateX(-50%);}
+    .music-mute-btn:hover{transform:translateX(-50%) scale(1.08);}
+  }
   .turn-timer{
     text-align:center; font-family:'Anton',sans-serif; font-size:32px;
     color:var(--gold); margin-bottom:10px; transition:color 0.2s ease;
@@ -656,10 +676,13 @@ function showHypePopup() {
   const overlay = document.getElementById('hypeOverlay');
   overlay.style.display = 'flex';
   document.getElementById('hypeBtn').addEventListener('click', () => {
-    // The click itself already runs through the page's global
-    // click listener (handlePageInteraction), which is what actually
-    // starts the waiting-room music.
     overlay.style.display = 'none';
+    // Explicit, direct call rather than relying on this click bubbling
+    // up to the page's global click listener (handlePageInteraction) -
+    // this is the moment the user has actually entered the waiting
+    // room for real, so the music should start right here, guaranteed,
+    // not depend on event propagation timing.
+    updateBackgroundMusic(lastKnownStatus);
     unlockOneShotSounds();
   });
 }
@@ -795,6 +818,29 @@ function playIntro(teamA, teamB, teamAColor, teamBColor) {
     overlay.style.display = 'none';
     if (soundEnabled && sfxUrls && sfxUrls.bell_url) {
       playAudioElement('bellAudio');
+    }
+    // Side A's turn timer starts right here, not the moment the battle
+    // went active - this is when their input box actually appears, so
+    // this is when their 60 seconds should actually begin. Side B's own
+    // page runs this same intro but has nothing to start (it isn't
+    // their turn), so this is scoped to mySide === 'a' only. If this
+    // call somehow fails, the existing "Respond Now" gate (shown
+    // whenever turn_started_at is null) is still there as a manual
+    // fallback rather than leaving side A stuck with no way forward.
+    if (getMySide() === 'a') {
+      fetch(`/api/battles/${challengeCode}/start-turn`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({side: 'a'})
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (!data.error) {
+            lastActionSignature = null;
+            render(data);
+          }
+        })
+        .catch(() => {});
     }
   }, holdMs + 3 * stepMs);
 }
@@ -934,7 +980,7 @@ function buildLedRow(battle) {
   (battle.round_results || []).forEach(r => { results[r.round] = r.winner; });
 
   let leds = '';
-  for (let round = 1; round <= 5; round++) {
+  for (let round = 1; round <= battle.max_rounds; round++) {
     if (results[round]) {
       const winner = results[round]; // "a", "b", or "tie"
       leds += `<div class="led ${winner === 'tie' ? 'tie' : 'side-' + winner}"></div>`;
@@ -968,6 +1014,8 @@ function render(battle) {
   document.documentElement.classList.toggle('battle-complete', battle.status === 'complete');
   document.body.classList.toggle('battle-complete', battle.status === 'complete');
   document.body.classList.toggle('waiting-room', battle.status === 'waiting');
+  document.documentElement.classList.toggle('awaiting-round', battle.status === 'active' && battle.awaiting_next_round);
+  document.body.classList.toggle('awaiting-round', battle.status === 'active' && battle.awaiting_next_round);
 
   // Updated directly here, every render, completely independent of the
   // action-area signature below — that signature deliberately excludes
@@ -1420,11 +1468,19 @@ function render(battle) {
     actionHtml = buildFinalScorecard(battle, mySide);
 
     const iRequestedRematch = mySide === 'a' ? battle.rematch_requested_a : battle.rematch_requested_b;
+    const opponentRequestedRematch = mySide === 'a' ? battle.rematch_requested_b : battle.rematch_requested_a;
+    let rematchSectionHtml;
+    if (iRequestedRematch) {
+      rematchSectionHtml = '<p class="waiting-note">Waiting for your opponent to accept the rematch...</p>';
+    } else if (opponentRequestedRematch) {
+      rematchSectionHtml = '<button id="rematchBtn" class="btn btn-flare">Accept Rematch</button>';
+    } else {
+      rematchSectionHtml = '<button id="rematchBtn" class="btn btn-flare">Rematch</button>';
+    }
     actionHtml += `
       <div class="card">
-        ${iRequestedRematch
-          ? '<p class="waiting-note">Waiting for your opponent to start a rematch...</p>'
-          : '<button id="rematchBtn" class="btn btn-flare">Start New Smack Battle</button>'}
+        ${rematchSectionHtml}
+        <a href="/smack-battle" class="btn" style="display:block; text-align:center; margin-top:10px; background:transparent; border:1px solid var(--line-strong); color:var(--chalk); text-decoration:none;">Start a New Battle</a>
       </div>
     `;
   }

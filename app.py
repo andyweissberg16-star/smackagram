@@ -1344,7 +1344,13 @@ def join_battle(challenge_code):
     battle.team_b = team_b
     battle.display_name_b = display_name_b or "Anonymous"
     battle.status = "active"
-    battle.turn_started_at = datetime.utcnow()
+    # Deliberately left null, not datetime.utcnow() - the frontend plays
+    # a ~5.9s team-names + 3-2-1 countdown intro before side A's input
+    # box actually appears for round 1. Starting the clock here would
+    # silently burn several seconds of side A's 60-second window on an
+    # animation they can't even respond during. The frontend explicitly
+    # calls /start-turn the moment that intro finishes (see playIntro).
+    battle.turn_started_at = None
     db.session.commit()
 
     return jsonify(_battle_state_json(battle))
@@ -1726,6 +1732,8 @@ def request_rematch(challenge_code):
             team_b=battle.team_b,
             display_name_b=battle.display_name_b,
             status="active",
+            intensity=battle.intensity,
+            max_rounds=battle.max_rounds,
         )
         db.session.add(new_battle)
         battle.rematch_challenge_code = new_code

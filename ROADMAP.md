@@ -2345,3 +2345,188 @@ Verified with real bounding-box measurements on both desktop and
 mobile viewports (nav height is identical at both sizes on this page):
 confirmed the button's top edge now sits at or below the nav's bottom
 edge in both cases, with zero overlap.
+
+## Smack Battle: music now reliably starts on entering the waiting room (same session)
+Per direct request from live testing - the waiting-room music was
+relying on the hype popup's ("Are you ready?"/"Prove It") click event
+bubbling up to a separate, page-wide click listener to actually start
+playing, rather than being started directly at the moment of that
+click. Made this explicit and direct: the hype button's own click
+handler now calls updateBackgroundMusic() itself, guaranteed to fire
+at that exact moment rather than depending on event propagation.
+
+VERIFIED with a real browser test, not just reasoning about event
+bubbling: confirmed the music is genuinely paused before the hype
+button is clicked (correctly blocked by the browser's autoplay policy,
+since no gesture has happened yet), then confirmed it's genuinely
+playing afterward - not just a flag, but actual currentTime advancing
+in real time. Also confirmed the mute button's icon correctly shows
+unmuted at that point, and that clicking it genuinely silences the
+now-playing track (muted:true, still playing underneath) rather than
+stopping playback outright.
+
+## Smack Battle: fixed the 60-second timer silently starting during the intro countdown (same session)
+Per direct request from live testing - the timer was starting the
+moment the battle went active (when side B joins), but the frontend
+then plays a ~5.9-second team-names + 3-2-1 countdown intro before
+side A's actual input box appears for round 1. That entire animation
+was silently burning into side A's 60 seconds before they could even
+see or use the response box.
+
+Fix: join_battle() no longer sets turn_started_at when the battle goes
+active - left null instead. playIntro()'s own final setTimeout (the
+exact moment the overlay clears and bell rings) now automatically
+calls the existing /start-turn endpoint for side A specifically. Side
+B's own page runs the same intro but has nothing to start, since it
+isn't their turn. If this automatic call ever somehow failed, the
+existing "Respond Now" gate (shown whenever turn_started_at is null)
+is still there as a manual fallback rather than leaving side A stuck.
+
+Rounds 2+ were confirmed unaffected and don't need this - playIntro()
+is explicitly gated to only ever play for round_number === 1, so
+ready_for_next_round()'s existing immediate-start behavior for later
+rounds was already correct (no animation delay exists there).
+
+VERIFIED with a real live-server test spanning the actual full
+timing, not a shortcut: confirmed turn_started_at is genuinely null
+immediately after side B joins, confirmed the intro overlay is visible
+early and the input box is NOT, then waited the actual ~6.5 real
+seconds for the intro to genuinely finish, and confirmed both that the
+input box appeared with a fresh ~59-60 second timer (not something
+already ticked down to ~54) AND that turn_started_at was now set
+server-side. Also confirmed side B's own experience during this same
+window was correct and unaffected.
+
+## Smack Battle: round 1's turn timer no longer burns time during the intro animation (same session)
+Per direct request from live testing - the 60-second clock was
+starting the moment the battle went active server-side (when side B
+joins), but the frontend then plays a ~5.9 second team-names + 3-2-1
+countdown intro before side A's actual input box appears. That entire
+animation was silently eating into side A's response window before
+they could even see the text field.
+
+Fixed the same way as the earlier mid-battle "Respond Now" gate:
+join_battle() no longer sets turn_started_at at all (left null). The
+frontend's existing turn_started_at===null gating already covers this
+correctly - but rather than showing a manual button here (there's
+nothing to read yet at the very start of a battle, unlike mid-battle),
+playIntro() now automatically calls the existing /start-turn endpoint
+itself the instant its own countdown finishes, only from side A's
+browser. If that automatic call somehow failed, the existing "Respond
+Now" button would still be there as a manual fallback rather than
+leaving side A stuck.
+
+VERIFIED with a real, full live-server test: confirmed turn_started_at
+is genuinely null immediately after joining, confirmed the intro
+overlay is genuinely visible right after loading and genuinely cleared
+after waiting through its full real duration, confirmed the text input
+appears at that point, and confirmed the timer displayed 59 (not
+appreciably less) - the clock is now starting right as the intro ends,
+not counting down from several seconds earlier.
+
+## Smack Battle: music mute button repositioned on mobile only (same session)
+Per direct request from live testing - the fixed-position mute button
+(top:101px, right:16px) was overlapping the team name text in the
+matchup header on narrow mobile screens. Confirmed the actual overlap
+with real measurements before fixing (button sat inside the header's
+own bounding box).
+
+Fixed with a mobile-only media query, matching the site's own existing
+nav-drawer breakpoint (max-width:1180px) rather than inventing a new
+one - below that width, the site already hides both the desktop
+nav-links and auth-links, leaving the entire center of the nav bar
+empty. Moved the button there on mobile: centered horizontally, sitting
+at the very top inside the nav itself. Desktop is completely
+unaffected - this only applies below the same breakpoint the site
+already uses for its own mobile nav.
+
+VERIFIED with real bounding-box measurements, not visual assumption:
+confirmed the button now sits exactly horizontally centered in a real
+390px mobile viewport, with zero vertical overlap with the team-name
+header, and specifically confirmed it doesn't collide with either the
+logo (top-left) or the hamburger menu toggle (top-right) on that same
+mobile view. Also confirmed desktop's position (top:101, right side)
+is completely unchanged.
+
+## Smack Battle: fixed clipped between-round lines + LED row not scaling to 10 rounds (same session)
+Two related visibility bugs found during live testing.
+
+### LED row hardcoded to 5
+buildLedRow() looped `round <= 5` regardless of the battle's actual
+max_rounds, so a 10-round battle only ever showed 5 win/loss/tie
+circles - another spot missed when the configurable-rounds feature was
+built. Fixed to loop against battle.max_rounds instead. Verified live:
+a real 10-round battle now genuinely renders 10 LED elements.
+
+### Lines getting clipped during the between-rounds critique screen
+Root cause, confirmed with real DOM measurements: #lineHistory uses
+flex:1 + overflow-y:auto inside a viewport-height-constrained flex
+column layout. Whenever the round's two lines together were taller
+than the space left over after the critique card (#actionArea, which
+doesn't shrink) took its share, the second line got silently clipped
+by the internal scroll area - not visible without scrolling a small,
+easy-to-miss internal box, exactly matching the report of not being
+able to read what was said.
+
+Fixed using the same pattern the codebase already applies to the
+battle-complete scorecard screen: added a new awaiting-round body/html
+class, toggled whenever the between-rounds critique is showing, that
+switches the whole page to natural height:auto scrolling instead of
+being squeezed into the fixed viewport-height flex box. Both lines and
+the critique card are now always fully reachable by scrolling the
+actual page, not a hidden inner scrollbox.
+
+VERIFIED with real, precise DOM measurements before and after, not
+assumption: confirmed before the fix that the second line's bottom
+edge (675px) extended well past the visible clipped area's bottom
+edge (644px) - a genuine ~31px cutoff. After the fix, confirmed the
+page's actual scroll height now correctly grows past the viewport
+height, and confirmed the previously-clipped line becomes fully
+visible after a normal page scroll.
+
+## Smack Battle: mute scope confirmed correct + rematch UI finished + carryover bug fixed (same session)
+Two items from the same request.
+
+### Mute button scope (verified, no code change needed)
+Per direct request - confirmed empirically, not just by reading the
+code, that the existing mute toggle already does exactly what was
+asked: it silences background music (waiting-room track) and crowd
+noise, while the round-start bell and the "message sent" sound stay
+completely unaffected and always audible regardless of mute state.
+playAudioElement() (which plays both of those) already force-unmutes
+every time it actually plays something, independent of the music mute
+toggle. Tested all four cases directly against a live page rather than
+assuming from the source.
+
+### Rematch: 2-button final scorecard + a real bug fix
+Discovered while investigating that a full rematch backend/frontend
+flow already existed (both-sides-must-agree gate, auto-redirect via
+polling, brand new Battle created with the same teams). Extended it
+per direct request:
+- Renamed the single existing button from "Start New Smack Battle" to
+  "Rematch"
+- Added a distinct "Accept Rematch" label specifically for whichever
+  side sees their opponent already requested it - previously both
+  sides saw identical generic button text with no indication a request
+  was already waiting on them
+- Added the second button: "Start a New Battle", linking to the
+  create-a-battle page, for starting a fresh matchup instead of
+  rematching the same opponent
+
+Found and fixed a real bug along the way: the new rematch Battle never
+carried over the original's intensity or round count, silently
+resetting every rematch to Savage/5-rounds regardless of what the
+original battle actually used.
+
+VERIFIED with a real, full live-server test end to end: created an
+original battle at a deliberately non-default Mild/10-round
+combination, fast-forwarded it through a properly simulated 10-round
+completion (real round results, not just flipping the status flag),
+confirmed both buttons render correctly on the scorecard, confirmed
+side A requesting shows the correct waiting text AND correctly flips
+side B's own button to "Accept Rematch", confirmed side B accepting
+creates a real new battle and redirects both browsers there (side A's
+via the existing polling-based redirect, side B's directly), confirmed
+the new battle genuinely shows the 1-2-3 intro countdown again, and
+confirmed the new battle's intensity (2/Mild) and max_rounds (10)
+correctly match the original instead of reverting to defaults.
