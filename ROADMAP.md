@@ -3075,3 +3075,85 @@ the fills are darker.
 VERIFIED with a live battle: computed styles confirm both bubbles resolve
 to background-color rgba(26,26,26,0.92) with their respective
 linear-gradient colour tint on top, and borders at ~0.46 alpha.
+
+## Smack Battle: 3-2-1 countdown before every round + reduced audio churn
+
+### Round countdown (built and verified)
+Added playRoundCountdown(), modelled on the battle intro: reuses the same
+full-screen overlay, the same intro whoosh + tick sounds + closing bell,
+and the same 900ms-per-tick 3-2-1 cadence, but announces "ROUND N"
+instead of the team-vs-team reveal. Shorter lead-in (1200ms vs 3200ms)
+since there are no team names to read. Total ~3.9s.
+
+Fires off round_number ticking up, which BOTH players see from their own
+poll, so neither can start typing before the other. Hooked in where a
+bare ringBell() previously fired the instant the round advanced; the bell
+now rings at the END of the countdown so it lands on the actual round
+start rather than ~4s early. The shared overlay's "VS" element is hidden
+during a round countdown and restored afterwards, since a rematch reuses
+the same element for the full team-vs-team intro.
+
+Backend: ready_for_next_round no longer sets turn_started_at (left null),
+so the countdown can't burn seconds off side A's 60 - the exact bug
+already fixed for round 1's intro. The countdown calls /start-turn on
+completion, and the existing "Respond Now" gate stays as the fallback if
+that call ever fails.
+
+VERIFIED with a real two-player live battle: confirmed BOTH sides show
+the overlay reading "ROUND 2" with the countdown running simultaneously,
+confirmed the overlay clears afterwards, and confirmed the turn timer
+then reads a full 60 (not reduced by the ~3.9s animation) with
+turn_started_at set server-side.
+
+### Choppy music - partial, unverified
+Reduced redundant audio property writes: updateBackgroundMusic() runs on
+every 1.5s poll and was blindly re-assigning .muted and .volume on
+already-playing media elements each time, which is a known cause of
+audible stutter (mobile Safari especially). Now only writes when the
+value actually differs.
+
+HONEST CAVEAT: this is a plausible contributor, not a confirmed
+diagnosis. Audio smoothness cannot be verified in a headless sandbox
+with no real audio output. Other candidates not ruled out: a hard seam
+in the looping crowd-loop.mp3 itself, or the 1-per-second judging beep
+reading as choppiness. If it persists after this, the next step is to
+narrow down WHICH sound is choppy (crowd loop during play vs the
+between-rounds track vs the judging beep).
+
+## Smack Battle: final scorecard redesigned as a fight-night judge's card
+The old scorecard was a generic centred stack: big "3 – 2" numeral, names
+row, five round chips showing only "R1".."R5", two averages. Dull, and it
+threw away the best data on the card - score_a/score_b per round already
+existed in the API response and were never shown.
+
+Redesigned around the real-world artifact the feature is imitating: an
+official boxing judge's scorecard. Worked entirely within the site's
+established identity (Anton display, JetBrains Mono for data, gold/red on
+ink) rather than inventing a new palette.
+
+- Document header: "Official scorecard" / "Bout <challenge_code>" as a
+  mono eyebrow over a hairline rule. The bout code is a real detail the
+  data already had.
+- Bout line: each fighter's name + team flanking the rounds tally, so the
+  matchup reads left-to-right like a card, instead of a giant lone number.
+- SIGNATURE - the judge's grid: rounds across the top, one row per
+  fighter, the actual per-round score in each cell, and the winner's cell
+  marked (tinted + ruled + bold) the way a judge marks a card. This is now
+  the hero of the card because the scores ARE the information. Columns
+  capped at 50px so numerals sit in tight cells rather than stretching.
+  Honours max_rounds, which also fixes a real bug: the old loop was
+  hardcoded to 5, so a 10-round battle only ever showed five rounds.
+- Verdict as a rubber stamp: off-axis (-3.5deg), double-ruled, wide
+  letter-spacing, slamming in with a scale-down animation. One loud
+  moment; everything around it stays quiet. prefers-reduced-motion
+  respected.
+- 10-round grids scroll horizontally rather than crushing columns
+  unreadably on a phone.
+
+VERIFIED by rendering a real completed battle and reviewing screenshots
+at 1280x900 and 390x800: 21 grid cells (3 rows x 7 cols) for a 5-round
+bout, all 5 winning cells marked, stamp confirmed rotated via computed
+transform, and on mobile the 300px grid fits inside the 342px card with
+no overflow. Confirmed zero orphaned references to the removed CSS
+classes (final-round-chip / final-score-tally / final-players-row /
+final-avg-row).

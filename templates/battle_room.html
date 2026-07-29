@@ -335,34 +335,109 @@
     50%{opacity:0.45;}
   }
 
-  .final-scorecard{text-align:center;}
-  .final-scorecard-title{
-    font-family:'Anton',sans-serif; font-size:14px; text-transform:uppercase; letter-spacing:2px;
-    color:var(--chalk-dim); margin-bottom:12px;
+  /* FINAL SCORECARD - modelled on an official fight-night judge's card:
+     a ruled document with a mono numeral grid, and a rubber-stamped
+     verdict as the one loud moment. The grid is the hero because the
+     per-round scores ARE the information; everything else stays quiet. */
+  .final-scorecard{padding:20px;}
+  .jsc-header{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-family:'JetBrains Mono',monospace; font-size:10px;
+    text-transform:uppercase; letter-spacing:1.5px; color:var(--chalk-dim);
+    border-bottom:1px solid var(--line-strong); padding-bottom:8px;
   }
-  .final-score-tally{font-family:'Anton',sans-serif; font-size:52px; margin-bottom:18px;}
-  .final-score-tally .side-a{color:var(--gold); text-shadow:0 0 20px rgba(255,212,0,0.5);}
-  .final-score-tally .side-b{color:var(--flare); text-shadow:0 0 20px rgba(232,20,44,0.5);}
-  .final-score-tally .final-score-dash{color:var(--chalk-dim); margin:0 14px; font-size:32px;}
-  .final-players-row{
-    display:flex; justify-content:center; align-items:center; gap:10px; margin-bottom:18px;
-    font-family:'Inter',sans-serif; font-weight:600; font-size:13px;
+  .jsc-bout{color:var(--chalk-dim); opacity:0.65;}
+
+  .jsc-bout-line{display:flex; align-items:center; gap:10px; padding:16px 0 14px;}
+  .jsc-fighter{flex:1; min-width:0;}
+  .jsc-fighter-right{text-align:right;}
+  .jsc-fighter-name{
+    font-family:'Anton',sans-serif; font-size:clamp(15px,4.5vw,21px);
+    text-transform:uppercase; line-height:1.1; letter-spacing:0.5px;
+    overflow-wrap:anywhere;
   }
-  .final-player-name.side-a{color:var(--gold);}
-  .final-player-name.side-b{color:var(--flare);}
-  .final-players-vs{color:var(--chalk-dim); font-size:11px; text-transform:uppercase;}
-  .final-round-row{display:flex; justify-content:center; gap:10px;}
-  .final-round-chip{
-    width:44px; height:44px; border-radius:8px; background:#1a1a1a; border:2px solid var(--line-strong);
+  .jsc-fighter-name.side-a{color:var(--gold);}
+  .jsc-fighter-name.side-b{color:var(--flare);}
+  .jsc-fighter-team{
+    font-family:'JetBrains Mono',monospace; font-size:9px; margin-top:3px;
+    text-transform:uppercase; letter-spacing:1px; opacity:0.8;
+    overflow-wrap:anywhere;
+  }
+  .jsc-tally{flex-shrink:0; text-align:center; font-family:'Anton',sans-serif; font-size:30px; line-height:1;}
+  .jsc-tally .side-a{color:var(--gold);}
+  .jsc-tally .side-b{color:var(--flare);}
+  .jsc-tally-dash{color:var(--chalk-dim); margin:0 5px; font-size:20px; vertical-align:2px;}
+  .jsc-tally-label{
+    font-family:'JetBrains Mono',monospace; font-size:8px; margin-top:4px;
+    text-transform:uppercase; letter-spacing:1.5px; color:var(--chalk-dim);
+  }
+
+  /* 10-round battles overflow a phone; let the card scroll rather than
+     crushing the columns to unreadable widths. */
+  .jsc-grid-scroll{overflow-x:auto; border-top:1px solid var(--line-strong); padding-top:12px;}
+  .jsc-grid{display:grid; gap:3px; font-family:'JetBrains Mono',monospace; min-width:max-content; margin-inline:auto;}
+  .jsc-cell{
     display:flex; align-items:center; justify-content:center;
+    padding:7px 2px; font-size:12px; border-radius:3px;
+    background:rgba(245,245,243,0.03);
   }
-  .final-round-chip.side-a{background:rgba(255,212,0,0.15); border-color:var(--gold); box-shadow:0 0 10px rgba(255,212,0,0.4);}
-  .final-round-chip.side-b{background:rgba(232,20,44,0.15); border-color:var(--flare); box-shadow:0 0 10px rgba(232,20,44,0.4);}
-  .final-round-chip.tie{background:var(--ink-2); border-color:var(--chalk-dim);}
-  .final-round-num{font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:var(--chalk);}
-  .final-avg-row{display:flex; justify-content:center; gap:32px; margin-top:18px;}
-  .final-avg-label{font-size:11px; color:var(--chalk-dim); text-transform:uppercase; margin-bottom:4px;}
-  .final-avg-value{font-family:'Anton',sans-serif; font-size:20px;}
+  .jsc-corner{background:none;}
+  .jsc-head{
+    font-size:9px; letter-spacing:1px; color:var(--chalk-dim);
+    text-transform:uppercase; background:none; padding:2px;
+  }
+  .jsc-head-avg{color:var(--chalk);}
+  .jsc-rowlabel{
+    justify-content:flex-start; font-size:9px; letter-spacing:0.5px;
+    text-transform:uppercase; background:none; padding-left:0;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .jsc-rowlabel.side-a{color:var(--gold);}
+  .jsc-rowlabel.side-b{color:var(--flare);}
+  .jsc-score{color:var(--chalk-dim); font-weight:500;}
+  /* The marked cell is how a judge shows who took the round. */
+  .jsc-score.won-a{
+    background:rgba(255,212,0,0.16); color:var(--gold); font-weight:700;
+    box-shadow:inset 0 0 0 1px rgba(255,212,0,0.5);
+  }
+  .jsc-score.won-b{
+    background:rgba(232,20,44,0.16); color:var(--flare); font-weight:700;
+    box-shadow:inset 0 0 0 1px rgba(232,20,44,0.5);
+  }
+  .jsc-avg{font-weight:700; background:rgba(245,245,243,0.07);}
+  .jsc-avg.side-a{color:var(--gold);}
+  .jsc-avg.side-b{color:var(--flare);}
+  .jsc-legend{
+    font-family:'JetBrains Mono',monospace; font-size:8px; color:var(--chalk-dim);
+    text-transform:uppercase; letter-spacing:1px; opacity:0.55;
+    text-align:right; margin-top:6px;
+  }
+
+  /* SIGNATURE: the verdict lands as a rubber stamp slammed on the card -
+     off-axis, double-ruled, letter-spaced like real stamp type. */
+  .jsc-verdict{text-align:center; margin:22px 0 14px;}
+  .verdict-stamp{
+    display:inline-block; transform:rotate(-3.5deg);
+    border:3px double currentColor; border-radius:4px;
+    padding:9px 20px; font-family:'Anton',sans-serif;
+    font-size:clamp(19px,6vw,29px); text-transform:uppercase; letter-spacing:3px;
+    animation:stampSlam 0.45s cubic-bezier(0.2,1.5,0.4,1) both;
+  }
+  .verdict-stamp.win{color:var(--gold); text-shadow:0 0 22px rgba(255,212,0,0.45);}
+  .verdict-stamp.loss{color:var(--flare); text-shadow:0 0 22px rgba(232,20,44,0.45);}
+  .verdict-stamp.tie{color:var(--chalk-dim);}
+  @keyframes stampSlam{
+    0%{transform:rotate(-3.5deg) scale(2.4); opacity:0;}
+    60%{opacity:1;}
+    100%{transform:rotate(-3.5deg) scale(1); opacity:1;}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .verdict-stamp{animation:none;}
+  }
+  .jsc-recap{
+    font-size:13px; color:#DCDCD9; line-height:1.6; text-align:center;
+    padding-top:12px; border-top:1px solid var(--line);
+  }
   .smack-lab-nudge{
     text-align:center; margin-top:16px; padding-top:16px; border-top:1px solid var(--line-strong);
   }
@@ -692,8 +767,8 @@ function updateBackgroundMusic(status) {
       // unmuted — the mobile unlock sequence intentionally leaves
       // elements muted afterward (see unlockOneShotSounds), so this
       // still can't just assume a prior state either way.
-      waitingAudio.muted = musicMuted;
-      waitingAudio.volume = 0.25;
+      if (waitingAudio.muted !== musicMuted) waitingAudio.muted = musicMuted;
+      if (waitingAudio.volume !== 0.25) waitingAudio.volume = 0.25;
       if (status === 'complete' && !completeMusicStarted) {
         // The scorecard reveal should feel like a clean musical moment
         // of its own, not a continuation of whatever point the track
@@ -712,10 +787,14 @@ function updateBackgroundMusic(status) {
     }
   } else {
     if (waitingAudio && !waitingAudio.paused) waitingAudio.pause();
-    if (crowdAudio && crowdAudio.paused && crowdAudio.src) {
-      crowdAudio.muted = musicMuted;
-      crowdAudio.volume = 0.15;
-      crowdAudio.play().catch(() => {});
+    if (crowdAudio && crowdAudio.src) {
+      // Only write these when they actually differ. This function runs on
+      // every 1.5s poll, and blindly re-assigning muted/volume on a
+      // playing media element that often is a known source of audible
+      // stutter, especially on mobile Safari.
+      if (crowdAudio.muted !== musicMuted) crowdAudio.muted = musicMuted;
+      if (crowdAudio.volume !== 0.15) crowdAudio.volume = 0.15;
+      if (crowdAudio.paused) crowdAudio.play().catch(() => {});
     }
   }
 }
@@ -917,6 +996,75 @@ function playIntro(teamA, teamB, teamAColor, teamBColor) {
   }, holdMs + 3 * stepMs);
 }
 
+function playRoundCountdown(roundNumber) {
+  // Same overlay, sounds and 3-2-1 rhythm as the battle intro, but
+  // announcing "ROUND N" instead of the team-vs-team reveal. Fires on
+  // BOTH players' screens (it is driven by round_number ticking up,
+  // which both sides see from their own poll), so the two of them start
+  // each round in sync rather than one being able to type early.
+  const overlay = document.getElementById('introOverlay');
+  const countdownEl = document.getElementById('introCountdown');
+  const introTeamAEl = document.getElementById('introTeamA');
+  const introTeamBEl = document.getElementById('introTeamB');
+  const vsEl = document.querySelector('.intro-vs');
+
+  introTeamAEl.textContent = `ROUND ${roundNumber}`;
+  introTeamAEl.style.color = '';
+  introTeamBEl.textContent = '';
+  if (vsEl) vsEl.style.display = 'none';
+  countdownEl.textContent = '';
+  countdownEl.className = 'intro-countdown';
+  overlay.style.display = 'flex';
+
+  if (soundEnabled && sfxUrls && sfxUrls.intro_url) {
+    playAudioElement('introAudio');
+  }
+
+  // Shorter hold than the battle intro - there are no team names to read
+  // here, just the round number - but the same 900ms cadence per tick.
+  const holdMs = 1200;
+  const stepMs = 900;
+  [3, 2, 1].forEach((n, i) => {
+    setTimeout(() => {
+      countdownEl.textContent = n;
+      countdownEl.classList.remove('pulse');
+      void countdownEl.offsetWidth;
+      countdownEl.classList.add('pulse');
+      if (soundEnabled && sfxUrls && sfxUrls.countdown_tick_url) {
+        playAudioElement('tickAudio');
+      }
+    }, holdMs + i * stepMs);
+  });
+
+  setTimeout(() => {
+    overlay.style.display = 'none';
+    // Restore the overlay for any later use (e.g. a rematch replaying
+    // the full team-vs-team intro) - it is a shared element.
+    if (vsEl) vsEl.style.display = '';
+    ringBell();
+    // Side A's clock starts here, not when the round advanced
+    // server-side, so this countdown doesn't eat into their 60 seconds.
+    // Only side A's own browser calls it; the backend rejects the other
+    // side anyway. If it fails, the existing "Respond Now" gate (shown
+    // whenever turn_started_at is null) remains as a manual fallback.
+    if (getMySide() === 'a') {
+      fetch(`/api/battles/${challengeCode}/start-turn`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({side: 'a'})
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (!data.error) {
+            lastActionSignature = null;
+            render(data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, holdMs + 3 * stepMs);
+}
+
 async function loadBattle() {
   try {
     const resp = await fetch(`/api/battles/${challengeCode}?_=${Date.now()}`, {cache: 'no-store'});
@@ -967,12 +1115,26 @@ function buildFinalScorecard(battle, mySide) {
   const avgA = scoresA.length ? (scoresA.reduce((sum, s) => sum + s, 0) / scoresA.length).toFixed(1) : null;
   const avgB = scoresB.length ? (scoresB.reduce((sum, s) => sum + s, 0) / scoresB.length).toFixed(1) : null;
 
-  let rounds = '';
-  for (let round = 1; round <= 5; round++) {
+  // A real judge's scorecard puts the per-round numbers on the card.
+  // Those scores already existed in the data and were being thrown away -
+  // the old chips only showed "R1", "R2". Honours max_rounds too, so a
+  // 10-round battle shows all ten instead of silently stopping at five.
+  const totalRounds = battle.max_rounds || 5;
+  let headCells = '<div class="jsc-cell jsc-corner"></div>';
+  let rowACells = '';
+  let rowBCells = '';
+  for (let round = 1; round <= totalRounds; round++) {
     const r = results.find(x => x.round === round);
-    const cls = !r ? '' : r.winner === 'tie' ? 'tie' : 'side-' + r.winner;
-    rounds += `<div class="final-round-chip ${cls}"><span class="final-round-num">R${round}</span></div>`;
+    headCells += `<div class="jsc-cell jsc-head">R${round}</div>`;
+    const wonA = r && r.winner === 'a';
+    const wonB = r && r.winner === 'b';
+    const sa = r && r.score_a !== null && r.score_a !== undefined ? r.score_a : '&ndash;';
+    const sb = r && r.score_b !== null && r.score_b !== undefined ? r.score_b : '&ndash;';
+    rowACells += `<div class="jsc-cell jsc-score${wonA ? ' won-a' : ''}">${sa}</div>`;
+    rowBCells += `<div class="jsc-cell jsc-score${wonB ? ' won-b' : ''}">${sb}</div>`;
   }
+  // Columns: fighter label, one per round, then the average.
+  const gridCols = `minmax(58px,auto) repeat(${totalRounds}, minmax(30px,50px)) minmax(46px,auto)`;
 
   const isWinner = battle.overall_winner && battle.overall_winner !== 'tie' && mySide === battle.overall_winner;
   if (isWinner) triggerConfetti();
@@ -985,13 +1147,14 @@ function buildFinalScorecard(battle, mySide) {
 
   // Recap generation is a real AI call running in the background — this
   // covers the brief window before overall_winner has actually arrived.
+  const stampText = battle.overall_winner === 'tie' ? 'Draw' : isWinner ? 'You won' : 'You lost';
   const recapBlock = !battle.overall_winner
     ? '<p class="waiting-note" style="margin-top:16px;">Writing your recap...</p>'
     : `
-      <div class="critique-box ${recapClass}" style="margin-top:16px;">
-        <p class="final-outcome-label ${recapClass}">${recapLabel}</p>
-        <p>${escapeHtml(recapText || '')}</p>
+      <div class="jsc-verdict">
+        <span class="verdict-stamp ${recapClass}">${stampText}</span>
       </div>
+      <p class="jsc-recap">${escapeHtml(recapText || '')}</p>
     `;
 
   // Only for whoever lost — a nudge toward Smack Lab (free 1-on-1 AI
@@ -1003,26 +1166,42 @@ function buildFinalScorecard(battle, mySide) {
     </div>
   ` : '';
 
+  const colorA = readableColor(battle.team_a_color, 'var(--gold)');
+  const colorB = readableColor(battle.team_b_color, 'var(--flare)');
+
   return `
     <div class="card final-scorecard">
-      <p class="final-scorecard-title">Final Scorecard</p>
-      <div class="final-score-tally">
-        <span class="side-a">${winsA}</span>
-        <span class="final-score-dash">–</span>
-        <span class="side-b">${winsB}</span>
+      <div class="jsc-header">
+        <span class="jsc-eyebrow">Official scorecard</span>
+        <span class="jsc-bout">Bout ${escapeHtml(battle.challenge_code)}</span>
       </div>
-      <div class="final-players-row">
-        <span class="final-player-name side-a">${escapeHtml(battle.display_name_a)}</span>
-        <span class="final-players-vs">vs</span>
-        <span class="final-player-name side-b">${escapeHtml(battle.display_name_b)}</span>
-      </div>
-      <div class="final-round-row">${rounds}</div>
-      ${avgA !== null && avgB !== null ? `
-        <div class="final-avg-row">
-          <div class="final-avg-item"><p class="final-avg-label" style="color:${readableColor(battle.team_a_color, 'var(--chalk-dim)')};">${escapeHtml(battle.team_a)}</p><p class="final-avg-value side-a">${avgA}/10</p></div>
-          <div class="final-avg-item"><p class="final-avg-label" style="color:${readableColor(battle.team_b_color, 'var(--chalk-dim)')};">${escapeHtml(battle.team_b)}</p><p class="final-avg-value side-b">${avgB}/10</p></div>
+
+      <div class="jsc-bout-line">
+        <div class="jsc-fighter">
+          <p class="jsc-fighter-name side-a">${escapeHtml(battle.display_name_a)}</p>
+          <p class="jsc-fighter-team" style="color:${colorA};">${escapeHtml(battle.team_a)}</p>
         </div>
-      ` : ''}
+        <div class="jsc-tally">
+          <span class="side-a">${winsA}</span><span class="jsc-tally-dash">–</span><span class="side-b">${winsB}</span>
+          <p class="jsc-tally-label">Rounds</p>
+        </div>
+        <div class="jsc-fighter jsc-fighter-right">
+          <p class="jsc-fighter-name side-b">${escapeHtml(battle.display_name_b)}</p>
+          <p class="jsc-fighter-team" style="color:${colorB};">${escapeHtml(battle.team_b)}</p>
+        </div>
+      </div>
+
+      <div class="jsc-grid-scroll">
+        <div class="jsc-grid" style="grid-template-columns:${gridCols};">
+          ${headCells}<div class="jsc-cell jsc-head jsc-head-avg">Avg</div>
+          <div class="jsc-cell jsc-rowlabel side-a">${escapeHtml(battle.display_name_a)}</div>
+          ${rowACells}<div class="jsc-cell jsc-avg side-a">${avgA !== null ? avgA : '&ndash;'}</div>
+          <div class="jsc-cell jsc-rowlabel side-b">${escapeHtml(battle.display_name_b)}</div>
+          ${rowBCells}<div class="jsc-cell jsc-avg side-b">${avgB !== null ? avgB : '&ndash;'}</div>
+        </div>
+      </div>
+      <p class="jsc-legend">Highlighted cell takes the round</p>
+
       ${recapBlock}
       ${smackLabBlock}
     </div>
@@ -1222,7 +1401,10 @@ function render(battle) {
   // moment round_number ticks up while still active, ring the bell
   // again to mark the new round starting.
   if (knownRoundNumber !== null && battle.status === 'active' && battle.round_number > knownRoundNumber) {
-    ringBell();
+    // The bell now rings at the END of the countdown (inside
+    // playRoundCountdown) rather than immediately, so it lands on the
+    // actual round start instead of ~4s before it.
+    playRoundCountdown(battle.round_number);
     // The round can now advance from either side clicking "ready," not
     // just this device's own click — so the critique-reveal loop needs
     // to stop here too, for whoever DIDN'T personally click, not only

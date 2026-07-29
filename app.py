@@ -1717,7 +1717,12 @@ def ready_for_next_round(challenge_code):
     battle.ready_b = False
     battle.current_turn = "a"
     battle.round_number += 1
-    battle.turn_started_at = datetime.utcnow()
+    # Deliberately left null, not utcnow() - the frontend plays a 3-2-1
+    # countdown before the new round's input appears, and starting the
+    # clock here would burn those seconds off side A's 60 before they
+    # could even type. playRoundCountdown() calls /start-turn the moment
+    # its countdown finishes, exactly as round 1's intro already does.
+    battle.turn_started_at = None
     if battle.round_number > battle.max_rounds:
         battle.status = "complete"
         battle.completed_at = datetime.utcnow()
