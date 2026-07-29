@@ -942,10 +942,27 @@ def _call_instructions_handler(record_type, record_id):
     # live reaction gets captured. AnsweredBy comes from the
     # machine_detection='DetectMessageEnd' set at call-creation time, so
     # by the time we're here it's already resolved.
-    is_machine = bool(answered_by) and answered_by.startswith("machine")
-    should_record = getattr(order, "includes_recording", True) and not is_machine
-    if is_machine and getattr(order, "includes_recording", True):
-        print(f"[twilio] record {record_type or 'legacy'}:{record_id} went to voicemail — recording skipped even though it was purchased")
+    #
+    # FAIL-SAFE, not fail-open: only "human" counts as a live answer.
+    # The previous check (answered_by.startswith("machine")) let
+    # "unknown" silently pass through as human - "unknown".startswith
+    # ("machine") is False, so an ambiguous/undetermined answer got
+    # treated as a confirmed live person. AnsweredBy values are: human,
+    # machine_end_beep, machine_end_silence, machine_end_other, fax,
+    # unknown. Anything that isn't confidently "human" should NOT record.
+    is_live = (answered_by == "human")
+    should_record = getattr(order, "includes_recording", True) and is_live
+    if not is_live and getattr(order, "includes_recording", True):
+        print(f"[twilio] record {record_type or 'legacy'}:{record_id} answered_by={answered_by!r} (not confirmed human) — recording skipped even though it was purchased")
+
+    # Persist AnsweredBy instead of just printing it - gives a real
+    # answer to "did my smack land?" (call_status says "completed"
+    # whether the target laughed or it hit voicemail), and is the only
+    # way to know whether machine_detection_timeout is set correctly (a
+    # high share of "unknown" means the ceiling is too low).
+    if order:
+        order.answered_by = answered_by
+        db.session.commit()
 
     base_url = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
     if record_type:
@@ -2636,6 +2653,8 @@ with app.app_context():
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS turn_started_at TIMESTAMP"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS max_rounds INTEGER DEFAULT 5 NOT NULL"))
             conn.execute(db.text("ALTER TABLE battle_lines ADD COLUMN IF NOT EXISTS timed_out BOOLEAN DEFAULT FALSE NOT NULL"))
+            conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS answered_by VARCHAR(30)"))
+            conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS answered_by VARCHAR(30)"))
             conn.commit()
 
     # Seed the always-available admin test account, per explicit request.

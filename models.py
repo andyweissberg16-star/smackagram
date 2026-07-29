@@ -114,6 +114,15 @@ class Order(db.Model):
     call_status = db.Column(db.String(20), default="not_sent")    # not_sent, ringing, delivered, no_answer, failed
     recording_url = db.Column(db.String(500), nullable=True)
 
+    # Twilio's AnsweredBy value from machine_detection: human,
+    # machine_end_beep, machine_end_silence, machine_end_other, fax, or
+    # unknown. Previously only print()ed and discarded - persisting it
+    # gives a real answer to "did my smack land?" (call_status says
+    # "completed" whether the target laughed or it hit voicemail), and
+    # is the only way to know whether machine_detection_timeout is set
+    # correctly (a high share of "unknown" means the ceiling is too low).
+    answered_by = db.Column(db.String(30), nullable=True)
+
     # The actual ElevenLabs-generated message audio URL used for THIS call,
     # persisted at call-time. Needed for the reply "hear it again" replay —
     # regenerating later isn't reliable since the S3 key is randomly
@@ -171,6 +180,7 @@ class Smackagram(db.Model):
     twilio_call_sid = db.Column(db.String(120), nullable=True)
     call_status = db.Column(db.String(20), nullable=True)  # raw Twilio CallStatus once the call completes
     recording_url = db.Column(db.String(500), nullable=True)
+    answered_by = db.Column(db.String(30), nullable=True)  # see comment on Order — same purpose
     message_audio_url = db.Column(db.String(500), nullable=True)  # see comment on Order — same purpose
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

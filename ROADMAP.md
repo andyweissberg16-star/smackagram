@@ -2663,3 +2663,67 @@ VERIFIED thoroughly, not just reasoned about:
   present
 - Re-confirmed the pre-existing Order ("Send a Smack") cache-hit
   behavior still works correctly after moving the dict - no regression
+
+## Twilio work package: call flow changes (David's handoff, item #3)
+All sub-items marked "code ready" in the handoff, built and directly
+verified. Skipped 3e (machine_detection_speech_end_threshold tuning)
+per David's own explicit guidance to leave it at default until dead
+air is fixed and real remaining latency can be observed - that
+hasn't happened yet (needs an actual production call + Twilio Console
+timeline check).
+
+3a - Fixed the "unknown" bug: the old check
+(answered_by.startswith("machine")) let AnsweredBy="unknown" silently
+pass through as a confirmed live human, since "unknown" doesn't start
+with "machine". Inverted to fail-safe: only answered_by == "human"
+counts as live. Anything else (unknown, fax, any machine_* value) is
+treated as not-confirmed-human.
+
+3b - Welded the recording disclosure to the recording decision itself
+in build_twiml() - the <Say> disclosure now only plays when record is
+True, one boolean controlling both, so an AMD misfire can never
+produce an undisclosed recording (Florida two-party consent).
+Voicemail/unknown: no disclosure, message only, no recording. Live
+human: disclosure, message, recording.
+
+3c - Extended call length from 0:59 to 1:59 (time_limit=119 in
+place_prank_call, max_length=115 on <Record> in build_twiml - stays
+under the hard cap so Twilio's own connection-level cutoff remains
+what actually ends the call, not an independent Record timer).
+
+3d - Reverted machine_detection_timeout from 15 back to Twilio's
+default of 30. Corrected the previous code comment's misdiagnosis:
+this timeout is a CEILING on AMD analysis, not a wait - a live "Hello?"
+resolves in ~2-3s regardless of this value, so it never approached 15s
+anyway. The ceiling only engages on genuinely ambiguous/long voicemail
+greetings; setting it too low meant AMD would give up and return
+AnsweredBy="unknown" mid-greeting, causing the smack to play over the
+tail of the greeting instead of landing after it. The actual
+live-answer lag this comment blamed on the timeout was the dead-air
+caching bug (item #2), a separate and already-fixed issue.
+
+3f - Added answered_by column to both Order and Smackagram (migrated).
+Previously print()ed and discarded; now persisted on every call. Gives
+a real, queryable answer to "did my smack land?" instead of just
+call_status="completed" regardless of whether it was a live reaction
+or a voicemail. Also the only way to later check whether
+machine_detection_timeout is calibrated correctly (a high share of
+"unknown" would mean the ceiling needs raising further).
+
+VERIFIED thoroughly with direct tests, not just code review:
+- Mocked the actual Twilio client and captured the real parameters
+  passed to calls.create() - confirmed time_limit=119 and
+  machine_detection_timeout=30 are genuinely what gets sent, not just
+  what's written in the source
+- Tested build_twiml() directly for both record=True and record=False:
+  confirmed the disclosure and <Record> verb appear together or not at
+  all, never independently, and confirmed max_length=115 is correctly
+  set when recording
+- Ran a real live-server test against an actual database record for
+  all three answer scenarios: AnsweredBy=human (disclosure + recording,
+  as before), AnsweredBy=unknown (the actual bug being fixed - now
+  correctly produces NO disclosure and NO recording, unlike the old
+  behavior which would have wrongly included both), and
+  AnsweredBy=machine_end_beep (real voicemail, confirmed still
+  correctly skips both) - and confirmed answered_by was correctly
+  persisted to the database in all three cases
