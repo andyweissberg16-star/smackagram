@@ -2493,6 +2493,54 @@ def admin_check_team_codes():
     })
 
 
+@app.route("/api/admin/check-id-collisions")
+def admin_check_id_collisions():
+    """
+    One-time diagnostic tool — Order and Smackagram are separate tables
+    with separate autoincrementing primary keys, but every Twilio
+    webhook URL (/call-instructions/<id>, /call-status/<id>, etc.)
+    carries only the bare integer id and resolves it by guessing
+    (Order.query.get(id) or Smackagram.query.get(id)), with Order
+    always winning. Any Smackagram whose id also exists in Orders
+    would silently get served the WRONG record's audio, with no
+    error logged. This checks whether that's actually happening.
+
+    Read-only - three plain COUNT/MIN/MAX queries, nothing written.
+
+    ?key=... (same secret as the cron endpoint)
+    Not linked from anywhere in the UI — visit directly to run it.
+    """
+    provided_key = request.args.get("key", "")
+    expected_key = os.environ.get("CRON_SECRET", "")
+    if not expected_key or provided_key != expected_key:
+        return jsonify({"error": "unauthorized"}), 401
+
+    orders_stats = db.session.execute(db.text(
+        "SELECT MIN(id), MAX(id), COUNT(*) FROM orders"
+    )).fetchone()
+    smackagrams_stats = db.session.execute(db.text(
+        "SELECT MIN(id), MAX(id), COUNT(*) FROM smackagrams"
+    )).fetchone()
+    collision_count = db.session.execute(db.text(
+        "SELECT COUNT(*) FROM orders o JOIN smackagrams s ON o.id = s.id"
+    )).scalar()
+
+    collision_ids = []
+    if collision_count:
+        rows = db.session.execute(db.text(
+            "SELECT o.id FROM orders o JOIN smackagrams s ON o.id = s.id ORDER BY o.id LIMIT 50"
+        )).fetchall()
+        collision_ids = [r[0] for r in rows]
+
+    return jsonify({
+        "orders": {"min_id": orders_stats[0], "max_id": orders_stats[1], "count": orders_stats[2]},
+        "smackagrams": {"min_id": smackagrams_stats[0], "max_id": smackagrams_stats[1], "count": smackagrams_stats[2]},
+        "collision_count": collision_count,
+        "collision_ids_sample": collision_ids,
+        "verdict": "BROKEN - collisions exist, calls are being served wrong audio" if collision_count else "clean - no collisions currently, but fix is still worth doing since a collision will eventually occur",
+    })
+
+
 with app.app_context():
     db.create_all()
 

@@ -2530,3 +2530,37 @@ via the existing polling-based redirect, side B's directly), confirmed
 the new battle genuinely shows the 1-2-3 intro countdown again, and
 confirmed the new battle's intensity (2/Mild) and max_rounds (10)
 correctly match the original instead of reverting to defaults.
+
+## Twilio work package: ID collision diagnostic endpoint (David's handoff, item #1)
+David's Twilio handoff flagged a potential production bug: Order and
+Smackagram are separate tables with separate autoincrementing primary
+keys, but every Twilio webhook URL carries only the bare integer id,
+resolved by guessing (Order.query.get(id) or Smackagram.query.get(id)),
+with Order always winning. Any Smackagram whose id also exists in
+Orders would silently get served the wrong record's audio - no error
+logged, call completes normally with wrong content.
+
+Needed to verify against the live production database before building
+any fix. Hit real friction trying to do this via psql from a separate
+Windows PC (no psql installed, Render's free tier blocks the web
+shell) - rather than fighting further with local tool installation,
+built a small, safely-gated diagnostic endpoint directly into the app
+itself, matching the exact pattern already established for
+check-team-codes (protected by the same CRON_SECRET query-string key,
+not linked from the UI, visit-to-run).
+
+New route: GET /api/admin/check-id-collisions?key=...
+Runs 3 read-only queries (MIN/MAX/COUNT on both tables, plus a JOIN to
+find actual overlapping ids) directly through the app's own live DB
+connection - no separate database client needed at all, just a
+browser.
+
+VERIFIED against a real Postgres database with a deliberately inserted
+collision (id=42 present in both tables) before considering this ready
+to deploy: confirmed the endpoint correctly reports collision_count=1,
+correctly identifies the specific colliding id, and correctly flags
+the verdict as broken. Also confirmed the auth gate correctly rejects
+both a missing key and a wrong key with 401.
+
+NEXT STEP: deploy this, then visit the URL against the real production
+database to get the actual answer for David's item #1.
