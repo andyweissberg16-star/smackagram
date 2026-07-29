@@ -2998,3 +2998,42 @@ production issue. Both files are confirmed present in the repo on
 GitHub. Verified what IS verifiable locally: the CSS computes correctly
 (confirmed the actual computed backgroundImage property resolves to the
 gradient + correct image URL with background-size:cover).
+
+## Smack Battle: roast-history box reworked - fixed size, full transcript, auto-scroll
+Four issues from live testing, all in the history box.
+
+1) BOX RESIZED ITSELF as roasts came in - tiny after the first line,
+   bigger after the second, revealing only a fraction of the background
+   image. Now a fixed 400px on desktop (300px under 620px wide), so it
+   holds a stable size from the first line and scrolls internally.
+
+2) EVERY ROUND WIPED THE PREVIOUS ROUND'S CHAT. History was filtered to
+   the current round only. Now renders every line from every round as a
+   running transcript, with a "Round N" divider whenever the round
+   changes. Timed-out turns (real lines with deliberately empty
+   messages) render as an italic "Ran out of time" note, not a blank.
+
+3) NO AUTO-SCROLL. Now jumps to the newest roast at the bottom when new
+   content lands. Tied to the content-changed check, so it re-anchors
+   only on genuinely new lines and never yanks the view from someone
+   who scrolled up to re-read earlier rounds.
+
+4) OVERLAY NOT SHADED ENOUGH - raised 0.55 to 0.7. (0.82 hid the image
+   entirely, 0.55 read as unshaded; 0.7 is the middle ground.)
+
+Supporting layout change: .wrap moved from fixed height:calc(100dvh -
+nav) to min-height, and #lineHistory from flex:1/overflow-y:auto to
+flex:none. The card owns its own height and scrolling now; the old
+flex+overflow on the wrapper caused a nested double-scroll and stopped
+the card holding a stable size.
+
+Also caught my own error mid-build: I first wrote
+background-attachment:local, which scrolls the image away WITH the
+content - opposite of the intent. Corrected to scroll, pinning it.
+
+VERIFIED by playing two full rounds through a live server: card
+computes to exactly 400px with overflow-y:auto and
+background-attachment:scroll; all four messages from BOTH rounds
+present simultaneously (old code would show only round 2's two); both
+"Round 1" and "Round 2" dividers render; box genuinely scrolled to
+bottom on load (scrollTop 31 + clientHeight 398 = scrollHeight 429).

@@ -68,10 +68,13 @@
   }
   .wrap{
     max-width:620px; margin:0 auto; padding:0 24px; display:flex; flex-direction:column;
-    height:calc(100dvh - var(--nav-h));
-    height:calc(100dvh - var(--nav-h));
+    min-height:calc(100dvh - var(--nav-h));
   }
-  #lineHistory{flex:1; overflow-y:auto; min-height:0; padding:4px 0;}
+  /* The roast-history card now owns its own fixed height and internal
+     scrolling (see .chat-history-card), so this wrapper no longer needs
+     to flex-grow or scroll - doing both caused a nested double-scroll
+     and left the card unable to hold a stable size. */
+  #lineHistory{flex:none; min-height:0; padding:4px 0;}
   body.waiting-room #lineHistory{flex:none;}
   body.awaiting-round #lineHistory{flex:none;}
   #actionArea{flex-shrink:0; padding-bottom:16px;}
@@ -159,10 +162,23 @@
      the roast text stays readable no matter how bright or busy the
      image is. */
   .chat-history-card{
-    background-image:linear-gradient(rgba(13,13,13,0.55), rgba(13,13,13,0.55)), url('{{ url_for('static', filename='img/battle-chat-bg.png') }}');
+    background-image:linear-gradient(rgba(13,13,13,0.7), rgba(13,13,13,0.7)), url('{{ url_for('static', filename='img/battle-chat-bg.png') }}');
     background-size:cover;
     background-position:center;
     background-repeat:no-repeat;
+    /* Fixed height so the box doesn't grow/shrink as roasts come in -
+       it holds a stable size from the first line onward and scrolls
+       internally instead. Roughly matches the background image's own
+       proportions against the 620px-max container. */
+    height:400px;
+    overflow-y:auto;
+    /* 'scroll' pins the background to the element's own box so it stays
+       put as the roasts scroll past it. ('local' would do the opposite -
+       slide the image away along with the content.) */
+    background-attachment:scroll;
+  }
+  @media(max-width:620px){
+    .chat-history-card{height:300px;}
   }
   label{display:block; font-size:var(--fs-sm); color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;}
   input[type=text], textarea{
@@ -1256,27 +1272,41 @@ function render(battle) {
   if (battle.status === 'complete') {
     lineHistory.innerHTML = '';
   } else {
-    const roundLines = battle.lines.filter(l => l.round === battle.round_number);
+    // EVERY line from EVERY round, not just the current one - the
+    // history box is a running transcript of the whole battle that stays
+    // scrollable at any point, rather than resetting each round.
+    const allLines = battle.lines || [];
 
-    // No card at all until someone has actually said something this
-    // round. It previously rendered a box containing just "Round N" and
-    // a "you're up" prompt - both already shown elsewhere (the round
-    // number in the page header as "Round N of M", the turn prompt in
-    // the action card right below) - so it was a second full-height box
-    // duplicating information and squeezing the actual chat lines,
-    // which is especially bad on mobile.
+    // No card at all until someone has actually said something. It
+    // previously rendered a box containing just "Round N" and a "you're
+    // up" prompt - both already shown elsewhere (the round number in the
+    // page header as "Round N of M", the turn prompt in the action card
+    // right below) - so it was a second box duplicating information.
     let historyHtml = '';
-    if (roundLines.length > 0) {
+    if (allLines.length > 0) {
       historyHtml = '<div class="card chat-history-card">';
-      roundLines.forEach(l => {
+      let lastRoundLabelled = null;
+      allLines.forEach(l => {
+        // Round divider whenever the round changes, so a long scrollback
+        // stays readable instead of being one undifferentiated stream.
+        if (l.round !== lastRoundLabelled) {
+          lastRoundLabelled = l.round;
+          historyHtml += `<p class="round-label">Round ${l.round}</p>`;
+        }
         const name = l.side === 'a' ? battle.display_name_a : battle.display_name_b;
         const initial = (name || '?').trim().charAt(0).toUpperCase();
+        // A timed-out turn is stored as a real line with an empty
+        // message (unsafe/missed text is never kept), so render it as an
+        // explicit note instead of a blank bubble.
+        const messageHtml = l.timed_out
+          ? '<p class="line-message" style="opacity:0.6; font-style:italic;">Ran out of time</p>'
+          : `<p class="line-message">${escapeHtml(l.message)}</p>`;
         historyHtml += `
           <div class="line-row side-${l.side}">
             <div class="fighter-avatar side-${l.side}">${escapeHtml(initial)}</div>
             <div class="line side-${l.side}">
               <p class="line-name">${escapeHtml(name)}</p>
-              <p class="line-message">${escapeHtml(l.message)}</p>
+              ${messageHtml}
             </div>
           </div>
         `;
@@ -1289,10 +1319,16 @@ function render(battle) {
     // new) was destroying and recreating every message element each
     // time, which replayed each one's entrance animation constantly
     // instead of just once when it was genuinely new.
-    const historySignature = `${battle.round_number}|${roundLines.length}`;
+    const historySignature = `${allLines.length}`;
     if (lastLineHistorySignature !== historySignature) {
       lastLineHistorySignature = historySignature;
       lineHistory.innerHTML = historyHtml;
+      // Jump to the newest roast at the bottom. This only runs when the
+      // content genuinely changed, so it never fights someone who has
+      // deliberately scrolled up to re-read earlier rounds during an
+      // idle poll - it only re-anchors when something new actually lands.
+      const historyCard = lineHistory.querySelector('.chat-history-card');
+      if (historyCard) historyCard.scrollTop = historyCard.scrollHeight;
     }
   }
 
