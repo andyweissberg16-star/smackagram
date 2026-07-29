@@ -1792,6 +1792,79 @@ def vote_battle(challenge_code):
     return jsonify({"vote_count_a": battle.vote_count_a, "vote_count_b": battle.vote_count_b})
 
 
+def _readable_on_dark(hex_color, fallback):
+    """
+    A team's real brand colour can be near-black (several are), which
+    disappears on this card's dark background. Mirrors the frontend's
+    readableColor: keep the colour if it has enough luminance, otherwise
+    fall back to the brand accent.
+    """
+    if not hex_color:
+        return fallback
+    h = hex_color.lstrip("#")
+    if len(h) != 6:
+        return fallback
+    try:
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    except ValueError:
+        return fallback
+    # Rec. 601 luma - cheap and good enough for a "is this too dark" test.
+    luma = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return hex_color if luma >= 0.32 else fallback
+
+
+@app.route("/battle/<challenge_code>/card")
+def battle_share_card(challenge_code):
+    """
+    A standalone, portrait share card for a finished battle - shaped 9:16
+    so it screenshots cleanly straight into an Instagram story or any
+    other vertical feed. Deliberately its own page rather than a resized
+    version of the in-page scorecard: the playing view wants a wide card
+    in the page column, a shareable graphic wants tall and self-contained,
+    and trying to make one layout do both compromises both.
+
+    Rendered entirely server-side so there's no empty flash or half-built
+    state to accidentally capture in a screenshot.
+    """
+    battle = Battle.query.filter_by(challenge_code=challenge_code).first()
+    if not battle:
+        return render_template("404.html"), 404
+
+    results = BattleRoundResult.query.filter_by(battle_id=battle.id).order_by(BattleRoundResult.round_number.asc()).all()
+    wins_a = sum(1 for r in results if r.winner == "a")
+    wins_b = sum(1 for r in results if r.winner == "b")
+
+    scores_a = [r.score_a for r in results if r.score_a is not None]
+    scores_b = [r.score_b for r in results if r.score_b is not None]
+    avg_a = round(sum(scores_a) / len(scores_a), 1) if scores_a else None
+    avg_b = round(sum(scores_b) / len(scores_b), 1) if scores_b else None
+
+    # Per-round winner, padded out to the battle's full length so an
+    # abandoned battle still shows its unplayed rounds as blanks.
+    by_round = {r.round_number: r.winner for r in results}
+    rounds = [{"n": n, "winner": by_round.get(n)} for n in range(1, (battle.max_rounds or 5) + 1)]
+
+    winner_name = None
+    if battle.overall_winner == "a":
+        winner_name = battle.display_name_a
+    elif battle.overall_winner == "b":
+        winner_name = battle.display_name_b
+
+    return render_template(
+        "battle_card.html",
+        battle=battle,
+        wins_a=wins_a,
+        wins_b=wins_b,
+        avg_a=avg_a,
+        avg_b=avg_b,
+        rounds=rounds,
+        winner_name=winner_name,
+        color_a=_readable_on_dark(_lookup_team_color(battle.league, battle.team_a), "#FFD400"),
+        color_b=_readable_on_dark(_lookup_team_color(battle.league, battle.team_b), "#E8142C"),
+        intensity_label=trash_talk_service.SENSITIVITY_LEVELS.get(battle.intensity, {}).get("label", "Savage"),
+    )
+
+
 @app.route("/api/battles/<challenge_code>/viewer-ping", methods=["POST"])
 def battle_viewer_ping(challenge_code):
     """

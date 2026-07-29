@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ battle.display_name_a }} vs {{ battle.display_name_b }} — Smack Battle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D;
+    --ink-2:#141414;
+    --chalk:#F5F5F3;
+    --chalk-dim:#8E8E8A;
+    --gold:#FFD400;
+    --flare:#E8142C;
+    --line:rgba(245,245,243,0.10);
+    --a:{{ color_a }};
+    --b:{{ color_b }};
+  }
+  *{margin:0; padding:0; box-sizing:border-box;}
+  body{
+    background:#000; color:var(--chalk);
+    font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased;
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    padding:16px;
+  }
+
+  /* 9:16 so a screenshot drops straight into a story with no crop.
+     Scales to whatever screen it's opened on rather than assuming
+     1080x1920, so it reads on a phone and on a laptop. */
+  .card{
+    position:relative; overflow:hidden;
+    width:min(430px, 100%);
+    aspect-ratio:9/16;
+    background:var(--ink);
+    border:1px solid var(--line);
+    display:flex; flex-direction:column;
+    padding:clamp(16px,4.5vw,26px);
+  }
+
+  /* SIGNATURE: the two fanbases' real brand colours cutting across the
+     card at an angle and meeting in the middle. Every battle is a clash
+     between two specific teams, so the card's whole colour identity is
+     drawn from the actual matchup rather than a fixed house palette. */
+  .clash{position:absolute; inset:0; pointer-events:none;}
+  .clash::before, .clash::after{
+    content:''; position:absolute; top:-12%; height:124%; width:62%;
+  }
+  .clash::before{
+    left:-14%;
+    background:linear-gradient(115deg, color-mix(in srgb, var(--a) 34%, transparent) 0%, transparent 72%);
+    transform:skewX(-11deg);
+  }
+  .clash::after{
+    right:-14%;
+    background:linear-gradient(245deg, color-mix(in srgb, var(--b) 34%, transparent) 0%, transparent 72%);
+    transform:skewX(-11deg);
+  }
+  /* Fallback for engines without color-mix - flat low-opacity tint. */
+  @supports not (background: color-mix(in srgb, red 30%, transparent)){
+    .clash::before{background:linear-gradient(115deg, var(--a) 0%, transparent 72%); opacity:0.3;}
+    .clash::after{background:linear-gradient(245deg, var(--b) 0%, transparent 72%); opacity:0.3;}
+  }
+  .inner{position:relative; z-index:1; display:flex; flex-direction:column; height:100%;}
+
+  .brand{text-align:center;}
+  .wordmark{
+    font-family:'Anton',sans-serif; font-size:clamp(30px,9vw,44px);
+    letter-spacing:-0.5px; line-height:1; text-transform:uppercase;
+  }
+  .wordmark .gram{color:var(--flare);}
+  .kicker{
+    display:inline-block; margin-top:7px; padding:3px 12px;
+    background:var(--flare); color:#fff;
+    font-family:'JetBrains Mono',monospace; font-weight:700;
+    font-size:clamp(9px,2.6vw,11px); letter-spacing:3px; text-transform:uppercase;
+  }
+
+  .teams{
+    display:flex; align-items:stretch; gap:8px;
+    margin-top:clamp(14px,4vw,22px);
+  }
+  .team{flex:1; min-width:0; text-align:center;}
+  .team-city{
+    font-family:'JetBrains Mono',monospace; font-weight:500;
+    font-size:clamp(8px,2.2vw,10px); letter-spacing:1.6px;
+    text-transform:uppercase; color:var(--chalk-dim);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .team-name{
+    font-family:'Anton',sans-serif; font-size:clamp(19px,5.6vw,27px);
+    text-transform:uppercase; line-height:1.05; margin-top:3px;
+    overflow-wrap:anywhere;
+  }
+  .team.a .team-name{color:var(--a);}
+  .team.b .team-name{color:var(--b);}
+  .vs{
+    flex-shrink:0; align-self:center;
+    font-family:'Anton',sans-serif; font-size:clamp(15px,4.4vw,21px);
+    color:var(--chalk); opacity:0.5;
+  }
+
+  .meta{
+    display:flex; justify-content:center; gap:clamp(8px,3vw,16px);
+    margin-top:clamp(12px,3.4vw,18px); padding:9px 0;
+    border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+    font-family:'JetBrains Mono',monospace; font-weight:500;
+    font-size:clamp(8px,2.2vw,10px); letter-spacing:1.2px;
+    text-transform:uppercase; color:var(--chalk-dim);
+    text-align:center; flex-wrap:wrap;
+  }
+  .meta b{color:var(--chalk); font-weight:700;}
+  .meta .hot{color:var(--flare); font-weight:700;}
+
+  /* The score is the reason someone shares this, so it gets the room. */
+  .score-zone{
+    flex:1; display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    padding:clamp(8px,3vw,18px) 0;
+  }
+  .score-label{
+    font-family:'JetBrains Mono',monospace; font-weight:700;
+    font-size:clamp(8px,2.2vw,10px); letter-spacing:3px;
+    text-transform:uppercase; color:var(--chalk-dim);
+  }
+  .score{
+    display:flex; align-items:center; justify-content:center;
+    gap:clamp(10px,4vw,20px); margin-top:6px;
+  }
+  .score-num{
+    font-family:'Anton',sans-serif;
+    font-size:clamp(62px,20vw,104px); line-height:0.85;
+  }
+  .score-num.a{color:var(--a);}
+  .score-num.b{color:var(--b);}
+  .score-sep{
+    width:clamp(16px,5vw,26px); height:4px; border-radius:2px;
+    background:var(--chalk); opacity:0.45;
+  }
+  .handles{
+    display:flex; justify-content:center; gap:clamp(10px,4vw,20px);
+    margin-top:8px; width:100%;
+  }
+  .handle{
+    flex:1; text-align:center; min-width:0;
+    font-family:'Anton',sans-serif; font-size:clamp(13px,3.8vw,18px);
+    text-transform:uppercase; letter-spacing:0.5px;
+    overflow-wrap:anywhere;
+  }
+  .handle.a{color:var(--a);}
+  .handle.b{color:var(--b);}
+  .handle-spacer{width:clamp(16px,5vw,26px); flex-shrink:0;}
+
+  /* Round strip - who actually took each round, in that side's colour.
+     Reads as the shape of the battle at a glance. */
+  .rounds{display:flex; justify-content:center; gap:clamp(4px,1.6vw,7px); margin-top:clamp(12px,3.4vw,18px); flex-wrap:wrap;}
+  .round{
+    min-width:clamp(26px,8vw,38px); padding:5px 3px; border-radius:3px;
+    font-family:'JetBrains Mono',monospace; font-weight:700;
+    font-size:clamp(8px,2.4vw,11px); text-align:center;
+    border:1px solid var(--line); color:var(--chalk-dim);
+  }
+  .round.won-a{background:var(--a); border-color:var(--a); color:#0D0D0D;}
+  .round.won-b{background:var(--b); border-color:var(--b); color:#fff;}
+  .round.tie{border-color:var(--chalk-dim); color:var(--chalk);}
+
+  .verdict{
+    margin-top:clamp(12px,3.6vw,18px); padding:clamp(10px,3vw,15px) 10px;
+    text-align:center; background:var(--ink-2);
+    border-left:4px solid var(--verdict-color, var(--chalk-dim));
+  }
+  .verdict-line{
+    font-family:'Anton',sans-serif; font-size:clamp(21px,6.6vw,32px);
+    text-transform:uppercase; line-height:1.05; color:var(--verdict-color, var(--chalk));
+    overflow-wrap:anywhere;
+  }
+  .verdict-sub{
+    font-family:'JetBrains Mono',monospace; font-weight:500;
+    font-size:clamp(8px,2.2vw,10px); letter-spacing:2px;
+    text-transform:uppercase; color:var(--chalk-dim); margin-top:5px;
+  }
+
+  .avgs{display:flex; gap:8px; margin-top:clamp(10px,3vw,15px);}
+  .avg{flex:1; text-align:center; padding:8px 4px; background:rgba(245,245,243,0.04); border-radius:4px;}
+  .avg-label{
+    font-family:'JetBrains Mono',monospace; font-size:clamp(7px,2vw,9px);
+    letter-spacing:1.2px; text-transform:uppercase; color:var(--chalk-dim);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .avg-val{font-family:'Anton',sans-serif; font-size:clamp(17px,5vw,24px); margin-top:2px;}
+  .avg.a .avg-val{color:var(--a);}
+  .avg.b .avg-val{color:var(--b);}
+
+  .foot{
+    margin-top:clamp(10px,3vw,15px); padding-top:10px;
+    border-top:1px solid var(--line);
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-family:'JetBrains Mono',monospace; font-weight:500;
+    font-size:clamp(8px,2.2vw,10px); letter-spacing:1.4px;
+    text-transform:uppercase; color:var(--chalk-dim);
+  }
+  .foot .site{color:var(--gold); font-weight:700;}
+
+  .screenshot-hint{
+    margin-top:14px; text-align:center;
+    font-family:'JetBrains Mono',monospace; font-size:11px;
+    letter-spacing:1px; text-transform:uppercase; color:#666;
+  }
+  @media print{ .screenshot-hint{display:none;} }
+</style>
+</head>
+<body>
+
+<div>
+  <div class="card">
+    <div class="clash"></div>
+    <div class="inner">
+
+      <div class="brand">
+        <p class="wordmark">Smack<span class="gram">agram</span></p>
+        <span class="kicker">Smack Battle</span>
+      </div>
+
+      <div class="teams">
+        <div class="team a">
+          <p class="team-city">Side A</p>
+          <p class="team-name">{{ battle.team_a }}</p>
+        </div>
+        <span class="vs">VS</span>
+        <div class="team b">
+          <p class="team-city">Side B</p>
+          <p class="team-name">{{ battle.team_b or 'TBD' }}</p>
+        </div>
+      </div>
+
+      <div class="meta">
+        <span>{{ battle.max_rounds }} rounds</span>
+        <span>Intensity <b>{{ intensity_label }}</b></span>
+        {% if battle.status == 'complete' %}<span class="hot">Final</span>{% else %}<span>{{ battle.status }}</span>{% endif %}
+      </div>
+
+      <div class="score-zone">
+        <p class="score-label">Rounds won</p>
+        <div class="score">
+          <span class="score-num a">{{ wins_a }}</span>
+          <span class="score-sep"></span>
+          <span class="score-num b">{{ wins_b }}</span>
+        </div>
+        <div class="handles">
+          <span class="handle a">{{ battle.display_name_a }}</span>
+          <span class="handle-spacer"></span>
+          <span class="handle b">{{ battle.display_name_b or '—' }}</span>
+        </div>
+      </div>
+
+      <div class="rounds">
+        {% for r in rounds %}
+          <span class="round {% if r.winner == 'a' %}won-a{% elif r.winner == 'b' %}won-b{% elif r.winner == 'tie' %}tie{% endif %}">R{{ r.n }}</span>
+        {% endfor %}
+      </div>
+
+      {% if winner_name %}
+        <div class="verdict" style="--verdict-color:{{ color_a if battle.overall_winner == 'a' else color_b }};">
+          <p class="verdict-line">{{ winner_name }} takes it</p>
+          <p class="verdict-sub">{{ wins_a }}&ndash;{{ wins_b }} on the round count</p>
+        </div>
+      {% elif battle.overall_winner == 'tie' %}
+        <div class="verdict">
+          <p class="verdict-line">Dead even</p>
+          <p class="verdict-sub">Nobody takes this one</p>
+        </div>
+      {% endif %}
+
+      {% if avg_a is not none and avg_b is not none %}
+        <div class="avgs">
+          <div class="avg a">
+            <p class="avg-label">{{ battle.team_a }}</p>
+            <p class="avg-val">{{ '%.1f'|format(avg_a) }}</p>
+          </div>
+          <div class="avg b">
+            <p class="avg-label">{{ battle.team_b }}</p>
+            <p class="avg-val">{{ '%.1f'|format(avg_b) }}</p>
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="foot">
+        <span>Bout {{ battle.challenge_code }}</span>
+        <span class="site">smackagram.com</span>
+      </div>
+
+    </div>
+  </div>
+  <p class="screenshot-hint">Screenshot to share</p>
+</div>
+
+</body>
+</html>

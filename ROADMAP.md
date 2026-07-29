@@ -3157,3 +3157,45 @@ transform, and on mobile the 300px grid fits inside the 342px card with
 no overflow. Confirmed zero orphaned references to the removed CSS
 classes (final-round-chip / final-score-tally / final-players-row /
 final-avg-row).
+
+## Smack Battle: shareable portrait card (/battle/<code>/card)
+User wanted a single-page scorecard sized for IG Stories, explicitly NOT
+boxing/fighting themed - Smackagram/Smack Battle themed instead.
+
+Built as its own route and template rather than resizing the in-page
+scorecard: the playing view wants a wide card in a 620px column, a
+shareable graphic wants tall and self-contained, and one layout doing
+both compromises both. Rendered fully server-side so there's no empty
+flash or half-built state to catch in a screenshot.
+
+Design direction - a post-game result card you'd screenshot and post,
+grounded in the product's own world (sports fandom + social sharing)
+rather than boxing. SIGNATURE: the two fanbases' real brand colours cut
+across the card at an angle and meet in the middle, so every battle's
+colour identity comes from the actual matchup. Those colours were already
+in the data (_lookup_team_color) and previously only used for small text
+accents. Added _readable_on_dark() since several real team colours are
+near-black and would vanish on this background - falls back to the brand
+gold/red.
+
+Contents: Smackagram wordmark + SMACK BATTLE kicker, team-vs-team, a meta
+strip (rounds / intensity / final), big rounds-won score with both
+handles, a round strip colour-coded by who took each round, the verdict,
+per-team averages, and bout code + domain in the footer. Added a "Get
+shareable card" link on the in-page scorecard.
+
+CAUGHT MY OWN FALSE POSITIVE: an early measurement said content
+overflowed the card by ~92px, so I shrank the score numerals and trimmed
+spacing throughout. Re-measuring properly showed the real content was
+710px inside a 762px box - it always fitted. The apparent overflow was
+the decorative .clash gradients (deliberately positioned past the card
+edges) inflating scrollHeight. The test server had also been serving a
+cached template, so the "fix" was never even live. Reverted all of it and
+kept the bold sizing.
+
+VERIFIED by measurement (image viewing was not working this session, so
+this is measured rather than eyeballed - user should eyeball it):
+5-round phone 616px content in 652px box (36px headroom), 5-round desktop
+710/762 (52px), and worst case 10-round battle with long handles 612/634
+(22px). All exactly 9:16 (ratio 0.563), footer inside bounds, no page
+errors.

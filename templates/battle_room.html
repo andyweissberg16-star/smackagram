@@ -434,6 +434,13 @@
   @media(prefers-reduced-motion:reduce){
     .verdict-stamp{animation:none;}
   }
+  .jsc-share{
+    display:block; margin-top:14px; padding:10px; text-align:center;
+    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
+    letter-spacing:1.5px; text-transform:uppercase; text-decoration:none;
+    color:var(--gold); border:1px solid var(--line-strong); border-radius:4px;
+  }
+  .jsc-share:hover{border-color:var(--gold); background:rgba(255,212,0,0.08);}
   .jsc-recap{
     font-size:13px; color:#DCDCD9; line-height:1.6; text-align:center;
     padding-top:12px; border-top:1px solid var(--line);
@@ -1203,6 +1210,7 @@ function buildFinalScorecard(battle, mySide) {
       <p class="jsc-legend">Highlighted cell takes the round</p>
 
       ${recapBlock}
+      <a href="/battle/${encodeURIComponent(battle.challenge_code)}/card" target="_blank" rel="noopener" class="jsc-share">Get shareable card &rarr;</a>
       ${smackLabBlock}
     </div>
   `;
