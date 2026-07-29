@@ -1839,3 +1839,30 @@ NOT YET DONE: the actual Smacky artwork itself - user is generating
 this separately using the prompt guidance given. Once generated, just
 needs to be saved as static/img/smacky-hero.png and the placeholder
 disappears automatically.
+
+## Smacky portrait added + optimized (same session)
+User generated and uploaded the real Smacky portrait. Original upload
+was 2.4MB PNG - heavy for an image displaying at max 340px wide,
+especially given the site has a documented history of caring about
+exactly this (an earlier commit optimized site images from 61MB to 3MB
+total). A single 2.4MB image would have undone a meaningful chunk of
+that effort on its own.
+
+Optimized following the exact same pattern already used for the site
+logo (WebP primary + PNG fallback via <picture>, not just swapping
+formats blindly):
+- Resized to 700x769 (roughly 2x the 340px max display width, for
+  retina sharpness without carrying full original resolution nobody
+  can actually see)
+- WebP: 2.4MB -> 157KB (93% reduction)
+- PNG fallback: 2.4MB -> 953KB (60% reduction, for older browsers
+  that don't support WebP)
+- Updated meet_smacky.html to use <picture><source webp>+<img png>,
+  matching _nav.html's existing logo pattern exactly
+
+VERIFIED: dimensions and pixel content spot-checked to confirm no
+corruption during resize, and - critically - confirmed via a real
+browser (not just assumption) that it actually requests/loads the tiny
+WebP file rather than the larger PNG fallback, displaying at the
+correct 340px width with correct 700x769 natural (2x) resolution
+behind it.
