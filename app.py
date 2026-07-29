@@ -2216,6 +2216,23 @@ def admin_check_team_codes():
 with app.app_context():
     db.create_all()
 
+    # db.create_all() only creates tables that don't exist yet - it
+    # never alters an already-existing table to add a new column. The
+    # wallet system added balance_cents to the existing users table and
+    # user_id to the existing smackagrams table; those need an explicit
+    # migration on a live Postgres database that already has data in it
+    # (this is exactly what caused a production outage: the model
+    # defined the new column, but the actual database table never got
+    # it). Uses IF NOT EXISTS so this is safe to run on every startup,
+    # not just once - a real migration tool (Alembic) would be the
+    # more correct long-term approach, but this unblocks things now
+    # without needing to add that whole system under production pressure.
+    if app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgresql"):
+        with db.engine.connect() as conn:
+            conn.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance_cents INTEGER DEFAULT 0 NOT NULL"))
+            conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS user_id INTEGER"))
+            conn.commit()
+
     # Seed the always-available admin test account, per explicit request.
     # SECURITY NOTE: admin/admin is a deliberately weak, publicly-known
     # credential — acceptable for internal testing before launch, but
