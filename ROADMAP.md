@@ -2727,3 +2727,78 @@ VERIFIED thoroughly with direct tests, not just code review:
   AnsweredBy=machine_end_beep (real voicemail, confirmed still
   correctly skips both) - and confirmed answered_by was correctly
   persisted to the database in all three cases
+
+## Smack Battle: live viewer count + Smacky waiting-room graphic (same session)
+Completes the 3-item backlog thread. Round transition sync (both sides
+must be ready) turned out to already be fully built and working from
+earlier in this session - verified it live rather than assuming, then
+built the two genuinely-new items.
+
+### Live viewer count
+New BattleViewer table (one row per distinct browser, upserted on a
+periodic heartbeat rather than inserted fresh each time). Every
+visitor's page pings a new /viewer-ping endpoint every 8 seconds,
+participant and spectator alike - no special-casing needed to include
+participants in the count, since they ping the exact same way anyone
+else does. Battle state now includes viewer_count (distinct viewer_ids
+seen in the last 20 seconds), displayed in the header on both the
+waiting screen and the active/complete battle screen.
+
+VERIFIED with real multi-browser tests, not just reading the code:
+confirmed a single viewer shows count=1, confirmed opening a genuinely
+second, separate browser correctly bumps it to 2 (and both browsers'
+own pages agree on that same number), confirmed repeated pings from
+the same already-counted browsers across multiple full ping cycles
+does NOT inflate the count, and confirmed stale viewers (browser
+closed) correctly age back out of the count rather than accumulating
+forever.
+
+### Smacky graphic in the waiting room
+Added the site's existing Smacky portrait (same file already used on
+the Meet Smacky page) to both waiting-screen views - the creator
+waiting for an opponent, and the joining side before they accept.
+Purely decorative, as requested. Confirmed via a real browser check
+that the image genuinely loads (not broken/404) with correct
+dimensions.
+
+## Smack Battle: "opponent left" notification + round-review music mute fix (same session)
+Two additional items per direct request.
+
+### Critique-reveal music now respects mute
+The looping "rock music" track during between-round critique review
+(critiqueRevealAudio) was always forced unmuted every time it played,
+via the shared playAudioElement() helper that also handles one-shot
+SFX like the bell and new-line sound (which correctly should always
+stay on regardless of mute, per earlier direction). Gave this one
+track specifically its own behavior: it now checks musicMuted just
+like the waiting-room/crowd-loop background tracks do, while every
+other sound routed through playAudioElement() is unchanged. Also
+updated the mute button's click handler to immediately mute/unmute
+this track if it's already playing when toggled, not just on its next
+start.
+
+VERIFIED with real live-server tests: confirmed the track plays
+audibly (muted:false) when the mute button is off, confirmed it plays
+silently (muted:true, still actually running underneath) when mute is
+on, and reconfirmed the bell sound is completely unaffected either way.
+
+### "Opponent left the battle" notification
+New per-side presence tracking: Battle.last_seen_a/last_seen_b, updated
+by the same viewer-ping heartbeat the live viewer count already uses,
+now also tagged with which side (if any) the pinging browser
+represents. If one side's presence goes stale for more than 30 seconds
+while the battle is still active, the OTHER side's screen shows "[Name]
+left the battle" with a "Start New Smack Battle" button back to the
+create page - this overrides whatever else would normally be showing
+(mid-turn, awaiting round, anything), since the battle is effectively
+over the moment one side is actually gone. Deliberately only triggers
+on a stale timestamp, never a null one, since null just means "hasn't
+had a chance to ping yet" (e.g. right after joining), not "has left."
+
+VERIFIED with a real, full bidirectional live-server test: created an
+actual battle with both sides genuinely present and pinging, then
+actually closed one side's browser tab, aged their last-seen timestamp
+to simulate real elapsed time, and confirmed the OTHER side's page
+correctly showed the exact right opponent name and the correct button
+- then repeated the test in the reverse direction (the other side
+leaving instead) to confirm both directions work, not just one.

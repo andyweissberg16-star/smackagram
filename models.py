@@ -264,6 +264,16 @@ class Battle(db.Model):
     last_typed_a = db.Column(db.DateTime, nullable=True)
     last_typed_b = db.Column(db.DateTime, nullable=True)
 
+    # Per-side presence heartbeat, updated by the same viewer-ping the
+    # live viewer count already uses (see /viewer-ping) whenever the
+    # ping identifies itself as side a or b. Powers the "your opponent
+    # left" notification - computed server-side the same way
+    # last_typed_a/b are, so a stale value naturally means "hasn't
+    # pinged in a while" without needing an explicit "I'm leaving"
+    # signal (unreliable anyway - someone can just close the tab).
+    last_seen_a = db.Column(db.DateTime, nullable=True)
+    last_seen_b = db.Column(db.DateTime, nullable=True)
+
     # Rematch — same "both sides have to agree" gate as advancing a
     # round. Once both flags are true, a brand new Battle gets created
     # (same teams/names) and its challenge_code is stashed here so both
@@ -317,6 +327,30 @@ class BattleVote(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint("battle_id", "voter_id", name="one_vote_per_voter_per_battle"),)
+
+
+class BattleViewer(db.Model):
+    """
+    Live viewer presence for a battle - one row per distinct browser
+    (viewer_id, same anonymous-id pattern as BattleVote's voter_id),
+    upserted on a periodic heartbeat ping rather than inserted fresh
+    each time. The two actual participants ping the same way as any
+    spectator, so they're naturally included in the live count rather
+    than needing special-cased logic - "how many people currently have
+    this battle open" is the same question for a participant or a
+    spectator. last_seen is what actually determines "currently
+    viewing" - a row existing doesn't mean the viewer is still present,
+    only that they were at some point; the count query filters to
+    recent last_seen values.
+    """
+    __tablename__ = "battle_viewers"
+
+    id = db.Column(db.Integer, primary_key=True)
+    battle_id = db.Column(db.Integer, db.ForeignKey("battles.id"), nullable=False)
+    viewer_id = db.Column(db.String(64), nullable=False)
+    last_seen = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("battle_id", "viewer_id", name="one_viewer_row_per_battle"),)
 
 
 class BattleRoundResult(db.Model):

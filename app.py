@@ -10,7 +10,7 @@ from sqlalchemy import func
 import requests
 from dotenv import load_dotenv
 
-from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleRoundResult, User, SmackcastSubscription, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
+from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, User, SmackcastSubscription, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
 
@@ -1321,6 +1321,24 @@ def _battle_state_json(battle):
     now = datetime.utcnow()
     is_typing_a = bool(battle.last_typed_a and (now - battle.last_typed_a).total_seconds() < 3)
     is_typing_b = bool(battle.last_typed_b and (now - battle.last_typed_b).total_seconds() < 3)
+    # 20-second window - long enough that a brief poll/network hiccup
+    # doesn't make someone flicker in and out of the count, short enough
+    # that someone who actually closed the tab drops off within a few
+    # heartbeat cycles rather than staying "live" for minutes.
+    viewer_cutoff = now - timedelta(seconds=20)
+    viewer_count = BattleViewer.query.filter(BattleViewer.battle_id == battle.id, BattleViewer.last_seen >= viewer_cutoff).count()
+
+    # "Opponent left" detection - only meaningful mid-battle (before
+    # active there's no opponent yet to leave; once complete the battle
+    # itself is already over). A side only counts as "left" once it has
+    # a real last_seen_X value that's gone stale - a None value just
+    # means they haven't had a chance to ping yet (e.g. right after
+    # joining), not that they've left, so it's deliberately excluded
+    # rather than treated as "left from the start."
+    presence_cutoff = now - timedelta(seconds=30)
+    side_a_left = bool(battle.status == "active" and battle.last_seen_a and battle.last_seen_a < presence_cutoff)
+    side_b_left = bool(battle.status == "active" and battle.last_seen_b and battle.last_seen_b < presence_cutoff)
+
     return {
         "challenge_code": battle.challenge_code,
         "league": battle.league,
@@ -1351,6 +1369,9 @@ def _battle_state_json(battle):
         "team_b_color": _lookup_team_color(battle.league, battle.team_b),
         "vote_count_a": battle.vote_count_a if battle.status == "complete" else None,
         "vote_count_b": battle.vote_count_b if battle.status == "complete" else None,
+        "viewer_count": viewer_count,
+        "side_a_left": side_a_left,
+        "side_b_left": side_b_left,
     }
 
 
@@ -1764,6 +1785,46 @@ def vote_battle(challenge_code):
     db.session.commit()
 
     return jsonify({"vote_count_a": battle.vote_count_a, "vote_count_b": battle.vote_count_b})
+
+
+@app.route("/api/battles/<challenge_code>/viewer-ping", methods=["POST"])
+def battle_viewer_ping(challenge_code):
+    """
+    Heartbeat ping for the live viewer count - called periodically by
+    anyone with the battle page open, participant or spectator alike
+    (no login required, matching the battle page itself and the state-
+    polling endpoint, both open to anonymous spectators). Upserts
+    rather than inserting fresh each time, so repeat pings from the
+    same browser just refresh last_seen instead of piling up rows.
+
+    Optionally also carries which side (a/b) this browser is - when
+    present, updates Battle.last_seen_a/b too, which is what powers the
+    "your opponent left" notification (see _battle_state_json). A
+    spectator's ping has no side and only affects the generic viewer
+    count, not presence detection.
+    """
+    battle = Battle.query.filter_by(challenge_code=challenge_code).first()
+    if not battle:
+        return jsonify({"error": "Battle not found"}), 404
+
+    data = request.json
+    viewer_id = (data.get("viewer_id") or "").strip()[:64]
+    side = data.get("side")
+    if not viewer_id:
+        return jsonify({"error": "Missing viewer identifier"}), 400
+
+    if side == "a":
+        battle.last_seen_a = datetime.utcnow()
+    elif side == "b":
+        battle.last_seen_b = datetime.utcnow()
+
+    existing = BattleViewer.query.filter_by(battle_id=battle.id, viewer_id=viewer_id).first()
+    if existing:
+        existing.last_seen = datetime.utcnow()
+    else:
+        db.session.add(BattleViewer(battle_id=battle.id, viewer_id=viewer_id, last_seen=datetime.utcnow()))
+    db.session.commit()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/battles/<challenge_code>/rematch", methods=["POST"])
@@ -2655,6 +2716,8 @@ with app.app_context():
             conn.execute(db.text("ALTER TABLE battle_lines ADD COLUMN IF NOT EXISTS timed_out BOOLEAN DEFAULT FALSE NOT NULL"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS answered_by VARCHAR(30)"))
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS answered_by VARCHAR(30)"))
+            conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS last_seen_a TIMESTAMP"))
+            conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS last_seen_b TIMESTAMP"))
             conn.commit()
 
     # Seed the always-available admin test account, per explicit request.

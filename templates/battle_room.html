@@ -78,6 +78,8 @@
   .matchup-teams .side-a{color:var(--gold);}
   .matchup-teams .side-b{color:var(--flare);}
   .round-indicator{color:var(--chalk-dim); font-size:12px; font-family:'JetBrains Mono',monospace; margin-top:6px; text-transform:uppercase;}
+  .viewer-count{color:var(--chalk-dim); font-size:12px; font-family:'JetBrains Mono',monospace; margin-top:4px; text-align:center;}
+  .smacky-waiting-img{display:block; max-width:180px; width:60%; height:auto; margin:0 auto 16px;}
   .waiting-pulse{
     font-family:'Anton',sans-serif; font-size:32px; text-transform:uppercase;
     color:var(--flare); margin-top:10px; letter-spacing:0.5px;
@@ -468,6 +470,14 @@ function getVoterId() {
   }
   return id;
 }
+function getViewerId() {
+  let id = localStorage.getItem('smackagram_battle_viewer_id');
+  if (!id) {
+    id = 'viewer-' + crypto.randomUUID();
+    localStorage.setItem('smackagram_battle_viewer_id', id);
+  }
+  return id;
+}
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -607,8 +617,10 @@ document.getElementById('musicMuteBtn').addEventListener('click', () => {
   updateMuteButtonUI();
   const crowdAudio = document.getElementById('crowdLoopAudio');
   const waitingAudio = document.getElementById('waitingMusicAudio');
+  const critiqueAudio = document.getElementById('critiqueRevealAudio');
   if (crowdAudio) crowdAudio.muted = musicMuted;
   if (waitingAudio) waitingAudio.muted = musicMuted;
+  if (critiqueAudio) critiqueAudio.muted = musicMuted;
 });
 
 function updateBackgroundMusic(status) {
@@ -742,7 +754,13 @@ const SOUND_VOLUMES = { critiqueRevealAudio: 0.5 };
 function playAudioElement(id) {
   const el = document.getElementById(id);
   if (el && el.src) {
-    el.muted = false;
+    // critiqueRevealAudio is the looping "rock music" background track
+    // during round review, not a one-shot sound effect like the others
+    // this function also plays (bell, cheer, boo, new-line, etc) - those
+    // should always stay audible regardless of the music mute toggle,
+    // but this one is background music and should respect it, same as
+    // the waiting-room/crowd-loop tracks do.
+    el.muted = (id === 'critiqueRevealAudio') ? musicMuted : false;
     el.volume = SOUND_VOLUMES[id] !== undefined ? SOUND_VOLUMES[id] : 1.0;
     el.currentTime = 0;
     el.play().catch(() => {});
@@ -1038,7 +1056,7 @@ function render(battle) {
     content.innerHTML = '';
     lineHistory.innerHTML = '';
     const waitingHeaderText = mySide === 'a' ? '<span class="waiting-pulse">Waiting for opponent</span>' : 'Waiting for you to accept';
-    header.innerHTML = `<p class="matchup-teams"><span class="side-a" style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span></p><p class="round-indicator">${waitingHeaderText}</p>`;
+    header.innerHTML = `<p class="matchup-teams"><span class="side-a" style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span></p><p class="round-indicator">${waitingHeaderText}</p><p class="viewer-count">👁 ${battle.viewer_count} watching</p>`;
 
     const waitingSignature = `waiting|${mySide}`;
     if (lastActionSignature !== waitingSignature) {
@@ -1047,6 +1065,10 @@ function render(battle) {
       if (mySide === 'a') {
         actionArea.innerHTML = `
           <div class="card">
+            <picture>
+              <source type="image/webp" srcset="/static/img/smacky-hero.webp">
+              <img class="smacky-waiting-img" src="/static/img/smacky-hero.png" alt="Smacky" loading="lazy">
+            </picture>
             <p class="waiting-note">Share your battle link with whoever you're calling out. This page will update once they join.</p>
             <p class="intensity-badge">Intensity: <span>${escapeHtml(INTENSITY_LABELS[battle.intensity] || 'Savage')}</span></p>
           </div>
@@ -1056,6 +1078,10 @@ function render(battle) {
         const showAgeGate = battle.intensity !== 1;
         actionArea.innerHTML = `
           <div class="card">
+            <picture>
+              <source type="image/webp" srcset="/static/img/smacky-hero.webp">
+              <img class="smacky-waiting-img" src="/static/img/smacky-hero.png" alt="Smacky" loading="lazy">
+            </picture>
             <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)}, a <span style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span> fan, is calling out ${escapeHtml(LEAGUE_LABELS[battle.league] || battle.league.toUpperCase())} fans. Step up?</p>
             <p class="intensity-badge" style="margin-bottom:14px;">This battle is set to <span>${escapeHtml(INTENSITY_LABELS[battle.intensity] || 'Savage')}</span> intensity.</p>
             <label for="teamBInput">Your team</label>
@@ -1183,6 +1209,7 @@ function render(battle) {
   header.innerHTML = `
     <p class="matchup-teams"><span class="side-a" style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span><span class="vs">vs</span><span class="side-b" style="color:${readableColor(battle.team_b_color, 'var(--flare)')};">${escapeHtml(battle.team_b)}</span></p>
     <p class="round-indicator">${battle.status === 'complete' ? 'Battle complete' : `Round ${battle.round_number} of ${battle.max_rounds}`}</p>
+    <p class="viewer-count">👁 ${battle.viewer_count} watching</p>
     <div class="intensity-badge-wrap"><p class="intensity-badge">Intensity: <span>${escapeHtml(INTENSITY_LABELS[battle.intensity] || 'Savage')}</span></p></div>
     ${buildMomentumBar(battle)}
     <div class="led-row">${buildLedRow(battle)}</div>
@@ -1254,7 +1281,7 @@ function render(battle) {
     || (battle.status === 'complete' && mySide && finalConfirmClicked && !battle.overall_winner);
   const timeBucket = isPendingJudgment ? Math.floor(Date.now() / 5000) : 0;
 
-  const actionSignature = `${battle.status}|${battle.current_turn}|${mySide}|${battle.round_number}|${battle.vote_count_a}|${battle.awaiting_next_round}|${battle.ready_a}|${battle.ready_b}|${(battle.round_results || []).length}|${battle.overall_winner}|${battle.rematch_requested_a}|${battle.rematch_requested_b}|${timeBucket}|${myScorecardUnlocked}|${finalConfirmClicked}|${!!battle.turn_started_at}`;
+  const actionSignature = `${battle.status}|${battle.current_turn}|${mySide}|${battle.round_number}|${battle.vote_count_a}|${battle.awaiting_next_round}|${battle.ready_a}|${battle.ready_b}|${(battle.round_results || []).length}|${battle.overall_winner}|${battle.rematch_requested_a}|${battle.rematch_requested_b}|${timeBucket}|${myScorecardUnlocked}|${finalConfirmClicked}|${!!battle.turn_started_at}|${battle.side_a_left}|${battle.side_b_left}`;
   if (lastActionSignature === actionSignature) {
     return;
   }
@@ -1262,6 +1289,27 @@ function render(battle) {
 
   clearTurnTimer();
   let actionHtml = '';
+
+  // Opponent-left notification takes priority over every other
+  // action-area state - if it fires, nothing else in this function
+  // matters, since the battle is effectively over the moment one side
+  // is gone. Only relevant to the two actual participants, not
+  // spectators (mySide is null for them), since a spectator watching
+  // doesn't need to be told to go start their own battle.
+  const opponentLeft = (mySide === 'a' && battle.side_b_left) || (mySide === 'b' && battle.side_a_left);
+  if (opponentLeft) {
+    const opponentName = mySide === 'a' ? battle.display_name_b : battle.display_name_a;
+    content.innerHTML = '';
+    lineHistory.innerHTML = '';
+    actionArea.innerHTML = `
+      <div class="card">
+        <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(opponentName)} left the battle.</p>
+        <a href="/smack-battle" class="btn btn-flare" style="display:block; text-align:center; text-decoration:none;">Start New Smack Battle</a>
+      </div>
+    `;
+    return;
+  }
+
   if (battle.status === 'active' && battle.awaiting_next_round) {
     const latestResult = (battle.round_results || []).find(r => r.round === battle.round_number);
 
@@ -1706,6 +1754,28 @@ document.addEventListener('visibilitychange', () => {
     pollLoop();
   }
 });
+
+// Live viewer count - a separate, slower heartbeat loop from the main
+// battle-state poll above. Every participant and spectator alike pings
+// the same way, so the count naturally includes everyone with the page
+// open, not just spectators. 8s is frequent enough that the count feels
+// current without hammering the server the way the 1.5s state poll needs to.
+let viewerPingTimeoutId = null;
+async function viewerPingLoop() {
+  try {
+    await fetch(`/api/battles/${challengeCode}/viewer-ping`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({viewer_id: getViewerId(), side: getMySide()})
+    });
+  } catch (err) {
+    // Same reasoning as loadBattle - a transient failure here shouldn't
+    // stop future pings, it just means this one cycle didn't register.
+  }
+  viewerPingTimeoutId = setTimeout(viewerPingLoop, 8000);
+}
+viewerPingLoop();
+
 </script>
 </body>
 </html>
