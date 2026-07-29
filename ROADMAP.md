@@ -1621,3 +1621,32 @@ If isolating the Express Checkout Element doesn't resolve the freeze
 on its own, the next round of console output (with the improved
 logging) should finally show readable error text rather than "Object",
 which should make the actual cause diagnosable for the first time.
+
+## Payment freeze - actual root cause found (same session)
+With readable error logging finally in place, got the real error:
+"Could not retrieve elements store due to unexpected error" - a known
+Stripe.js internal-state error.
+
+Root cause identified: initPaymentForPack() runs again every time a
+user clicks a different tier card (starter/loaded/arsenal), and it was
+creating a brand new stripe.elements() instance and mounting brand new
+Payment/Express Elements into the SAME DOM containers every single
+time, without ever destroying the previous instances first. Mounting
+a new Element on top of an old one that was never unmounted is a known
+way to corrupt Stripe.js's internal state - and switching tiers before
+paying is completely normal, expected user behavior on this page, not
+an edge case.
+
+Fix: paymentElementInstance and expressElementInstance are now tracked
+at module scope (previously local variables re-created and discarded
+on every call, with no way to reference the old ones). initPaymentForPack()
+now calls .destroy() on both before creating anything new, wrapped
+defensively in case destroy() itself throws on an already-broken
+instance.
+
+Higher confidence than the previous two rounds, since this is a
+specific, verifiable cause matching a well-documented Stripe.js failure
+pattern rather than a defensive/diagnostic-only change - but still
+flagging honestly that it hasn't been confirmed working in the live
+payment flow, since that requires an actual browser + Stripe test
+session this sandbox can't fully replicate.

@@ -255,6 +255,8 @@
 <script>
 const stripe = Stripe("{{ stripe_publishable_key }}");
 let elements = null;
+let paymentElementInstance = null;
+let expressElementInstance = null;
 let currentPack = 'loaded';
 const packNames = {starter:'Starter pack', loaded:'Loaded pack', arsenal:'Arsenal pack'};
 const tiers = Array.prototype.slice.call(document.querySelectorAll('.tier'));
@@ -269,6 +271,16 @@ async function initPaymentForPack(packKey) {
   const errorEl = document.getElementById('payError');
   errorEl.style.display = 'none';
   payBtn.disabled = true;
+
+  // Every tier switch calls this again. Without destroying the
+  // previous Elements first, a new Elements instance gets mounted into
+  // the same DOM containers on top of the old one on every switch -
+  // this corrupts Stripe.js's internal state and is the likely cause
+  // of "Could not retrieve elements store due to unexpected error" at
+  // confirm time. destroy() is safe to call even if nothing is mounted.
+  if (paymentElementInstance) { try { paymentElementInstance.destroy(); } catch (e) {} paymentElementInstance = null; }
+  if (expressElementInstance) { try { expressElementInstance.destroy(); } catch (e) {} expressElementInstance = null; }
+  elements = null;
 
   try {
     const resp = await fetch('/api/wallet/create-payment-intent', {
@@ -285,17 +297,17 @@ async function initPaymentForPack(packKey) {
 
     elements = stripe.elements({clientSecret: data.client_secret, appearance: {theme: 'night', variables: {colorPrimary: '#E01B24', colorBackground: '#141414', colorText: '#FFFFFF'}}});
 
-    const paymentElement = elements.create('payment');
-    paymentElement.mount('#payment-element');
+    paymentElementInstance = elements.create('payment');
+    paymentElementInstance.mount('#payment-element');
 
     // Isolated from the main Payment Element on purpose - if Apple/
     // Google Pay session setup fails in the background, it should
     // never be able to take down card payments, which are the primary
     // path most people use.
     try {
-      const expressElement = elements.create('expressCheckout');
-      expressElement.mount('#express-element');
-      expressElement.on('confirm', handleExpressConfirm);
+      expressElementInstance = elements.create('expressCheckout');
+      expressElementInstance.mount('#express-element');
+      expressElementInstance.on('confirm', handleExpressConfirm);
     } catch (expressErr) {
       console.error('Express Checkout Element failed to set up (card payment is unaffected):', expressErr && expressErr.message, expressErr);
       document.getElementById('express-element').style.display = 'none';
