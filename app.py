@@ -341,12 +341,17 @@ def api_update_profile():
     return jsonify({"ok": True})
 
 
-# Pre-resolved audio URLs for calls about to be placed, keyed by record id.
-# Generating the message/sfx/tagline audio takes a few seconds (multiple
-# ElevenLabs calls + S3 uploads) — doing that INSIDE the /call-instructions
-# webhook response risks Twilio timing out and retrying, which replays the
-# whole call from scratch. So we resolve audio BEFORE placing the call, and
-# call-instructions just serves the already-ready URLs instantly.
+# Pre-resolved audio URLs for calls about to be placed, keyed by
+# (record_type, record_id) - e.g. ("order", 42) or ("smackagram", 42).
+# Previously keyed on the bare record id alone, which meant an Order
+# and a Smackagram with the same id would silently overwrite each
+# other's cached audio - the same collision the webhook URL namespacing
+# below fixes. Generating the message/sfx/tagline audio takes a few
+# seconds (multiple ElevenLabs calls + S3 uploads) — doing that INSIDE
+# the /call-instructions webhook response risks Twilio timing out and
+# retrying, which replays the whole call from scratch. So we resolve
+# audio BEFORE placing the call, and call-instructions just serves the
+# already-ready URLs instantly.
 _pending_call_audio = {}
 
 
@@ -550,9 +555,9 @@ def _execute_send_smack(user, data: dict) -> dict:
 
     try:
         audio_urls = call_audio_service.resolve_audio_url(order, os.environ["BASE_URL"])
-        _pending_call_audio[order.id] = audio_urls
+        _pending_call_audio[("order", order.id)] = audio_urls
         order.message_audio_url = audio_urls[0]  # persist for reply-flow "hear it again" replay
-        call_sid = twilio_service.place_prank_call(order.id, order.recipient_phone, record=True)
+        call_sid = twilio_service.place_prank_call("order", order.id, order.recipient_phone, record=True)
         order.twilio_call_sid = call_sid
         order.call_status = "ringing"
 
@@ -723,9 +728,9 @@ def stripe_webhook():
             # already safely recorded either way.
             try:
                 audio_urls = call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")))
-                _pending_call_audio[order.id] = audio_urls
+                _pending_call_audio[("order", order.id)] = audio_urls
                 order.message_audio_url = audio_urls[0]  # persist for reply-flow "hear it again" replay
-                call_sid = twilio_service.place_prank_call(order.id, order.recipient_phone, record=True)
+                call_sid = twilio_service.place_prank_call("order", order.id, order.recipient_phone, record=True)
                 order.twilio_call_sid = call_sid
                 order.call_status = "ringing"
 
@@ -898,14 +903,26 @@ def preview_audio():
     })
 
 
-@app.route("/call-instructions/<int:record_id>", methods=["GET", "POST"])
-def call_instructions(record_id):
+def _resolve_record(record_type, record_id):
     """
-    Twilio hits this the moment the call connects. Serves pre-resolved audio
-    URLs instantly — no generation happens here, since that risked Twilio
-    timing out and retrying (which replayed the whole call from scratch).
+    record_type: "order", "smackagram", or None. None triggers the old
+    guess-based lookup (Order first, then Smackagram) - kept ONLY for
+    the legacy bare-int fallback routes below, which exist solely to
+    handle calls already in flight (placed by pre-deploy code) at the
+    moment this namespacing change goes live. Every new call always
+    passes an explicit type, so the guess (which silently favored
+    Order on any id collision) is never exercised for new calls.
     """
-    order = Order.query.get(record_id) or Smackagram.query.get(record_id)
+    if record_type == "order":
+        return Order.query.get(record_id)
+    elif record_type == "smackagram":
+        return Smackagram.query.get(record_id)
+    else:
+        return Order.query.get(record_id) or Smackagram.query.get(record_id)
+
+
+def _call_instructions_handler(record_type, record_id):
+    order = _resolve_record(record_type, record_id)
 
     # With machine_detection='DetectMessageEnd' set at call-creation time,
     # Twilio only requests this route once it's determined who/what
@@ -913,11 +930,15 @@ def call_instructions(record_id):
     # (e.g. "machine_end_beep" means we're being asked to speak right
     # after the voicemail's greeting ended, exactly when we want to).
     answered_by = request.values.get("AnsweredBy")
-    print(f"[twilio] call-instructions hit for record {record_id} — AnsweredBy={answered_by!r}")
+    print(f"[twilio] call-instructions hit for {record_type or 'legacy'}:{record_id} — AnsweredBy={answered_by!r}")
 
     # fall back to live resolution only if somehow nothing was pre-cached
-    # (e.g. this route got hit directly without going through the webhook)
-    audio_urls = _pending_call_audio.pop(record_id, None) or call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")))
+    # (e.g. this route got hit directly without going through the webhook).
+    # Cache key matches whichever URL style got us here - namespaced calls
+    # were cached under (record_type, record_id), legacy in-flight calls
+    # under the bare record_id.
+    cache_key = (record_type, record_id) if record_type else record_id
+    audio_urls = _pending_call_audio.pop(cache_key, None) or call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")))
 
     # Never record voicemail greetings/silence — recording is only
     # meaningful (and only what the buyer paid for) when a real person's
@@ -927,11 +948,15 @@ def call_instructions(record_id):
     is_machine = bool(answered_by) and answered_by.startswith("machine")
     should_record = getattr(order, "includes_recording", True) and not is_machine
     if is_machine and getattr(order, "includes_recording", True):
-        print(f"[twilio] record {record_id} went to voicemail — recording skipped even though it was purchased")
+        print(f"[twilio] record {record_type or 'legacy'}:{record_id} went to voicemail — recording skipped even though it was purchased")
 
     base_url = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
-    callback_url = f"{base_url}/recording-ready/{record_id}" if should_record else None
-    action_url = f"{base_url}/recording-done/{record_id}" if should_record else None
+    if record_type:
+        callback_url = f"{base_url}/recording-ready/{record_type}/{record_id}" if should_record else None
+        action_url = f"{base_url}/recording-done/{record_type}/{record_id}" if should_record else None
+    else:
+        callback_url = f"{base_url}/recording-ready/{record_id}" if should_record else None
+        action_url = f"{base_url}/recording-done/{record_id}" if should_record else None
     twiml = twilio_service.build_twiml(
         audio_urls, record=should_record,
         record_callback_url=callback_url, record_action_url=action_url,
@@ -939,14 +964,45 @@ def call_instructions(record_id):
     return Response(twiml, mimetype="text/xml")
 
 
+@app.route("/call-instructions/<record_type>/<int:record_id>", methods=["GET", "POST"])
+def call_instructions(record_type, record_id):
+    """
+    Twilio hits this the moment the call connects. Serves pre-resolved audio
+    URLs instantly — no generation happens here, since that risked Twilio
+    timing out and retrying (which replayed the whole call from scratch).
+
+    Namespaced by record_type ("order" or "smackagram") so this never has
+    to guess which table an id belongs to - see _resolve_record.
+    """
+    return _call_instructions_handler(record_type, record_id)
+
+
+@app.route("/call-instructions/<int:record_id>", methods=["GET", "POST"])
+def call_instructions_legacy(record_id):
+    """
+    Fallback for calls placed by pre-deploy code before this namespacing
+    change landed - those calls already have the old bare-int URL baked
+    into Twilio's call configuration and will hit this route instead of
+    the new namespaced one. Safe to remove once enough time has passed
+    that no such in-flight call could still exist (a call's total
+    lifetime is capped by time_limit in place_prank_call).
+    """
+    return _call_instructions_handler(None, record_id)
+
+
+@app.route("/recording-done/<record_type>/<int:record_id>", methods=["GET", "POST"])
 @app.route("/recording-done/<int:record_id>", methods=["GET", "POST"])
-def recording_done(record_id):
+def recording_done(record_id, record_type=None):
     """
     Where <Record>'s action points once recording finishes. Just hangs up —
     critically, this is NOT the same URL that started the call, which is
     what stops Twilio from re-fetching /call-instructions and replaying the
     whole script (Twilio's default action, if none is given, is to re-request
     the original URL).
+
+    Doesn't actually need to know which record this is for (it does
+    nothing but hang up), so both the namespaced and legacy bare-int
+    URL shapes map to this same handler.
     """
     twiml = "<Response><Hangup/></Response>"
     return Response(twiml, mimetype="text/xml")
@@ -2158,28 +2214,48 @@ def arm_smackagram():
 
 # ---------- Twilio status callbacks ----------
 
-@app.route("/call-status/<int:record_id>", methods=["POST"])
-def call_status(record_id):
+@app.route("/call-status/<record_type>/<int:record_id>", methods=["POST"])
+def call_status(record_type, record_id):
     """
     Twilio's real call-completion webhook — registered at call-creation
-    time in place_prank_call(). Same record_id space is shared by both
-    Order and Smackagram (both use the same place_prank_call function),
-    so this has to check both, the same way /call-instructions does.
+    time in place_prank_call(). Namespaced by record_type so this never
+    has to guess which table an id belongs to.
     """
     status = request.form.get("CallStatus")
-    record = Order.query.get(record_id) or Smackagram.query.get(record_id)
+    record = _resolve_record(record_type, record_id)
     if record:
         record.call_status = status
         db.session.commit()
     return "", 204
 
 
-@app.route("/recording-ready/<int:record_id>", methods=["POST"])
-def recording_ready(record_id):
+@app.route("/call-status/<int:record_id>", methods=["POST"])
+def call_status_legacy(record_id):
+    """Fallback for calls placed by pre-deploy code - see call_instructions_legacy."""
+    status = request.form.get("CallStatus")
+    record = _resolve_record(None, record_id)
+    if record:
+        record.call_status = status
+        db.session.commit()
+    return "", 204
+
+
+@app.route("/recording-ready/<record_type>/<int:record_id>", methods=["POST"])
+def recording_ready(record_type, record_id):
+    """Namespaced by record_type so this never has to guess which table an id belongs to."""
     recording_url = request.form.get("RecordingUrl")
-    order = Order.query.get(record_id)
-    smackagram = Smackagram.query.get(record_id)
-    target = order or smackagram
+    target = _resolve_record(record_type, record_id)
+    if target:
+        target.recording_url = recording_url
+        db.session.commit()
+    return "", 204
+
+
+@app.route("/recording-ready/<int:record_id>", methods=["POST"])
+def recording_ready_legacy(record_id):
+    """Fallback for calls placed by pre-deploy code - see call_instructions_legacy."""
+    recording_url = request.form.get("RecordingUrl")
+    target = _resolve_record(None, record_id)
     if target:
         target.recording_url = recording_url
         db.session.commit()

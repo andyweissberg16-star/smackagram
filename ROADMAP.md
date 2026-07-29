@@ -2564,3 +2564,60 @@ both a missing key and a wrong key with 401.
 
 NEXT STEP: deploy this, then visit the URL against the real production
 database to get the actual answer for David's item #1.
+
+## Twilio work package: ID collision bug FIXED (David's handoff, item #1)
+Verified via the diagnostic endpoint that current production has 0
+collisions - but only because smackagrams currently has ZERO rows.
+Since both tables use independent auto-increment counters starting at
+1, the very first Locked & Loaded smack ever created would get id=1,
+which already collides with an existing Order. This was not a distant
+future risk - it was effectively guaranteed on the next Locked &
+Loaded smack, whenever that happened to be sent. Built the real fix
+rather than just monitoring.
+
+Namespaced every Twilio webhook URL by record type instead of a bare
+integer, per David's recommended approach:
+- place_prank_call() now takes record_type ("order" or "smackagram")
+  as an explicit parameter and builds namespaced URLs:
+  /call-instructions/{type}/{id}, /call-status/{type}/{id}
+- All 3 call sites updated (2 in app.py for Order, 1 in scheduler.py
+  for Smackagram)
+- New namespaced routes for all 4 webhook endpoints
+  (call-instructions, call-status, recording-ready, recording-done),
+  backed by a shared _resolve_record(record_type, record_id) helper
+- The OLD bare-int routes are kept alive as explicit fallbacks
+  (call_instructions_legacy, call_status_legacy, etc.) specifically
+  for calls already in flight when this deploy lands - those calls
+  have the old-style URL already baked into Twilio's call
+  configuration and can't be redirected. Safe to remove later once
+  enough time has passed that no in-flight call could still exist.
+- _pending_call_audio now keyed by (record_type, record_id) tuples
+  instead of a bare id, fixing the same collision in the in-memory
+  cache itself
+
+NOTE for item #2 (dead air): found while working on this that
+scheduler.py's call site (the Locked & Loaded path) never used
+_pending_call_audio at all - it has no import path to app.py's dict.
+Every Locked & Loaded call was therefore already hitting the "generate
+audio live inside the webhook while the customer holds the phone"
+delay this whole caching mechanism exists to avoid. Flagging this
+specifically for the item #2 diagnosis, not fixed as part of this
+change.
+
+VERIFIED with a real, direct test simulating the exact broken
+scenario: inserted an Order and a Smackagram both at id=42 with
+different recipient info and different scenario audio. Confirmed:
+- /call-status/order/42 updates ONLY the Order, Smackagram untouched
+- /call-status/smackagram/42 updates ONLY the Smackagram, Order
+  untouched (both directions tested, not just one)
+- /recording-ready/order/42 and /recording-ready/smackagram/42 each
+  correctly stored their own recording URL with zero cross-contamination
+- /call-instructions/order/42 correctly played the Order's own audio;
+  /call-instructions/smackagram/42 correctly played the Smackagram's
+  own, different audio - including confirming the generated <Record>
+  action/callback URLs inside that TwiML were themselves correctly
+  namespaced
+- The legacy bare-int fallback routes (/call-status/42,
+  /call-instructions/42) still work exactly as before, correctly
+  favoring Order per the old guess logic - confirming backward
+  compatibility for any calls already in flight at deploy time

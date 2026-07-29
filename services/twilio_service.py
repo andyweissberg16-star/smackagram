@@ -72,12 +72,20 @@ def place_smackcast_call(recap_id: int, recipient_phone: str) -> str:
     return call.sid
 
 
-def place_prank_call(order_or_smackagram_id: int, recipient_phone: str, record: bool = True) -> str:
+def place_prank_call(record_type: str, record_id: int, recipient_phone: str, record: bool = True) -> str:
     """
     Fires the actual outbound call. Twilio hits our /call-instructions
     endpoint the moment it's actually safe to start talking — see
     machine_detection below — which returns the TwiML script.
     Returns the Twilio call SID for tracking.
+
+    record_type: "order" or "smackagram" - Order and Smackagram are
+    separate tables with independent autoincrementing primary keys, so
+    the same integer id can (and eventually will) exist in both. The
+    webhook URLs are namespaced by record_type specifically so the
+    handlers never have to guess which table an id belongs to - a
+    guess that previously always favored Order, silently serving the
+    wrong record's audio to whichever Smackagram happened to collide.
 
     machine_detection='DetectMessageEnd': makes this SYNCHRONOUS — Twilio
     delays requesting our /call-instructions URL until it has determined
@@ -96,12 +104,12 @@ def place_prank_call(order_or_smackagram_id: int, recipient_phone: str, record: 
     to_number = _to_e164(recipient_phone)
     from_number = _to_e164(os.environ["TWILIO_PHONE_NUMBER"])
 
-    print(f"[twilio] Placing call — to={to_number!r} from={from_number!r}")
+    print(f"[twilio] Placing call — to={to_number!r} from={from_number!r} record_type={record_type!r} record_id={record_id!r}")
 
     call = _get_client().calls.create(
         to=to_number,
         from_=from_number,
-        url=f"{base_url}/call-instructions/{order_or_smackagram_id}",
+        url=f"{base_url}/call-instructions/{record_type}/{record_id}",
         time_limit=59,  # hard cap on total call duration, enforced by Twilio itself
         machine_detection="DetectMessageEnd",
         # Twilio's default timeout here is 30 seconds — that's the source
@@ -112,7 +120,7 @@ def place_prank_call(order_or_smackagram_id: int, recipient_phone: str, record: 
         # vast majority of real greetings (which are well under 15s) while
         # putting a hard ceiling on how long a live human ever waits.
         machine_detection_timeout=15,
-        status_callback=f"{base_url}/call-status/{order_or_smackagram_id}",
+        status_callback=f"{base_url}/call-status/{record_type}/{record_id}",
         status_callback_event=["completed"],
         status_callback_method="POST",
     )
