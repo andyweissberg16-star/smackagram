@@ -1558,3 +1558,33 @@ still gets a working "Go Back" link/step nav pointing back to
 /locked-n-loaded?resume=<id>, but that page does not yet have the
 resumeFromPendingAction() logic to actually repopulate its form fields
 from the resume parameter - a real gap, flagged, not yet built.
+
+## Payment button freezing on "Firing your Smackagram..." (same session)
+User reported the final Pay button hangs indefinitely with no error.
+Console showed a 400 on a Stripe internal "sessions" request (likely
+background Express Checkout Element activity, inconclusive as the
+direct cause) alongside otherwise-normal Stripe/Google Pay preconnect
+noise.
+
+Found and fixed a genuine, concrete bug regardless of the exact root
+cause: stripe.confirmPayment() was called with no try/catch and no
+elements.submit() beforehand in either the main Pay button handler or
+the Apple/Google Pay express handler. Per Stripe's current documented
+best practice, elements.submit() should be called first to validate
+and collect data from whichever Element the user actually used - this
+was skipped entirely. And critically: if confirmPayment() throws
+rather than resolving with the normal {error} shape, there was nothing
+to catch it - the button would freeze on "Firing your Smackagram..."
+forever with zero feedback, exactly matching what was reported.
+
+Fixed both handlers: elements.submit() now runs first (surfacing a
+clear error if the form itself is invalid), and both are wrapped in
+try/catch with console.error logging plus a user-facing fallback
+message, so any future failure shows something instead of hanging
+silently. Not able to fully reproduce the live Stripe payment flow in
+this sandbox to confirm this is the exact root cause - flagged
+honestly. If the freeze recurs after this fix, the browser console
+should now show either Stripe's real error message or the
+"Something went wrong completing payment" fallback with a caught
+JS error logged above it, which will make the actual cause visible for
+the first time.

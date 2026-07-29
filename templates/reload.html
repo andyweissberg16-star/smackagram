@@ -300,13 +300,19 @@ async function initPaymentForPack(packKey) {
 }
 
 async function handleExpressConfirm() {
-  const {error} = await stripe.confirmPayment({
-    elements,
-    confirmParams: {return_url: window.location.origin + '/reload-success' + (pendingActionId ? '?pending_action=' + pendingActionId : '')},
-  });
-  if (error) {
-    const errorEl = document.getElementById('payError');
-    errorEl.textContent = error.message;
+  const errorEl = document.getElementById('payError');
+  try {
+    const {error} = await stripe.confirmPayment({
+      elements,
+      confirmParams: {return_url: window.location.origin + '/reload-success' + (pendingActionId ? '?pending_action=' + pendingActionId : '')},
+    });
+    if (error) {
+      errorEl.textContent = error.message;
+      errorEl.style.display = 'block';
+    }
+  } catch (err) {
+    console.error('Express payment confirmation failed:', err);
+    errorEl.textContent = "Something went wrong completing payment. Please try again.";
     errorEl.style.display = 'block';
   }
 }
@@ -350,16 +356,42 @@ document.getElementById('payBtn').addEventListener('click', async function() {
   payBtn.disabled = true;
   payBtn.textContent = 'Firing your Smackagram…';
 
-  const {error} = await stripe.confirmPayment({
-    elements,
-    confirmParams: {return_url: window.location.origin + '/reload-success' + (pendingActionId ? '?pending_action=' + pendingActionId : '')},
-  });
-
-  if (error) {
-    errorEl.textContent = error.message;
-    errorEl.style.display = 'block';
+  function resetButton() {
     payBtn.disabled = false;
     payBtn.innerHTML = 'Pay <span class="amt" id="btn-amt">' + document.getElementById('s-total').textContent + '</span> — Send my Smackagram';
+  }
+
+  try {
+    // Validates the form and collects data from whichever Element the
+    // user is actually using (card fields or an express wallet) -
+    // required before confirming, per Stripe's current guidance.
+    const {error: submitError} = await elements.submit();
+    if (submitError) {
+      errorEl.textContent = submitError.message;
+      errorEl.style.display = 'block';
+      resetButton();
+      return;
+    }
+
+    const {error} = await stripe.confirmPayment({
+      elements,
+      confirmParams: {return_url: window.location.origin + '/reload-success' + (pendingActionId ? '?pending_action=' + pendingActionId : '')},
+    });
+
+    if (error) {
+      errorEl.textContent = error.message;
+      errorEl.style.display = 'block';
+      resetButton();
+    }
+  } catch (err) {
+    // Covers anything unexpected (network failure, a Stripe.js
+    // exception, etc.) that isn't the normal {error} return shape -
+    // without this, a failure here would leave the button frozen on
+    // "Firing your Smackagram..." forever with no feedback at all.
+    console.error('Payment confirmation failed:', err);
+    errorEl.textContent = "Something went wrong completing payment. Please try again.";
+    errorEl.style.display = 'block';
+    resetButton();
   }
 });
 
