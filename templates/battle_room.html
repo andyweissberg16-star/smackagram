@@ -134,6 +134,14 @@
   #actionError{display:none; color:var(--flare-text); font-size:12px; margin-bottom:10px;}
 
   .waiting-note{text-align:center; color:var(--chalk-dim); font-size:14px; padding:8px 0;}
+  .intensity-badge{
+    text-align:center; font-family:'JetBrains Mono',monospace; font-size:11px;
+    text-transform:uppercase; letter-spacing:1px; color:var(--chalk-dim);
+    background:var(--ink); border:1px solid var(--line-strong); border-radius:999px;
+    padding:8px 16px; display:inline-block; width:auto;
+  }
+  .intensity-badge span{color:var(--gold); font-weight:700;}
+  .intensity-badge-wrap{text-align:center; margin-bottom:14px;}
   .typing-indicator{
     text-align:center; color:var(--chalk); font-size:13px; font-style:italic; margin-top:4px;
     display:flex; align-items:center; justify-content:center; gap:6px;
@@ -396,6 +404,7 @@ function readableColor(hex, fallback){
 
 <script>
 const challengeCode = "{{ challenge_code }}";
+const INTENSITY_LABELS = {1: 'Clean', 2: 'Mild', 3: 'Aggressive', 4: 'Savage'};
 
 function getMySide() {
   return localStorage.getItem(`battle_side_${challengeCode}`);
@@ -914,6 +923,7 @@ function render(battle) {
         actionArea.innerHTML = `
           <div class="card">
             <p class="waiting-note">Share your battle link with whoever you're calling out. This page will update once they join.</p>
+            <p class="intensity-badge">Intensity: <span>${escapeHtml(INTENSITY_LABELS[battle.intensity] || 'Savage')}</span></p>
           </div>
         `;
         showHypePopup();
@@ -921,6 +931,7 @@ function render(battle) {
         actionArea.innerHTML = `
           <div class="card">
             <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)} is calling out <span style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span> fans. Step up?</p>
+            <p class="intensity-badge" style="margin-bottom:14px;">This battle is set to <span>${escapeHtml(INTENSITY_LABELS[battle.intensity] || 'Savage')}</span> intensity.</p>
             <label for="teamBInput">Your team</label>
             <input id="teamBInput" type="text" placeholder="ex. Eagles" data-team-search>
             <label for="nameBInput">Your name</label>
@@ -1027,6 +1038,7 @@ function render(battle) {
   header.innerHTML = `
     <p class="matchup-teams"><span class="side-a" style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span><span class="vs">vs</span><span class="side-b" style="color:${readableColor(battle.team_b_color, 'var(--flare)')};">${escapeHtml(battle.team_b)}</span></p>
     <p class="round-indicator">${battle.status === 'complete' ? 'Battle complete' : `Round ${battle.round_number} of 5`}</p>
+    <div class="intensity-badge-wrap"><p class="intensity-badge">Intensity: <span>${escapeHtml(INTENSITY_LABELS[battle.intensity] || 'Savage')}</span></p></div>
     ${buildMomentumBar(battle)}
     <div class="led-row">${buildLedRow(battle)}</div>
   `;

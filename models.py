@@ -196,6 +196,14 @@ class Battle(db.Model):
     challenge_code = db.Column(db.String(20), nullable=False, unique=True)
     league = db.Column(db.String(20), nullable=False)
 
+    # 1 (Clean) through 4 (Savage) - same scale as trash_talk_service.SENSITIVITY_LEVELS,
+    # used everywhere else on the site. Set once by whoever creates the
+    # battle, fixed for its entire lifetime - shapes both the judge's
+    # scoring standard and the actual tone of its critiques/coach
+    # messages. Defaults to 4 (Savage) to match the battle judge's
+    # original always-brutal behavior for anyone who doesn't pick.
+    intensity = db.Column(db.Integer, default=4, nullable=False)
+
     display_name_a = db.Column(db.String(40), nullable=False)
     team_a = db.Column(db.String(80), nullable=False)
     display_name_b = db.Column(db.String(40), nullable=True)

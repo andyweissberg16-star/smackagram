@@ -134,6 +134,12 @@
     <label for="teamInput">Your team</label>
     <input id="teamInput" type="text" placeholder="ex. Cowboys" data-team-search>
 
+    <label for="intensitySelect">Intensity</label>
+    <select id="intensitySelect">
+      <option value="4">Loading...</option>
+    </select>
+    <p style="font-size:12px; color:var(--chalk-dim); margin:-6px 0 14px;">Sets the tone for the whole battle — whoever you challenge will see this before they join.</p>
+
     <div class="vs-divider">VS whoever's next</div>
 
     <label for="nameInput">Your name</label>
@@ -159,10 +165,31 @@
 <script>
 let createdCode = null;
 
+(async () => {
+  try {
+    const resp = await fetch('/api/sensitivity-levels');
+    const levels = await resp.json();
+    const select = document.getElementById('intensitySelect');
+    select.innerHTML = '';
+    // Levels come back as {"1": {...}, "2": {...}, ...} - numeric keys as strings
+    Object.keys(levels).sort().forEach(key => {
+      const opt = document.createElement('option');
+      opt.value = key;
+      opt.textContent = levels[key].label;
+      if (key === '4') opt.selected = true; // Savage stays the default, matching prior behavior
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    // Fall back to a reasonable default set if the fetch fails, rather than leaving the dropdown stuck on "Loading..."
+    document.getElementById('intensitySelect').innerHTML = '<option value="4" selected>Savage</option>';
+  }
+})();
+
 async function createBattle() {
   const league = document.getElementById('leagueSelect').value;
   const team = document.getElementById('teamInput').value.trim();
   const name = document.getElementById('nameInput').value.trim();
+  const intensity = parseInt(document.getElementById('intensitySelect').value, 10);
   const errorEl = document.getElementById('createError');
   const btn = document.getElementById('createBtn');
 
@@ -187,7 +214,7 @@ async function createBattle() {
     const resp = await fetch('/api/battles', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({league: league, team_a: team, display_name_a: name})
+      body: JSON.stringify({league: league, team_a: team, display_name_a: name, intensity: intensity})
     });
     const data = await resp.json();
     if (data.error) {

@@ -1927,3 +1927,51 @@ deliberate, temporary simplification - the multi-size responsive
 version can be rebuilt later the same way the Locked & Loaded hero
 still works, once there's time to do the full WebP/srcset treatment
 properly.
+
+## Smack Battle: Intensity System (Phase 1 of matchmaking work, same session)
+Built the intensity/tone system for Smack Battle, per direct request -
+first phase of the broader Battle matchmaking overhaul, reusing the
+site's existing 4-level Clean/Mild/Aggressive/Savage scale rather than
+inventing a new one.
+
+- [x] New `intensity` column on the Battle model (1-4, default 4 to
+      match prior always-Savage behavior), with a real Postgres
+      migration added to the startup migration block
+- [x] Battle creation now accepts and validates intensity (reusing the
+      same SENSITIVITY_LEVELS validation used elsewhere)
+- [x] Rebuilt the battle judge's system prompt to be genuinely
+      intensity-aware - built a parallel _BATTLE_JUDGE_TONE_BY_LEVEL
+      set (separate from the main generator's _TONE_BY_LEVEL, since
+      this shapes the JUDGE's own critique/coach-message voice, not
+      AI-generated battle lines - those are typed by real people).
+      Hard safety limits (no personal attacks, no protected-characteristic
+      content, etc.) are identical at every level and never scale down,
+      matching the same pattern already used for the main generator.
+- [x] Intensity selector added to the battle creation page, populated
+      from the same /api/sensitivity-levels endpoint the main generator
+      already uses (one shared system, not a duplicate)
+- [x] Battle room page shows the intensity level in three places: to
+      the creator while waiting, to the joining side BEFORE they accept
+      (the actual core requirement - they need to know what they're
+      agreeing to), and throughout the entire active battle in the header
+
+VERIFIED thoroughly, not just written and assumed:
+- Tested the Postgres migration against an existing database with real
+  data already in it, not just a fresh one
+- Directly tested _build_battle_judge_system_prompt() across all 4
+  levels: confirmed each produces genuinely distinct output, confirmed
+  hard limits are present at every single level, confirmed an invalid
+  level safely falls back to Savage rather than crashing
+- Full live-server, real-browser end-to-end test: created an actual
+  battle at a deliberately non-default intensity (Clean, not Savage),
+  confirmed the database genuinely stored the selected level (not
+  silently defaulting), then confirmed the badge displays correctly to
+  the creator while waiting, to a separate browser context simulating
+  a stranger who clicked the link fresh (before they'd accepted
+  anything), and in the active battle header after they joined
+
+NOT YET BUILT (Phase 2, still to come): the actual matchmaking queue
+itself - async pairing segmented by sport/league, and the AI-persona
+fallback (openly labeled, not disguised as a real person) when no real
+opponent is waiting. This session only covered the intensity system
+that Phase 2 will build on top of.

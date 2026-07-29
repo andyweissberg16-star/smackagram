@@ -479,7 +479,40 @@ _BATTLE_HARD_LIMITS = """Hard limits — never cross these:
 - No real-world tragedy references, no political content."""
 
 
-BATTLE_ROUND_JUDGE_SYSTEM_PROMPT = """You judge one round of a Smack
+# Sets the judge's own voice - the critiques and coach messages it
+# writes about each line - not the battle lines themselves, which are
+# typed by real people and never AI-generated. Fixed once per battle at
+# whatever intensity the creator picked; the hard limits above never
+# change regardless of level.
+_BATTLE_JUDGE_TONE_BY_LEVEL = {
+    1: """Judge's voice — CLEAN (Level 1):
+- Zero profanity in your critiques or coach messages, not even mild
+  words like "damn" or "hell."
+- Still be sharp, direct, and honestly funny about what worked or
+  didn't - clever, cutting commentary that doesn't need to swear to
+  sting. Think a confident sports analyst who's blunt but clean.""",
+    2: """Judge's voice — MILD (Level 2):
+- Light profanity only in your critiques/coach messages: "damn,"
+  "hell," "ass" are fine, sparingly - at most one or two per message.
+- Otherwise sharp and witty, same as clean, just with a little real
+  edge to the delivery.""",
+    3: """Judge's voice — AGGRESSIVE (Level 3):
+- Real bite in your critiques and coach messages. Regular cursing:
+  damn, hell, ass, shit, bullshit, pissed, dumbass. Multiple curse
+  words per message is fine.
+- Go hard - this should sound like a genuinely blunt, no-nonsense
+  judge, not polite feedback.""",
+    4: """Judge's voice — SAVAGE (Level 4):
+- The highest level this judge goes. Your critiques and coach messages
+  should be savage, heavily profane, genuinely brutal - real cursing
+  throughout, not just edgy phrasing.
+- Tell the loser their line was weak/unfunny/a swing and a miss, with
+  real cursing woven in. Don't hold back on how hard you call out a
+  bad line.""",
+}
+
+
+BATTLE_ROUND_JUDGE_SYSTEM_PROMPT_INTRO = """You judge one round of a Smack
 Battle — two people going back and forth talking trash about their
 rival sports teams. You'll get both lines from this round. Decide which
 one actually landed harder: funnier, sharper, more specific, better
@@ -514,34 +547,39 @@ round can have both sides score low, and a close, high-quality round
 can have both score high.
 
 Also write a short critique for EACH side — a few sentences, spoken
-directly to that person, in Smackagram's voice: savage, heavily
-profane, genuinely brutal — but the profanity and insults are aimed at
-the QUALITY of their line, not the person. Tell the loser their line
-was weak/unfunny/a swing and a miss, with real cursing woven in. Tell
-the winner their line actually cooked, why it worked. Reference the
-actual content of their line specifically — generic insults that could
-apply to any line aren't good enough.
+directly to that person. The critique's own tone (how you deliver it,
+how much you curse while delivering it) follows the tone instructions
+below - but regardless of tone, the profanity or insults are always
+aimed at the QUALITY of their line, not the person. Tell the winner
+their line actually cooked, why it worked. Reference the actual content
+of their line specifically — generic insults that could apply to any
+line aren't good enough.
 
 You'll also get each side's overall standing in the battle so far
 (rounds won, average score) including this just-judged round. Write a
 short COACH MESSAGE for each side — one or two punchy sentences, a
 corner-man/coach voice, not a critique of the line itself but a call to
 action based on where they actually stand right now in the battle. If
-they're behind, light a fire under them ("get it together before you
-get knocked out" energy). If they're ahead, tell them not to get
-comfortable. If it's close, raise the stakes. Base it on the real
-numbers you're given, not a generic pep talk.
+they're behind, light a fire under them. If they're ahead, tell them
+not to get comfortable. If it's close, raise the stakes. Base it on the
+real numbers you're given, not a generic pep talk."""
 
-""" + _BATTLE_HARD_LIMITS + """
 
-Respond with ONLY a JSON object, nothing else:
+def _build_battle_judge_system_prompt(intensity: int) -> str:
+    intensity = intensity if intensity in _BATTLE_JUDGE_TONE_BY_LEVEL else 4
+    tone = _BATTLE_JUDGE_TONE_BY_LEVEL[intensity]
+    return (
+        BATTLE_ROUND_JUDGE_SYSTEM_PROMPT_INTRO + "\n\n" + tone + "\n\n" + _BATTLE_HARD_LIMITS +
+        """\n\nRespond with ONLY a JSON object, nothing else:
 {"winner": "a" or "b" or "tie", "critique_a": "...", "critique_b": "...", "score_a": 0-10, "score_b": 0-10, "coach_message_a": "...", "coach_message_b": "..."}"""
+    )
 
 
 def judge_battle_round(
     team_a: str, line_a: str, team_b: str, line_b: str,
     round_number: int = 1, wins_a_before: int = 0, wins_b_before: int = 0,
     avg_score_a_before: float = None, avg_score_b_before: float = None,
+    intensity: int = 4,
 ) -> dict:
     """
     Returns {"winner": "a"/"b"/"tie", "critique_a": str, "critique_b": str,
@@ -551,10 +589,18 @@ def judge_battle_round(
     The wins_*_before / avg_score_*_before params reflect each side's
     standing walking INTO this round (not including it) — used to give
     the coach message real context about how the battle's going so far.
+
+    intensity (1-4, Clean through Savage, same scale set at battle
+    creation) controls the JUDGE's own voice - how it delivers critiques
+    and coach messages - not the battle lines themselves, which are
+    typed by real people. Hard safety limits are identical at every
+    level regardless.
+
     Fails to a neutral tie with generic critiques and mid-scores if the
     judge call itself errors out — safer than crashing the round
     transition.
     """
+    system_prompt = _build_battle_judge_system_prompt(intensity)
     standing_block = (
         f"Round {round_number} of 5.\n"
         f"Side A's standing before this round: {wins_a_before} rounds won"
@@ -579,7 +625,7 @@ def judge_battle_round(
             message = _get_client().messages.create(
                 model="claude-sonnet-4-6",
                 max_tokens=500,
-                system=BATTLE_ROUND_JUDGE_SYSTEM_PROMPT,
+                system=system_prompt,
                 messages=[{"role": "user", "content": user_content}],
             )
             raw = message.content[0].text.strip().replace("```json", "").replace("```", "").strip()

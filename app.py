@@ -774,7 +774,7 @@ def generate_trash_talk():
 
 @app.route("/api/sensitivity-levels")
 def get_sensitivity_levels():
-    """Powers the sensitivity selector UI on both generator pages."""
+    """Powers the sensitivity/intensity selector UI on the generator pages and Smack Battle creation."""
     return jsonify(trash_talk_service.SENSITIVITY_LEVELS)
 
 
@@ -1254,6 +1254,7 @@ def _battle_state_json(battle):
     return {
         "challenge_code": battle.challenge_code,
         "league": battle.league,
+        "intensity": battle.intensity,
         "status": battle.status,
         "current_turn": battle.current_turn,
         "round_number": battle.round_number,
@@ -1288,12 +1289,15 @@ def create_battle():
     league = data.get("league", "")
     team_a = (data.get("team_a") or "").strip()
     display_name_a = (data.get("display_name_a") or "Anonymous").strip()[:40]
+    intensity = data.get("intensity", 4)
 
     if not league or not team_a:
         return jsonify({"error": "League and your team are required"}), 400
+    if intensity not in trash_talk_service.SENSITIVITY_LEVELS:
+        return jsonify({"error": "Invalid intensity level"}), 400
 
     challenge_code = secrets.token_urlsafe(6).replace("_", "").replace("-", "")[:8]
-    battle = Battle(challenge_code=challenge_code, league=league, team_a=team_a, display_name_a=display_name_a or "Anonymous")
+    battle = Battle(challenge_code=challenge_code, league=league, team_a=team_a, display_name_a=display_name_a or "Anonymous", intensity=intensity)
     db.session.add(battle)
     db.session.commit()
 
@@ -1350,6 +1354,7 @@ def _judge_round_async(battle_id, round_number, team_a, line_a_message, team_b, 
     """
     with app.app_context():
         try:
+            battle = Battle.query.get(battle_id)
             prior_results = BattleRoundResult.query.filter_by(battle_id=battle_id).all()
             wins_a_before = sum(1 for r in prior_results if r.winner == "a")
             wins_b_before = sum(1 for r in prior_results if r.winner == "b")
@@ -1362,6 +1367,7 @@ def _judge_round_async(battle_id, round_number, team_a, line_a_message, team_b, 
                 team_a, line_a_message, team_b, line_b_message,
                 round_number=round_number, wins_a_before=wins_a_before, wins_b_before=wins_b_before,
                 avg_score_a_before=avg_a_before, avg_score_b_before=avg_b_before,
+                intensity=battle.intensity if battle else 4,
             )
             existing = BattleRoundResult.query.filter_by(battle_id=battle_id, round_number=round_number).first()
             if not existing:
@@ -2375,6 +2381,7 @@ with app.app_context():
         with db.engine.connect() as conn:
             conn.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance_cents INTEGER DEFAULT 0 NOT NULL"))
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS user_id INTEGER"))
+            conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS intensity INTEGER DEFAULT 4 NOT NULL"))
             conn.commit()
 
     # Seed the always-available admin test account, per explicit request.
