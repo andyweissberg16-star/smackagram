@@ -2038,7 +2038,7 @@ def all_teams():
     resp = jsonify({"teams": team_display.all_teams()})
     # The list only changes when we edit chat_team_lists.py, so let browsers
     # keep it for an hour rather than refetching on every page view.
-    resp.headers["Cache-Control"] = "public, max-age=3600"
+    resp.headers["Cache-Control"] = "public, max-age=300"
     return resp
 
 

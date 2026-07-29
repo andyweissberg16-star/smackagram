@@ -129,7 +129,7 @@
       }
     }
 
-    function render(matches) {
+    function render(matches, total) {
       list.innerHTML = ''; items = []; active = -1;
       if (!matches.length) { close(); return; }
       matches.forEach(function (t, i) {
@@ -140,13 +140,19 @@
         var nm = document.createElement('span');
         nm.className = 'smk-ac-name'; nm.textContent = t.name;
         var lg = document.createElement('span');
-        lg.className = 'smk-ac-league'; lg.textContent = t.league;
+        lg.className = 'smk-ac-league'; lg.textContent = t.league_label || t.league;
         row.appendChild(nm); row.appendChild(lg);
         row.addEventListener('mousedown', function (e) { e.preventDefault(); choose(t); });
         row.addEventListener('mouseenter', function () { highlight(i); });
         list.appendChild(row);
         items.push({ el: row, team: t });
       });
+      if (total && total > matches.length) {
+        var more = document.createElement('div');
+        more.className = 'smk-ac-more';
+        more.textContent = '+' + (total - matches.length) + ' more - keep typing to narrow it down';
+        list.appendChild(more);
+      }
       list.hidden = false;
       input.setAttribute('aria-expanded', 'true');
     }
@@ -163,7 +169,7 @@
           if (s > -1) scored.push({ t: teams[i], s: s });
         }
         scored.sort(function (a, b) { return a.s - b.s || a.t.name.localeCompare(b.t.name); });
-        render(scored.slice(0, 8).map(function (x) { return x.t; }));
+        render(scored.slice(0, 20).map(function (x) { return x.t; }), scored.length);
       });
     }
 
