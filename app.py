@@ -2036,9 +2036,12 @@ def all_teams():
     per-league calls; one cached call is cheaper and lets any page reuse it.
     """
     resp = jsonify({"teams": team_display.all_teams()})
-    # The list only changes when we edit chat_team_lists.py, so let browsers
-    # keep it for an hour rather than refetching on every page view.
-    resp.headers["Cache-Control"] = "public, max-age=300"
+    # The list only changes when we edit chat_team_lists.py, so browsers may
+    # hold it for five minutes rather than refetching on every page view.
+    # stale-while-revalidate lets a stale copy render instantly while a
+    # fresh one is fetched in the background, so nobody waits and nobody
+    # is stuck on old data for long.
+    resp.headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=60"
     return resp
 
 

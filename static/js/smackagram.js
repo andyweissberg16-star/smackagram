@@ -46,7 +46,12 @@
   function loadTeams() {
     if (cache) return Promise.resolve(cache);
     if (inflight) return inflight;
-    inflight = fetch('/api/teams/all')
+    // The ?v= tag is a cache-buster. A browser that already stored this
+    // list keeps it for as long as the original max-age promised, no
+    // matter what header we send afterwards. Changing the URL is the
+    // only thing that reliably gets people onto new data. Bump this
+    // number whenever the team list changes.
+    inflight = fetch('/api/teams/all?v=2')
       .then(function (r) { return r.json(); })
       .then(function (d) { cache = (d && d.teams) || []; return cache; })
       .catch(function () { cache = []; return cache; });
