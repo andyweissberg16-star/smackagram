@@ -7,7 +7,7 @@ import os
 
 VOICE_OPTIONS = {
     "default": {
-        "label": "Classic smack talker",
+        "label": "Smacky (Classic)",
         "voice_id": os.environ.get("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM"),
     },
     "cocky": {

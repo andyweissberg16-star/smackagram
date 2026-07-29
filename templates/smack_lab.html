@@ -4,18 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smack Lab — Learn the Art of Smack | Smackagram</title>
-<meta name="description" content="Throw your best line, get scored by an AI coach, and find out exactly why it landed or didn't. Free.">
+<meta name="description" content="Throw your best line, get scored by Smacky, and find out exactly why it landed or didn't. Free.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Smackagram">
-<meta property="og:title" content="Smack Lab — free trash talk coaching">
-<meta property="og:description" content="Throw your best line, get scored by an AI coach, and find out exactly why it landed or didn't. Free.">
+<meta property="og:title" content="Smack Lab — 1-on-1 coaching with Smacky">
+<meta property="og:description" content="Throw your best line, get scored by Smacky, and find out exactly why it landed or didn't. Free.">
 <meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="{{ request.base_url }}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Smack Lab — free trash talk coaching">
-<meta name="twitter:description" content="Throw your best line, get scored by an AI coach, and find out exactly why it landed or didn't. Free.">
+<meta name="twitter:title" content="Smack Lab — 1-on-1 coaching with Smacky">
+<meta name="twitter:description" content="Throw your best line, get scored by Smacky, and find out exactly why it landed or didn't. Free.">
 <meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
@@ -134,14 +134,8 @@
 
 {% include '_nav.html' %}
 
-<picture>
-  <source type="image/webp" sizes="100vw"
-          srcset="{{ url_for('static', filename='img/smack-lab-hero-780.webp') }} 780w,
-                  {{ url_for('static', filename='img/smack-lab-hero-1560.webp') }} 1560w,
-                  {{ url_for('static', filename='img/smack-lab-hero-1983.webp') }} 1983w">
-  <img src="{{ url_for('static', filename='img/smack-lab-hero-1560.jpg') }}" alt="Smack Lab — 1 on 1 coaching to take your smack to the big leagues"
-       width="1983" height="793" style="width:100%; height:auto; display:block;">
-</picture>
+<img src="{{ url_for('static', filename='img/smack-lab-hero.jpg') }}" alt="Smack Lab — 1 on 1 coaching with Smacky to take your smack to the big leagues"
+     style="width:100%; height:auto; display:block;">
 
 <div class="wrap">
   <div class="hero">
@@ -152,7 +146,7 @@
     <label for="teamInput">Team to trash talk</label>
     <input id="teamInput" type="text" placeholder="ex. New York Yankees" data-team-search>
 
-    <label for="myTeamInput">Your team (so the coach knows exactly how to get you where it hurts)</label>
+    <label for="myTeamInput">Your team (so Smacky knows exactly how to get you where it hurts)</label>
     <input id="myTeamInput" type="text" placeholder="ex. Boston Red Sox" data-team-search>
 
     <label for="recipientInput">Who you'd eventually send this to (optional for now)</label>
@@ -169,7 +163,7 @@
       </div>
       <button id="sendBestBtn" class="btn btn-flare" style="display:none; margin-bottom:14px;">Send my best line yet</button>
       <div class="chat-log" id="chatLog">
-        <div class="empty-state">Throw your first line below — the coach is waiting.</div>
+        <div class="empty-state">Throw your first line below — Smacky's waiting.</div>
       </div>
       <div class="input-row">
         <input id="lineInput" type="text" placeholder="Type your line...">
@@ -215,7 +209,7 @@ document.getElementById('startBtn').addEventListener('click', () => {
 
   document.getElementById('setupSection').style.display = 'none';
   document.getElementById('labSection').style.display = 'block';
-  document.getElementById('chatLog').innerHTML = `<div class="empty-state">Throw your first line at ${team} — the coach is waiting.</div>`;
+  document.getElementById('chatLog').innerHTML = `<div class="empty-state">Throw your first line at ${team} — Smacky's waiting.</div>`;
   document.getElementById('lineInput').focus();
 });
 
@@ -251,7 +245,7 @@ function appendAiMessage(result) {
     <div class="critique-block">
       <div class="rating-row">
         <span class="rating-badge ${ratingClass(result.rating)}">${result.rating}/10</span>
-        <span class="coach-label">Coach's take</span>
+        <span class="coach-label">Smacky's take</span>
       </div>
       <div class="critique">${escapeHtml(result.critique)}</div>
     </div>
@@ -283,7 +277,7 @@ async function sendLine() {
   const log = document.getElementById('chatLog');
   const typing = document.createElement('div');
   typing.className = 'typing-indicator';
-  typing.textContent = 'Coach is rating your line...';
+  typing.textContent = "Smacky's rating your line...";
   log.appendChild(typing);
   log.scrollTop = log.scrollHeight;
 
@@ -335,7 +329,7 @@ async function sendLine() {
     typing.remove();
     const errDiv = document.createElement('div');
     errDiv.className = 'empty-state';
-    errDiv.textContent = "Couldn't reach the coach right now — try again.";
+    errDiv.textContent = "Couldn't reach Smacky right now — try again.";
     log.appendChild(errDiv);
   } finally {
     sendBtn.disabled = false;
@@ -359,7 +353,7 @@ async function fetchAndShowVerdict() {
   const log = document.getElementById('chatLog');
   const typing = document.createElement('div');
   typing.className = 'typing-indicator';
-  typing.textContent = 'Coach is putting together your report card...';
+  typing.textContent = "Smacky's putting together your report card...";
   log.appendChild(typing);
   log.scrollTop = log.scrollHeight;
 

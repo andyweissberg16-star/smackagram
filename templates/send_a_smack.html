@@ -4,18 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Send a Smack — Smackagram</title>
-<meta name="description" content="Pick a team, we write the roast, and we call your friend and read it to them. The call gets recorded so you can hear the reaction.">
+<meta name="description" content="Pick a team, Smacky writes the roast, and calls your friend to read it himself. The call gets recorded so you can hear the reaction.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Smackagram">
 <meta property="og:title" content="Send a Smackagram">
-<meta property="og:description" content="Pick a team, we write the roast, and we call your friend and read it to them. The call gets recorded so you can hear the reaction.">
+<meta property="og:description" content="Pick a team, Smacky writes the roast, and calls your friend to read it himself. The call gets recorded so you can hear the reaction.">
 <meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="{{ request.base_url }}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Send a Smackagram">
-<meta name="twitter:description" content="Pick a team, we write the roast, and we call your friend and read it to them. The call gets recorded so you can hear the reaction.">
+<meta name="twitter:description" content="Pick a team, Smacky writes the roast, and calls your friend to read it himself. The call gets recorded so you can hear the reaction.">
 <meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 <link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
@@ -137,14 +137,14 @@
   <div class="card">
     <p class="step-label">Step 1</p>
     <h3>Who's getting smacked</h3>
-    <p class="card-sub">Type a team and who this is for — we'll write the roast.</p>
+    <p class="card-sub">Type a team and who this is for — Smacky'll write the roast.</p>
 
     <label for="teamInput">Team to trash talk</label>
     <input id="teamInput" type="text" placeholder="ex. New York Yankees" data-team-search>
 
     <label for="roastTopicsInput">Specific things to roast them about (optional)</label>
     <input id="roastTopicsInput" type="text" placeholder="Up to 3, comma-separated — ex. Dusty Baker, trash cans, cheating">
-    <p class="field-hint">Leave blank and we'll roast them generally, using whatever real history and current events fit.</p>
+    <p class="field-hint">Leave blank and Smacky'll roast them generally, using whatever real history and current events fit.</p>
 
     <label for="recipientNameInput">Who's receiving this</label>
     <input id="recipientNameInput" type="text" placeholder="ex. Mike">
@@ -161,8 +161,8 @@
 
   <div class="card">
     <p class="step-label">Step 3</p>
-    <h3>Your line</h3>
-    <p class="card-sub">Edit it however you want, then preview it in a real voice before sending.</p>
+    <h3>Smacky's first draft</h3>
+    <p class="card-sub">Edit it however you want, then preview it in Smacky's voice (or someone else's) before sending.</p>
 
     <textarea id="trashTalkOutput" placeholder="Your generated line shows up here — edit it however you want before sending."></textarea>
 

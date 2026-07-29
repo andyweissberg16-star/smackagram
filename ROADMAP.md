@@ -1866,3 +1866,64 @@ browser (not just assumption) that it actually requests/loads the tiny
 WebP file rather than the larger PNG fallback, displaying at the
 correct 340px width with correct 700x769 natural (2x) resolution
 behind it.
+
+## Site-wide Smacky branding pass (same session)
+Went through the site page by page, weaving Smacky's name into the
+branding as "the voice and roaster" behind the generators, per direct
+request. Deliberately NOT forced everywhere - skipped Smack Chat
+entirely since that's genuine user-generated content, not AI-voiced,
+so attributing it to Smacky would be inaccurate.
+
+- [x] services/voice_options.py: the "default" voice is now literally
+      labeled "Smacky (Classic)" - a structural change, not just copy,
+      making him the actual named, selectable default voice across
+      both the main generator and Locked & Loaded
+- [x] Homepage: "We make the call" -> "Smacky makes the call" (How It
+      Works step 3), Step 1 credits him with reading the line too, and
+      both the main hero paragraph and the mini-generator card now
+      name him as the one writing AND voicing the roast
+- [x] Send a Smack (main generator): Step 1/Step 3 copy renamed
+      ("Smacky's first draft", "preview it in Smacky's voice"), all 3
+      meta tags (search/social preview) updated to match
+- [x] Locked & Loaded: meta tags updated, the auto-generated post-game
+      roast now credits Smacky by name. Also found and fixed something
+      real: an existing sidebar mascot image on this page had no name
+      attached (alt="") - named it Smacky in the alt text (left the
+      actual image file untouched since I couldn't fully confirm its
+      exact visual content matches the new portrait art)
+- [x] Smack Lab: full pass - every visible "coach"/"Coach" reference
+      (there were ~9) renamed to Smacky by name, matching the user's
+      own example almost verbatim ("Smack Lab - 1-on-1 coaching with
+      Smacky"). Left the internal .coach-label CSS class name as-is
+      since it's not user-visible.
+- [x] Smack Battle + Battle Room: investigated the actual backend
+      logic before editing (found BOTH an AI judge scoring each
+      individual round AND genuine crowd voting deciding the overall
+      winner - two different real mechanisms). Credited Smacky
+      precisely for the part that's actually his (per-round scoring:
+      "each one scored live by Smacky" / "Smacky judges every round"),
+      left "the crowd decides who wins" untouched since that's
+      accurately describing real community voting, not AI.
+- [x] Smackcast: meta tags updated ("hosted by Smacky"), and the hero
+      paragraph's "in Smackagram's voice" changed to "in his own
+      voice" - directly naming him as the voice, per the user's
+      specific request wording.
+- [x] Smack Chat: deliberately left alone - real fan-posted trash
+      talk, not AI-generated, so a Smacky attribution would misrepresent
+      the feature.
+
+VERIFIED: full Python compile, full app import (with voice_options
+output directly checked to confirm "Smacky (Classic)" actually shows
+up first), every touched template parses via Jinja2, HTML balance
+checked on every file, JS syntax validated on every file with scripts.
+
+## Smack Lab hero image simplified (same session)
+Per direct request to get a new photo in quickly without dealing with
+the full responsive setup right now: simplified from a 4-file
+<picture> element (3 WebP breakpoints + JPG fallback) down to a single
+plain <img> pointing at static/img/smack-lab-hero.jpg. Works
+everywhere immediately with just one file upload. Flagged as a
+deliberate, temporary simplification - the multi-size responsive
+version can be rebuilt later the same way the Locked & Loaded hero
+still works, once there's time to do the full WebP/srcset treatment
+properly.
