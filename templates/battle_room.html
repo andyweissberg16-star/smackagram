@@ -149,16 +149,17 @@
   .card{
     background:var(--ink-2); border:1px solid var(--line-strong); border-radius:8px; padding:24px; margin-bottom:16px;
   }
-  /* Background image for the card where battle lines get typed. MUST be
-     declared AFTER .card above - .card uses the shorthand background:
-     property, which resets background-image, so an equal-specificity
-     rule placed earlier would silently get overridden (this exact bug
-     is why the background initially didn't show up at all). The
-     linear-gradient layered on top is a dark overlay - same technique
-     the page background uses - so the text, timer and button stay
-     readable no matter how bright or busy the image is. */
-  .chat-input-card{
-    background-image:linear-gradient(rgba(13,13,13,0.82), rgba(13,13,13,0.82)), url('{{ url_for('static', filename='img/battle-chat-bg.png') }}');
+  /* Background image for the card holding BOTH players' roasts for the
+     current round - the shared conversation history, not either
+     person's individual typing box. MUST be declared AFTER .card above
+     - .card uses the shorthand background: property, which resets
+     background-image, so an equal-specificity rule placed earlier
+     would silently get overridden. The linear-gradient layered on top
+     is a dark overlay - same technique the page background uses - so
+     the roast text stays readable no matter how bright or busy the
+     image is. */
+  .chat-history-card{
+    background-image:linear-gradient(rgba(13,13,13,0.55), rgba(13,13,13,0.55)), url('{{ url_for('static', filename='img/battle-chat-bg.png') }}');
     background-size:cover;
     background-position:center;
     background-repeat:no-repeat;
@@ -1257,16 +1258,16 @@ function render(battle) {
   } else {
     const roundLines = battle.lines.filter(l => l.round === battle.round_number);
 
-    let historyHtml = '<div class="card">';
-    historyHtml += `<p class="round-label">Round ${battle.round_number}</p>`;
-    if (roundLines.length === 0) {
-      const isMe = battle.current_turn === mySide;
-      const upNext = isMe ? 'You' : (battle.current_turn === 'a' ? battle.display_name_a : battle.display_name_b);
-      const emptyMessage = isMe
-        ? `${upNext}'re up. Let's see what you've got.`
-        : `${escapeHtml(upNext)} is up. Let's see if they've got anything.`;
-      historyHtml += `<p class="empty-note">${emptyMessage}</p>`;
-    } else {
+    // No card at all until someone has actually said something this
+    // round. It previously rendered a box containing just "Round N" and
+    // a "you're up" prompt - both already shown elsewhere (the round
+    // number in the page header as "Round N of M", the turn prompt in
+    // the action card right below) - so it was a second full-height box
+    // duplicating information and squeezing the actual chat lines,
+    // which is especially bad on mobile.
+    let historyHtml = '';
+    if (roundLines.length > 0) {
+      historyHtml = '<div class="card chat-history-card">';
       roundLines.forEach(l => {
         const name = l.side === 'a' ? battle.display_name_a : battle.display_name_b;
         const initial = (name || '?').trim().charAt(0).toUpperCase();
@@ -1280,8 +1281,8 @@ function render(battle) {
           </div>
         `;
       });
+      historyHtml += '</div>';
     }
-    historyHtml += '</div>';
 
     // Only actually rebuild the DOM when the line content genuinely
     // changed — rebuilding on every single poll (even when nothing was
@@ -1411,7 +1412,7 @@ function render(battle) {
         `;
       } else {
         actionHtml = `
-          <div class="card chat-input-card">
+          <div class="card">
             <p class="waiting-note" style="margin-bottom:10px;">Your turn — round ${battle.round_number}</p>
             <p class="turn-timer" id="turnTimer">60</p>
             <textarea id="lineInput" placeholder="Say what you came to say..." maxlength="500"></textarea>

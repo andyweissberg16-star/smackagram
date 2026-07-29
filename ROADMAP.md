@@ -2940,3 +2940,61 @@ Giants - proving the filter is real and not coincidental. Also
 confirmed the join side's attribute is correctly populated from the
 battle's league, and that changing league on the create form clears
 the previously-typed team.
+
+## Smack Battle: removed the redundant round box squeezing the chat (same session)
+Per direct request from live mobile testing - each round rendered TWO
+stacked boxes: a top one containing just "Round 3" plus a "You're up.
+Let's see what you've got." prompt, and below it the actual action card
+("Your turn - round 3" + timer + input + send). Both pieces of the top
+box were already shown elsewhere: the round number in the page header
+("Round 3 of 5") and the turn prompt in the action card immediately
+below. So it was a full-height box duplicating information while
+stealing vertical space from the actual chat, which on mobile left the
+responses barely visible.
+
+Fixed so the history area renders nothing at all until someone has
+actually said something in the round (instead of a box holding only
+redundant text), and dropped the now-duplicate "Round N" label from
+the lines card so the lines themselves get the full space.
+
+VERIFIED on a real 390x844 mobile viewport: confirmed the history area
+goes from 1 box down to 0 while it's your turn with nothing said yet
+(leaving a single box on screen), confirmed the lines card correctly
+DOES appear once a real line is submitted and shows the actual message
+text, and confirmed the duplicate "Round N" label is gone.
+
+Note: hit and fixed a test-harness bug while verifying this - one of my
+test server scripts was missing the content-moderation mock, so the
+safety check was failing closed against a dummy API key and silently
+rejecting every submitted line. That was my test setup, not product
+code, but it briefly looked like a real bug.
+
+## Smack Battle: moved chat background to the shared roast history + lightened overlay (same session)
+Two corrections from live testing.
+
+1) The background image was on the wrong box. It had been applied to
+each player's own individual typing card (.chat-input-card). What was
+actually wanted is the box holding BOTH players' roasts for the round -
+the shared conversation history that accumulates during the battle.
+Moved the background to that card (renamed the rule to
+.chat-history-card) and removed it from the typing box entirely.
+
+2) Lightened the dark overlay from rgba(...,0.82) to 0.55. At 82%
+opaque black over a detailed image, the image was very likely present
+but almost entirely hidden - which would present exactly as "not
+showing at all." 55% keeps the roast text clearly readable while
+letting the image actually come through.
+
+Also removed a stale duplicate CSS comment left over from the rename,
+and preserved the critical ordering requirement (the rule must stay
+declared after .card, since .card's shorthand `background:` property
+resets background-image and would otherwise silently override it).
+
+Note for future debugging: my sandbox's copies of the user's uploaded
+images (static/img/battle-chat-bg.png, battle-waiting-smacky.png) were
+cleaned up mid-session, so local browser tests of these specific images
+will 404 and can't verify them - that's a sandbox artifact, not a
+production issue. Both files are confirmed present in the repo on
+GitHub. Verified what IS verifiable locally: the CSS computes correctly
+(confirmed the actual computed backgroundImage property resolves to the
+gradient + correct image URL with background-size:cover).
