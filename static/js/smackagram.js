@@ -51,7 +51,7 @@
     // matter what header we send afterwards. Changing the URL is the
     // only thing that reliably gets people onto new data. Bump this
     // number whenever the team list changes.
-    inflight = fetch('/api/teams/all?v=2')
+    inflight = fetch('/api/teams/all?v=3')
       .then(function (r) { return r.json(); })
       .then(function (d) { cache = (d && d.teams) || []; return cache; })
       .catch(function () { cache = []; return cache; });
