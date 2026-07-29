@@ -213,6 +213,13 @@ class Battle(db.Model):
     current_turn = db.Column(db.String(1), default="a")   # "a" or "b" — whose turn it is
     round_number = db.Column(db.Integer, default=1)        # 1-5
 
+    # Set to utcnow() every time current_turn changes (including a fresh
+    # round starting) - the server-side reference point for the 60-second
+    # per-turn timer, so the countdown is consistent regardless of when
+    # either person's browser actually loaded/polled the page, rather than
+    # a purely client-side timer that could drift or reset on refresh.
+    turn_started_at = db.Column(db.DateTime, nullable=True)
+
     # Once both sides have gone in a round, the round pauses here — no
     # timer, no auto-advance. Each side sees their own critique and a
     # "Start next round" button; the next round only actually begins once
@@ -270,6 +277,13 @@ class BattleLine(db.Model):
     round_number = db.Column(db.Integer, nullable=False)
     message = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # True when this row is a placeholder for a missed 60-second turn timer
+    # rather than a real line - either nothing was typed in time, or what
+    # was typed failed the safety check right as the clock ran out. message
+    # is always empty in that case - unsafe text is never stored/displayed,
+    # even as a "what they almost said" artifact.
+    timed_out = db.Column(db.Boolean, default=False, nullable=False)
 
 
 class BattleVote(db.Model):

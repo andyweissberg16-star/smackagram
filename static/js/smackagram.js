@@ -112,8 +112,12 @@
     function choose(t) {
       input.value = t.name;
       close();
+      // Marks this value as a real selection, not typed text - pages that
+      // need to require an actual selection (not just free text that
+      // happens to match) can check input.dataset.smkSelected === 'true'.
+      input.dataset.smkSelected = 'true';
       // Dispatching 'input' is what lets the page react (Locked & Loaded runs
-      // its game search off it) - but our own listener hears it too and would
+      // its game search) - but our own listener hears it too and would
       // immediately reopen the dropdown on the name we just picked. Both
       // dispatches are synchronous, so a flag around them is enough.
       suppress = true;
@@ -164,6 +168,10 @@
 
     function search() {
       if (suppress) return;
+      // Reaching here (not suppressed) means this is a real keystroke,
+      // not choose()'s synthetic event - any prior selection no longer
+      // reflects what's actually in the box.
+      input.dataset.smkSelected = '';
       var q = input.value.trim().toLowerCase();
       if (q.length < 2) { close(); return; }
       loadTeams().then(function (teams) {
@@ -194,6 +202,12 @@
     var els = document.querySelectorAll('input[data-team-search]');
     for (var i = 0; i < els.length; i++) attach(els[i]);
   }
+  // Exposed globally so pages that dynamically insert new
+  // input[data-team-search] elements after page load (e.g. Smack
+  // Battle's join form, built via innerHTML once someone's actual
+  // battle state loads) can re-scan for them - attach() itself is a
+  // no-op on anything already bound, so calling this repeatedly is safe.
+  window.smkAttachTeamSearch = init;
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {

@@ -68,6 +68,12 @@
   .matchup-teams .side-a{color:var(--gold);}
   .matchup-teams .side-b{color:var(--flare);}
   .round-indicator{color:var(--chalk-dim); font-size:12px; font-family:'JetBrains Mono',monospace; margin-top:6px; text-transform:uppercase;}
+  .waiting-pulse{
+    font-family:'Anton',sans-serif; font-size:32px; text-transform:uppercase;
+    color:var(--flare); margin-top:10px; letter-spacing:0.5px;
+    animation:waitingBlink 1s ease-in-out infinite;
+  }
+  @keyframes waitingBlink{ 0%,100%{opacity:1;} 50%{opacity:0.25;} }
 
   .led-row{display:flex; justify-content:center; gap:12px; margin-top:16px;}
   .momentum-bar{
@@ -134,6 +140,12 @@
   #actionError{display:none; color:var(--flare-text); font-size:12px; margin-bottom:10px;}
 
   .waiting-note{text-align:center; color:var(--chalk-dim); font-size:14px; padding:8px 0;}
+  .turn-timer{
+    text-align:center; font-family:'Anton',sans-serif; font-size:32px;
+    color:var(--gold); margin-bottom:10px; transition:color 0.2s ease;
+  }
+  .turn-timer.urgent{color:var(--flare); animation:pulseTimer 1s infinite;}
+  @keyframes pulseTimer{0%,100%{transform:scale(1);} 50%{transform:scale(1.12);}}
   .intensity-badge{
     text-align:center; font-family:'JetBrains Mono',monospace; font-size:11px;
     text-transform:uppercase; letter-spacing:1px; color:var(--chalk-dim);
@@ -405,6 +417,11 @@ function readableColor(hex, fallback){
 <script>
 const challengeCode = "{{ challenge_code }}";
 const INTENSITY_LABELS = {1: 'Clean', 2: 'Mild', 3: 'Aggressive', 4: 'Savage'};
+const LEAGUE_LABELS = {nfl: 'NFL', nba: 'NBA', mlb: 'MLB', nhl: 'NHL', wnba: 'WNBA', ncaaf: 'NCAA Football', ncaab: 'NCAA Basketball', soccer: 'Soccer'};
+let turnTimerInterval = null;
+function clearTurnTimer() {
+  if (turnTimerInterval) { clearInterval(turnTimerInterval); turnTimerInterval = null; }
+}
 
 function getMySide() {
   return localStorage.getItem(`battle_side_${challengeCode}`);
@@ -444,6 +461,12 @@ function startJudgingBeep() {
   if (judgingBeepIntervalId !== null) return; // already running
   const el = document.getElementById('judgingBeepAudio');
   if (!el || !el.src) return;
+  // The crowd loop restarting the beep every second on top of it was
+  // producing audible stutter on the crowd track itself - these two
+  // don't need to overlap, and pausing the crowd during the judging
+  // beat is a nice touch anyway (quiets down for the suspense moment).
+  const crowdAudio = document.getElementById('crowdLoopAudio');
+  if (crowdAudio && !crowdAudio.paused) crowdAudio.pause();
   judgingBeepIntervalId = setInterval(() => playAudioElement('judgingBeepAudio'), 1000);
 }
 
@@ -451,6 +474,14 @@ function stopJudgingBeep() {
   if (judgingBeepIntervalId !== null) {
     clearInterval(judgingBeepIntervalId);
     judgingBeepIntervalId = null;
+  }
+  // Resume (not restart from 0 - .pause() doesn't reset position) once
+  // the beep stops, as long as the battle is still actually active.
+  const crowdAudio = document.getElementById('crowdLoopAudio');
+  if (crowdAudio && crowdAudio.paused && crowdAudio.src && lastKnownStatus === 'active') {
+    crowdAudio.muted = false;
+    crowdAudio.volume = 0.15;
+    crowdAudio.play().catch(() => {});
   }
 }
 
@@ -511,6 +542,20 @@ async function initSound() {
 }
 
 let lastKnownStatus = 'waiting';
+
+// Warn before leaving mid-battle - only while waiting for an opponent
+// or actively battling, never once it's complete (nothing left to
+// lose by leaving at that point). Note: modern browsers (Chrome,
+// Firefox, Safari) block custom text in this dialog for security
+// reasons and always show their own generic message - this can
+// trigger the warning dialog itself, but not control its wording.
+window.addEventListener('beforeunload', function(e) {
+  if (lastKnownStatus === 'waiting' || lastKnownStatus === 'active') {
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+});
 
 let completeMusicStarted = false;
 
@@ -912,7 +957,7 @@ function render(battle) {
   if (battle.status === 'waiting') {
     content.innerHTML = '';
     lineHistory.innerHTML = '';
-    const waitingHeaderText = mySide === 'a' ? 'Waiting for a challenger' : 'Waiting for you to accept';
+    const waitingHeaderText = mySide === 'a' ? '<span class="waiting-pulse">Waiting for opponent</span>' : 'Waiting for you to accept';
     header.innerHTML = `<p class="matchup-teams"><span class="side-a" style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span></p><p class="round-indicator">${waitingHeaderText}</p>`;
 
     const waitingSignature = `waiting|${mySide}`;
@@ -928,18 +973,27 @@ function render(battle) {
         `;
         showHypePopup();
       } else {
+        const showAgeGate = battle.intensity !== 1;
         actionArea.innerHTML = `
           <div class="card">
-            <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)} is calling out <span style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span> fans. Step up?</p>
+            <p class="waiting-note" style="margin-bottom:14px;">${escapeHtml(battle.display_name_a)}, a <span style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span> fan, is calling out ${escapeHtml(LEAGUE_LABELS[battle.league] || battle.league.toUpperCase())} fans. Step up?</p>
             <p class="intensity-badge" style="margin-bottom:14px;">This battle is set to <span>${escapeHtml(INTENSITY_LABELS[battle.intensity] || 'Savage')}</span> intensity.</p>
             <label for="teamBInput">Your team</label>
             <input id="teamBInput" type="text" placeholder="ex. Eagles" data-team-search>
             <label for="nameBInput">Your name</label>
             <input id="nameBInput" type="text" placeholder="ex. RivalReady" maxlength="40">
+            ${showAgeGate ? `
+            <div id="ageGate" style="margin-bottom:14px; padding:12px 14px; background:var(--ink); border:1px solid var(--line-strong); border-radius:6px;">
+              <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; font-size:13px; color:var(--chalk); margin-bottom:0;">
+                <input type="checkbox" id="ageConfirmCheck" style="width:auto; margin-top:2px;">
+                <span>This intensity level includes profanity. I confirm I am 18 years of age or older.</span>
+              </label>
+            </div>` : ''}
             <div id="actionError" role="alert"></div>
             <button id="joinBtn" class="btn btn-flare">Accept the challenge</button>
           </div>
         `;
+        if (window.smkAttachTeamSearch) window.smkAttachTeamSearch();
         document.getElementById('joinBtn').addEventListener('click', async () => {
           const btn = document.getElementById('joinBtn');
           const teamB = document.getElementById('teamBInput').value.trim();
@@ -949,6 +1003,17 @@ function render(battle) {
           if (!teamB) {
             errorEl.textContent = 'Enter your team first.';
             smkInvalid(document.getElementById('teamBInput'));
+            errorEl.style.display = 'block';
+            return;
+          }
+          if (document.getElementById('teamBInput').dataset.smkSelected !== 'true') {
+            errorEl.textContent = 'Select your team from the dropdown list — typing it isn\'t enough.';
+            smkInvalid(document.getElementById('teamBInput'));
+            errorEl.style.display = 'block';
+            return;
+          }
+          if (showAgeGate && !document.getElementById('ageConfirmCheck').checked) {
+            errorEl.textContent = 'Confirm you are 18 or older to join this battle.';
             errorEl.style.display = 'block';
             return;
           }
@@ -1115,6 +1180,7 @@ function render(battle) {
   }
   lastActionSignature = actionSignature;
 
+  clearTurnTimer();
   let actionHtml = '';
   if (battle.status === 'active' && battle.awaiting_next_round) {
     const latestResult = (battle.round_results || []).find(r => r.round === battle.round_number);
@@ -1170,6 +1236,7 @@ function render(battle) {
       actionHtml = `
         <div class="card">
           <p class="waiting-note" style="margin-bottom:10px;">Your turn — round ${battle.round_number}</p>
+          <p class="turn-timer" id="turnTimer">60</p>
           <textarea id="lineInput" placeholder="Say what you came to say..." maxlength="500"></textarea>
           <div id="actionError" role="alert"></div>
           <button id="submitLineBtn" class="btn btn-flare">Send it</button>
@@ -1381,11 +1448,16 @@ function render(battle) {
       }).catch(() => {});
     });
 
-    async function submitLine() {
+    async function submitLine(isTimeout) {
       const message = lineInput.value.trim();
       const errorEl = document.getElementById('actionError');
       errorEl.style.display = 'none';
-      if (!message) return;
+      // A normal manual click with nothing typed does nothing, same as
+      // before - but a timeout firing with nothing typed still has to
+      // reach the server, so it can be recorded as a missed turn rather
+      // than silently doing nothing while the round stays stuck.
+      if (!message && !isTimeout) return;
+      clearTurnTimer();
       // Disable immediately so a slow connection or an impatient extra
       // click can't fire the request twice.
       submitBtn.disabled = true;
@@ -1394,7 +1466,7 @@ function render(battle) {
         const resp = await fetch(`/api/battles/${challengeCode}/line`, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({side: mySide, message: message})
+          body: JSON.stringify({side: mySide, message: message, is_timeout: !!isTimeout})
         });
         const data = await resp.json();
         if (data.error) {
@@ -1414,13 +1486,38 @@ function render(battle) {
       }
     }
 
-    submitBtn.addEventListener('click', submitLine);
+    submitBtn.addEventListener('click', () => submitLine(false));
     lineInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        submitLine();
+        submitLine(false);
       }
     });
+
+    // 60-second per-turn countdown, anchored to the server's
+    // turn_started_at rather than a purely client-side count, so it's
+    // consistent regardless of when this browser loaded/polled the page.
+    // Auto-submits whatever's currently typed (even if empty) the moment
+    // it hits zero - the server decides whether that counts as a real
+    // line or a missed turn.
+    clearTurnTimer();
+    const timerEl = document.getElementById('turnTimer');
+    function tick() {
+      if (!battle.turn_started_at) return;
+      const startedAt = new Date(battle.turn_started_at + 'Z').getTime();
+      const elapsed = (Date.now() - startedAt) / 1000;
+      const remaining = Math.max(0, Math.ceil(60 - elapsed));
+      if (timerEl) {
+        timerEl.textContent = remaining;
+        timerEl.classList.toggle('urgent', remaining <= 10);
+      }
+      if (remaining <= 0) {
+        clearTurnTimer();
+        submitLine(true);
+      }
+    }
+    tick();
+    turnTimerInterval = setInterval(tick, 250);
   }
 
   if (battle.status === 'complete') {

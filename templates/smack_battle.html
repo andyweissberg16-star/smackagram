@@ -140,6 +140,13 @@
     </select>
     <p style="font-size:12px; color:var(--chalk-dim); margin:-6px 0 14px;">Sets the tone for the whole battle — whoever you challenge will see this before they join.</p>
 
+    <div id="ageGate" style="display:none; margin-bottom:14px; padding:12px 14px; background:var(--ink); border:1px solid var(--line-strong); border-radius:6px;">
+      <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; font-size:13px; color:var(--chalk); margin-bottom:0;">
+        <input type="checkbox" id="ageConfirmCheck" style="width:auto; margin-top:2px;">
+        <span>This intensity level includes profanity. I confirm I am 18 years of age or older.</span>
+      </label>
+    </div>
+
     <div class="vs-divider">VS whoever's next</div>
 
     <label for="nameInput">Your name</label>
@@ -183,7 +190,16 @@ let createdCode = null;
     // Fall back to a reasonable default set if the fetch fails, rather than leaving the dropdown stuck on "Loading..."
     document.getElementById('intensitySelect').innerHTML = '<option value="4" selected>Savage</option>';
   }
+  updateAgeGate();
 })();
+
+function updateAgeGate() {
+  const intensity = document.getElementById('intensitySelect').value;
+  const gate = document.getElementById('ageGate');
+  gate.style.display = intensity === '1' ? 'none' : 'block';
+  if (intensity === '1') document.getElementById('ageConfirmCheck').checked = false;
+}
+document.getElementById('intensitySelect').addEventListener('change', updateAgeGate);
 
 async function createBattle() {
   const league = document.getElementById('leagueSelect').value;
@@ -200,9 +216,20 @@ async function createBattle() {
     errorEl.style.display = 'block';
     return;
   }
+  if (document.getElementById('teamInput').dataset.smkSelected !== 'true') {
+    errorEl.textContent = 'Select your team from the dropdown list — typing it isn\'t enough.';
+    smkInvalid(document.getElementById('teamInput'));
+    errorEl.style.display = 'block';
+    return;
+  }
   if (!name) {
     errorEl.textContent = 'Enter your name first.';
     smkInvalid(document.getElementById('nameInput'));
+    errorEl.style.display = 'block';
+    return;
+  }
+  if (intensity !== 1 && !document.getElementById('ageConfirmCheck').checked) {
+    errorEl.textContent = 'Confirm you are 18 or older to continue with this intensity level.';
     errorEl.style.display = 'block';
     return;
   }

@@ -1975,3 +1975,203 @@ itself - async pairing segmented by sport/league, and the AI-persona
 fallback (openly labeled, not disguised as a real person) when no real
 opponent is waiting. This session only covered the intensity system
 that Phase 2 will build on top of.
+
+## Smack Battle: 18+ age confirmation for non-Clean intensity (same session)
+Per direct request: any intensity other than Clean requires an active
+"I confirm I am 18 years of age or older" checkbox before continuing -
+on BOTH the creation side (selecting Mild/Aggressive/Savage) and the
+joining side (accepting a battle someone else already set to a
+non-Clean level, since they're about to participate in that content
+too even though they didn't choose it).
+
+- Checkbox is hidden entirely and not required when Clean is selected/
+  set - only appears for Mild, Aggressive, Savage
+- Both the "Start a Smack Battle" and "Accept the challenge" buttons
+  are blocked with a clear error message if the relevant intensity is
+  non-Clean and the box isn't checked
+- Purely a frontend confirmation gate (no backend enforcement) -
+  worth knowing if a stricter/server-verified version is ever wanted
+
+VERIFIED with a real live-server test, not just reading the code:
+confirmed the gate genuinely shows/hides based on the actual selected
+intensity, confirmed creation is genuinely blocked without the checkbox
+checked, confirmed it succeeds immediately after checking it, and
+confirmed the exact same behavior independently on the join side using
+a real Savage battle a separate account had to actually join.
+
+## Smack Battle: team must be selected from dropdown, not just typed (same session)
+Per direct request: the "your team" field on both the creation and
+joining sides now requires an actual click/selection from the
+team-search autocomplete dropdown - typing a team name (even a
+perfectly valid, correctly-spelled one) is no longer sufficient on its
+own.
+
+Implementation: extended the shared, site-wide static/js/smackagram.js
+autocomplete (used on multiple pages) with a new data-smk-selected
+marker - set to 'true' only when choose() fires from an actual
+dropdown click/Enter-key selection, and cleared the moment the user
+types anything afterward (leveraging the existing suppress guard that
+already distinguishes real keystrokes from the autocomplete's own
+synthetic events). This is purely additive - nothing else on the site
+reads this marker, so no other page's behavior changes.
+
+Smack Battle's own JS (both create and join flows) now checks this
+marker before allowing submission, with a clear error message if it's
+missing.
+
+VERIFIED with real live-browser tests, not just reading the logic:
+- Typing a team name with no selection: confirmed blocked, both create
+  and join sides
+- Actually clicking a real suggestion from the dropdown: confirmed the
+  marker gets set and creation succeeds
+- The critical edge case - manually editing the text AFTER a valid
+  selection (e.g. selecting "Dallas Cowboys" then typing an extra
+  character): confirmed the marker correctly clears and submission is
+  blocked again, not left in a stale "selected" state
+
+## Battle waiting room: "Waiting for opponent" - larger, blinking red (same session)
+Per direct request, referencing a live battle URL: the creator's
+waiting-room text ("Waiting for a challenger") is now "Waiting for
+opponent", styled larger than any other visible text on the page and
+blinking red - dedicated new CSS class (.waiting-pulse) with its own
+keyframe animation, kept separate from the shared .round-indicator
+class so the active battle's "Round X of 5" text is unaffected.
+Applies only to the creator's side (mySide 'a') - the joining side's
+"Waiting for you to accept" text is unchanged, since that's a
+different message for a different person in a different situation.
+
+VERIFIED live in a browser, not just visually assumed: confirmed the
+exact text, confirmed the computed color is the site's red (--flare),
+confirmed the blink animation is genuinely applied and running (not
+just present in CSS but unused), and specifically checked computed
+font sizes against every OTHER visible element on the actual waiting
+screen (filtering out a couple of much larger but entirely hidden
+intro-animation elements that would have given a false negative) to
+confirm 32px really is the largest visible text on that screen, not
+just assumed from the stylesheet.
+
+## Smack Battle: fixed backwards "calling out" copy on the join screen (same session)
+Per direct request, but this was also a genuine logical bug, not just a
+wording preference: the join screen said "[Creator] is calling out
+[Creator's own team] fans" - which doesn't make sense, since a Cowboys
+fan wouldn't be calling out Cowboys fans. The creator's team was never
+meant to be who they're challenging - it's just who THEY are, since no
+specific opponent/team is chosen until someone actually joins.
+
+Fixed to: "[Creator], a [their team] fan, is calling out [LEAGUE] fans.
+Step up?" - shows their team as context (who you're about to face),
+and correctly says they're calling out fans of the whole league
+(anyone in that sport can join), not fans of their own team.
+
+Added a small LEAGUE_LABELS lookup local to battle_room.html, matching
+exactly Smack Battle's own 8 league dropdown options (nfl/nba/mlb/nhl/
+wnba/ncaaf/ncaab/soccer) - didn't reuse services/team_display.py's
+existing LEAGUE_LABELS dict since its keys are built around a
+different, more granular league taxonomy (individual soccer leagues,
+etc.) that doesn't line up with Smack Battle's simpler league picker.
+
+VERIFIED with real live-server tests: created an actual battle as
+"Cowboy Guy" with Dallas Cowboys in the NFL, confirmed a separate
+browser context (simulating a fresh visitor) sees the exact corrected
+copy: "Cowboy Guy, a Dallas Cowboys fan, is calling out NFL fans. Step
+up?" - then repeated with an MLB battle (Yankees) to confirm the
+league label mapping works correctly across leagues, not just NFL.
+
+## Battle room: exit confirmation + choppy crowd audio fix (same session)
+Two fixes per direct request:
+
+1. Exit confirmation while a battle is in progress. Warns via the
+   browser's native beforeunload dialog while status is 'waiting' or
+   'active', not once 'complete' (nothing left to lose leaving then).
+   Important honest limitation flagged: modern browsers (Chrome,
+   Firefox, Safari) block custom text in this dialog for security
+   reasons and always show their own generic wording - this can
+   trigger the dialog, but not control what it says. Verified by
+   directly testing the actual event-handling logic (dispatching real
+   beforeunload events and checking defaultPrevented) across all three
+   battle states, confirming it correctly arms for waiting/active and
+   correctly stays off for complete.
+
+2. Choppy/breaking-up crowd audio "in between rounds" - investigated
+   rather than guessed at. Root cause found: judgingBeepAudio (the
+   beep during "Judging this round...") restarts itself every second
+   via playAudioElement()'s currentTime=0 reset, while crowdLoopAudio
+   continues playing simultaneously throughout - since battle.status
+   stays 'active' during judging (awaiting_next_round is a separate
+   flag, not a status change), the existing background-music logic
+   never paused the crowd loop for this window. Two audio elements
+   sharing playback resources, one of them restarting every second,
+   is a well-known cause of audible stutter on the other. Fixed by
+   pausing the crowd loop for the duration of the judging beep and
+   resuming (not restarting) it once judging completes.
+
+VERIFIED with real runtime tests, not just code reading: confirmed no
+reference/timing errors calling the modified functions in the actual
+page context, then set real .src values on both audio elements and
+directly observed the crowd track genuinely pause when the beep starts
+and genuinely resume after it stops - not just that the code looks
+right, but that the actual audio-element state changes as intended.
+
+## Smack Battle: 60-second per-turn timer with auto-submit (same session)
+Per direct request: each side gets 60 seconds per turn. When it expires,
+whatever's typed gets auto-submitted - still checked against the site's
+real safety guardrails, and if it fails (or nothing was typed at all),
+the round is awarded to the other side (as long as they submit
+something real), with a clear "did not enter in time" message instead
+of AI judging.
+
+- [x] New `turn_started_at` on Battle (server-side timer anchor - reset
+      whenever the turn changes, including a fresh round) and
+      `timed_out` on BattleLine (marks a missed/unsafe placeholder,
+      message always empty - unsafe text is never stored or displayed
+      even under a timeout). Both migrated, tested against a real
+      Postgres DB with existing data.
+- [x] Reused the site's own existing, already-live safety gate
+      (content_moderation.check_message_safety) rather than building a
+      new one - discovered while surveying that this already exists
+      and already fails closed (blocks) on any error.
+- [x] submit_battle_line() now accepts is_timeout - on a normal manual
+      submission, behavior is completely unchanged (empty/unsafe are
+      still hard rejections). Under is_timeout, empty or unsafe both
+      become a "timed_out" placeholder instead of an error, so the
+      round can still move forward.
+- [x] New _resolve_timeout_round() - when either side timed out, skips
+      the AI judge entirely (nothing valid to compare) and awards the
+      round directly: the other side wins if only one side timed out,
+      a tie if both did, with fixed (not AI-generated) critique text
+      and scores.
+- [x] Frontend: real 60-second countdown anchored to the server
+      timestamp (not client-side drift), urgent pulsing animation in
+      the final 10 seconds, auto-submits whatever's typed the moment
+      it hits zero. Timer is properly cleared whenever it's no longer
+      that side's turn, so it can't keep running/firing in the
+      background after the turn moves on.
+
+FOUND AND FIXED A SEPARATE, PRE-EXISTING BUG while building this: the
+"must select team from dropdown" feature (built earlier this same
+session) never actually worked on the joining side. teamBInput is
+inserted into the page dynamically after someone's battle state loads,
+but the team-search autocomplete's attach logic only ever scans the
+page once, on initial load - before that field exists. The dropdown
+itself likely never even appeared there. Fixed by exposing a
+window.smkAttachTeamSearch() re-scan function from the shared
+autocomplete script, called right after the join form's HTML is
+inserted. Confirmed fixed with a real test: dropdown now appears, and
+clicking a real suggestion correctly sets the selection marker.
+
+VERIFIED thoroughly with a real live server, not just reading the code:
+- Timer genuinely counts down over real elapsed time (confirmed two
+  separate readings a few seconds apart actually differ correctly)
+- All 4 backend timeout scenarios tested directly against the API:
+  side A times out then B submits a real line (B wins, correct
+  critique text); reverse order (A submits then B times out - A wins);
+  both time out (tie); and unsafe content submitted right at timeout
+  (correctly treated as timed_out, with the actual unsafe text
+  confirmed NEVER stored - message comes back empty, not the flagged
+  content)
+- Confirmed the frontend auto-submit is real, not just theoretical: set
+  a battle's turn_started_at to 61 seconds in the past directly in the
+  database, loaded the page fresh with zero manual interaction, and
+  confirmed the turn correctly auto-advanced and was marked timed_out
+  within about a second - the client-side timer genuinely detected
+  expiry and fired on its own

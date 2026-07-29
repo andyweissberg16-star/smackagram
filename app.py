@@ -1257,12 +1257,13 @@ def _battle_state_json(battle):
         "intensity": battle.intensity,
         "status": battle.status,
         "current_turn": battle.current_turn,
+        "turn_started_at": battle.turn_started_at.isoformat() if battle.turn_started_at else None,
         "round_number": battle.round_number,
         "display_name_a": battle.display_name_a,
         "team_a": battle.team_a,
         "display_name_b": battle.display_name_b,
         "team_b": battle.team_b,
-        "lines": [{"side": l.side, "round": l.round_number, "message": l.message, "created_at": l.created_at.isoformat()} for l in lines],
+        "lines": [{"side": l.side, "round": l.round_number, "message": l.message, "created_at": l.created_at.isoformat(), "timed_out": l.timed_out} for l in lines],
         "round_results": [{"round": r.round_number, "winner": r.winner, "critique_a": r.critique_a, "critique_b": r.critique_b, "score_a": r.score_a, "score_b": r.score_b, "coach_message_a": r.coach_message_a, "coach_message_b": r.coach_message_b} for r in round_results],
         "awaiting_next_round": battle.awaiting_next_round,
         "ready_a": battle.ready_a,
@@ -1339,6 +1340,7 @@ def join_battle(challenge_code):
     battle.team_b = team_b
     battle.display_name_b = display_name_b or "Anonymous"
     battle.status = "active"
+    battle.turn_started_at = datetime.utcnow()
     db.session.commit()
 
     return jsonify(_battle_state_json(battle))
@@ -1433,25 +1435,46 @@ def submit_battle_line(challenge_code):
     data = request.json
     side = data.get("side", "")
     message = (data.get("message") or "").strip()
+    is_timeout = bool(data.get("is_timeout"))
 
     if side not in ("a", "b"):
         return jsonify({"error": "Invalid side"}), 400
     if side != battle.current_turn:
         return jsonify({"error": "It's not your turn"}), 400
-    if not message:
-        return jsonify({"error": "Message can't be empty"}), 400
     if len(message) > 500:
         return jsonify({"error": "Keep it under 500 characters"}), 400
 
-    safety = content_moderation.check_message_safety(message)
-    if not safety["safe"]:
-        print(f"[safety] blocked battle line — reason: {safety['reason']}")
-        return jsonify({"error": "That message can't be posted — it may contain threatening, sexual, or harassing content. Try a different angle."}), 400
+    timed_out = False
+    if is_timeout:
+        # Auto-submitted because the 60-second turn timer ran out. Empty
+        # text, or text that fails the safety check right as time expired,
+        # are both treated the same way: a missed turn, not a real line -
+        # unsafe content is never stored or shown even under a timeout.
+        if not message:
+            timed_out = True
+        else:
+            safety = content_moderation.check_message_safety(message)
+            if not safety["safe"]:
+                print(f"[safety] timeout submission blocked — reason: {safety['reason']}")
+                timed_out = True
+        if timed_out:
+            message = ""
+    else:
+        # Normal manual submission - unchanged from before: empty and
+        # unsafe are both hard rejections, never silently converted into
+        # a timeout just because someone didn't pass the safety check.
+        if not message:
+            return jsonify({"error": "Message can't be empty"}), 400
+        safety = content_moderation.check_message_safety(message)
+        if not safety["safe"]:
+            print(f"[safety] blocked battle line — reason: {safety['reason']}")
+            return jsonify({"error": "That message can't be posted — it may contain threatening, sexual, or harassing content. Try a different angle."}), 400
 
-    db.session.add(BattleLine(battle_id=battle.id, side=side, round_number=battle.round_number, message=message))
+    db.session.add(BattleLine(battle_id=battle.id, side=side, round_number=battle.round_number, message=message, timed_out=timed_out))
 
     if side == "a":
         battle.current_turn = "b"
+        battle.turn_started_at = datetime.utcnow()
         db.session.commit()
     else:
         # Round complete — pause immediately (no timer, no auto-advance;
@@ -1466,13 +1489,58 @@ def submit_battle_line(challenge_code):
         db.session.commit()
 
         line_a = BattleLine.query.filter_by(battle_id=battle.id, round_number=battle.round_number, side="a").first()
-        threading.Thread(
-            target=_judge_round_async,
-            args=(battle.id, battle.round_number, battle.team_a, line_a.message if line_a else "", battle.team_b, message),
-            daemon=True,
-        ).start()
+        line_a_timed_out = line_a.timed_out if line_a else False
+
+        if line_a_timed_out or timed_out:
+            _resolve_timeout_round(battle, line_a_timed_out, timed_out)
+        else:
+            threading.Thread(
+                target=_judge_round_async,
+                args=(battle.id, battle.round_number, battle.team_a, line_a.message if line_a else "", battle.team_b, message),
+                daemon=True,
+            ).start()
 
     return jsonify(_battle_state_json(battle))
+
+
+def _resolve_timeout_round(battle, a_timed_out, b_timed_out):
+    """
+    Resolves a round where at least one side missed the 60-second turn
+    timer (or had their last-second submission fail the safety check) -
+    skips the AI judge entirely since there's nothing real to compare,
+    and awards the round directly. Scores are fixed, not AI-generated:
+    0 for a missed turn, 5 (a neutral "won by default, not on merit")
+    for an opponent who only won because the other side didn't enter.
+    """
+    existing = BattleRoundResult.query.filter_by(battle_id=battle.id, round_number=battle.round_number).first()
+    if existing:
+        return
+
+    if a_timed_out and b_timed_out:
+        winner, score_a, score_b = "tie", 0, 0
+        critique_a = "Neither side entered a line in time — no winner this round."
+        critique_b = "Neither side entered a line in time — no winner this round."
+    elif a_timed_out:
+        winner, score_a, score_b = "b", 0, 5
+        critique_a = "You didn't enter a line in time — this round goes to your opponent."
+        critique_b = "Your opponent didn't enter in time — round awarded to you."
+    else:
+        winner, score_a, score_b = "a", 5, 0
+        critique_a = "Your opponent didn't enter in time — round awarded to you."
+        critique_b = "You didn't enter a line in time — this round goes to your opponent."
+
+    db.session.add(BattleRoundResult(
+        battle_id=battle.id,
+        round_number=battle.round_number,
+        winner=winner,
+        critique_a=critique_a,
+        critique_b=critique_b,
+        score_a=score_a,
+        score_b=score_b,
+        coach_message_a="",
+        coach_message_b="",
+    ))
+    db.session.commit()
 
 
 @app.route("/api/battles/<challenge_code>/ready", methods=["POST"])
@@ -1499,6 +1567,7 @@ def ready_for_next_round(challenge_code):
     battle.ready_b = False
     battle.current_turn = "a"
     battle.round_number += 1
+    battle.turn_started_at = datetime.utcnow()
     if battle.round_number > 5:
         battle.status = "complete"
         battle.completed_at = datetime.utcnow()
@@ -2382,6 +2451,8 @@ with app.app_context():
             conn.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance_cents INTEGER DEFAULT 0 NOT NULL"))
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS user_id INTEGER"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS intensity INTEGER DEFAULT 4 NOT NULL"))
+            conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS turn_started_at TIMESTAMP"))
+            conn.execute(db.text("ALTER TABLE battle_lines ADD COLUMN IF NOT EXISTS timed_out BOOLEAN DEFAULT FALSE NOT NULL"))
             conn.commit()
 
     # Seed the always-available admin test account, per explicit request.
