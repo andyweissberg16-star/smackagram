@@ -341,18 +341,10 @@ def api_update_profile():
     return jsonify({"ok": True})
 
 
-# Pre-resolved audio URLs for calls about to be placed, keyed by
-# (record_type, record_id) - e.g. ("order", 42) or ("smackagram", 42).
-# Previously keyed on the bare record id alone, which meant an Order
-# and a Smackagram with the same id would silently overwrite each
-# other's cached audio - the same collision the webhook URL namespacing
-# below fixes. Generating the message/sfx/tagline audio takes a few
-# seconds (multiple ElevenLabs calls + S3 uploads) — doing that INSIDE
-# the /call-instructions webhook response risks Twilio timing out and
-# retrying, which replays the whole call from scratch. So we resolve
-# audio BEFORE placing the call, and call-instructions just serves the
-# already-ready URLs instantly.
-_pending_call_audio = {}
+# Pre-resolved audio URLs for calls about to be placed - see
+# call_audio_service.pending_call_audio for the actual dict and why it
+# lives there instead of here (scheduler.py's Locked & Loaded call path
+# needs to reach it too, and importing app.py from there isn't viable).
 
 
 # ---------- Site-wide password gate ----------
@@ -555,7 +547,7 @@ def _execute_send_smack(user, data: dict) -> dict:
 
     try:
         audio_urls = call_audio_service.resolve_audio_url(order, os.environ["BASE_URL"])
-        _pending_call_audio[("order", order.id)] = audio_urls
+        call_audio_service.pending_call_audio[("order", order.id)] = audio_urls
         order.message_audio_url = audio_urls[0]  # persist for reply-flow "hear it again" replay
         call_sid = twilio_service.place_prank_call("order", order.id, order.recipient_phone, record=True)
         order.twilio_call_sid = call_sid
@@ -728,7 +720,7 @@ def stripe_webhook():
             # already safely recorded either way.
             try:
                 audio_urls = call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")))
-                _pending_call_audio[("order", order.id)] = audio_urls
+                call_audio_service.pending_call_audio[("order", order.id)] = audio_urls
                 order.message_audio_url = audio_urls[0]  # persist for reply-flow "hear it again" replay
                 call_sid = twilio_service.place_prank_call("order", order.id, order.recipient_phone, record=True)
                 order.twilio_call_sid = call_sid
@@ -938,7 +930,12 @@ def _call_instructions_handler(record_type, record_id):
     # were cached under (record_type, record_id), legacy in-flight calls
     # under the bare record_id.
     cache_key = (record_type, record_id) if record_type else record_id
-    audio_urls = _pending_call_audio.pop(cache_key, None) or call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")))
+    cached = call_audio_service.pending_call_audio.pop(cache_key, None)
+    if cached is None:
+        print(f"[twilio] CACHE MISS {record_type or 'legacy'}:{record_id} — generating audio live inside the webhook, expect dead air")
+        audio_urls = call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")))
+    else:
+        audio_urls = cached
 
     # Never record voicemail greetings/silence — recording is only
     # meaningful (and only what the buyer paid for) when a real person's

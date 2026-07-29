@@ -2621,3 +2621,45 @@ different recipient info and different scenario audio. Confirmed:
   /call-instructions/42) still work exactly as before, correctly
   favoring Order per the old guess logic - confirming backward
   compatibility for any calls already in flight at deploy time
+
+## Twilio work package: dead-air-on-answer fix for Locked & Loaded calls (David's handoff, item #2)
+Diagnosed by first checking the actual Render start command
+(gunicorn app:app --timeout 180 - no --workers flag, so gunicorn
+defaults to 1 worker). This RULES OUT David's "Candidate 1" (different
+worker process handling the webhook than the one that placed the
+call) as the cause for the main "Send a Smack" immediate flow - with a
+single process, that in-memory cache was already reliably shared.
+
+But it surfaced something more significant, found earlier while
+working on item #1: scheduler.py (the Locked & Loaded call path) had
+NO import path at all to app.py's cache dict - not a cross-process
+timing issue, but a "never even attempts to cache" gap. This meant
+EVERY Locked & Loaded call was unconditionally generating its audio
+live inside the /call-instructions webhook while the customer was
+already holding the phone - constant, not intermittent, for that call
+type specifically.
+
+Fixed by moving the pending-audio cache out of app.py and into
+services/call_audio_service.py (a module both app.py and scheduler.py
+already import), then updating scheduler.py's actual call-placement
+code to populate it before placing the call - the same
+resolve-then-cache-then-call pattern the immediate Order flow already
+used. Also added David's suggested cache-miss instrumentation logging
+to /call-instructions, so a genuine cache miss (e.g. from a rare
+deploy/restart racing an in-flight call) is now directly visible in
+Render's logs going forward, for both call types.
+
+VERIFIED thoroughly, not just reasoned about:
+- Confirmed at the Python object level that app.py, scheduler.py, and
+  call_audio_service.py are all now genuinely sharing the exact same
+  dict object (identical id()), not separate copies
+- Ran a real live-server test proving an actual cache MISS correctly
+  fires the new instrumentation log line
+- Ran a real live-server test proving a cache HIT works correctly
+  within the same process: populated the cache with a deliberately
+  fake, unmistakable value, then confirmed /call-instructions served
+  THAT exact fake value (not a fresh database-resolved one) - direct,
+  unambiguous proof the shared cache is actually being read, not just
+  present
+- Re-confirmed the pre-existing Order ("Send a Smack") cache-hit
+  behavior still works correctly after moving the dict - no regression
