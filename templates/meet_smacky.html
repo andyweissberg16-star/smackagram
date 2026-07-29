@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meet Smacky — Smackagram</title>
+<meta name="description" content="The face. The voice. The legend. Meet Smacky, the loudmouth behind every Smackagram.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Smackagram">
+<meta property="og:title" content="Meet Smacky">
+<meta property="og:description" content="The face. The voice. The legend. Meet Smacky, the loudmouth behind every Smackagram.">
+<meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="{{ request.base_url }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Meet Smacky">
+<meta name="twitter:description" content="The face. The voice. The legend. Meet Smacky, the loudmouth behind every Smackagram.">
+<meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+<meta name="theme-color" content="#0D0D0D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
+<style>
+  :root{
+    --ink:#0D0D0D;
+    --ink-2:#1A1A1A;
+    --chalk:#F5F5F3;
+    --chalk-dim:#9A9A96;
+    --flare:#E8142C;
+    --gold:#FFD400;
+    --line:rgba(245,245,243,0.10);
+    --line-strong:rgba(245,245,243,0.24);
+  }
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.6; -webkit-font-smoothing:antialiased; overflow-x:hidden;}
+  .wrap{max-width:900px; margin:0 auto; padding:0 24px 80px;}
+
+  /* Hero */
+  .hero{
+    position:relative; text-align:center; padding:56px 0 40px;
+    background:
+      radial-gradient(700px 380px at 50% 0%, rgba(232,20,44,0.18), transparent 65%);
+  }
+  .kicker{
+    display:inline-flex; align-items:center; gap:8px; font-family:'JetBrains Mono',monospace;
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:2px; color:var(--gold);
+    background:rgba(255,212,0,0.08); border:1px solid rgba(255,212,0,0.35);
+    padding:8px 16px; border-radius:999px; margin-bottom:24px;
+  }
+  .kicker span{width:6px; height:6px; border-radius:50%; background:var(--gold); box-shadow:0 0 8px var(--gold);}
+
+  .smacky-portrait{
+    width:min(340px, 78vw); height:auto; margin:0 auto 8px; display:block;
+    filter:drop-shadow(0 20px 50px rgba(232,20,44,0.35));
+  }
+  /* Placeholder frame shown until a real Smacky image is dropped in at
+     static/img/smacky-hero.png — swap the <img> src below and this
+     dashed box disappears on its own since the image will render over it. */
+  .smacky-placeholder{
+    width:min(340px, 78vw); aspect-ratio:1/1.1; margin:0 auto 8px;
+    border:2px dashed var(--line-strong); border-radius:16px;
+    display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px;
+    color:var(--chalk-dim); font-size:13px; text-align:center; padding:20px;
+  }
+  .smacky-placeholder .big{font-size:48px;}
+
+  h1{font-family:'Anton',sans-serif; font-size:var(--h1-page); text-transform:uppercase; letter-spacing:0.5px; line-height:0.95; margin-top:8px;}
+  h1 span{color:var(--flare); text-shadow:0 0 30px rgba(232,20,44,0.55);}
+  .hero-sub{color:var(--chalk-dim); font-size:16px; max-width:440px; margin:16px auto 0;}
+  .hero-sub b{color:var(--chalk);}
+
+  /* Sections */
+  section{margin-top:56px;}
+  .section-label{
+    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; color:var(--flare);
+    text-transform:uppercase; letter-spacing:2px; margin-bottom:10px;
+  }
+  h2{font-family:'Anton',sans-serif; font-size:32px; text-transform:uppercase; letter-spacing:0.3px; margin-bottom:16px;}
+  p.body-copy{color:#DCDCD9; font-size:16px; max-width:640px;}
+
+  /* Quote wall */
+  .quote-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:24px;}
+  @media(max-width:640px){ .quote-grid{grid-template-columns:1fr;} }
+  .quote-card{
+    background:var(--ink-2); border:1px solid var(--line-strong); border-radius:10px;
+    padding:20px 22px; position:relative;
+  }
+  .quote-card::before{
+    content:'"'; position:absolute; top:2px; left:14px; font-family:'Anton',sans-serif;
+    font-size:44px; color:var(--flare); opacity:0.35; line-height:1;
+  }
+  .quote-card p{font-size:15px; font-weight:600; padding-left:18px; color:var(--chalk);}
+
+  /* Rules list */
+  .rules-list{margin-top:20px; display:flex; flex-direction:column; gap:12px;}
+  .rule-row{
+    display:flex; align-items:flex-start; gap:16px; background:var(--ink-2);
+    border:1px solid var(--line-strong); border-left:3px solid var(--gold);
+    border-radius:8px; padding:16px 20px;
+  }
+  .rule-num{
+    font-family:'Anton',sans-serif; font-size:22px; color:var(--gold); flex-shrink:0; min-width:28px;
+  }
+  .rule-row p{font-size:15px; color:#DCDCD9; margin:0;}
+  .rule-row b{color:var(--chalk);}
+
+  /* CTA */
+  .cta-block{
+    margin-top:64px; text-align:center; background:var(--ink-2);
+    border:1px solid var(--line-strong); border-radius:14px; padding:44px 28px;
+  }
+  .cta-block h2{margin-bottom:10px;}
+  .cta-block p{color:var(--chalk-dim); font-size:15px; margin-bottom:24px;}
+  .btn{
+    display:inline-block; font-weight:700; font-size:14px; padding:16px 32px; border-radius:4px; border:none; cursor:pointer;
+    text-transform:uppercase; letter-spacing:0.5px; transition:transform 0.12s ease;
+    background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(232,20,44,0.4); text-decoration:none;
+  }
+  .btn:hover{transform:translateY(-1px);}
+
+  footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim); border-top:1px solid var(--line); margin-top:40px;}
+  footer a{color:var(--chalk-dim); text-decoration:none;}
+  footer a:hover{color:var(--flare);}
+</style>
+</head>
+<body>
+
+{% include '_nav.html' %}
+
+<div class="wrap">
+  <div class="hero">
+    <span class="kicker"><span></span>The Face &middot; The Voice &middot; The Legend</span>
+
+    {% if smacky_image_exists %}
+    <img class="smacky-portrait" src="{{ url_for('static', filename='img/smacky-hero.png') }}" alt="Smacky, the Smackagram mascot">
+    {% else %}
+    <div class="smacky-placeholder">
+      <span class="big">&#128241;</span>
+      <span>Smacky's official portrait goes here — drop the generated image into <code>static/img/smacky-hero.png</code> and he'll show up automatically.</span>
+    </div>
+    {% endif %}
+
+    <h1>Meet <span>Smacky.</span></h1>
+    <p class="hero-sub">He's loud, he's proud, and he's <b>never once lost an argument he started.</b></p>
+  </div>
+
+  <section>
+    <p class="section-label">Who Is This Guy</p>
+    <h2>The Loudest Voice<br>In Your Phone.</h2>
+    <p class="body-copy">
+      Smacky doesn't do quiet. Smacky doesn't do subtle. Somebody handed him a phone once and he never put it down — because why whisper when you can absolutely light someone up? He's the hype man nobody asked for and everybody needed, the voice behind every Smackagram, and he has exactly zero chill about your fantasy team, your Sunday picks, or the fact that you still haven't sent one back yet.
+    </p>
+    <p class="body-copy" style="margin-top:16px;">
+      Give him a target and thirty seconds and he'll find something to talk trash about. Give him your friend's phone number and he'll make sure they never see it coming.
+    </p>
+  </section>
+
+  <section>
+    <p class="section-label">In His Own Words</p>
+    <h2>Smacky-isms</h2>
+    <div class="quote-grid">
+      <div class="quote-card"><p>I didn't ask if you were ready. I asked if your phone was on.</p></div>
+      <div class="quote-card"><p>Your fantasy team called. It wants an apology.</p></div>
+      <div class="quote-card"><p>I've never met an L I couldn't call out.</p></div>
+      <div class="quote-card"><p>Silence isn't an option when I'm on the line.</p></div>
+      <div class="quote-card"><p>Somebody's getting smacked today. Might as well be them.</p></div>
+      <div class="quote-card"><p>I don't do warnings. I do phone calls.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <p class="section-label">The Code</p>
+    <h2>Smacky's Rules</h2>
+    <div class="rules-list">
+      <div class="rule-row"><span class="rule-num">1</span><p><b>Never smack someone who can't take it.</b> A good smack lands because it's funny, not because it hurts.</p></div>
+      <div class="rule-row"><span class="rule-num">2</span><p><b>Always smack someone who deserves it.</b> They know what they did.</p></div>
+      <div class="rule-row"><span class="rule-num">3</span><p><b>If they're not laughing by the third ring, you did it wrong.</b> Adjust and try again.</p></div>
+      <div class="rule-row"><span class="rule-num">4</span><p><b>The best smacks are the ones they see coming and still can't stop.</b> That's the whole game.</p></div>
+      <div class="rule-row"><span class="rule-num">5</span><p><b>Silence is for people who don't have Smacky.</b> You're not one of those people anymore.</p></div>
+    </div>
+  </section>
+
+  <div class="cta-block">
+    <h2>Let Smacky Do The Talking.</h2>
+    <p>Pick a target. Write the line. Smacky handles the rest.</p>
+    <a href="/send-a-smack" class="btn">Send a Smack</a>
+  </div>
+</div>
+
+<footer>
+  <a href="/terms">Terms</a> &middot; <a href="/contact">Contact</a>
+</footer>
+
+</body>
+</html>

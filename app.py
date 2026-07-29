@@ -989,6 +989,20 @@ def did_you_get_smacked_page():
     return render_template("did_you_get_smacked.html")
 
 
+@app.route("/meet-smacky")
+def meet_smacky_page():
+    """
+    Brand/mascot introduction page - no login required, this is pure
+    marketing content. smacky_image_exists checks whether the real
+    generated portrait has been dropped into static/img/smacky-hero.png
+    yet; until it has, the template shows a placeholder instead of a
+    broken image, and switches over automatically the moment the file
+    shows up - no code change needed on launch day.
+    """
+    image_path = os.path.join(app.root_path, "static", "img", "smacky-hero.png")
+    return render_template("meet_smacky.html", smacky_image_exists=os.path.exists(image_path))
+
+
 @app.route("/reply/<token>")
 @login_required
 def reply_page(token):

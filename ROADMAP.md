@@ -1798,3 +1798,44 @@ their end before real SMS codes will actually deliver in production -
 until then, the send-code endpoint will fail with the same "couldn't
 send a verification text" error the existing registration/login 2FA
 flow already surfaces for the same underlying reason.
+
+## Meet Smacky mascot page (same session)
+Built the brand/mascot introduction page per direct request - "loud,
+hype-man energy, always talking trash" personality, added to main nav
+(both desktop and mobile drawer versions).
+
+- [x] New route /meet-smacky (no login required - pure marketing
+      content). Checks whether static/img/smacky-hero.png actually
+      exists on disk and passes this to the template, so the page
+      shows a clean placeholder box with instructions until the real
+      generated image is dropped in - swaps over automatically with no
+      further code changes needed once that file exists.
+- [x] Full page: hero with placeholder/portrait, "Who Is This Guy" bio
+      section, 6-quote "Smacky-isms" wall, 5-item "Smacky's Rules"
+      code section, CTA linking to /send-a-smack. Matches the site's
+      existing black/red/gold design system and Anton/Inter/JetBrains
+      Mono font stack (same pattern as did_you_get_smacked.html) rather
+      than introducing a new visual style.
+- [x] Advised against a full-bleed background photo (text legibility,
+      responsive cropping issues, harder to extend down a long page) -
+      recommended a contained hero character illustration instead,
+      matching how most mascot pages actually work. Gave the user a
+      concrete image-generation prompt (transparent/solid background,
+      comic-book style, dynamic trash-talking pose) to go generate the
+      actual art themselves.
+- [x] Added "Meet Smacky" to both the desktop nav-links and the mobile
+      nav-drawer in _nav.html, placed right after "How it works" since
+      it's also brand-introduction content.
+- [x] Verified: full Python compile, full app import with the route
+      confirmed actually registered in Flask's url_map (not just
+      assumed from the decorator), all templates parse, actual
+      rendered screenshots taken on both desktop (1280px) and mobile
+      (393px) with zero layout issues (no zero-size elements, no
+      horizontal overflow, mobile hamburger toggle present), and
+      programmatic confirmation all 6 quote cards and all 5 rule rows
+      actually render.
+
+NOT YET DONE: the actual Smacky artwork itself - user is generating
+this separately using the prompt guidance given. Once generated, just
+needs to be saved as static/img/smacky-hero.png and the placeholder
+disappears automatically.
