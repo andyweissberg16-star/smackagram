@@ -584,12 +584,18 @@ def assemble_recap_audio(intro: str, segments: list, outro: str) -> str:
         # being assembled with its segments shuffled.
         speech_bytes = list(pool.map(elevenlabs_service.generate_speech_bytes, texts))
 
-    rendered = [_standardize(AudioSegment.from_mp3(io.BytesIO(b))) for b in speech_bytes]
-
-    combined += rendered[0]  # intro
+    # Decode ONE segment at a time and append it, rather than decoding all of
+    # them up front. This caused a real out-of-memory kill (Render limit is
+    # 512MB): mp3 bytes are compressed and cheap to hold, but a DECODED
+    # AudioSegment is raw PCM at ~176KB per second, so a four-minute recap
+    # is ~40MB decoded. Holding every segment decoded simultaneously, on top
+    # of the combined track and pydub's copy-on-append, exceeded the limit.
+    # Keeping only the compressed bytes gives us the parallel-network win
+    # without the memory cost - each decoded segment is freed once appended.
+    combined += _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[0])))
 
     for i, seg in enumerate(segments):
-        combined += rendered[1 + i]
+        combined += _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[1 + i])))
 
         sfx = _pick_random_sfx(seg.get("reaction", "none"))
         if sfx is not None:
@@ -599,7 +605,11 @@ def assemble_recap_audio(intro: str, segments: list, outro: str) -> str:
             combined += _standardize(sfx) + SFX_VOLUME_REDUCTION_DB
 
     if outro:
-        combined += rendered[-1]
+        combined += _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[-1])))
+
+    # Compressed source blobs are no longer needed, and the export plus the
+    # ffmpeg normalization pass below both need headroom on a 512MB box.
+    del speech_bytes
 
     # Export the fully-assembled audio back to raw mp3 bytes, then run it
     # through the same loudness normalization every other spoken clip on

@@ -3682,3 +3682,35 @@ multi-minute file, and the final mp3 export. All CPU-bound on one core.
 If it needs to get materially faster than this, the options are a bigger
 Render instance or dropping the normalization pass - not more code
 tricks.
+
+## Smackcast: OOM regression from my own parallelization — FIXED
+Render event: "Instance failed. Ran out of memory (used over 512MB) while
+running your code." This was the real cause of the failed runs, not
+slowness, and it was caused by MY parallelization change.
+
+WHAT I GOT WRONG: parallelizing the ElevenLabs calls was correct, but I
+also changed the assembly to decode every segment up front into a list
+(`rendered = [_standardize(AudioSegment.from_mp3(...)) for b in
+speech_bytes]`). The original code decoded ONE segment, appended it, and
+let it be freed. Mine held all of them decoded simultaneously.
+
+That distinction matters enormously: mp3 bytes are compressed and cheap
+(~1MB per segment), but a DECODED AudioSegment is raw PCM at roughly
+176KB per SECOND — 44100Hz x 2 channels x 2 bytes. A four-minute recap is
+~40MB decoded. Holding all seven segments decoded at once, plus the
+growing combined track, plus pydub's copy-on-append, went straight past
+512MB and the instance was killed.
+
+FIX: keep the parallel network win (still ThreadPoolExecutor, still
+order-preserving) but hold only the COMPRESSED bytes, and decode one
+segment at a time immediately before appending it, so each is freed right
+after use. Also explicitly frees the compressed blobs before the export
+and ffmpeg normalization pass, both of which need headroom on a 512MB box.
+
+Net memory profile is now the same as the original working code, with the
+parallel speed benefit retained.
+
+LESSON WORTH KEEPING: on this instance size, anything touching decoded
+audio must be streamed one piece at a time. Bulk-decoding a multi-minute
+recap will always OOM. Concurrency on the DOWNLOADS is fine (a few MB);
+concurrency on DECODED segments is not.
