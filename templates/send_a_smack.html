@@ -115,14 +115,22 @@
     line-height:1; opacity:0.7; margin-top:0;
   }
 
+  /* Section rule that fades at both ends. Drawn as a background gradient
+     because a border-top can't taper. Applied to every divider inside the
+     card so one bright rule and one dark one never sit on the same page. */
   .field-group-label{
     font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
     letter-spacing:2px; text-transform:uppercase; color:var(--punch);
-    margin:26px 0 4px; padding-top:20px; border-top:1px solid var(--hairline);
+    margin:26px 0 4px; padding-top:20px;
+    background-image:linear-gradient(to right,
+      transparent 0%, var(--punch) 18%, var(--punch) 82%, transparent 100%);
+    background-size:100% 2px; background-repeat:no-repeat; background-position:top left;
   }
   .send-block{
-    margin-top:22px; padding-top:18px; border-top:1px solid var(--hairline);
-    text-align:center;
+    margin-top:22px; padding-top:18px; text-align:center;
+    background-image:linear-gradient(to right,
+      transparent 0%, var(--punch) 18%, var(--punch) 82%, transparent 100%);
+    background-size:100% 2px; background-repeat:no-repeat; background-position:top left;
   }
   .send-price{
     font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:1px;
@@ -143,6 +151,14 @@
      a spinner on them, which reads as "working" instead of "not yet". */
   .btn:disabled{opacity:0.4; cursor:not-allowed;}
 
+  #step1Error{
+    background:rgba(224,27,36,0.12); border:1px solid var(--punch);
+    border-radius:8px; padding:11px 13px; margin:16px 0 0;
+    font-size:13px; color:var(--chalk); line-height:1.45;
+  }
+  .field-missing{border-color:var(--punch) !important;}
+  .age-gate.field-missing{box-shadow:0 0 0 2px rgba(224,27,36,0.35);}
+
   .consent-row{
     display:flex; gap:10px; align-items:flex-start; cursor:pointer;
     margin-bottom:11px; font-size:12.5px; color:var(--chalk); line-height:1.45;
@@ -162,6 +178,47 @@
     width:20px; height:20px; flex-shrink:0; margin:0; accent-color:var(--punch);
   }
   .age-gate[hidden]{display:none;}
+
+  /* PAGE FRAME. Wraps the whole layout - nav, hero, content, footer - with
+     the same treatment the generator wears, and carries its own travelling
+     light. Scrolls with the page rather than being fixed to the viewport, so
+     it genuinely wraps the hero and footer instead of floating over them. */
+  @property --page-led{ syntax:'<angle>'; initial-value:0deg; inherits:false; }
+  #pageFrame{
+    position:relative;
+    border:5px solid var(--punch);
+    border-radius:14px;
+    margin:10px;
+    overflow:hidden;
+    box-shadow:0 0 26px rgba(224,27,36,0.3);
+  }
+  #pageFrame::before{
+    content:''; position:absolute; inset:-5px; border-radius:inherit;
+    padding:5px; pointer-events:none; z-index:5;
+    background:conic-gradient(from var(--page-led),
+      transparent 0deg, transparent 300deg,
+      rgba(255,120,128,0.35) 320deg, rgba(255,120,128,0.7) 340deg,
+      #FF5A64 350deg, #FFFFFF 355deg, #FF7A82 358deg,
+      rgba(255,120,128,0.4) 360deg);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+            mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask-composite:exclude;
+    animation:pageLedOrbit 14s linear infinite;
+  }
+  @keyframes pageLedOrbit{ to{ --page-led:360deg; } }
+  /* Deliberately slower than the generator's 9s lap. Two lights at the same
+     speed drift in and out of sync with each other, which pulls the eye to
+     the frame instead of the generator inside it. */
+  @media(prefers-reduced-motion:reduce){ #pageFrame::before{animation:none; opacity:0;} }
+
+  /* Hero banded top and bottom so it reads as its own section rather than
+     floating between the nav and the copy. */
+  .hero-band{
+    border-top:4px solid var(--punch);
+    border-bottom:4px solid var(--punch);
+    line-height:0;
+  }
 
   /* INTENSITY FADER - a physical control instead of tickboxes. */
   .fader{padding:4px 0 0;}
@@ -288,7 +345,9 @@
   .wizard-step.active{display:block;}
   .wizard-nav{
     display:flex; gap:10px; margin-top:22px; padding-top:18px;
-    border-top:1px solid var(--hairline);
+    background-image:linear-gradient(to right,
+      transparent 0%, var(--punch) 18%, var(--punch) 82%, transparent 100%);
+    background-size:100% 2px; background-repeat:no-repeat; background-position:top left;
   }
   .wizard-nav .btn{flex:1;}
   .btn-back{
@@ -376,8 +435,11 @@
 </head>
 <body>
 
+<div id="pageFrame">
+
 {% include '_nav.html' %}
 
+<div class="hero-band">
 <picture>
   <source type="image/webp" sizes="100vw"
           srcset="{{ url_for('static', filename='img/hero-mascot-780.webp') }} 780w,
@@ -386,6 +448,7 @@
   <img src="{{ url_for('static', filename='img/hero-mascot-1560.jpg') }}" alt="Send a Smackagram"
        width="1983" height="793" style="width:100%; height:auto; display:block;">
 </picture>
+</div>
 
 <div class="wrap" style="padding-top:24px;">
 
@@ -441,6 +504,8 @@
 
     <label for="recipientNameInput">Who's receiving this</label>
     <input id="recipientNameInput" type="text" placeholder="ex - Mike">
+
+    <div id="step1Error" role="alert" style="display:none;"></div>
 
     <p class="field-group-label">How hard should Smacky go</p>
     <p class="card-sub" style="margin-top:0;">Slide it. Clean is PG. Savage is not.</p>
@@ -538,6 +603,8 @@
   <a href="/terms">Terms</a> &middot; <a href="/contact">Contact</a>
 </footer>
 
+</div>
+
 
 
   </div>
@@ -612,15 +679,47 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Blocks Next while an unticked age gate is showing, and keeps the two
 // audio actions and Send disabled until there is actually a line to use.
+// Next stays CLICKABLE even when step 1 is incomplete, deliberately. A
+// disabled button can't tell you why it's disabled - you're left poking at
+// something dead. Validating on click lets us name the missing field instead.
 function refreshGateState() {
+  var err = document.getElementById('step1Error');
+  if (err && err.style.display !== 'none') validateStep1(true);
+}
+
+function validateStep1(showErrors) {
+  var missing = [];
+  var team = document.getElementById('teamInput');
+  var name = document.getElementById('recipientNameInput');
   var gate = document.getElementById('ageGate');
-  var box = document.getElementById('ageConfirm');
-  var next = document.getElementById('wizardNext');
-  if (next) {
-    var blocked = gate && !gate.hidden && box && !box.checked;
-    next.disabled = !!blocked;
-    next.classList.toggle('no-spinner', !!blocked);
+  var age = document.getElementById('ageConfirm');
+  var err = document.getElementById('step1Error');
+
+  [team, name].forEach(function (el) { if (el) el.classList.remove('field-missing'); });
+  if (gate) gate.classList.remove('field-missing');
+
+  if (team && !team.value.trim()) { missing.push('the team to trash talk'); if (showErrors) team.classList.add('field-missing'); }
+  if (name && !name.value.trim()) { missing.push('who\u2019s receiving this'); if (showErrors) name.classList.add('field-missing'); }
+  // Intensity always has a value (defaults to Savage), so it can't be missing -
+  // but its age confirmation can be.
+  if (gate && !gate.hidden && age && !age.checked) {
+    missing.push('the 18-or-older confirmation');
+    if (showErrors) gate.classList.add('field-missing');
   }
+
+  if (!err) return missing.length === 0;
+  if (!missing.length || !showErrors) {
+    err.style.display = 'none';
+    return missing.length === 0;
+  }
+
+  // Name what's missing rather than saying "fill in all fields" - the whole
+  // point is that they don't have to hunt for it.
+  err.textContent = missing.length === 1
+    ? 'Still need ' + missing[0] + '.'
+    : 'Still need ' + missing.slice(0, -1).join(', ') + ' and ' + missing[missing.length - 1] + '.';
+  err.style.display = 'block';
+  return false;
 }
 
 function refreshOutputState() {
@@ -637,6 +736,12 @@ function refreshOutputState() {
 document.addEventListener('DOMContentLoaded', () => {
   var box = document.getElementById('ageConfirm');
   if (box) box.addEventListener('change', refreshGateState);
+  // Re-validate as they fix things, so the message shrinks as they go rather
+  // than persisting until the next click.
+  ['teamInput', 'recipientNameInput'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', refreshGateState);
+  });
   var out = document.getElementById('trashTalkOutput');
   if (out) out.addEventListener('input', refreshOutputState);
   refreshGateState();
@@ -715,7 +820,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Exposed so 'Send it' on step 2 can advance here rather than opening a
   // separate modal.
   window.__wizardGo = show;
-  nextBtn.addEventListener('click', () => show(current + 1));
+  nextBtn.addEventListener('click', () => {
+    if (current === 0 && !validateStep1(true)) {
+      var e = document.getElementById('step1Error');
+      if (e) e.scrollIntoView({behavior: 'smooth', block: 'center'});
+      return;
+    }
+    show(current + 1);
+  });
   backBtn.addEventListener('click', () => show(current - 1));
   show(0);
 });

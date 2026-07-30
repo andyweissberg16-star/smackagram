@@ -4990,3 +4990,41 @@ examples rather than entered values.
 VERIFIED in a browser at all four levels: tick order, default Savage, heat
 colour, readout colour and lit label all correct; track renders the full
 gradient. No page errors.
+
+## Send a Smack: step 1 validation, brighter dividers, page frame
+Three changes from one round of feedback.
+
+STEP 1 VALIDATION. Next now blocks until the team, the recipient name and
+(where shown) the age confirmation are filled. Next stays CLICKABLE rather
+than disabled, deliberately - a disabled button can't tell you why it's
+disabled, and validating on click is what allows naming the missing field.
+The message lists exactly what's outstanding ("Still need who's receiving
+this and the 18-or-older confirmation"), shrinks live as fields are filled,
+red-borders the offending inputs, and scrolls itself into view. Intensity is
+never "missing" since it defaults to Savage; its age gate is what's checked.
+
+DIVIDERS. The dark hairline rules are now 2px brand red fading to transparent
+at both ends. Drawn as a background gradient rather than a border, because a
+border-top can't taper. Applied to all three dividers inside the card - the
+section rule, the nav rule and the send block - since one bright rule beside
+two dark ones would have looked like a mistake.
+
+PAGE FRAME. The whole layout - nav, hero, content, footer - now sits inside a
+5px red frame with its own travelling light, matching the generator. The hero
+is additionally banded 4px top and bottom so it reads as its own section
+rather than floating between the nav and the copy. The frame scrolls with the
+page rather than being fixed to the viewport, so it genuinely wraps the hero
+and footer instead of hovering over them.
+
+The page LED laps in 14s against the generator's 9s, deliberately. Two lights
+at the same speed drift in and out of phase with each other, which pulls
+attention to the frame rather than to the generator inside it.
+
+WORTH WATCHING: this puts three red frames and two travelling lights on one
+screen. If the generator stops standing out, the cheapest fix is dropping the
+LED from the page frame and keeping it only on the generator - the static
+frame plus banded hero still gives the wraparound.
+
+VERIFIED: nav, hero and footer all inside the frame; hero banded 4px both
+sides; both LEDs confirmed sweeping at their separate speeds; validation
+blocks and names each missing field in turn. No page errors.
