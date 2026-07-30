@@ -134,7 +134,7 @@
     <span class="kicker"><span></span>The Face &middot; The Voice &middot; The Legend</span>
 
     {% if smacky_image_exists %}
-    <picture>
+    <picture class="hero-band">
       <source type="image/webp" srcset="{{ url_for('static', filename='img/smacky-hero.webp') }}">
       <img class="smacky-portrait" src="{{ url_for('static', filename='img/smacky-hero.png') }}" alt="Smacky, the Smackagram mascot">
     </picture>

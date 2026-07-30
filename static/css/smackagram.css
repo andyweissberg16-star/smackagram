@@ -362,14 +362,20 @@ html body::before{
   html body::before{animation:none; opacity:0;}
 }
 
-/* Hero banding. Targets a picture or image that is a DIRECT child of body,
-   which is how every page's hero is marked up - and which deliberately misses
-   the logo inside <nav>, since that shouldn't be banded. */
-html body > picture,
-html body > img{
+/* Hero banding. Targeted by CLASS rather than document position: every page
+   nests its hero differently - some wrap it in a styled div, some sit
+   directly under the nav, some sit behind a Jinja conditional - so a
+   positional selector only ever matched one page. The class is applied to the
+   hero element itself in each template, which also means the logo inside
+   <nav> is never caught by accident.
+
+   display:block matters on <picture>: it's an inline wrapper by default and
+   won't take a border without it. */
+html body .hero-band{
   display:block;
   border-top:4px solid #E01B24;
   border-bottom:4px solid #E01B24;
   line-height:0;
 }
-html body > picture img{display:block; width:100%; height:auto;}
+html body .hero-band img,
+html body img.hero-band{display:block; width:100%; height:auto;}

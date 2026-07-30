@@ -5069,3 +5069,39 @@ on its existing wrapper) added per template, then the CSS can target that
 instead of relying on document position. That's roughly ten small template
 edits. Not done here because it wasn't verified as safe across all ten and
 would have shipped half-checked.
+
+## Hero banding completed across the site
+Finished what the previous entry left half-done.
+
+The positional selector (body > picture) only ever matched send_a_smack,
+because every page nests its hero differently - index and locked_n_loaded
+wrap it in a styled div, meet_smacky has it behind a Jinja conditional inside
+a content block, contact puts it in a max-width container, and two pages use
+a bare <img> rather than <picture>.
+
+Replaced with a CLASS applied to the hero element itself in nine templates:
+index, meet_smacky, smack_battle, smack_chat, locked_n_loaded, contact,
+did_you_get_smacked, smackcast_product and send_a_smack. Only the FIRST
+picture/img per page was tagged - later ones are content images and shouldn't
+be banded. The nav logo is never caught, since it lives in _nav.html.
+
+display:block is required on <picture>: it's an inline wrapper by default and
+silently refuses a border without it.
+
+BUG I INTRODUCED AND CAUGHT: for the two <img> heroes my edit sliced the last
+character off the match to re-open the tag, which removed the CLOSING QUOTE of
+the src attribute - producing src="{{ url }} class="hero-band" and swallowing
+the class into the URL. It would have broken both hero images. Found because
+the test asserted naturalWidth > 0 rather than merely checking the class was
+present. Fixed and re-verified.
+
+ALSO CAUGHT: the first pass reported five pages unbanded, which was a FLAWED
+TEST, not a bug - four of them (smack-battle, smack-chat, locked-n-loaded,
+did-you-get-smacked) redirect to /login, so the test was measuring the login
+page. Re-ran authenticated.
+
+VERIFIED authenticated across nine pages: frame on all, banding on all,
+images loading. The two exceptions are sandbox-only - did-you-get-smacked-
+hero.png and smackcast-hero.png aren't in this copy of static/img, so one
+renders a broken image and the other's conditional is false. Both exist in
+production.
