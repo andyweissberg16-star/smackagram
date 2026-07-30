@@ -1128,6 +1128,17 @@ def smack_lab_page():
     return render_template("smack_lab.html")
 
 
+@app.route("/privacy")
+def privacy():
+    """
+    The policy lives inside the Terms page rather than standing alone. This
+    route is kept as an alias so /privacy still resolves - useful because
+    Twilio's A2P review wants a URL that lands ON the policy, and because
+    anything already linking to /privacy keeps working.
+    """
+    return redirect("/terms#privacy")
+
+
 @app.route("/terms")
 def terms_page():
     return render_template("terms.html")

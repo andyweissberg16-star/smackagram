@@ -56,6 +56,18 @@
   #formError{display:none; color:var(--flare-text); font-size:12px; margin-bottom:12px;}
   .switch-link{text-align:center; font-size:13px; color:var(--chalk-dim); margin-top:18px;}
   .switch-link a{color:var(--gold); text-decoration:none;}
+  .sms-consent{
+    /* The page uppercases labels, which is fine for a two-word field name but
+       unreadable for a 40-word legal consent - and consent nobody reads is a
+       weak consent. Overridden back to sentence case. */
+    text-transform:none; letter-spacing:normal; font-weight:400;
+    display:flex; gap:11px; align-items:flex-start; cursor:pointer;
+    margin:14px 0 18px; padding:13px 14px;
+    background:var(--ink); border:1px solid var(--line-strong); border-radius:8px;
+    font-size:12.5px; color:var(--chalk-dim); line-height:1.5;
+  }
+  .sms-consent input{width:20px; height:20px; flex-shrink:0; margin:0; accent-color:var(--flare);}
+  .sms-consent a{color:var(--flare-text);}
 </style>
 </head>
 <body>
@@ -89,6 +101,21 @@
 
     <label for="phoneInput">Mobile Phone</label>
     <input id="phoneInput" type="tel" placeholder="555-555-5555" autocomplete="tel">
+
+    <!-- SMS consent. Wording is set by Twilio's A2P 10DLC requirements, not by
+         taste: it has to name the brand, say what messages are sent, state that
+         frequency varies, note that rates may apply, give the STOP and HELP
+         keywords, and link both policies. The box must NOT be pre-checked -
+         a pre-ticked box is not consent and is a standard rejection reason. -->
+    <label class="sms-consent" for="smsConsent">
+      <input type="checkbox" id="smsConsent">
+      <span>I agree to receive text messages from Smackagram, including one-time
+      account verification codes and, if I subscribe, my weekly Smackcast link.
+      Message frequency varies. Message and data rates may apply. Reply STOP to
+      opt out or HELP for help. See our
+      <a href="/terms" target="_blank" rel="noopener">Terms</a> and
+      <a href="/terms#privacy" target="_blank" rel="noopener">Privacy Policy</a>.</span>
+    </label>
 
     <label for="dobInput">Date of Birth</label>
     <input id="dobInput" type="date" autocomplete="bday">
@@ -126,6 +153,7 @@ async function submitRegistration() {
     date_of_birth: document.getElementById('dobInput').value,
     password: document.getElementById('passwordInput').value,
     terms_accepted: document.getElementById('termsCheckbox').checked,
+    sms_consent: document.getElementById('smsConsent').checked,
   };
 
   if (!payload.first_name || !payload.last_name || !payload.screen_name || !payload.email || !payload.phone || !payload.date_of_birth || !payload.password) {
@@ -136,6 +164,15 @@ async function submitRegistration() {
   if (!payload.terms_accepted) {
     errorEl.textContent = 'You must agree to the Terms & Conditions.';
     smkInvalid(document.getElementById('termsCheckbox'));
+    errorEl.style.display = 'block';
+    return;
+  }
+  // Consent must be given, not assumed - an unchecked box has to block
+  // registration, or the checkbox is decoration and the consent record is
+  // worthless in an audit.
+  if (!document.getElementById('smsConsent').checked) {
+    errorEl.textContent = 'Please agree to receive text messages. We use them to verify your account.';
+    smkInvalid(document.getElementById('smsConsent'));
     errorEl.style.display = 'block';
     return;
   }

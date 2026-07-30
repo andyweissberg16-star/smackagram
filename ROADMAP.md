@@ -5133,3 +5133,55 @@ narrow centred button treatment, and the faded italic placeholders.
 Verified logged in: frame 5px amber, LED sweeping, all four cards inside the
 console with exactly one visible, arm button amber, page frame still present.
 No errors.
+
+## Privacy policy + SMS opt-in for A2P 10DLC
+Both were missing entirely: there was NO privacy policy page (only terms), and
+NO SMS consent language anywhere, despite phone numbers being collected at
+registration and used for verification codes and Smackcast delivery. Either
+gap alone fails Twilio's campaign review.
+
+PRIVACY POLICY lives INSIDE the Terms page as section 22, not as a separate
+page. /privacy is kept as a redirect to /terms#privacy - not a second page,
+just an alias, which matters because Twilio wants a URL that lands ON the
+policy rather than at the top of a long document, and because anything already
+pointing at /privacy keeps working. The anchor also means the consent
+checkbox links straight to it.
+
+Originally built as a standalone page at /privacy, deliberately outside login - Twilio's reviewer
+fetches the URL directly, so anything behind auth fails the check. Covers what
+is collected, how it's used, the SMS purposes specifically, call recording,
+the named subprocessors (Twilio, Stripe, AWS, Anthropic, ElevenLabs, Render),
+retention and user choices.
+
+Includes the sharing clause Twilio actually looks for, near-verbatim, because
+its absence is the single most common rejection reason: "No mobile information
+will be shared with third parties or affiliates for marketing or promotional
+purposes... All other use case categories exclude text messaging originator
+opt-in data and consent; this information will not be shared with any third
+parties."
+
+SMS CONSENT CHECKBOX on registration, beneath the phone field. Wording is
+dictated by Twilio's requirements rather than taste - it names the brand,
+states what messages are sent (verification codes, weekly Smackcast link),
+says frequency varies, notes rates may apply, gives STOP and HELP, and links
+both Terms and Privacy. NOT pre-checked: a pre-ticked box isn't consent and is
+a standard rejection.
+
+The box blocks registration when unticked, using the page's own error pattern.
+Consent is also sent to the server as sms_consent.
+
+TWO THINGS CAUGHT WHILE BUILDING:
+- I first called a showError() that doesn't exist on that page, which would
+  have thrown and broken registration entirely. Replaced with the page's real
+  errorEl/smkInvalid pattern.
+- The consent rendered in ALL CAPS, inherited from the page's label styling.
+  Fine for a two-word field name, unreadable for a 40-word legal disclosure -
+  and consent nobody reads is weak consent. Overridden to sentence case.
+
+VERIFIED: /privacy returns 200 without login and contains every required
+phrase; the checkbox is unchecked by default and its label carries all five
+required elements.
+
+STILL TO DO: sms_consent is sent but not stored - the User model needs a
+column plus a migration to keep a durable consent record with a timestamp.
+Worth doing, since "we have consent" is only defensible if it can be produced.
