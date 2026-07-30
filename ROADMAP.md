@@ -3386,3 +3386,52 @@ VERIFIED: body computes to rgb(13,13,13) (--ink) with rgb(245,245,243)
 text, featured plan border / price / step borders all resolve to gold
 rgb(255,212,0), Inter loading, no page errors, and the hero block
 correctly stays hidden while the image is absent.
+
+## Smackcast pages: design audit against the site's own stylesheet
+Audited the three Smackcast pages against static/css/smackagram.css rather
+than by eye. Findings and what was / wasn't changed:
+
+FIXED - real problems:
+1. Duplicated reset. The product page re-declared
+   *{margin:0;padding:0;box-sizing:border-box} which smackagram.css already
+   declares at line 26. Removed.
+2. Sub-scale type. Four labels were at 9px - below --fs-2xs (10px), the
+   smallest token the site defines - and 9px uppercase mono with
+   letter-spacing is genuinely hard to read. Raised to --fs-2xs. Verified
+   nothing on the page now computes under 10px (was 4 elements).
+3. TWO REAL WCAG VIOLATIONS. smackagram.css states outright that --flare
+   (#E8142C) only reaches 4.23:1 on --ink, failing AA (4.5:1) for anything
+   under 18px, and that --flare-text (#FF3B50) exists for exactly that
+   case. Both were mine:
+     - connect page: 15px "No open passes" notice using --flare
+     - library page: .recap-status.failed at 10px using --flare
+   Both moved to --flare-text. Checked every other --flare use on the three
+   pages: all are borders, backgrounds, .btn-flare, or the hero's display-
+   size <em> - all legitimate per the stylesheet's own rule.
+4. Hand-rolled heading clamps sitting just off the established ones -
+   clamp(34px,8.5vw,60px) vs --h1-hero, clamp(24px,6vw,36px) vs --h1-page.
+   Now use the tokens.
+5. Converted the mapping raw sizes (10/11/12/13/14px) to their scale tokens
+   on the product and library pages.
+
+DELIBERATELY NOT CHANGED:
+- Did not mass-convert every remaining raw px size to tokens. The scale
+  exists but is NOT the de facto convention: smack_lab.html and index.html
+  use zero scale tokens, smack_battle.html uses two. Converting wholesale
+  would match the stylesheet's intent while diverging from every actual
+  page. Left the off-scale display sizes (17/19/23/24/44px Anton headings)
+  as-is for the same reason.
+- Each page defining its own .card/.hero/.wrap/.label is correct - the
+  shared CSS defines none of those (only .btn min-height), so there's no
+  shadowing conflict.
+- Each page loading its own font <link> is also correct; the shared CSS
+  imports no fonts.
+- body styles staying per-page is explicitly intended - smackagram.css has
+  a comment saying body is deliberately excluded because line-height
+  genuinely varies per page.
+
+VERIFIED in a browser that every token resolves to a real pixel value (a
+var() referencing a nonexistent token silently collapses, so this is the
+only way to be sure): --h1-hero -> 60px, --h1-page -> 36px, --fs-2xs ->
+10px, --fs-md -> 14px, --fs-base -> 13px, body -> rgb(13,13,13), and zero
+elements under 10px.

@@ -12,7 +12,7 @@
   .wrap{max-width:760px; margin:0 auto; padding:0 24px 60px;}
   .hero{padding:34px 0 24px; text-align:center;}
   .hero .label{
-    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-xs); font-weight:700;
     letter-spacing:3px; text-transform:uppercase; color:var(--gold);
   }
   .hero h1{
@@ -33,7 +33,7 @@
     text-transform:uppercase; line-height:1.1; overflow-wrap:anywhere;
   }
   .league-meta{
-    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:500;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-2xs); font-weight:500;
     letter-spacing:1.4px; text-transform:uppercase; color:var(--chalk-dim);
     white-space:nowrap; flex-shrink:0;
   }
@@ -53,13 +53,13 @@
     font-family:'Anton',sans-serif; font-size:19px; text-transform:uppercase;
   }
   .recap-status{
-    font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-2xs); font-weight:700;
     letter-spacing:1.5px; text-transform:uppercase; padding:3px 8px;
     border-radius:999px; white-space:nowrap;
   }
   .recap-status.ready{background:rgba(255,212,0,0.14); color:var(--gold);}
   .recap-status.generating{background:rgba(245,245,243,0.08); color:var(--chalk-dim);}
-  .recap-status.failed{background:rgba(232,20,44,0.14); color:var(--flare);}
+  .recap-status.failed{background:rgba(232,20,44,0.14); color:var(--flare-text);}
 
   /* The best line is the hook - it's what someone actually remembers
      from a given week, so it leads rather than sitting under the audio. */
@@ -74,7 +74,7 @@
 
   .recap-actions{display:flex; gap:8px; flex-wrap:wrap;}
   .recap-btn{
-    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-2xs); font-weight:700;
     letter-spacing:1.2px; text-transform:uppercase; text-decoration:none;
     padding:8px 12px; border-radius:4px; cursor:pointer;
     border:1px solid var(--line-strong); background:transparent; color:var(--chalk);
@@ -84,7 +84,7 @@
 
   details.transcript{margin-top:12px;}
   details.transcript summary{
-    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-2xs); font-weight:700;
     letter-spacing:1.2px; text-transform:uppercase; color:var(--chalk-dim);
     cursor:pointer; padding:6px 0;
   }

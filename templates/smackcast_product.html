@@ -14,7 +14,6 @@
   /* smackagram.css supplies the :root colour variables and .btn, but not a
      body background - every page sets its own (see smackcast_connect.html,
      smack_lab.html etc). Without this the page renders white. */
-  *{margin:0; padding:0; box-sizing:border-box;}
   body{
     background:var(--ink); color:var(--chalk);
     font-family:'Inter',sans-serif; line-height:1.5;
@@ -26,11 +25,11 @@
   /* HERO */
   .hero{padding:40px 0 30px; text-align:center;}
   .hero .label{
-    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-xs); font-weight:700;
     letter-spacing:3px; text-transform:uppercase; color:var(--gold);
   }
   .hero h1{
-    font-family:'Anton',sans-serif; font-size:clamp(34px,8.5vw,60px);
+    font-family:'Anton',sans-serif; font-size:var(--h1-hero);
     text-transform:uppercase; line-height:0.98; margin-top:10px;
   }
   .hero h1 em{color:var(--flare); font-style:normal;}
@@ -47,16 +46,16 @@
 
   .section{margin-top:46px;}
   .section-label{
-    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-xs); font-weight:700;
     letter-spacing:3px; text-transform:uppercase; color:var(--gold);
     text-align:center;
   }
   .section h2{
-    font-family:'Anton',sans-serif; font-size:clamp(24px,6vw,36px);
+    font-family:'Anton',sans-serif; font-size:var(--h1-page);
     text-transform:uppercase; line-height:1.05; text-align:center; margin-top:8px;
   }
   .section .lede{
-    text-align:center; color:var(--chalk-dim); font-size:14px;
+    text-align:center; color:var(--chalk-dim); font-size:var(--fs-md);
     line-height:1.65; max-width:580px; margin:12px auto 0;
   }
 
@@ -75,7 +74,7 @@
     font-family:'Anton',sans-serif; font-size:17px; text-transform:uppercase;
     margin-top:6px; line-height:1.15;
   }
-  .step p{font-size:13px; color:var(--chalk-dim); line-height:1.6; margin-top:7px;}
+  .step p{font-size:var(--fs-base); color:var(--chalk-dim); line-height:1.6; margin-top:7px;}
 
   /* SAMPLES */
   .sample{
@@ -89,18 +88,18 @@
   }
   .sample-name{font-family:'Anton',sans-serif; font-size:17px; text-transform:uppercase;}
   .sample-tag{
-    font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-2xs); font-weight:700;
     letter-spacing:1.5px; text-transform:uppercase; color:var(--chalk-dim);
   }
   .sample-quote{
     font-family:'Inter',sans-serif; font-style:italic; font-weight:600;
-    font-size:14px; line-height:1.5; color:var(--chalk);
+    font-size:var(--fs-md); line-height:1.5; color:var(--chalk);
     padding-left:12px; border-left:2px solid rgba(255,212,0,0.4); margin-bottom:12px;
   }
   .sample audio{width:100%;}
   .sample-pending{
     text-align:center; padding:26px 20px; color:var(--chalk-dim);
-    font-size:14px; line-height:1.6;
+    font-size:var(--fs-md); line-height:1.6;
     background:var(--ink-2); border:1px dashed var(--line-strong);
     border-radius:6px; margin-top:14px;
   }
@@ -115,12 +114,12 @@
   .plat-name{font-family:'Anton',sans-serif; font-size:19px; text-transform:uppercase;}
   .plat.live .plat-name{color:var(--gold);}
   .plat-status{
-    font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-2xs); font-weight:700;
     letter-spacing:1.4px; text-transform:uppercase; color:var(--chalk-dim); margin-top:5px;
   }
   .plat.live .plat-status{color:var(--gold);}
   .plat-sports{
-    font-family:'JetBrains Mono',monospace; font-size:9px;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-2xs);
     letter-spacing:1px; text-transform:uppercase; color:var(--chalk-dim);
     margin-top:7px; padding-top:7px; border-top:1px solid var(--line);
   }
@@ -134,7 +133,7 @@
   }
   .plan.featured{border-color:var(--gold); box-shadow:0 0 0 1px rgba(255,212,0,0.25);}
   .plan-flag{
-    font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-2xs); font-weight:700;
     letter-spacing:2px; text-transform:uppercase; color:#0D0D0D;
     background:var(--gold); align-self:flex-start;
     padding:3px 9px; border-radius:3px; margin-bottom:12px;
@@ -142,10 +141,10 @@
   .plan-name{font-family:'Anton',sans-serif; font-size:23px; text-transform:uppercase; line-height:1.1;}
   .plan-price{font-family:'Anton',sans-serif; font-size:44px; line-height:1; margin-top:10px;}
   .plan.featured .plan-price{color:var(--gold);}
-  .plan-price small{font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:500; letter-spacing:1px; color:var(--chalk-dim); display:block; margin-top:6px; text-transform:uppercase;}
+  .plan-price small{font-family:'JetBrains Mono',monospace; font-size:var(--fs-xs); font-weight:500; letter-spacing:1px; color:var(--chalk-dim); display:block; margin-top:6px; text-transform:uppercase;}
   .plan-list{list-style:none; margin:16px 0 0; padding:0;}
   .plan-list li{
-    font-size:13px; color:var(--chalk-dim); line-height:1.55;
+    font-size:var(--fs-base); color:var(--chalk-dim); line-height:1.55;
     padding:6px 0 6px 16px; position:relative;
   }
   .plan-list li::before{content:'—'; position:absolute; left:0; color:var(--gold);}
@@ -156,7 +155,7 @@
     border:1px solid var(--line-strong); border-radius:5px;
   }
   .league-picker label{
-    display:block; font-family:'JetBrains Mono',monospace; font-size:10px;
+    display:block; font-family:'JetBrains Mono',monospace; font-size:var(--fs-2xs);
     font-weight:700; letter-spacing:1.4px; text-transform:uppercase;
     color:var(--chalk-dim); margin-bottom:9px;
   }
@@ -170,9 +169,9 @@
   .stepper button:hover:not(:disabled){border-color:var(--gold); color:var(--gold);}
   .stepper button:disabled{opacity:0.35; cursor:not-allowed;}
   .stepper-val{font-family:'Anton',sans-serif; font-size:24px; min-width:26px; text-align:center;}
-  .stepper-note{font-size:11px; color:var(--chalk-dim); margin-top:9px; line-height:1.5;}
+  .stepper-note{font-size:var(--fs-xs); color:var(--chalk-dim); margin-top:9px; line-height:1.5;}
   .plan-total{
-    font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700;
+    font-family:'JetBrains Mono',monospace; font-size:var(--fs-sm); font-weight:700;
     letter-spacing:1px; text-transform:uppercase; color:var(--gold);
     margin-top:12px;
   }
@@ -181,15 +180,15 @@
   .fine{
     margin-top:28px; padding:16px 18px; background:var(--ink-2);
     border:1px solid var(--line-strong); border-radius:6px;
-    font-size:12px; color:var(--chalk-dim); line-height:1.7;
+    font-size:var(--fs-sm); color:var(--chalk-dim); line-height:1.7;
   }
   .fine b{color:var(--chalk);}
   #purchaseError{
     display:none; margin-top:14px; padding:11px 14px;
     background:rgba(232,20,44,0.1); border:1px solid var(--flare);
-    border-radius:4px; color:var(--chalk); font-size:13px; text-align:center;
+    border-radius:4px; color:var(--chalk); font-size:var(--fs-base); text-align:center;
   }
-  .have-pass{text-align:center; margin-top:18px; font-size:13px;}
+  .have-pass{text-align:center; margin-top:18px; font-size:var(--fs-base);}
   .have-pass a{color:var(--gold); font-weight:600;}
 </style>
 </head>
