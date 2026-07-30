@@ -3772,3 +3772,159 @@ renders 15. So Clean and Aggressive battles stay clean while Smackcast
 
 Still bound by the existing hard limits — no slurs, nothing targeting
 protected characteristics, aimed at team performance.
+
+## Smackcast: recap runtime — speaking pace was measured wrong
+12-team recap came back at 5:12 against a 4:00 target. The word budget was
+being honoured; the ASSUMPTION converting words to minutes was wrong. The
+code assumed 150 words/minute, a conversational reading pace. Smacky's
+delivery is slower: 600 words produced 312 seconds of audio, which is
+~115 wpm. Every target was therefore ~30% optimistic.
+
+Replaced the buried assumption with a single named constant,
+SPOKEN_WORDS_PER_MINUTE = 115, measured from that run. The per-band values
+are now expressed as MINUTES (the product decision) and the word count is
+derived, so runtime is tuned by adjusting one number rather than
+recalculating three word counts by hand.
+
+New targets: up to 9 teams 345 words (3 min), 10-12 460 words (4 min),
+13+ 690 words (6 min). Previously 450/600/900 at the wrong pace.
+
+Note the 13+ band is flat all the way to 32 teams, so a 32-team league gets
+~43 words per matchup. That is likely too thin to be a good product
+regardless of price — worth deciding before selling large-league tiers.
+
+## Smackcast: TTS spoke the word "comma" out loud
+Observed around 2:58 and 3:05 in a real generation: the voice said "comma"
+instead of treating it as punctuation.
+
+Added sanitize_for_speech(), applied to the intro, every segment and the
+outro immediately before synthesis - NOT to the stored transcript, which
+keeps its original punctuation for display on the recap page.
+
+Handles two separate problems:
+1. Spoken punctuation names. Strips "comma", "semicolon" and "ellipsis"
+   when they appear the way a dictated punctuation mark would.
+2. Typographic punctuation the model mirrors from the prompt's own writing
+   style - em dashes, en dashes, ellipses and smart quotes get normalised
+   to plain commas, periods and straight quotes, which every engine reads
+   predictably. Em dashes were a likely contributor: the prompt is full of
+   them, so the model reproduces them, and engines read them
+   inconsistently (sometimes a pause, sometimes the word "dash").
+
+CAUGHT MY OWN OVER-REACH: the first version also stripped "period",
+"dash", "quote", "colon" and others. That broke real sentences - "dominated
+every period" became "dominated every", and "that's it, period" lost its
+emphasis. Those words have legitimate uses in a sports recap. Narrowed to
+the three that never legitimately appear spoken, and required them to sit
+between punctuation or spaces the way a dictated mark would, so a sentence
+that genuinely discusses commas survives.
+
+Verified across eight cases: both bug forms stripped, and "period" as
+emphasis, "period" as a game period, "dash" as a verb and ordinary commas
+all preserved.
+
+## Smackcast: team-name roasting + stronger profanity
+Two notes from listening to a real generation: not enough roasting aimed at
+the specific fantasy team, and still not swearing enough.
+
+TEAM NAME AS THE PERSONAL ANGLE. There are no owner names anywhere in the
+data - only team names. But a fantasy team name is something the owner
+CHOSE, which makes mocking it land personally without ever being about the
+human, and keeps it inside the existing hard limit (roast the team, never
+invent personal details). New prompt section instructs: say the team name
+often rather than "they", treat the name as a promise and hold them to it
+(Undefeated Underdogs losing by 40 writes its own joke), mock names that
+try too hard or are lazy, coin a nickname from it and reuse it, and play
+the two names in a matchup off each other. Framed as the difference
+between a scoreboard read aloud and a roast aimed at somebody. Renders at
+every sensitivity level since none of it depends on profanity.
+
+PROFANITY STRENGTHENED. The previous tier-4 set was too polite and output
+came back under-sworn. Added the specific vocabulary requested - fucking,
+fuck, bullshit, what the fuck, what the hell - plus a reactions category
+for opening a segment on one. Density instruction hardened from "most
+segments" to "EVERY segment, more than once where it fits", with an
+explicit note that a segment containing no profanity is off-voice.
+Profanity terms in the rendered vocabulary went from 15 to 28.
+
+Still bound by the hard limits: no threats, no slurs, nothing targeting
+protected characteristics, no sexual content, and aimed at team
+performance rather than the person.
+
+## Smackcast: roasting the unseen manager (safely)
+User's framing, and it's genuinely safer than what was there: Smacky can go
+after whoever runs a team, but only ever as a stranger judging their
+DECISIONS. He has never met them, knows nothing about them, and the only
+evidence is the lineup they set and what it scored. Phrasing it that way -
+"whoever is setting this lineup needs to get a fucking clue" - structurally
+prevents inventing anything personal, because the framing itself
+acknowledges he doesn't know who they are.
+
+Reuses the pattern already established in trash_talk_service's hard limits:
+criticism that reaches toward a person stays hypothetical or rhetorical
+rather than a flat declarative statement of fact. "Whoever set this lineup
+has lost their mind" is fine; asserting things about them as a person is
+not - and couldn't be accurate anyway.
+
+The named starters and their points are what make this land: a bust in the
+STARTING lineup is a decision somebody made, which is as personal as it
+ever needs to get. Explicitly out of bounds: their job, looks,
+intelligence, family, anything about their actual life, anything sexual,
+any threat.
+
+SCOPED TO RECAP CONTEXT ONLY. Both this and the team-name section are
+recap-only concepts - a Smack Battle has a live opponent typing lines, not
+an absent fantasy manager, and no fantasy team name to work with. Verified
+all four combinations: recap gets both sections at levels 1 and 4, battle
+gets neither, and smackology's own vocabulary still renders in all four.
+
+## Smackcast: team names Smacky can't pronounce
+Raised as a hypothetical, but it's a real hole - fantasy team names are
+routinely unsayable (leetspeak, emoji, mashed player names, keyboard
+nonsense, all-caps) and nothing handled it. It would have produced garbage
+audio silently.
+
+Fixed in two places, because the prompt alone isn't enough:
+
+1. PROMPT (recap context only): instructed NOT to attempt an unpronounceable
+   name and never to read it character by character. Instead say plainly
+   he's not trying it, coin a nickname, use that for the rest of the recap,
+   and mock the choice - somebody typed that on purpose, which says
+   something about how their lineup decisions go. Turns a failure mode into
+   material, which is more in-voice than a workaround.
+
+2. SANITIZER (defensive, so bad audio is impossible even if the model
+   ignores the instruction):
+   - Emoji and pictographs stripped. Engines either skip them or read the
+     character's description aloud ("fire emoji") mid-sentence.
+   - All-capital runs of 5+ letters title-cased, because engines spell
+     capitals out letter by letter - THEREALCHAMPS would become
+     "T-H-E-R-E-A-L...". Deliberately only 5+: shorter runs are usually
+     genuine acronyms (NFL, QB, RB, TE) which SHOULD be spelled out, and
+     title-casing those would be the wrong fix.
+
+Verified: emoji removed, THEREALCHAMPS -> Therealchamps, while QB/RB/NFL
+survive untouched in the same sentence.
+
+## Smackcast test generator: deliberately awkward team names
+Added _TRICKY_TEAM_NAMES so the read-aloud handling actually gets exercised
+instead of only showing up by luck with a real league. Each entry probes a
+different rule:
+  topdogdaddypants / thewaiverwirekings - real words run together. SAYABLE;
+    should be said in full and mocked, not refused.
+  THEREALCHAMPS - long caps run; sanitizer title-cases it so it isn't
+    spelled out letter by letter.
+  xXx_L33T_xXx / Ftghjklmn United - genuinely unsayable; should trigger the
+    "not attempting that, we'll call them X" nickname path.
+  emoji name - sanitizer strips the pictographs, words survive.
+  Saquon The Barbarian / 2 Chainz 2 Furious - sayable puns and a leading
+    digit; both should be read normally.
+
+TWO are swapped in per generation, not all of them, deliberately. A sample
+needs ordinary names alongside so a test shows both that tricky names are
+handled AND that the "can't pronounce it" escape hatch does not start
+over-triggering on perfectly sayable names now that the model has it.
+
+Verified a real sample: drew the emoji name and topdogdaddypants alongside
+ten normal ones, and confirmed the emoji name sanitizes to "Fire Squad"
+while topdogdaddypants passes through untouched.

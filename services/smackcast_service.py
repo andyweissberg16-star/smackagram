@@ -6,6 +6,7 @@ Smackagram-toned script covering every matchup in the league, sized to
 the league's team count.
 """
 import os
+import re
 import json
 import anthropic
 import requests
@@ -36,6 +37,18 @@ _HARD_LIMITS = """Hard limits — never cross these:
   stage directions, no markdown."""
 
 
+# MEASURED, not assumed. The original code assumed 150 words/minute, which
+# is a conversational-reading pace. Smacky's delivery is slower than that:
+# a 600-word target came back as 5 minutes 12 seconds of audio, which works
+# out to ~115 wpm. Every target was therefore ~30% optimistic.
+#
+# This is the single knob for recap runtime. If audio still lands long,
+# lower this number - don't touch the per-band minutes, which express the
+# product decision. Sound effects and the 200ms pauses around them add a
+# few seconds on top, so treat this as a floor rather than exact.
+SPOKEN_WORDS_PER_MINUTE = 115
+
+
 def _target_word_count(team_count: int) -> int:
     """
     Scales the target script length with league size — an 8-team league
@@ -44,10 +57,12 @@ def _target_word_count(team_count: int) -> int:
     (14+ teams), at a natural spoken pace of ~150 words/minute.
     """
     if team_count <= 9:
-        return 450    # ~3 min
-    if team_count <= 12:
-        return 600    # ~4 min
-    return 900        # ~6 min
+        minutes = 3.0
+    elif team_count <= 12:
+        minutes = 4.0
+    else:
+        minutes = 6.0
+    return round(minutes * SPOKEN_WORDS_PER_MINUTE)
 
 
 _SPORT_LABELS = {"nfl": "fantasy football", "nba": "fantasy basketball", "mlb": "fantasy baseball"}
@@ -79,7 +94,7 @@ def generate_weekly_recap_script(league_name: str, week: int, matchups: list, te
     segment_count = max(1, len(matchups))
     intro_words, outro_words = 55, 45
     per_segment_words = max(40, round((target_words - intro_words - outro_words) / segment_count))
-    target_minutes = round(target_words / 150, 1)
+    target_minutes = round(target_words / SPOKEN_WORDS_PER_MINUTE, 1)
 
     matchup_lines = []
     for m in matchups:
@@ -438,6 +453,20 @@ _SAMPLE_TEAM_NAMES = [
 ]
 
 
+# Deliberately awkward names, for exercising the read-aloud handling. Real
+# fantasy leagues are full of these and each one probes a different rule:
+_TRICKY_TEAM_NAMES = [
+    "topdogdaddypants",          # real words, no spaces - IS sayable, should be said in full and mocked
+    "thewaiverwirekings",        # same, longer
+    "THEREALCHAMPS",             # long caps run - sanitizer title-cases so it isn't spelled out
+    "xXx_L33T_xXx",              # leetspeak and symbols - genuinely unsayable, should be nicknamed
+    "Ftghjklmn United",          # no vowel structure - unsayable
+    "🔥🔥 Fire Squad 🔥",          # emoji - sanitizer strips them, the words survive
+    "Saquon The Barbarian",      # player-name pun - perfectly sayable, good material
+    "2 Chainz 2 Furious",        # leading digit - reads fine, tests number handling mid-name
+]
+
+
 def generate_sample_matchups(sport: str, team_count: int) -> list:
     """
     Realistic-but-entirely-fake matchup data for testing the generation
@@ -459,6 +488,14 @@ def generate_sample_matchups(sport: str, team_count: int) -> list:
     names = random.sample(_SAMPLE_TEAM_NAMES, min(team_count, len(_SAMPLE_TEAM_NAMES)))
     while len(names) < team_count:
         names.append(f"Team {len(names) + 1}")
+
+    # Swap two entries for deliberately awkward names. Two rather than all of
+    # them on purpose: a generation needs some ordinary names alongside, so we
+    # can see both that the tricky ones are handled AND that Smacky doesn't
+    # start refusing perfectly sayable names now that he has the option.
+    tricky = random.sample(_TRICKY_TEAM_NAMES, min(2, len(names)))
+    for i, t in enumerate(tricky):
+        names[random.randrange(len(names))] = t
 
     # Obviously-fictional player names. Deliberately NOT real players -
     # the test page runs the real pipeline, and inventing stat lines for
@@ -534,6 +571,93 @@ def _pick_random_sfx(reaction: str):
         return None
 
 
+# Deliberately narrow. An earlier version also caught "period", "dash",
+# "quote", "colon" and friends, which broke real sentences - "dominated
+# every period" became "dominated every", and "that's it, period" lost its
+# emphasis. Those words have legitimate uses in a sports recap; "comma"
+# spoken aloud does not, and it's the one actually observed in output.
+# Semicolon and ellipsis are included on the same reasoning - nobody says
+# them out loud on purpose.
+#
+# Also requires the word to be sitting BETWEEN punctuation or spaces the way
+# a dictated punctuation mark would be, rather than matching the bare word
+# anywhere, so a sentence that legitimately discusses commas survives.
+_PUNCT_NAME_RE = re.compile(
+    r"(?:(?<=,)|(?<=\s))\s*(comma|semicolon|ellipsis)\s*(?=,|\s|$)",
+    re.IGNORECASE,
+)
+
+
+_EMOJI_RE = re.compile(
+    "[" 
+    "\U0001F300-\U0001FAFF"   # pictographs, symbols, emoji
+    "\U0001F000-\U0001F2FF"
+    "\U00002600-\U000027BF"   # misc symbols, dingbats
+    "\U0000FE00-\U0000FE0F"   # variation selectors
+    "\U0001F1E6-\U0001F1FF"   # regional indicators (flags)
+    "]+",
+    flags=re.UNICODE,
+)
+
+
+def sanitize_for_speech(text: str) -> str:
+    """
+    Cleans script text before it goes to text-to-speech.
+
+    Two separate problems, both confirmed in real output:
+
+    1. The engine spoke the word "comma" aloud instead of treating it as
+       punctuation. Any punctuation NAME appearing as a word gets stripped -
+       there is no legitimate reason for a recap to say "comma" out loud,
+       and leaving one in is jarring enough to ruin a segment.
+
+    2. Typographic punctuation the model picks up from the prompt's own
+       writing style. Em and en dashes, ellipses and smart quotes are read
+       inconsistently across engines - sometimes as a pause, sometimes
+       spoken literally as "dash". They're normalised to plain commas,
+       periods and straight quotes, which every engine handles predictably.
+
+    Deliberately conservative: it does not touch wording, only punctuation
+    and stray punctuation names.
+    """
+    if not text:
+        return text
+
+    # Typographic characters the model tends to mirror from the prompt.
+    replacements = {
+        "\u2014": ", ",   # em dash
+        "\u2013": ", ",   # en dash
+        "\u2026": ". ",   # ellipsis
+        "\u2018": "'", "\u2019": "'",
+        "\u201c": '"', "\u201d": '"',
+        "\u00a0": " ",    # non-breaking space
+    }
+    for bad, good in replacements.items():
+        text = text.replace(bad, good)
+
+    # A spoken punctuation name is always a mistake here.
+    text = _PUNCT_NAME_RE.sub("", text)
+
+    # Emoji and pictographs. Fantasy team names are full of them, and engines
+    # either skip them or read the character's DESCRIPTION out loud
+    # ("fire emoji"), neither of which is wanted mid-sentence.
+    text = _EMOJI_RE.sub(" ", text)
+
+    # Long all-capital runs. Engines spell capitals out letter by letter, so a
+    # team called THEREALCHAMPS becomes "T-H-E-R-E-A-L...". Anything 5+ letters
+    # gets title-cased; shorter runs are left alone because they're usually
+    # genuine acronyms (NFL, QB, RB, TE) that SHOULD be spelled out.
+    text = re.sub(r"\b[A-Z]{5,}\b", lambda m: m.group(0).title(), text)
+
+    # Collapse the artefacts the above can leave behind - doubled commas,
+    # a comma butted against a period, runs of whitespace.
+    text = re.sub(r"\s*,\s*,+", ",", text)
+    text = re.sub(r",\s*\.", ".", text)
+    text = re.sub(r"\s+([,.!?])", r"\1", text)
+    text = re.sub(r"\s{2,}", " ", text)
+    return text.strip()
+
+
 def assemble_recap_audio(intro: str, segments: list, outro: str) -> str:
     """
     Generates speech for the intro, each segment, and the outro
@@ -603,9 +727,11 @@ def assemble_recap_audio(intro: str, segments: list, outro: str) -> str:
     # rate limiting, which would be slower than doing it sequentially.
     from concurrent.futures import ThreadPoolExecutor
 
-    texts = [intro] + [seg["text"] for seg in segments]
+    # Sanitised before synthesis, never after - the transcript keeps its
+    # original punctuation for display on the recap page.
+    texts = [sanitize_for_speech(intro)] + [sanitize_for_speech(seg["text"]) for seg in segments]
     if outro:
-        texts.append(outro)
+        texts.append(sanitize_for_speech(outro))
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         # .map preserves input order, which is what keeps the recap from
