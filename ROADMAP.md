@@ -4072,3 +4072,34 @@ Fixed in two places, because either alone is insufficient:
 
 Costs a few seconds of runtime on a 6-matchup recap - worth it for being able
 to follow what's happening.
+
+## TODO (MANDATORY, not yet built): download generated audio locally
+Raised while collecting sample recaps. Not implemented - this is a note.
+
+THE PROBLEM: every generated file lands in S3 under tts/ with a random UUID
+filename (a3f9c2e1-....mp3), in one flat folder, mixed in with prank call
+audio and every test generation. Nothing indicates which recap, league,
+sport or week a file belongs to. Sorting by Last Modified in the AWS console
+is currently the only way to find anything, which does not scale and makes
+collecting samples for the product page tedious.
+
+PREFERRED FIX: a download button on /smackcast/test (and probably on the
+library page too) that serves the file with a sensible name derived from the
+database rather than the S3 key - e.g. smackcast-nfl-week7-2026-07-30.mp3.
+One click, no CLI, no bucket hunting. Estimated small.
+
+SECOND OPTION: a script that syncs recent files down and renames them by
+joining S3 keys against SmackcastRecap rows for league/week/sport. Useful
+for bulk, but doesn't fix the underlying naming problem.
+
+WORTH CONSIDERING AT THE SAME TIME: storing a human-readable S3 key at
+upload time instead of a bare UUID. That fixes this at the source rather
+than papering over it afterwards, and would make every future file
+self-describing. Larger change since the key format is shared with the
+prank-call audio path.
+
+RELATED RISK already noted elsewhere: samples published to the product page
+live under the same tts/ path as everything else, so any future S3 lifecycle
+cleanup rule would delete them. Namespacing samples separately would need
+its own bucket policy - see the note in smackcast_service.generate_meme_image
+about public-read being scoped to tts/.
