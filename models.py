@@ -550,6 +550,11 @@ class SmackcastSubscription(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
 
+    # Null for subscriptions created under the old connect-then-pay flow.
+    purchase_id = db.Column(db.Integer, db.ForeignKey("smackcast_purchases.id"), nullable=True)
+    # "single" stops after one delivered recap; "season" runs weekly.
+    plan = db.Column(db.String(20), nullable=True)
+
     platform = db.Column(db.String(20), nullable=False)  # "sleeper", "espn", "yahoo"
     sport = db.Column(db.String(10), nullable=False, default="nfl")  # "nfl", "nba", "mlb" - mlb is ESPN-only, Sleeper has no baseball leagues
     league_id = db.Column(db.String(100), nullable=False)
@@ -587,6 +592,46 @@ class SmackcastSubscription(db.Model):
     last_recap_week = db.Column(db.Integer, nullable=True)  # avoids double-generating the same week
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class SmackcastPurchase(db.Model):
+    """
+    One Smackcast transaction, created BEFORE any league is connected.
+
+    The flow used to be connect-league-then-pay, which meant a
+    SmackcastSubscription row could only exist after the league details
+    were known. The product page inverts that - someone buys first, then
+    connects - so the purchase has to be able to stand alone and hold
+    the entitlement until leagues get attached to it.
+
+    league_slots is how many leagues this purchase entitles. A single
+    recap is 1. A season pass is 1 plus however many extra leagues were
+    added at checkout. Subscriptions attach to a purchase as they get
+    connected, and slots_used tells us when the entitlement is spent.
+    """
+    __tablename__ = "smackcast_purchases"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+
+    plan = db.Column(db.String(20), nullable=False)   # "single" or "season"
+    league_slots = db.Column(db.Integer, nullable=False, default=1)
+    amount_cents = db.Column(db.Integer, nullable=False)
+
+    stripe_session_id = db.Column(db.String(255), nullable=True)
+    # pending until Stripe confirms, then paid. Nothing is usable until paid.
+    status = db.Column(db.String(20), default="pending")  # pending, paid, failed
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    paid_at = db.Column(db.DateTime, nullable=True)
+
+    @property
+    def slots_used(self):
+        return SmackcastSubscription.query.filter_by(purchase_id=self.id).count()
+
+    @property
+    def slots_remaining(self):
+        return max(0, (self.league_slots or 0) - self.slots_used)
 
 
 class SmackcastRecap(db.Model):

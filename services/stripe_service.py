@@ -88,6 +88,11 @@ def create_checkout_session(order_id: int, amount_cents: int, base_url: str) -> 
     )
 
 
+SMACKCAST_SINGLE_CENTS = 799
+SMACKCAST_SEASON_CENTS = 3999
+SMACKCAST_EXTRA_LEAGUE_CENTS = 2999
+
+
 def create_smackcast_checkout_session(subscription_id: int, base_url: str) -> stripe.checkout.Session:
     """
     One-time season pass checkout — $39.99, no recurring billing. Same
@@ -106,6 +111,59 @@ def create_smackcast_checkout_session(subscription_id: int, base_url: str) -> st
             "quantity": 1,
         }],
         metadata={"smackcast_subscription_id": str(subscription_id)},
+        success_url=f"{base_url}/smackcast/success?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{base_url}/smackcast",
+    )
+
+
+def create_smackcast_purchase_session(purchase, base_url: str) -> stripe.checkout.Session:
+    """
+    Checkout for the new buy-first flow. Unlike
+    create_smackcast_checkout_session (which assumed a single $39.99
+    season pass for an already-connected league), the amount here varies:
+    a single recap, or a season pass plus any number of extra leagues.
+
+    The extra leagues go on as their own line item with a quantity so the
+    receipt itemises what was bought rather than showing one opaque total.
+    Success lands on the connect flow, since after this the buyer still
+    has leagues to hook up.
+    """
+    _configure()
+
+    if purchase.plan == "single":
+        line_items = [{
+            "price_data": {
+                "currency": "usd",
+                "product_data": {"name": "Smackcast — Single Recap"},
+                "unit_amount": SMACKCAST_SINGLE_CENTS,
+            },
+            "quantity": 1,
+        }]
+    else:
+        line_items = [{
+            "price_data": {
+                "currency": "usd",
+                "product_data": {"name": "Smackcast — Season Pass"},
+                "unit_amount": SMACKCAST_SEASON_CENTS,
+            },
+            "quantity": 1,
+        }]
+        extra = max(0, (purchase.league_slots or 1) - 1)
+        if extra:
+            line_items.append({
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {"name": "Smackcast — Additional League"},
+                    "unit_amount": SMACKCAST_EXTRA_LEAGUE_CENTS,
+                },
+                "quantity": extra,
+            })
+
+    return stripe.checkout.Session.create(
+        mode="payment",
+        payment_method_types=["card"],
+        line_items=line_items,
+        metadata={"smackcast_purchase_id": str(purchase.id)},
         success_url=f"{base_url}/smackcast/success?session_id={{CHECKOUT_SESSION_ID}}",
         cancel_url=f"{base_url}/smackcast",
     )

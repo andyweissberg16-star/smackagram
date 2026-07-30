@@ -3245,3 +3245,119 @@ case, footer inside bounds in all five, no page errors.
 
 STILL UNREVIEWED VISUALLY: image viewing was unavailable this session, so
 none of this has been eyeballed - only measured. Needs a human look.
+
+## Smackcast: subscriber library + sales page step-numbering fix
+Surveyed Smackcast before touching it. It's already a real product:
+$39.99 one-time season pass, Sleeper/ESPN connected (Yahoo stubbed),
+NFL/NBA (MLB ESPN-only), weekly auto-generation on a cron, and each
+recap produces script text, ElevenLabs audio in Smacky's voice, a meme
+image, a "best line" and a share token. Delivery is web link (always),
+phone call, SMS, plus Discord/GroupMe columns already in the schema.
+
+FOUND A REAL PRODUCT HOLE: SmackcastRecap was only ever queried by
+share_token (or by recap_id for the Twilio call). There was no way for a
+paying subscriber to see their own recaps. The share link arrives once by
+text or call and is easy to lose - so someone buys a full season and then
+has no route back to week 3. Nothing in the app listed a user's recaps at
+all.
+
+Built /smackcast/library (login required):
+- Groups by subscription, since one person can run Smackcast on several
+  leagues at once and weeks would otherwise interleave
+- Newest week first, with each recap showing its best line as the lead
+  (that's the part someone actually remembers from a given week), then
+  audio, meme, share/copy-link buttons and a collapsed transcript
+- Handles the mixed-status reality: still-generating weeks show a waiting
+  note instead of a dead audio element, failed weeks say so explicitly
+  and reassure that the season pass is unaffected
+- Copy-link button falls back to a hidden textarea + execCommand where
+  the async clipboard API isn't available (older iOS Safari, non-HTTPS),
+  so it never silently does nothing
+- Empty state points a non-subscriber at setup
+
+Entry points: mobile nav drawer (not the desktop row - that already needs
+~1250px to stay on one line per the existing CSS comment, so another item
+would make it worse) plus a prominent "Already set up? Open your library"
+link in the sales page hero.
+
+ALSO FIXED: the sales page numbered its steps 1, 2, 2 - "Step 2 - Pick
+Your Sport" and "Step 2 - Choose Delivery". Delivery is now Step 3.
+
+VERIFIED against a real seeded league with three recaps in mixed states
+(two ready, one still generating): confirmed correct league name/platform/
+sport/season header, weeks ordered newest-first (4, 3, 2), correct
+statuses, best lines and transcripts only on recaps that have them, audio
+players only on ready ones, copy buttons on all three, no page errors.
+Confirmed the auth gate redirects an anonymous request (302), and
+confirmed the empty state renders for a logged-in user with no
+subscriptions.
+
+STILL OPEN (biggest remaining Smackcast gap): there is no sample recap
+anywhere on the sales page. It asks $39.99 for an audio product with
+nothing to listen to. A real generator exists at /smackcast/test but it's
+admin-only. Highest-value next step, needs a hosted sample audio file.
+Also still on the page: emoji platform/sport icons, which read cheap next
+to the rest of the site's typography.
+
+## Smackcast: real product page + buy-first checkout with multi-league pricing
+Restructured the funnel. /smackcast was the league-connection form, which
+meant someone had to hook up a fantasy league before ever seeing a price.
+Now:
+  /smackcast          -> public product page (marketing + pricing + checkout)
+  /smackcast/connect  -> league hookup, AFTER payment (was /smackcast)
+  /smackcast/library  -> their recaps
+
+PRICING (constants live in stripe_service so page, server total and Stripe
+line items can't drift):
+  $7.99  single recap, any league, one week
+  $39.99 season pass, weekly all season, one league
+  +$29.99 per additional league, season pass only
+
+New SmackcastPurchase model. The old flow could only create a
+SmackcastSubscription after league details were known; buy-first needs the
+entitlement to exist beforehand, so a purchase now holds league_slots and
+subscriptions attach to it as leagues get connected. slots_used /
+slots_remaining are computed properties, so they can't fall out of sync
+with the actual subscription rows.
+
+- Stripe: create_smackcast_purchase_session handles the variable amount,
+  itemising extra leagues as their own line with a quantity so the receipt
+  shows what was bought rather than one opaque total
+- Total is computed server-side from the constants; the browser sends a
+  plan and a league count, never a price
+- Webhook marks purchases paid on smackcast_purchase_id metadata
+- create-subscription no longer routes to Stripe at all - it claims a slot
+  on the oldest open paid purchase (so a single recap bought before a
+  season pass gets consumed first rather than orphaned) and returns a
+  redirect to the library. Returns 402 + needs_purchase if there's no open
+  pass, which the page turns into a bounce to #pricing.
+- Migration for smackcast_subscriptions.purchase_id and .plan; the
+  purchases table is new so create_all handles it
+
+PRODUCT PAGE: hero with Smacky, three-step how-it-works, platform tiles
+(Sleeper/ESPN live, Yahoo coming, each with its supported sports), pricing
+with a live-updating league stepper, and honest fine print about what
+happens post-payment and what mid-season buying means. Replaced the emoji
+platform/sport icons with typographic tiles - zero emoji on the page now.
+
+CAUGHT A REAL FLAW MID-BUILD: the product page inherited @login_required
+from the old connect form, so the pricing page demanded a login. Made it
+public; checkout still requires an account and the page bounces to login
+and returns to #pricing.
+
+SAMPLES: the "hear it" section is data-driven off SMACKCAST_SAMPLES,
+deliberately empty. The section shows a "being cut right now" placeholder
+rather than a dead audio player. Filling that list is the only change
+needed - generate at /smackcast/test, then paste audio_url, best_line,
+league_name, sport and week.
+
+VERIFIED: purchases table and both new subscription columns created
+correctly; pricing math exact at 1/2/3/5 and 10 leagues ($7.99, $39.99,
+$69.98, $99.97, $159.95, $309.90); slot entitlement decrements 3->0 as
+leagues connect against real rows; product page returns 200 anonymously
+while /smackcast/connect still 302s; stepper totals match the server
+exactly; caps enforced at 1 and 10 on both client and server; no page
+errors.
+
+STILL TO DO: publish real samples; the connect page is functional but
+still styled as the old sales page and could use a pass.

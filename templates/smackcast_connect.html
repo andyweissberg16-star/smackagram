@@ -83,10 +83,18 @@
 <div class="wrap">
   <div class="hero">
     <p class="label">Smackcast</p>
-    <h1>Your League's Weekly Recap</h1>
-    <p>Fully automated. Zero mercy. Connect your league, and every Tuesday at 9AM Smackcast pulls the real scores and Smacky roasts your whole league — by name, in his own voice. One payment, one season, no renewals.</p>
-    <p class="price-tag">$39.99 once. Savage every week.</p>
-    <p style="margin-top:14px; font-size:13px;">Already set up? <a href="/smackcast/library" style="color:var(--gold); font-weight:600;">Open your library &rarr;</a></p>
+    <h1>Connect Your League</h1>
+    <p>You're paid up. Hook up the league you want roasted and Smacky takes it from there — no further charge.</p>
+    {% if open_purchases %}
+      <p class="price-tag" style="font-size:15px;">
+        {% for p in open_purchases %}
+          {{ p.slots_remaining }} league{{ 's' if p.slots_remaining != 1 else '' }} left on your {{ 'season pass' if p.plan == 'season' else 'single recap' }}{{ ' · ' if not loop.last else '' }}
+        {% endfor %}
+      </p>
+    {% else %}
+      <p class="price-tag" style="font-size:15px; color:var(--flare);">No open passes — <a href="/smackcast" style="color:var(--gold);">grab one first</a>.</p>
+    {% endif %}
+    <p style="margin-top:14px; font-size:13px;">Already connected? <a href="/smackcast/library" style="color:var(--gold); font-weight:600;">Open your library &rarr;</a></p>
   </div>
 
   <div class="card">
@@ -192,7 +200,7 @@
     </div>
 
     <div id="formError" role="alert"></div>
-    <button id="checkoutBtn" class="btn btn-flare">Get Smackcast — $39.99</button>
+    <button id="checkoutBtn" class="btn btn-flare">Connect League</button>
   </div>
 </div>
 
@@ -411,18 +419,22 @@ document.getElementById('checkoutBtn').addEventListener('click', async () => {
       window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
       return;
     }
-    if (data.checkout_url) {
-      window.location.href = data.checkout_url;
+    // Payment already happened on the product page, so a success here is a
+    // redirect to the library rather than a Stripe hand-off.
+    if (data.redirect_url) {
+      window.location.href = data.redirect_url;
+    } else if (data.needs_purchase) {
+      window.location.href = '/smackcast#pricing';
     } else {
       errorEl.textContent = data.error || 'Something went wrong — try again.';
       errorEl.style.display = 'block';
-      btn.textContent = 'Get Smackcast — $39.99';
+      btn.textContent = 'Connect League';
       btn.disabled = false;
     }
   } catch (err) {
     errorEl.textContent = 'Something went wrong — try again.';
     errorEl.style.display = 'block';
-    btn.textContent = 'Get Smackcast — $39.99';
+    btn.textContent = 'Connect League';
     btn.disabled = false;
   }
 });

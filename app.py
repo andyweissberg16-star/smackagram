@@ -10,7 +10,7 @@ from sqlalchemy import func
 import requests
 from dotenv import load_dotenv
 
-from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, User, SmackcastSubscription, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
+from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
 
@@ -695,6 +695,14 @@ def stripe_webhook():
             # (starts with "cs_") — avoids re-processing a duplicate webhook
             if smackagram and smackagram.stripe_payment_intent_id == session["id"]:
                 smackagram.stripe_payment_intent_id = session.get("payment_intent")
+                db.session.commit()
+            return jsonify({"received": True})
+
+        if metadata.get("smackcast_purchase_id"):
+            purchase = SmackcastPurchase.query.get(int(metadata["smackcast_purchase_id"]))
+            if purchase and purchase.status != "paid":
+                purchase.status = "paid"
+                purchase.paid_at = datetime.utcnow()
                 db.session.commit()
             return jsonify({"received": True})
 
@@ -2446,10 +2454,36 @@ def cron_check_smackagrams():
     return jsonify({"ok": True})
 
 
+# Published sample recaps shown on the product page. Empty until real ones
+# are cut from /smackcast/test - see smackcast_page().
+# Shape: {"league_name", "sport", "week", "best_line", "audio_url"}
+SMACKCAST_SAMPLES = []
+
+
 @app.route("/smackcast")
-@login_required
 def smackcast_page():
-    return render_template("smackcast.html")
+    """
+    Public - this is the product page, so requiring a login to read the
+    pricing would be self-defeating. It carried @login_required only
+    because it used to be the league-connection form. Checkout itself
+    still requires an account; the page handles that by bouncing to login
+    and returning to #pricing.
+
+    The product page. Used to be the league-connection form, which meant
+    someone had to connect a fantasy league before ever seeing a price -
+    that flow now lives at /smackcast/connect and happens after checkout.
+
+    SMACKCAST_SAMPLES is deliberately empty until real sample recaps are
+    published. The page hides the whole "hear it" section rather than
+    showing a dead player, and filling this list is the only change needed
+    to turn it on. Generate them at /smackcast/test, then paste the
+    resulting audio URL, best line, league name, sport and week here.
+    """
+    return render_template(
+        "smackcast_product.html",
+        samples=SMACKCAST_SAMPLES,
+        smacky_image_exists=os.path.exists(os.path.join(app.root_path, "static", "img", "smacky-hero.png")),
+    )
 
 
 @app.route("/smackcast/test")
@@ -2513,6 +2547,75 @@ def api_smackcast_test_generate():
         "audio_url": audio_url,
         "meme_url": meme_url,
     })
+
+
+@app.route("/api/smackcast/start-purchase", methods=["POST"])
+@login_required
+def api_smackcast_start_purchase():
+    """
+    Buy-first checkout. Takes only a plan and (for a season pass) how many
+    leagues, then sends the buyer to Stripe. Leagues get connected
+    afterwards against the resulting purchase.
+
+    The total is computed here from the constants in stripe_service, never
+    taken from the request - the browser sends a plan and a league count,
+    not a price.
+    """
+    user = get_current_user()
+    data = request.json or {}
+
+    plan = (data.get("plan") or "").strip()
+    if plan not in ("single", "season"):
+        return jsonify({"error": "Pick a plan first."}), 400
+
+    if plan == "single":
+        # A single recap covers exactly one league, and extra leagues are a
+        # season-pass add-on - so this is fixed at one regardless of input.
+        slots = 1
+        amount = stripe_service.SMACKCAST_SINGLE_CENTS
+    else:
+        try:
+            slots = int(data.get("leagues") or 1)
+        except (TypeError, ValueError):
+            return jsonify({"error": "Invalid league count."}), 400
+        # Upper bound is a sanity guard, not a product rule - nobody is
+        # legitimately buying 50 leagues, and an unbounded quantity is an
+        # easy way to generate an absurd Stripe session.
+        if slots < 1 or slots > 10:
+            return jsonify({"error": "Leagues must be between 1 and 10."}), 400
+        amount = stripe_service.SMACKCAST_SEASON_CENTS + (slots - 1) * stripe_service.SMACKCAST_EXTRA_LEAGUE_CENTS
+
+    purchase = SmackcastPurchase(
+        user_id=user.id, plan=plan, league_slots=slots,
+        amount_cents=amount, status="pending",
+    )
+    db.session.add(purchase)
+    db.session.commit()
+
+    base_url = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
+    session_obj = stripe_service.create_smackcast_purchase_session(purchase, base_url)
+    purchase.stripe_session_id = session_obj.id
+    db.session.commit()
+
+    return jsonify({"checkout_url": session_obj.url, "amount_cents": amount})
+
+
+@app.route("/smackcast/connect")
+@login_required
+def smackcast_connect_page():
+    """
+    Where a buyer hooks up their league(s), after paying. This is the
+    original /smackcast page - /smackcast is now the product page, since
+    asking someone to connect a fantasy league before they've even seen
+    pricing was the wrong order.
+    """
+    user = get_current_user()
+    purchases = (SmackcastPurchase.query
+                 .filter_by(user_id=user.id, status="paid")
+                 .order_by(SmackcastPurchase.id.desc())
+                 .all())
+    open_purchases = [p for p in purchases if p.slots_remaining > 0]
+    return render_template("smackcast_connect.html", open_purchases=open_purchases)
 
 
 @app.route("/api/smackcast/find-sleeper-leagues", methods=["POST"])
@@ -2598,8 +2701,23 @@ def api_create_smackcast_subscription():
         espn_swid = (data.get("swid") or "").strip() or None
         espn_s2 = (data.get("espn_s2") or "").strip() or None
 
+    # Buy-first flow: the league has to be claimed against a purchase the
+    # user has already paid for and still has a slot on. Picks the oldest
+    # open purchase so a single recap bought before a season pass gets
+    # consumed first rather than being orphaned.
+    open_purchases = [p for p in SmackcastPurchase.query
+                      .filter_by(user_id=user.id, status="paid")
+                      .order_by(SmackcastPurchase.id.asc()).all()
+                      if p.slots_remaining > 0]
+    if not open_purchases:
+        return jsonify({"error": "No open Smackcast pass. Grab one first.", "needs_purchase": True}), 402
+    purchase = open_purchases[0]
+
     subscription = SmackcastSubscription(
         user_id=user.id,
+        purchase_id=purchase.id,
+        plan=purchase.plan,
+        is_active=True,
         platform=platform,
         sport=sport,
         league_id=league_id,
@@ -2621,15 +2739,45 @@ def api_create_smackcast_subscription():
     db.session.add(subscription)
     db.session.commit()
 
-    base_url = os.environ["BASE_URL"]
-    checkout_session = stripe_service.create_smackcast_checkout_session(subscription.id, base_url)
-    return jsonify({"checkout_url": checkout_session.url})
+    # Already paid for, so there's no checkout leg here any more - straight
+    # to the library, which is where their recaps will show up.
+    return jsonify({
+        "ok": True,
+        "redirect_url": "/smackcast/library",
+        "slots_remaining": purchase.slots_remaining,
+    })
 
 
 @app.route("/smackcast/success")
 @login_required
 def smackcast_success_page():
     return render_template("smackcast_success.html")
+
+
+@app.route("/smackcast/library")
+@login_required
+def smackcast_library_page():
+    """
+    A subscriber's own archive of every recap their leagues have produced.
+
+    This was a real hole: recaps were only ever reachable by their
+    share_token, which arrives once by text or call and is easy to lose.
+    Someone pays for a full season and then has no way back to week 3.
+    Groups it by subscription since one person can run Smackcast on
+    several leagues at once.
+    """
+    user = get_current_user()
+    subs = SmackcastSubscription.query.filter_by(user_id=user.id).order_by(SmackcastSubscription.id.desc()).all()
+
+    groups = []
+    for sub in subs:
+        recaps = (SmackcastRecap.query
+                  .filter_by(subscription_id=sub.id)
+                  .order_by(SmackcastRecap.week_number.desc())
+                  .all())
+        groups.append({"sub": sub, "recaps": recaps})
+
+    return render_template("smackcast_library.html", groups=groups)
 
 
 @app.route("/smackcast-recap/<share_token>")
@@ -2804,6 +2952,8 @@ with app.app_context():
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS answered_by VARCHAR(30)"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS last_seen_a TIMESTAMP"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS last_seen_b TIMESTAMP"))
+            conn.execute(db.text("ALTER TABLE smackcast_subscriptions ADD COLUMN IF NOT EXISTS purchase_id INTEGER"))
+            conn.execute(db.text("ALTER TABLE smackcast_subscriptions ADD COLUMN IF NOT EXISTS plan VARCHAR(20)"))
             conn.commit()
 
     # Seed the always-available admin test account, per explicit request.

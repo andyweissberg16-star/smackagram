@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smackcast — Your Fantasy League, Roasted Every Week | Smackagram</title>
+<meta name="description" content="Connect your fantasy league and Smacky roasts your whole league by name, in his own voice, every Tuesday. $7.99 for one week or $39.99 for the season.">
+<meta property="og:title" content="Smackcast — Your Fantasy League, Roasted Every Week">
+<meta property="og:description" content="Smacky pulls your real scores and roasts your whole league by name, in his own voice. Every Tuesday.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
+<style>
+  .wrap{max-width:820px; margin:0 auto; padding:0 24px 70px;}
+
+  /* HERO */
+  .hero{padding:40px 0 30px; text-align:center;}
+  .hero .label{
+    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
+    letter-spacing:3px; text-transform:uppercase; color:var(--gold);
+  }
+  .hero h1{
+    font-family:'Anton',sans-serif; font-size:clamp(34px,8.5vw,60px);
+    text-transform:uppercase; line-height:0.98; margin-top:10px;
+  }
+  .hero h1 em{color:var(--flare); font-style:normal;}
+  .hero .sub{
+    font-size:clamp(15px,3.6vw,18px); color:var(--chalk); line-height:1.6;
+    max-width:600px; margin:16px auto 0;
+  }
+  .hero .sub b{color:var(--gold);}
+  .hero-smacky{
+    width:clamp(84px,22vw,120px); height:clamp(84px,22vw,120px);
+    border-radius:50%; object-fit:cover; object-position:center top;
+    border:3px solid var(--gold); margin-bottom:6px;
+  }
+
+  .section{margin-top:46px;}
+  .section-label{
+    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
+    letter-spacing:3px; text-transform:uppercase; color:var(--gold);
+    text-align:center;
+  }
+  .section h2{
+    font-family:'Anton',sans-serif; font-size:clamp(24px,6vw,36px);
+    text-transform:uppercase; line-height:1.05; text-align:center; margin-top:8px;
+  }
+  .section .lede{
+    text-align:center; color:var(--chalk-dim); font-size:14px;
+    line-height:1.65; max-width:580px; margin:12px auto 0;
+  }
+
+  /* HOW IT WORKS - numbered, not icon-bulleted */
+  .steps{display:grid; gap:14px; margin-top:24px;}
+  @media(min-width:700px){ .steps{grid-template-columns:repeat(3,1fr);} }
+  .step{
+    background:var(--ink-2); border:1px solid var(--line-strong);
+    border-top:3px solid var(--gold); border-radius:6px; padding:20px 18px;
+  }
+  .step-num{
+    font-family:'Anton',sans-serif; font-size:34px; color:var(--gold);
+    line-height:1; opacity:0.55;
+  }
+  .step h3{
+    font-family:'Anton',sans-serif; font-size:17px; text-transform:uppercase;
+    margin-top:6px; line-height:1.15;
+  }
+  .step p{font-size:13px; color:var(--chalk-dim); line-height:1.6; margin-top:7px;}
+
+  /* SAMPLES */
+  .sample{
+    background:var(--ink-2); border:1px solid var(--line-strong);
+    border-left:3px solid var(--gold); border-radius:6px;
+    padding:18px; margin-top:14px;
+  }
+  .sample-head{
+    display:flex; justify-content:space-between; align-items:baseline;
+    gap:10px; margin-bottom:10px; flex-wrap:wrap;
+  }
+  .sample-name{font-family:'Anton',sans-serif; font-size:17px; text-transform:uppercase;}
+  .sample-tag{
+    font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700;
+    letter-spacing:1.5px; text-transform:uppercase; color:var(--chalk-dim);
+  }
+  .sample-quote{
+    font-family:'Inter',sans-serif; font-style:italic; font-weight:600;
+    font-size:14px; line-height:1.5; color:var(--chalk);
+    padding-left:12px; border-left:2px solid rgba(255,212,0,0.4); margin-bottom:12px;
+  }
+  .sample audio{width:100%;}
+  .sample-pending{
+    text-align:center; padding:26px 20px; color:var(--chalk-dim);
+    font-size:14px; line-height:1.6;
+    background:var(--ink-2); border:1px dashed var(--line-strong);
+    border-radius:6px; margin-top:14px;
+  }
+
+  /* PLATFORMS - typographic tiles, no emoji */
+  .platforms{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-top:24px;}
+  .plat{
+    background:var(--ink-2); border:1px solid var(--line-strong);
+    border-radius:6px; padding:16px 14px; text-align:center;
+  }
+  .plat.live{border-color:rgba(255,212,0,0.4);}
+  .plat-name{font-family:'Anton',sans-serif; font-size:19px; text-transform:uppercase;}
+  .plat.live .plat-name{color:var(--gold);}
+  .plat-status{
+    font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700;
+    letter-spacing:1.4px; text-transform:uppercase; color:var(--chalk-dim); margin-top:5px;
+  }
+  .plat.live .plat-status{color:var(--gold);}
+  .plat-sports{
+    font-family:'JetBrains Mono',monospace; font-size:9px;
+    letter-spacing:1px; text-transform:uppercase; color:var(--chalk-dim);
+    margin-top:7px; padding-top:7px; border-top:1px solid var(--line);
+  }
+
+  /* PRICING */
+  .plans{display:grid; gap:16px; margin-top:26px;}
+  @media(min-width:700px){ .plans{grid-template-columns:1fr 1.15fr;} }
+  .plan{
+    background:var(--ink-2); border:1px solid var(--line-strong);
+    border-radius:8px; padding:24px 20px; display:flex; flex-direction:column;
+  }
+  .plan.featured{border-color:var(--gold); box-shadow:0 0 0 1px rgba(255,212,0,0.25);}
+  .plan-flag{
+    font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700;
+    letter-spacing:2px; text-transform:uppercase; color:#0D0D0D;
+    background:var(--gold); align-self:flex-start;
+    padding:3px 9px; border-radius:3px; margin-bottom:12px;
+  }
+  .plan-name{font-family:'Anton',sans-serif; font-size:23px; text-transform:uppercase; line-height:1.1;}
+  .plan-price{font-family:'Anton',sans-serif; font-size:44px; line-height:1; margin-top:10px;}
+  .plan.featured .plan-price{color:var(--gold);}
+  .plan-price small{font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:500; letter-spacing:1px; color:var(--chalk-dim); display:block; margin-top:6px; text-transform:uppercase;}
+  .plan-list{list-style:none; margin:16px 0 0; padding:0;}
+  .plan-list li{
+    font-size:13px; color:var(--chalk-dim); line-height:1.55;
+    padding:6px 0 6px 16px; position:relative;
+  }
+  .plan-list li::before{content:'—'; position:absolute; left:0; color:var(--gold);}
+  .plan .spacer{flex:1; min-height:14px;}
+
+  .league-picker{
+    margin-top:16px; padding:14px; background:var(--ink);
+    border:1px solid var(--line-strong); border-radius:5px;
+  }
+  .league-picker label{
+    display:block; font-family:'JetBrains Mono',monospace; font-size:10px;
+    font-weight:700; letter-spacing:1.4px; text-transform:uppercase;
+    color:var(--chalk-dim); margin-bottom:9px;
+  }
+  .stepper{display:flex; align-items:center; gap:12px;}
+  .stepper button{
+    width:36px; height:36px; flex-shrink:0; border-radius:4px;
+    background:transparent; border:1px solid var(--line-strong);
+    color:var(--chalk); font-size:19px; line-height:1; cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  .stepper button:hover:not(:disabled){border-color:var(--gold); color:var(--gold);}
+  .stepper button:disabled{opacity:0.35; cursor:not-allowed;}
+  .stepper-val{font-family:'Anton',sans-serif; font-size:24px; min-width:26px; text-align:center;}
+  .stepper-note{font-size:11px; color:var(--chalk-dim); margin-top:9px; line-height:1.5;}
+  .plan-total{
+    font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; color:var(--gold);
+    margin-top:12px;
+  }
+  .plan .btn{margin-top:16px; width:100%;}
+
+  .fine{
+    margin-top:28px; padding:16px 18px; background:var(--ink-2);
+    border:1px solid var(--line-strong); border-radius:6px;
+    font-size:12px; color:var(--chalk-dim); line-height:1.7;
+  }
+  .fine b{color:var(--chalk);}
+  #purchaseError{
+    display:none; margin-top:14px; padding:11px 14px;
+    background:rgba(232,20,44,0.1); border:1px solid var(--flare);
+    border-radius:4px; color:var(--chalk); font-size:13px; text-align:center;
+  }
+  .have-pass{text-align:center; margin-top:18px; font-size:13px;}
+  .have-pass a{color:var(--gold); font-weight:600;}
+</style>
+</head>
+<body>
+
+{% include '_nav.html' %}
+
+<div class="wrap">
+
+  <div class="hero">
+    {% if smacky_image_exists %}
+      <img class="hero-smacky" src="{{ url_for('static', filename='img/smacky-hero.png') }}" alt="Smacky">
+    {% endif %}
+    <p class="label">Smackcast</p>
+    <h1>Your league.<br>Roasted <em>every week</em>.</h1>
+    <p class="sub">Connect your fantasy league once. Every Tuesday, Smacky pulls your <b>real scores</b> and roasts your whole league &mdash; by name, in his own voice. Nobody has to write a thing.</p>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <div class="section">
+    <p class="section-label">How it works</p>
+    <h2>Three steps, then never again</h2>
+    <div class="steps">
+      <div class="step">
+        <p class="step-num">1</p>
+        <h3>Pick your plan</h3>
+        <p>One week to try it, or the whole season. Add more leagues if you run more than one.</p>
+      </div>
+      <div class="step">
+        <p class="step-num">2</p>
+        <h3>Connect your league</h3>
+        <p>Paste a Sleeper username or an ESPN league ID. Takes about thirty seconds.</p>
+      </div>
+      <div class="step">
+        <p class="step-num">3</p>
+        <h3>Tuesday, 9AM</h3>
+        <p>The recap lands. Share link every time, plus a phone call or text if you want one.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAMPLES -->
+  <div class="section">
+    <p class="section-label">Hear it</p>
+    <h2>What Smacky sounds like</h2>
+    <p class="lede">Real recaps, generated the same way yours will be.</p>
+
+    {% if samples %}
+      {% for s in samples %}
+        <div class="sample">
+          <div class="sample-head">
+            <p class="sample-name">{{ s.league_name }}</p>
+            <p class="sample-tag">{{ s.sport|upper }} &middot; Week {{ s.week }}</p>
+          </div>
+          {% if s.best_line %}<p class="sample-quote">&ldquo;{{ s.best_line }}&rdquo;</p>{% endif %}
+          <audio controls preload="none" src="{{ s.audio_url }}"></audio>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="sample-pending">
+        Sample recaps are being cut right now &mdash; check back shortly.
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- PLATFORMS -->
+  <div class="section">
+    <p class="section-label">Leagues</p>
+    <h2>Where it plugs in</h2>
+    <div class="platforms">
+      <div class="plat live">
+        <p class="plat-name">Sleeper</p>
+        <p class="plat-status">Connected</p>
+        <p class="plat-sports">Football &middot; Basketball</p>
+      </div>
+      <div class="plat live">
+        <p class="plat-name">ESPN</p>
+        <p class="plat-status">Connected</p>
+        <p class="plat-sports">Football &middot; Basketball &middot; Baseball</p>
+      </div>
+      <div class="plat">
+        <p class="plat-name">Yahoo</p>
+        <p class="plat-status">Coming soon</p>
+        <p class="plat-sports">&mdash;</p>
+      </div>
+    </div>
+    <p class="lede" style="margin-top:14px;">Head-to-head points leagues are supported. Rotisserie and category-scoring leagues aren't yet &mdash; common in baseball and basketball, so worth checking your settings first.</p>
+  </div>
+
+  <!-- PRICING -->
+  <div class="section" id="pricing">
+    <p class="section-label">Pricing</p>
+    <h2>Pick your damage</h2>
+
+    <div class="plans">
+      <div class="plan">
+        <p class="plan-name">Single Recap</p>
+        <p class="plan-price">$7.99<small>one week, one league</small></p>
+        <ul class="plan-list">
+          <li>One full recap of your fantasy week</li>
+          <li>Smacky audio, meme and transcript</li>
+          <li>Shareable link for the league chat</li>
+          <li>Any league, any supported platform</li>
+        </ul>
+        <div class="spacer"></div>
+        <button class="btn" style="background:transparent; border:1px solid var(--line-strong); color:var(--chalk);" data-plan="single">Get one recap</button>
+      </div>
+
+      <div class="plan featured">
+        <p class="plan-flag">Best value</p>
+        <p class="plan-name">Season Pass</p>
+        <p class="plan-price">$39.99<small>one payment, whole season</small></p>
+        <ul class="plan-list">
+          <li>A new roast every Tuesday, all season</li>
+          <li>No renewals, no subscription, no second charge</li>
+          <li>Full library of every week you've had</li>
+          <li>Add more leagues for $29.99 each</li>
+        </ul>
+
+        <div class="league-picker">
+          <label for="leagueCount">How many leagues?</label>
+          <div class="stepper">
+            <button type="button" id="leagueMinus" aria-label="Fewer leagues">&minus;</button>
+            <span class="stepper-val" id="leagueCount">1</span>
+            <button type="button" id="leaguePlus" aria-label="More leagues">+</button>
+          </div>
+          <p class="stepper-note">First league included. Each extra one is $29.99.</p>
+          <p class="plan-total" id="planTotal">Total: $39.99</p>
+        </div>
+
+        <button class="btn btn-flare" data-plan="season">Get the season pass</button>
+      </div>
+    </div>
+
+    <div id="purchaseError" role="alert"></div>
+
+    <p class="have-pass">Already bought? <a href="/smackcast/connect">Connect your league &rarr;</a> &nbsp;&middot;&nbsp; <a href="/smackcast/library">Open your library &rarr;</a></p>
+
+    <div class="fine">
+      <b>What happens after you pay:</b> you'll land straight on the league connection page. Nothing generates until a league is hooked up, so there's no rush &mdash; your pass waits for you.<br><br>
+      <b>Season length:</b> the pass covers the rest of the current season for the league you connect. Buying mid-season means you get every remaining week, not a refund for the ones already played.
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var SEASON = 3999, EXTRA = 2999, SINGLE = 799;
+  var count = 1;
+  var countEl = document.getElementById('leagueCount');
+  var totalEl = document.getElementById('planTotal');
+  var minus = document.getElementById('leagueMinus');
+  var plus = document.getElementById('leaguePlus');
+  var errEl = document.getElementById('purchaseError');
+
+  function money(cents){ return '$' + (cents/100).toFixed(2); }
+
+  function render(){
+    countEl.textContent = count;
+    totalEl.textContent = 'Total: ' + money(SEASON + (count - 1) * EXTRA);
+    minus.disabled = count <= 1;
+    // Matches the server's sanity cap; the server rejects anything above
+    // this too, so the two can't disagree.
+    plus.disabled = count >= 10;
+  }
+  minus.addEventListener('click', function(){ if(count > 1){ count--; render(); } });
+  plus.addEventListener('click', function(){ if(count < 10){ count++; render(); } });
+  render();
+
+  document.querySelectorAll('[data-plan]').forEach(function(btn){
+    btn.addEventListener('click', async function(){
+      var plan = btn.dataset.plan;
+      errEl.style.display = 'none';
+      var original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Starting...';
+      try {
+        var resp = await fetch('/api/smackcast/start-purchase', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({plan: plan, leagues: plan === 'season' ? count : 1})
+        });
+        var data = await resp.json();
+        if (data.login_required) {
+          // Send them to log in, then straight back to pricing.
+          window.location.href = '/login?next=' + encodeURIComponent('/smackcast#pricing');
+          return;
+        }
+        if (data.error) {
+          errEl.textContent = data.error;
+          errEl.style.display = 'block';
+          btn.disabled = false; btn.textContent = original;
+          return;
+        }
+        window.location.href = data.checkout_url;
+      } catch (e) {
+        errEl.textContent = "Couldn't start checkout — try again.";
+        errEl.style.display = 'block';
+        btn.disabled = false; btn.textContent = original;
+      }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
