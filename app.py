@@ -1128,6 +1128,49 @@ def smack_lab_page():
     return render_template("smack_lab.html")
 
 
+@app.route("/api/admin/grant-credit", methods=["POST"])
+@login_required
+def admin_grant_credit():
+    """
+    Tops up a wallet for testing. Admin only.
+
+    Deliberately goes through wallet_service.credit_wallet rather than writing
+    the balance directly, so a WalletTransaction row is created exactly as a
+    real Stripe top-up would - test balances then behave like real ones
+    everywhere downstream, and the ledger stays consistent.
+    """
+    user = get_current_user()
+    if not user.is_admin:
+        return jsonify({"error": "Not authorized."}), 403
+
+    data = request.json or {}
+    target_name = (data.get("username") or user.screen_name or "").strip()
+    smacks = int(data.get("smacks") or 0)
+    if smacks < 1 or smacks > 500:
+        return jsonify({"error": "Give a number of smacks between 1 and 500."}), 400
+
+    target = User.query.filter(
+        db.or_(User.screen_name == target_name, User.email == target_name)
+    ).first()
+    if not target:
+        return jsonify({"error": f"No user found matching '{target_name}'."}), 404
+
+    amount = smacks * wallet_service.SMACK_COST_CENTS
+    wallet_service.credit_wallet(
+        target, amount, "admin_grant",
+        description=f"Admin test credit — {smacks} smack(s)",
+    )
+    db.session.commit()
+
+    return jsonify({
+        "ok": True,
+        "user": target.screen_name,
+        "granted_smacks": smacks,
+        "new_balance_cents": target.balance_cents,
+        "new_balance_smacks": target.smackagram_count,
+    })
+
+
 @app.route("/privacy")
 def privacy():
     """

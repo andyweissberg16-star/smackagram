@@ -181,7 +181,9 @@ def get_game_result(game_id: str, sport: str = "nfl") -> dict | None:
     # sport, so we pull today's (and yesterday's, in case it's a late game
     # that finished after midnight UTC) slate and find the matching game.
     today = _today_us_eastern()
+    checked_dates = []
     for d in [today, today - timedelta(days=1)]:
+        checked_dates.append(d.strftime("%Y-%b-%d").upper())
         date_str = d.strftime("%Y-%b-%d").upper()
         try:
             events = _get(sport, _games_by_date_endpoint(sport, date_str))
@@ -200,7 +202,11 @@ def get_game_result(game_id: str, sport: str = "nfl") -> dict | None:
                 return {"status": "postponed"}
 
             if not status.startswith("final") and status != "f/ot":
-                return None  # scheduled, in progress, halftime, etc.
+                # Log the actual status. Without this, "waiting for the feed to
+                # mark it final" and "we never found the game at all" both look
+                # like silence, and they need completely different fixes.
+                print(f"[sportsdata] game {game_id} ({sport}) found, status={status!r} — not final yet")
+                return None
 
             # SportsDataIO uses different score field names per sport
             # (e.g. MLB uses HomeTeamRuns/AwayTeamRuns, not HomeScore/
@@ -227,6 +233,11 @@ def get_game_result(game_id: str, sport: str = "nfl") -> dict | None:
                 else event.get("AwayPoints")
             )
             if home_score is None or away_score is None:
+                # Final, but no readable score - means SportsDataIO used a field
+                # name we don't know for this sport. Previously silent, and it
+                # looked exactly like a game still in progress.
+                print(f"[sportsdata] game {game_id} ({sport}) is FINAL but no score field matched. "
+                      f"Available keys: {sorted(event.keys())}")
                 return None
 
             if home_score == away_score:
@@ -249,6 +260,14 @@ def get_game_result(game_id: str, sport: str = "nfl") -> dict | None:
             }
 
     return None  # game not found in today/yesterday's slate — check again next run
+
+
+    # Fell through every slate without matching the id. This is NOT the same as
+    # "still in progress" - it means the armed record points at a game the feed
+    # isn't returning, and it will wait forever. Worth shouting about.
+    print(f"[sportsdata] game {game_id} ({sport}) NOT FOUND in slates for {checked_dates} — "
+          f"armed smackagrams on this game will never fire until this resolves")
+    return None
 
 
 def get_game_summary(game_id: str, sport: str = "nfl") -> dict:

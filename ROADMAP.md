@@ -5185,3 +5185,63 @@ required elements.
 STILL TO DO: sms_consent is sent but not stored - the User model needs a
 column plus a migration to keep a durable consent record with a timestamp.
 Worth doing, since "we have consent" is only defensible if it can be produced.
+
+## Locked & Loaded: diagnostics for a call that didn't fire
+An armed smackagram hadn't fired ~5 minutes after the game ended. Reviewed the
+path rather than guessing.
+
+THE LOGIC IS CORRECT. It fires only when SportsDataIO reports Status as "Final"
+or "F/OT" - deliberately, since firing on "score is higher" would misfire in
+overtime. Feeds routinely lag 5-20 minutes past the final whistle while stats
+are verified, so waiting is the right behaviour, not a bug.
+
+BUT THERE WAS A REAL DIAGNOSTIC GAP: THREE completely different situations all
+returned None and produced identical silence in the logs -
+  1. game found, genuinely still in progress  (fine, keep waiting)
+  2. game found and FINAL, but no score field matched  (a real bug - the
+     earlier MLB HomeTeamRuns issue was exactly this)
+  3. game NOT FOUND in either slate at all  (armed record points at a game the
+     feed isn't returning - it will wait FOREVER)
+Case 3 is unrecoverable by waiting, and was indistinguishable from case 1.
+
+Added logging that names which case occurred, including the actual status
+string, the available field keys when a final game has no readable score, and
+the dates searched when the game isn't found at all.
+
+WHAT TO CHECK IN RENDER LOGS:
+  "[cron] check_armed_smackagrams running — N armed" - N should match the
+    number armed. 0 means they didn't save as armed. No line at all means the
+    external cron isn't hitting the endpoint, which is the only case where
+    waiting never helps.
+  "[sportsdata] ... not final yet, status=..." - normal, feed hasn't caught up.
+  "[sportsdata] ... is FINAL but no score field matched" - real bug, and the
+    log now prints the available keys so the right field can be added.
+  "[sportsdata] ... NOT FOUND in slates" - the game_id or sport on the armed
+    record doesn't match the feed. Will never fire without intervention.
+
+## Admin credit grant for testing
+Added POST /api/admin/grant-credit, admin only. Body: {"username": "admin1",
+"smacks": 30}. Accepts a screen name or an email.
+
+Goes through wallet_service.credit_wallet rather than writing balance_cents
+directly, deliberately: that creates a WalletTransaction row exactly as a real
+Stripe top-up would, so test balances behave like real ones everywhere
+downstream and the ledger stays consistent. Writing the column directly would
+have produced a balance with no matching transaction - which is precisely the
+kind of drift the single-ledger design exists to prevent.
+
+Guards: admin only (403), 1-500 smacks (400), unknown user (404).
+
+THREE THINGS I GOT WRONG AND FIXED WHILE BUILDING:
+- Took `user` as a function parameter, assuming login_required injected it. It
+  doesn't - every other route calls get_current_user() inside the body. Flask
+  would have failed to supply the argument.
+- Used target.wallet_balance_cents, which doesn't exist. The column is
+  balance_cents, and smackagram_count is a computed property (balance // 100),
+  never stored - the model comments are explicit that smack counts are
+  display-only to avoid two-units drift.
+- Asserted on `if not user.is_admin:` as a unique string when three routes
+  already contain it.
+
+Verified live: granting 30 to admin1 returned balance 3000 cents / 30 smacks,
+out-of-range returned 400, unknown user returned 404.
