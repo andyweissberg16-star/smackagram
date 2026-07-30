@@ -115,6 +115,44 @@
     line-height:1; opacity:0.7; margin-top:0;
   }
 
+  /* INTENSITY FADER - a physical control instead of tickboxes. */
+  .fader{padding:4px 0 0;}
+  .fader-scale{display:flex; justify-content:space-between; margin-bottom:10px;}
+  .fader-tick{
+    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
+    letter-spacing:1.5px; text-transform:uppercase; color:var(--muted-2);
+    cursor:pointer; transition:color .15s ease;
+  }
+  .fader-tick.on{color:var(--punch);}
+  .fader-input{
+    -webkit-appearance:none; appearance:none; width:100%; height:6px;
+    border-radius:3px; margin:0 0 14px; cursor:pointer;
+    background:linear-gradient(to right,
+      var(--punch) 0%, var(--punch) var(--fill,0%),
+      var(--hairline) var(--fill,0%), var(--hairline) 100%);
+  }
+  .fader-input::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width:18px; height:28px; border-radius:4px; background:var(--ivory);
+    border:2px solid var(--punch); cursor:grab;
+    box-shadow:0 0 12px rgba(224,27,36,0.5);
+  }
+  .fader-input::-moz-range-thumb{
+    width:18px; height:28px; border-radius:4px; background:var(--ivory);
+    border:2px solid var(--punch); cursor:grab;
+    box-shadow:0 0 12px rgba(224,27,36,0.5);
+  }
+  .fader-input:focus-visible{outline:2px solid var(--punch); outline-offset:4px;}
+  .fader-readout{
+    background:var(--surface-2); border:1px solid var(--hairline);
+    border-radius:8px; padding:12px 14px;
+  }
+  .fader-level{
+    display:block; font-family:'Anton',sans-serif; font-size:19px;
+    text-transform:uppercase; color:var(--punch); line-height:1;
+  }
+  .fader-desc{display:block; font-size:13px; color:var(--muted); line-height:1.5; margin-top:5px;}
+
   /* CALL CONSOLE — the product is a phone call, so the generator is styled
      as an outgoing-call terminal rather than a form. The status line and
      segmented track advance with the wizard, so it reads as arming
@@ -239,6 +277,15 @@
   }
   input:focus, textarea:focus, select:focus{outline:none; border-color:var(--flare);}
   textarea{resize:vertical; min-height:100px;}
+  /* No ::placeholder rule existed anywhere, so placeholders fell back to the
+     browser default (~60% of the text colour) and read as real input.
+     Low-alpha chalk plus italics makes them unmistakably examples. */
+  input::placeholder, textarea::placeholder{
+    color:rgba(245,245,243,0.26); opacity:1; font-style:italic;
+  }
+  input::-moz-placeholder, textarea::-moz-placeholder{
+    color:rgba(245,245,243,0.26); opacity:1; font-style:italic;
+  }
   .field-hint{font-size:11px; color:var(--chalk-dim); margin:-8px 0 14px; line-height:1.4;}
 
   .btn{font-weight:600; font-size:14px; padding:12px 24px; border-radius:2px; border:none; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; width:100%; transition:transform 0.12s ease;}
@@ -336,20 +383,20 @@
     <p class="card-sub">Type a team and who this is for — Smacky'll write the roast.</p>
 
     <label for="teamInput">Team to trash talk</label>
-    <input id="teamInput" type="text" placeholder="ex. New York Yankees" data-team-search>
+    <input id="teamInput" type="text" placeholder="Yankees" data-team-search>
 
     <label for="roastTopicsInput">Specific things to roast them about (optional)</label>
-    <input id="roastTopicsInput" type="text" placeholder="Up to 3, comma-separated — ex. Dusty Baker, trash cans, cheating">
+    <input id="roastTopicsInput" type="text" placeholder="cheating, trash cans">
     <p class="field-hint">Leave blank and Smacky'll roast them generally, using whatever real history and current events fit.</p>
 
     <label for="recipientNameInput">Who's receiving this</label>
-    <input id="recipientNameInput" type="text" placeholder="ex. Mike">
+    <input id="recipientNameInput" type="text" placeholder="Mike">
   </div>
 
   <div class="wizard-step" data-step="2">
     <p class="step-label">Step 2</p>
     <h3>How hard should he go</h3>
-    <p class="card-sub">Pick a tone — tap the (i) on any option to see what it means.</p>
+    <p class="card-sub">Slide it. Clean is PG. Savage is not.</p>
     <div id="sensitivitySelector">
       <p style="color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
     </div>
@@ -360,7 +407,7 @@
     <h3>What Smacky wrote</h3>
     <p class="card-sub">Edit it however you want, then preview it in Smacky's voice (or someone else's) before sending.</p>
 
-    <textarea id="trashTalkOutput" placeholder="Your generated line shows up here — edit it however you want before sending."></textarea>
+    <textarea id="trashTalkOutput" placeholder="Smacky’s line lands here"></textarea>
 
     <label for="voiceSelect">Voice</label>
     <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px;">
@@ -418,7 +465,7 @@
     <div id="orderError" style="display:none; background:var(--flare-dim); border:1px solid var(--flare); color:var(--flare); padding:10px 12px; border-radius:2px; font-size:13px; margin-bottom:14px;" role="alert"></div>
 
     <label>Message</label>
-    <textarea id="orderMessage" placeholder="Your smack talk line..." style="min-height:80px;"></textarea>
+    <textarea id="orderMessage" placeholder="Write your own" style="min-height:80px;"></textarea>
 
     <label>Voice</label>
     <select id="orderVoice">
@@ -579,59 +626,53 @@ async function loadSensitivityLevels() {
     const resp = await fetch('/api/sensitivity-levels');
     const levels = await resp.json();
 
-    container.innerHTML = '';
-    Object.keys(levels).sort((a, b) => a - b).forEach(key => {
-      const level = parseInt(key);
+    // A fader rather than a list of tickboxes. Intensity is a continuum and
+    // dragging from clean to savage says so. selectedSensitivity remains the
+    // single source of truth, so generate/preview/checkout are untouched.
+    var keys = Object.keys(levels).map(Number).sort(function(x, y){ return x - y; });
+    var ticksHtml = keys.map(function(k){
+      return '<span class="fader-tick" data-level="' + k + '">' + levels[k].label + '</span>';
+    }).join('');
 
-      const row = document.createElement('div');
-      row.className = 'sensitivity-row' + (level === selectedSensitivity ? ' checked' : '');
+    container.innerHTML =
+      '<div class="fader">' +
+        '<div class="fader-scale">' + ticksHtml + '</div>' +
+        '<input type="range" id="intensityRange" class="fader-input" ' +
+          'min="' + keys[0] + '" max="' + keys[keys.length - 1] + '" step="1" ' +
+          'value="' + selectedSensitivity + '" aria-label="How hard should Smacky go">' +
+        '<div class="fader-readout">' +
+          '<span class="fader-level" id="faderLevel"></span>' +
+          '<span class="fader-desc" id="faderDesc"></span>' +
+        '</div>' +
+      '</div>';
 
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.className = 'sensitivity-checkbox';
-      checkbox.checked = level === selectedSensitivity;
+    var range = document.getElementById('intensityRange');
+    var levelEl = document.getElementById('faderLevel');
+    var descEl = document.getElementById('faderDesc');
+    var ticks = Array.prototype.slice.call(container.querySelectorAll('.fader-tick'));
 
-      const label = document.createElement('span');
-      label.className = 'sensitivity-label';
-      label.textContent = levels[key].label;
-
-      const infoBtn = document.createElement('button');
-      infoBtn.type = 'button';
-      infoBtn.className = 'sensitivity-info-btn';
-      infoBtn.textContent = 'i';
-      infoBtn.setAttribute('aria-label', `What does ${levels[key].label} mean?`);
-
-      const desc = document.createElement('p');
-      desc.className = 'sensitivity-desc';
-      desc.textContent = levels[key].description;
-
-      const selectThis = () => {
-        selectedSensitivity = level;
-        document.querySelectorAll('#sensitivitySelector .sensitivity-checkbox').forEach(cb => cb.checked = false);
-        document.querySelectorAll('#sensitivitySelector .sensitivity-row').forEach(r => r.classList.remove('checked'));
-        checkbox.checked = true;
-        row.classList.add('checked');
-      };
-
-      row.addEventListener('click', (e) => {
-        if (e.target === infoBtn) return;
-        selectThis();
+    function applyIntensity(v) {
+      selectedSensitivity = parseInt(v, 10);
+      levelEl.textContent = levels[selectedSensitivity].label;
+      descEl.textContent = levels[selectedSensitivity].description;
+      ticks.forEach(function(t){
+        t.classList.toggle('on', parseInt(t.dataset.level, 10) <= selectedSensitivity);
       });
-      checkbox.addEventListener('click', (e) => e.stopPropagation());
-      infoBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        desc.classList.toggle('show');
+      // Fill the track up to the handle. A default range renders identically
+      // either side of the thumb, which loses the sense of how far up it is.
+      var pct = (selectedSensitivity - range.min) / (range.max - range.min) * 100;
+      range.style.setProperty('--fill', pct + '%');
+    }
+
+    range.addEventListener('input', function(e){ applyIntensity(e.target.value); });
+    // Tapping a label beats dragging on a phone.
+    ticks.forEach(function(t){
+      t.addEventListener('click', function(){
+        range.value = t.dataset.level;
+        applyIntensity(t.dataset.level);
       });
-
-      const rowWrap = document.createElement('div');
-      rowWrap.appendChild(row);
-      row.appendChild(checkbox);
-      row.appendChild(label);
-      row.appendChild(infoBtn);
-      rowWrap.appendChild(desc);
-
-      container.appendChild(rowWrap);
     });
+    applyIntensity(selectedSensitivity);
   } catch (err) {
     container.innerHTML = '<p style="color:var(--chalk-dim); font-size:12px; margin:0;">Couldn\'t load options.</p>';
   }

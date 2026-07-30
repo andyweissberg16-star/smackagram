@@ -4778,3 +4778,61 @@ Audited against the template rather than by eye. Found three real problems.
 
 VERIFIED in a browser: headline and all step headings render as intended,
 one brand red plus the accessibility variant, 5px frame intact, no errors.
+
+## Send a Smack: placeholder text looked like real input
+Reported that the example text in the fields read as though it had already
+been filled in.
+
+CAUSE: there was NO ::placeholder rule anywhere - not on the page, not in
+smackagram.css. Placeholders fell back to the browser default, which is
+roughly 60% of the input's text colour. Against near-white --chalk that
+lands close enough to real text to be mistaken for it.
+
+Added ::placeholder at --muted-2, with the -moz- variant too since Firefox
+applies its own opacity on top of the colour unless it's explicitly reset to
+1.
+
+VERIFIED across all eight fields on the page (including the checkout modal's
+inputs, which had the same problem): placeholders now compute to
+rgb(122,117,117) against rgb(245,245,243) for entered text.
+
+WORTH DOING SITE-WIDE: this rule belongs in smackagram.css rather than one
+template - every other page with a form has the same defect. Not done here
+to keep the change scoped, but it's a one-line addition to the shared
+stylesheet.
+
+## Send a Smack: intensity fader + fainter placeholders
+Two changes, plus a self-inflicted mess worth recording.
+
+PLACEHOLDERS. Previous fix used --muted-2, which still read as real text.
+Now rgba(245,245,243,0.26) plus italics - unmistakably an example. Also cut
+every placeholder down: "ex. New York Yankees" to "Yankees", the 60-character
+roast-topics instruction to "cheating, trash cans", and the generated-line
+box to "Smacky's line lands here". Long placeholders read as instructions;
+short ones read as examples, which is what they are.
+
+INTENSITY FADER replaces the four tickboxes. Intensity is a continuum and
+dragging from Clean to Savage says so in a way a list never did. The track
+fills up to the handle (a default range renders identically either side of
+the thumb, losing the sense of how far up you are), labels light as you pass
+them, and tapping a label jumps there - faster than dragging on a phone.
+selectedSensitivity stays the single source of truth, so generation, preview
+and checkout needed no changes.
+
+MISTAKE WORTH RECORDING: I replaced the selector function using index
+arithmetic between two string positions, and the CALL to the function appears
+BEFORE its definition in the file - so end < start and the slice DUPLICATED a
+2,300-character region instead of replacing it. That produced a syntax error
+which I then chased through three more failed edits, each making it worse.
+The right move, taken eventually: restore the file from the last known-good
+deployed version on GitHub and reapply with string replacements only. Index
+slicing on a file this size is not safe; anchor on unique strings.
+
+VERIFIED: fader renders min 1 / max 4, readout shows the correct label,
+ticks light correctly, track fills to 100% at max, placeholders compute to
+rgba(245,245,243,0.26). JS parses clean, one function definition, div balance
+30/30.
+
+NOT VERIFIED: tapping a tick label. The fader lives on wizard step 2, which
+is hidden on load, so the browser test couldn't click it - the drag path
+works and the tap handler is the same code, but it hasn't been exercised.
