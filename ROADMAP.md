@@ -4555,3 +4555,34 @@ input was fine is misleading.
 
 STILL WANT THE RENDER LOG to confirm the original cause. The traceback will
 name it directly, and this fix is defensive rather than confirmed.
+
+## Generator 500 — my helper became the route handler (and a second one found)
+Render traceback was definitive:
+  TypeError: _moderation_error_text() missing 1 required positional argument
+
+CAUSE, and it was mine: I inserted the helper before "def
+generate_trash_talk():" — but that line sits UNDER its decorators, so the
+result was
+
+  @app.route("/api/generate-trash-talk", methods=["POST"])
+  @login_required
+  def _moderation_error_text(reason):     <- helper became the view
+
+Flask called the helper as the endpoint with no arguments. Moved it above the
+decorator block.
+
+THEN AUDITED EVERY ROUTE for the same class of mistake, and found a SECOND
+live instance: /api/smackagrams was registered on _execute_arm_smackagram(
+user, data) — a helper called from two places — which was shadowing the real
+arm_smackagram view. That's the Locked & Loaded arm endpoint, and it would
+have 500'd the same way. Decorators removed from the helper.
+
+Audit now checks two things across all 93 routes: no view function whose name
+starts with an underscore (private helpers should never be handlers), and no
+view requiring positional arguments that aren't URL parameters. Result: none.
+
+THIRD TIME TONIGHT for this general shape of error - the duplicated
+@app.route decorator earlier, and now these two. The lesson: inserting text
+before a "def" is unsafe in a decorated codebase, because the def is not the
+top of the block. Anchor on the decorator instead, and re-run the route audit
+after any insertion near a view.

@@ -757,8 +757,6 @@ def stripe_webhook():
     return jsonify({"received": True})
 
 
-@app.route("/api/generate-trash-talk", methods=["POST"])
-@login_required
 def _moderation_error_text(reason):
     """
     Turns the moderator's reason into a message someone can actually act on.
@@ -773,6 +771,8 @@ def _moderation_error_text(reason):
     return f"This message can't be sent: {reason} Please edit that part and try again."
 
 
+@app.route("/api/generate-trash-talk", methods=["POST"])
+@login_required
 def generate_trash_talk():
     data = request.json
     team = data.get("team", "").strip()
@@ -2359,8 +2359,6 @@ def upcoming_games():
     return resp
 
 
-@app.route("/api/smackagrams", methods=["POST"])
-@login_required
 def _execute_arm_smackagram(user, data: dict) -> dict:
     """
     The actual Smackagram-creation logic, factored out so both the
