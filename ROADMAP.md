@@ -4407,3 +4407,19 @@ instruction is wrong, and TRIM rather than add. Candidates to cut first if it
 comes to that: the losing-vocabulary word lists are the longest section and
 the most redundant, since the model reliably generates that register without
 being handed a list.
+
+## Smackology: kitchen/heat thread
+Added a "heat" vocabulary category - oven, roasting and cooking language.
+"Roast" is already the word for what the show does, so the metaphor was
+sitting there unused, and unlike the Smack coinages it needs no explaining,
+which makes it cheap to deploy mid-segment.
+
+Framed as a running thread rather than a fixed catchphrase - pull it whenever
+a team is getting cooked - and pointed at specifically as a way to hand off
+from the opener into the first matchup ("Oven's at 500, let's go to work").
+
+Tier 1, so it survives at Clean sensitivity, and deliberately written to work
+in the BATTLE context as well as recaps. Dropped one line ("that's not a
+lineup, that's a casserole") for exactly that reason: a battle has no
+lineups, and leaving it in risked the judge referencing something that
+doesn't exist.

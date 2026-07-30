@@ -171,6 +171,20 @@ SMACKY = {
                 "words": ["Excuse Goblin", "Cope Captain", "Penalty Pirate",
                           "Turnover Goblin", "L Collector",
                           "Participation Trophy Collector", "Benchwarmer Supreme"]},
+    # The kitchen/heat thread. "Roast" is already the word for what this show
+    # does, so the metaphor is sitting right there - and unlike the Smack
+    # coinages it needs no explaining, which makes it cheap to deploy.
+    "heat": {"tier": 1,
+             "note": "a running thread, not a one-liner - pull it whenever a team is getting cooked",
+             "words": ["Oven's at 500, let's go to work.",
+                       "Preheat the oven, I feel like roasting.",
+                       "Somebody check the smoke alarm.",
+                       "It's getting warm in here and it isn't the weather.",
+                       "Low and slow, this one needs time.",
+                       "Get the oven mitts, this is a two-hander.",
+                       "Pull up a chair, dinner's on the losers.",
+                       "Well done. And I mean that as a temperature.",
+                       "Somebody's getting served."]},
     "catchphrases": {"tier": 1, "words": ["Smacky has spoken.", "Ring. Roast. Repeat.",
                                           "Consider yourself Smacked.",
                                           "Smacky keeps receipts.",
@@ -462,6 +476,9 @@ def render(level: int = 4, context: str = "recap") -> str:
         out.append("     the next.")
         out.append("")
         out.append("After those three beats, go straight into the recap as normal.")
+        out.append("The kitchen lines in the vocabulary below are a natural way to")
+        out.append("kick off - \"Oven's at 500, let's go to work\" - since roasting")
+        out.append("is literally what the show is.")
         out.append("Do not restate the sponsor or the tagline anywhere later, and")
         out.append("do not close with them - they open the show, that's all.")
         out.append("")
