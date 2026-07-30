@@ -67,7 +67,10 @@
   }
   @keyframes cardFadeIn{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
   .card.collapsed{padding:16px 24px;}
-  .step-label{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare-text); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; font-weight:700;}
+  /* Same fix as the Smackagram generator: no margin-top meant this sat flush
+     against the border of the collapsed row above it. */
+  .step-label{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare-text); text-transform:uppercase; letter-spacing:1px; margin:0 0 10px; font-weight:700;}
+  #lnlConsole .card + .card{padding-top:22px;}
   .card h3{font-family:'Anton',sans-serif; font-size:22px; margin-bottom:6px; text-transform:uppercase;}
   .card-sub{color:var(--chalk-dim); font-size:13px; margin-bottom:18px;}
 
@@ -284,6 +287,9 @@
   #lnlConsole .step-label{color:var(--amber) !important;}
 
   .btn-center{display:flex; justify-content:center;}
+  /* Same issue here: the Next button was touching the section rule beneath
+     it. Lift it off the edge. */
+  .step-next-wrap{margin-bottom:10px;}
   /* Hidden until the step has a valid choice - a Next that does nothing is
      worse than no Next at all. Revealed by adding .is-ready rather than by
      setting an inline display: style.display = '' only CLEARS the inline
@@ -1026,7 +1032,13 @@ loadVoices();
 
   STEPS.forEach(function (st, i) {
     var next = el(st.next);
-    if (next) next.addEventListener('click', function () { advance(i); });
+    if (next) next.addEventListener('click', function (e) {
+      // Stop here. Otherwise this click keeps travelling up to the card,
+      // which by then is collapsed, and the card handler reopens the step
+      // we just closed - the step appears not to advance at all.
+      e.stopPropagation();
+      advance(i);
+    });
 
     // The whole collapsed row reopens the step - a bigger target than the
     // small "Change" link, and it reads as a row you can open.
@@ -1036,6 +1048,9 @@ loadVoices();
         // Only while collapsed, so clicks on the open step's own controls
         // (buttons, inputs, the fader) aren't hijacked.
         if (!card.classList.contains('collapsed')) return;
+        // And never from a control - a button that collapses this card would
+        // otherwise have its own click reopen it on the way up.
+        if (e.target.closest('button, input, select, textarea, a')) return;
         e.preventDefault();
         window.lnlOpenStep(i);
       });

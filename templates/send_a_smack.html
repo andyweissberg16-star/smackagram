@@ -333,7 +333,9 @@
     letter-spacing:3px; text-transform:uppercase; color:var(--muted-2);
     padding:16px 24px 0; margin:0;
   }
-  .wizard-step{padding:0 24px;}
+  /* Bottom padding was 0, so the Next button sat flush against the card's
+     edge with no breathing room before the border. */
+  .wizard-step{padding:0 24px 22px;}
   .wizard-nav{padding:18px 24px 22px !important; margin-top:22px;}
 
   .step-dots{display:flex; justify-content:center; gap:10px; margin-bottom:20px;}
@@ -362,7 +364,10 @@
     letter-spacing:1.5px; text-transform:uppercase; color:var(--chalk-dim);
     margin-bottom:14px;
   }
-  .step-label{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare-text); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; font-weight:700;}
+  /* margin-top was absent, so this sat flush against the border of the
+     collapsed row above it. The body gets top padding for the same reason. */
+  .step-label{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare-text); text-transform:uppercase; letter-spacing:1px; margin:0 0 10px; font-weight:700;}
+  .sas-body{padding-top:20px;}
   .card h3{font-family:'Anton',sans-serif; font-size:22px; margin-bottom:6px; text-transform:uppercase;}
   .card-sub{color:var(--chalk-dim); font-size:13px; margin-bottom:18px;}
 
@@ -516,7 +521,7 @@
 
     <div id="step1Error" role="alert" style="display:none;"></div>
 
-      <div class="btn-center" style="margin-top:22px;">
+      <div class="btn-center" style="margin-top:22px; margin-bottom:6px;">
         <button type="button" id="sasNext1" class="btn btn-flare btn-narrow">Next</button>
       </div>
     </div>
@@ -546,7 +551,7 @@
 
       <div id="step2Error" role="alert" style="display:none;"></div>
 
-      <div class="btn-center" style="margin-top:22px;">
+      <div class="btn-center" style="margin-top:22px; margin-bottom:6px;">
         <button type="button" id="sasNext2" class="btn btn-flare btn-narrow">Next</button>
       </div>
     </div>
@@ -556,7 +561,7 @@
     <div class="sas-summary" id="sasSummary3" hidden>
       <span class="sas-tick" aria-hidden="true">&#10003;</span>
       <span class="sas-summary-body">
-        <span class="sas-summary-label">Step 2</span>
+        <span class="sas-summary-label">Step 3</span>
         <span class="sas-summary-text" id="sasSummaryText2"></span>
       </span>
       <span class="sas-summary-change">Change</span>
@@ -569,7 +574,7 @@
       <button id="generateBtn" class="btn btn-flare btn-narrow">Generate smack talk</button>
     </div>
 
-    <p class="field-group-label" style="border-top:none; padding-top:0; margin-top:22px;">What Smacky will say</p>
+    <p class="field-group-label" style="border-top:none; background-image:none; padding-top:0; margin-top:22px;">What Smacky will say</p>
     <textarea id="trashTalkOutput" placeholder="Smacky’s line lands here"></textarea>
 
     <div style="display:flex; gap:9px; align-items:stretch; margin-bottom:14px;">

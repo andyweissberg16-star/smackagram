@@ -5419,3 +5419,36 @@ NOT CONFIRMED as the cause. If it still stalls, the next step is dropping the
 BODY LED and keeping only the console one - two orbiting gradients on one
 screen was always the riskier half, flagged when it was added. One-line
 change to test.
+
+## Next button didn't advance on Locked & Loaded - event bubbling
+Reported: clicking Next on step 1 didn't collapse it or show step 2.
+
+CAUSE, and it's the kind of bug that only appears in combination: the Next
+click advanced the step and collapsed the card, then the SAME click carried
+on bubbling up to that card - which was now collapsed - and the card's
+reopen handler fired, undoing it. Each piece worked alone; together they
+cancelled out.
+
+Two guards: the Next button stops its click propagating, and the card ignores
+clicks originating from any button, input, select or link inside it. The
+second matters beyond this case - any control that collapses its own card
+would hit the same thing.
+
+WHY MY EARLIER TEST MISSED IT: I drove lnlOpenStep() directly rather than
+clicking the real button, so the click never bubbled. Testing the mechanism
+is not the same as testing the interaction.
+
+## Spacing and leftover-label fixes
+- .step-label had margin-bottom but NO margin-top, so it sat flush against
+  the border of the collapsed row above it. Most visible on step 3, where two
+  collapsed rows stack. Fixed on BOTH generators - they shared the rule.
+- .wizard-step had padding "0 24px" - sides only - so Next buttons sat flush
+  against the card edge. Added bottom padding; measured 28px clearance after.
+- The red rule above "What Smacky will say" wouldn't clear with border-top:
+  none because it isn't a border, it's a background gradient (that's how the
+  fading rules were built - a border can't taper). Needed
+  background-image:none. Checked every .field-group-label, not just the one
+  reported.
+- Step 3's SUMMARY row still read "Step 2". The step labels were renumbered
+  when step 1 was split, but the summary labels were missed - collapsed rows
+  would have read 1, 2, 2.
