@@ -5286,3 +5286,39 @@ LEFT IN PLACE: send_a_smack still has its old shared Next/Back nav below the
 steps, now redundant since each step has its own button. Left rather than
 removed blind - worth deciding whether to drop it or keep Back as an
 affordance once both are visible on screen.
+
+## Send a Smack split into four accordion steps
+Was three steps with target and intensity sharing step 1. Now:
+  1. Who's getting the call  - team, roast topics, recipient
+  2. How hard should Smacky go - intensity fader + age gate
+  3. What Smacky will say - generate, line, voice, listen
+  4. Who are we calling - phone, consents, send
+Console header, track segments and counter all updated to four.
+
+Summaries show what was chosen: step 1 reads "Yankees · Andy", step 2 reads
+the intensity level, step 3 the generated line truncated plus the voice.
+
+TWO REAL BUGS HIT WHILE SPLITTING, both worth recording:
+
+1. STEP 1 COULD NEVER ADVANCE. The age gate moved to step 2 with the
+   intensity it depends on, but validateStep1 still required it - and it
+   defaults to unchecked, so Next was permanently blocked. Split into
+   validateStep1 (team, recipient) and validateStep2 (age gate), matching
+   where the fields now actually live.
+
+2. STEP 2's ERROR WOULD HAVE BEEN INVISIBLE. The error box sits inside step
+   1's body, which is display:none whenever step 2 is open - so the age-gate
+   warning would have written to an element nobody could see. Added a
+   step2Error box inside step 2, and the scroll-into-view now targets
+   whichever box is in play.
+
+Also caught DUPLICATE IDS during the renumber - step 3 briefly carried
+sasBody2 and sasNext2, which getElementById would have resolved to step 2's
+elements. Checked every id for uniqueness afterwards.
+
+## Locked & Loaded: Next button never appeared
+Reported stuck on step 1 after picking a game. My bug: the button is hidden
+by a CSS rule and the reveal code set style.display = '' - which CLEARS the
+inline style and hands control back to the stylesheet, which still said
+display:none. Now toggles an .is-ready class so the stylesheet decides and
+there's no inline-vs-CSS fight.

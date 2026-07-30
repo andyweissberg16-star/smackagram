@@ -280,8 +280,11 @@
 
   .btn-center{display:flex; justify-content:center;}
   /* Hidden until the step has a valid choice - a Next that does nothing is
-     worse than no Next at all. */
-  #nextFromGame, #nextFromTeam{display:none;}
+     worse than no Next at all. Revealed by adding .is-ready rather than by
+     setting an inline display: style.display = '' only CLEARS the inline
+     value, which lets this rule win again and leaves the button hidden. */
+  #nextFromGame:not(.is-ready),
+  #nextFromTeam:not(.is-ready){display:none;}
   .btn-narrow{width:100%; max-width:250px;}
   #lnlConsole .btn-flare{
     background:var(--amber); color:#0D0D0D;
@@ -699,7 +702,7 @@ function selectGame(game, el) {
   // Next button does.
   document.getElementById('gameCardSummaryText').textContent = `${game.away_team} @ ${game.home_team}`;
   const nextBtn = document.getElementById('nextFromGame');
-  if (nextBtn) nextBtn.style.display = '';
+  if (nextBtn) nextBtn.classList.add('is-ready');
 }
 
 function selectTeam(team, el) {
@@ -714,7 +717,7 @@ function selectTeam(team, el) {
   var sub = document.getElementById('loseSubtext');
   if (sub) sub.textContent = `The call only triggers if the ${team} lose.`;
   var tNext = document.getElementById('nextFromTeam');
-  if (tNext) tNext.style.display = '';
+  if (tNext) tNext.classList.add('is-ready');
 
   updateAgeCheckboxVisibility();
 }

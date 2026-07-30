@@ -176,7 +176,7 @@
      a spinner on them, which reads as "working" instead of "not yet". */
   .btn:disabled{opacity:0.4; cursor:not-allowed;}
 
-  #step1Error{
+  #step1Error, #step2Error{
     background:rgba(224,27,36,0.12); border:1px solid var(--punch);
     border-radius:8px; padding:11px 13px; margin:16px 0 0;
     font-size:13px; color:var(--chalk); line-height:1.45;
@@ -463,8 +463,9 @@
       <span class="console-spacer"></span>
       <span class="console-count" id="stepCounter">01 / 04</span>
     </div>
-    <div class="console-track" id="consoleTrack" role="progressbar" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1">
+    <div class="console-track" id="consoleTrack" role="progressbar" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1">
       <span class="track-seg on"></span>
+      <span class="track-seg"></span>
       <span class="track-seg"></span>
       <span class="track-seg"></span>
     </div>
@@ -496,18 +497,6 @@
 
     <div id="step1Error" role="alert" style="display:none;"></div>
 
-    <p class="field-group-label">How hard should Smacky go</p>
-    <p class="card-sub" style="margin-top:0;">Slide it. Clean is PG. Savage is not.</p>
-    <div id="sensitivitySelector">
-      <p style="color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
-    </div>
-
-    <label id="ageGate" class="age-gate" for="ageConfirm" hidden>
-      <input type="checkbox" id="ageConfirm">
-      <span>I confirm the person receiving this call is <strong>18 or older</strong>.</span>
-    </label>
-  </div>
-
       <div class="btn-center" style="margin-top:20px; padding-top:16px;
            background-image:linear-gradient(to right,transparent 0%,var(--punch) 18%,var(--punch) 82%,transparent 100%);
            background-size:100% 2px; background-repeat:no-repeat; background-position:top left;">
@@ -525,6 +514,39 @@
       <span class="sas-summary-change">Change</span>
     </div>
     <div class="sas-body" id="sasBody2">
+    <p class="step-label">Step 2</p>
+    <p class="field-group-label">How hard should Smacky go</p>
+    <p class="card-sub" style="margin-top:0;">Slide it. Clean is PG. Savage is not.</p>
+    <div id="sensitivitySelector">
+      <p style="color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
+    </div>
+
+    <label id="ageGate" class="age-gate" for="ageConfirm" hidden>
+      <input type="checkbox" id="ageConfirm">
+      <span>I confirm the person receiving this call is <strong>18 or older</strong>.</span>
+    </label>
+  </div>
+
+      <div id="step2Error" role="alert" style="display:none;"></div>
+
+      <div class="btn-center" style="margin-top:20px; padding-top:16px;
+           background-image:linear-gradient(to right,transparent 0%,var(--punch) 18%,var(--punch) 82%,transparent 100%);
+           background-size:100% 2px; background-repeat:no-repeat; background-position:top left;">
+        <button type="button" id="sasNext2" class="btn btn-flare btn-narrow">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wizard-step" data-step="3">
+    <div class="sas-summary" id="sasSummary3" hidden>
+      <span class="sas-tick" aria-hidden="true">&#10003;</span>
+      <span class="sas-summary-body">
+        <span class="sas-summary-label">Step 2</span>
+        <span class="sas-summary-text" id="sasSummaryText2"></span>
+      </span>
+      <span class="sas-summary-change">Change</span>
+    </div>
+    <div class="sas-body" id="sasBody3">
     <p class="step-label">Step 2</p>
     <p class="card-sub">Generate it, pick a voice, hear it, send it.</p>
 
@@ -561,13 +583,13 @@
       <div class="btn-center" style="margin-top:20px; padding-top:16px;
            background-image:linear-gradient(to right,transparent 0%,var(--punch) 18%,var(--punch) 82%,transparent 100%);
            background-size:100% 2px; background-repeat:no-repeat; background-position:top left;">
-        <button type="button" id="sasNext2" class="btn btn-flare btn-narrow">Next</button>
+        <button type="button" id="sasNext3" class="btn btn-flare btn-narrow">Next</button>
       </div>
     </div>
 
-  <div class="wizard-step" data-step="3">
-    <div class="sas-body" id="sasBody3">
-    <p class="step-label">Step 3</p>
+  <div class="wizard-step" data-step="4">
+    <div class="sas-body" id="sasBody4">
+    <p class="step-label">Step 4</p>
     <p class="card-sub" id="callingSub">Last thing &mdash; where do we reach them?</p>
 
     <label for="orderRecipientPhone" id="phoneLabel">Their phone number</label>
@@ -700,6 +722,20 @@ function refreshGateState() {
   if (err && err.style.display !== 'none') validateStep1(true);
 }
 
+function validateStep2(showErrors) {
+  var gate = document.getElementById('ageGate');
+  var age = document.getElementById('ageConfirm');
+  var err = document.getElementById('step2Error');
+  if (gate) gate.classList.remove('field-missing');
+  var needed = gate && !gate.hidden && age && !age.checked;
+  if (!err) return !needed;
+  if (!needed || !showErrors) { err.style.display = 'none'; return !needed; }
+  err.textContent = 'Still need the 18-or-older confirmation.';
+  if (showErrors) gate.classList.add('field-missing');
+  err.style.display = 'block';
+  return false;
+}
+
 function validateStep1(showErrors) {
   var missing = [];
   var team = document.getElementById('teamInput');
@@ -715,10 +751,8 @@ function validateStep1(showErrors) {
   if (name && !name.value.trim()) { missing.push('who\u2019s receiving this'); if (showErrors) name.classList.add('field-missing'); }
   // Intensity always has a value (defaults to Savage), so it can't be missing -
   // but its age confirmation can be.
-  if (gate && !gate.hidden && age && !age.checked) {
-    missing.push('the 18-or-older confirmation');
-    if (showErrors) gate.classList.add('field-missing');
-  }
+  // The age gate lives on step 2 now, alongside the intensity it depends on.
+  // Checked by validateStep2, not here.
 
   if (!err) return missing.length === 0;
   if (!missing.length || !showErrors) {
@@ -770,8 +804,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Status text advances with the step so the header reads as a call being
   // set up rather than decoration. Field label names what's being captured.
-  const STATUS = ['Line open', 'Ready to dial', 'Dialing'];
-  const FIELDS = ['Target and intensity', 'Payload', 'Who are we calling'];
+  const STATUS = ['Line open', 'Target locked', 'Ready to dial', 'Dialing'];
+  const FIELDS = ['Target', 'Intensity', 'Payload', 'Who are we calling'];
   const backBtn = document.getElementById('wizardBack');
   const nextBtn = document.getElementById('wizardNext');
   const counter = document.getElementById('stepCounter');
@@ -789,9 +823,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (n === 0) {
       var team = (document.getElementById('teamInput') || {}).value || '';
       var who = (document.getElementById('recipientNameInput') || {}).value || '';
-      var lvl = document.getElementById('faderLevel');
-      val = [team.trim(), who.trim(), lvl ? lvl.textContent : ''].filter(Boolean).join('  \u00b7  ');
+      val = [team.trim(), who.trim()].filter(Boolean).join('  \u00b7  ');
     } else if (n === 1) {
+      var lvl = document.getElementById('faderLevel');
+      val = lvl ? lvl.textContent : '';
+    } else if (n === 2) {
       var line = (document.getElementById('trashTalkOutput') || {}).value || '';
       var voice = document.getElementById('voiceSelect');
       var vname = voice && voice.selectedIndex >= 0 ? voice.options[voice.selectedIndex].text : '';
@@ -871,18 +907,21 @@ document.addEventListener('DOMContentLoaded', () => {
   // separate modal.
   window.__wizardGo = show;
   // Per-step Next buttons and clickable collapsed rows.
-  [['sasNext1', 0], ['sasNext2', 1]].forEach(function (pair) {
+  [['sasNext1', 0], ['sasNext2', 1], ['sasNext3', 2]].forEach(function (pair) {
     var b = document.getElementById(pair[0]);
     if (b) b.addEventListener('click', function () {
-      if (pair[1] === 0 && !validateStep1(true)) {
-        var e = document.getElementById('step1Error');
+      var ok = true;
+      if (pair[1] === 0) ok = validateStep1(true);
+      else if (pair[1] === 1) ok = validateStep2(true);
+      if (!ok) {
+        var e = document.getElementById(pair[1] === 0 ? 'step1Error' : 'step2Error');
         if (e) e.scrollIntoView({behavior:'smooth', block:'center'});
         return;
       }
       show(pair[1] + 1);
     });
   });
-  [1, 2, 3].forEach(function (n) {
+  [1, 2, 3, 4].forEach(function (n) {
     var summ = document.getElementById('sasSummary' + n);
     if (summ) summ.addEventListener('click', function () { show(n - 1); });
   });
