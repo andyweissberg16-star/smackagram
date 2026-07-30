@@ -4103,3 +4103,36 @@ live under the same tts/ path as everything else, so any future S3 lifecycle
 cleanup rule would delete them. Namespacing samples separately would need
 its own bucket policy - see the note in smackcast_service.generate_meme_image
 about public-read being scoped to tts/.
+
+## CRUCIAL TODO (not built): the weekly delivery loop has never actually run
+Clarified while walking through the customer workflow. The pipeline IS fully
+automated - customer buys, connects a league, and every Tuesday the cron
+generates and DELIVERS with no manual step (phone call via Twilio, SMS with
+the share link, Discord/GroupMe webhooks, plus the library). Nobody needs to
+be awake for it.
+
+But three things make the first real Tuesday risky, and none are built:
+
+1. FAILURES ARE SILENT. Each subscription is wrapped in its own try/except -
+   correct, so one bad league can't kill the run - but a failure only prints
+   to the log and moves on. Nobody is notified. At two subscribers you would
+   not notice a missing recap for a week, and the customer paid for it. THIS
+   IS THE MOST IMPORTANT ONE. Needs at minimum a failure count surfaced
+   somewhere you'd actually see, ideally per-subscription failure state on
+   SmackcastRecap (status="failed" already exists as a value) plus an admin
+   view or an alert.
+
+2. THE PATH HAS NEVER RUN FOR REAL. Everything to date has been the
+   admin-only test generator against generate_sample_matchups() - fake data.
+   The real path (sleeper_service/espn_service fetch -> generate -> deliver)
+   has never been exercised against a live league. First paying customer is
+   currently also the first integration test. Worth connecting a real
+   personal league and letting one genuine Tuesday run before selling.
+
+3. SMS DELIVERY IS BLOCKED. Twilio A2P 10DLC still pending, so the text
+   option silently won't send even though it's offered at signup. Either gate
+   that option in the UI until approval lands, or make the failure visible.
+
+Related, already logged separately: chunked cron becomes necessary somewhere
+around 10-15 subscribers, since the run is sequential at ~2-3 min each and a
+restart mid-run currently loses the remainder until the following week.
