@@ -4387,7 +4387,18 @@ about the league:
 Also instructed NOT to restate the sponsor or tagline later or close on
 them - they open the show, that's it.
 
-TAGLINE NOTE: "Everybody gets smacked. No exceptions." was chosen over
+TAGLINE (updated): "The grill's hot, the smoke's rising, the flames are
+burning, and somebody's about to get roasted!" Replaced "Everybody gets
+smacked. No exceptions." Three escalating beats then the payoff - the same
+build as a classic broadcast catchphrase - and it leans on the roast
+metaphor, which needs no explaining since roasting is literally what the
+show does.
+
+Written with a comma before "and" rather than an ellipsis: three dots are
+read inconsistently by speech engines, and the sentence already has its own
+rhythm without needing a typographic pause.
+
+EARLIER TAGLINE NOTE: "Everybody gets smacked. No exceptions." was chosen over
 several alternatives because it states a rule rather than making a joke -
 the same shape as taglines that last - and is built from the brand's own
 word, so no competitor could use it. Written as its own sentence rather than
