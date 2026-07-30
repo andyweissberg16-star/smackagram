@@ -29,10 +29,13 @@
     --ink-2:#1A1A1A;
     --chalk:#F5F5F3;
     --chalk-dim:#9A9A96;
-    --flare:#E8142C;
-    --flare-dim:#3A0810;
+    /* --flare now resolves to the same red as --punch. The page previously
+       declared both and used both, putting two different reds on screen.
+       Aliasing is safer than rewriting every usage. --gold was declared but
+       never used, so it's gone. */
+    --flare:#E01B24;
+    --flare-dim:#3A1416;
     --turf:#39FF6A;
-    --gold:#FFD400;
     --cyan:#F5F5F3;
     --line:rgba(245,245,243,0.10);
     --line-strong:rgba(245,245,243,0.24);
@@ -290,24 +293,24 @@
 
   <div class="intro">
     <p class="eyebrow">Send a Smackagram</p>
-    <h1>Somebody you know<br>deserves a <em>phone call</em>.</h1>
-    <p class="lede">A Smackagram is a <b>real phone call</b> to your buddy, where Smacky roasts their team in his own voice. You pick the target and how brutal it gets &mdash; he writes it, calls them, and records their reaction so you can hear it.</p>
+    <h1>Roast your rival.<br>Stay <em>anonymous</em>.</h1>
+    <p class="lede">A Smackagram is a <b>real phone call</b> to a friend, delivered by Smacky. He roasts their team &mdash; by name, with real trash talk &mdash; and they never find out it came from you. Their reaction gets recorded so you can hear the whole thing back.</p>
 
     <div class="how">
       <div class="how-item">
         <p class="how-num">1</p>
-        <h4>Pick your victim</h4>
-        <p>Their name and the team they'll defend to the grave.</p>
+        <h4>Name the rival</h4>
+        <p>Who's getting the call, and the team they'll defend to the grave.</p>
       </div>
       <div class="how-item">
         <p class="how-num">2</p>
-        <h4>Set the damage</h4>
-        <p>Clean enough for your uncle, or savage enough to end a friendship.</p>
+        <h4>Set the intensity</h4>
+        <p>Clean enough for your uncle, or savage enough to end a group chat.</p>
       </div>
       <div class="how-item">
         <p class="how-num">3</p>
-        <h4>Send it for a buck</h4>
-        <p>The call goes out, the reaction gets recorded, and you get to keep it.</p>
+        <h4>Send it for a dollar</h4>
+        <p>Smacky calls, roasts them, and records the reaction. Your name stays out of it.</p>
       </div>
     </div>
   </div>
@@ -329,7 +332,7 @@
 
   <div class="wizard-step active" data-step="1">
     <p class="step-label">Step 1</p>
-    <h3>Who's getting smacked</h3>
+    <h3>Who's getting the call</h3>
     <p class="card-sub">Type a team and who this is for — Smacky'll write the roast.</p>
 
     <label for="teamInput">Team to trash talk</label>
@@ -345,7 +348,7 @@
 
   <div class="wizard-step" data-step="2">
     <p class="step-label">Step 2</p>
-    <h3>How aggressive</h3>
+    <h3>How hard should he go</h3>
     <p class="card-sub">Pick a tone — tap the (i) on any option to see what it means.</p>
     <div id="sensitivitySelector">
       <p style="color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
@@ -354,7 +357,7 @@
 
   <div class="wizard-step" data-step="3">
     <p class="step-label">Step 3</p>
-    <h3>Smacky's first draft</h3>
+    <h3>What Smacky wrote</h3>
     <p class="card-sub">Edit it however you want, then preview it in Smacky's voice (or someone else's) before sending.</p>
 
     <textarea id="trashTalkOutput" placeholder="Your generated line shows up here — edit it however you want before sending."></textarea>
@@ -379,7 +382,7 @@
 
   <div class="wizard-step" data-step="4">
     <p class="step-label">Step 4</p>
-    <h3>Pick your play</h3>
+    <h3>Send it</h3>
     <p class="card-sub">No tokens, no subscriptions. Just $1 a smack.</p>
     <div class="pricing">
       <div class="price-card featured">

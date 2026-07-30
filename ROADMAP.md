@@ -4744,3 +4744,37 @@ light bleeds onto the card face.
 
 VERIFIED by measuring actual travel rather than trusting the declaration:
 81 degrees in 2 seconds, which is a 9-second lap. Border computes to 5px.
+
+## Send a Smack: design audit + clearer copy
+Audited against the template rather than by eye. Found three real problems.
+
+1. TWO DIFFERENT REDS ON ONE PAGE. The page declared --flare (#E8142C, the
+   old brand red) in its own :root AND --punch (#E01B24, the checkout red),
+   and genuinely used both - 14 usages against 12. Aliased --flare to the
+   punch value rather than rewriting every usage, so the page now paints one
+   red. --flare-dim realigned to the same family.
+
+   NOTE: a second red still renders and that's correct - #FF3B50
+   (--flare-text) from the shared stylesheet, which exists because the base
+   red fails WCAG AA under 18px. Base plus accessible-bright is two shades
+   of one family, not an inconsistency. Deliberately left alone; changing it
+   here would desync it from every other page.
+
+2. DEAD GOLD IN THE PALETTE. --gold:#FFD400 was declared and never used.
+   Removed - leaving a retired brand colour in a palette invites someone to
+   reach for it later.
+
+3. THE COPY NEVER SAID WHAT THE PRODUCT IS. Zero mentions of "anonymous" and
+   zero of "rival" - the two things that actually sell it. Rewritten:
+     headline: "Roast your rival. Stay anonymous."
+     lede now states it's a real phone call, that Smacky roasts their team by
+       name, that the recipient never learns who sent it, and that the
+       reaction is recorded.
+     how-it-works: "Name the rival" / "Set the intensity" / "Send it for a
+       dollar", with the anonymity restated at the point of payment.
+     step headings now describe the action rather than naming themselves -
+       "Who's getting the call", "How hard should he go", "What Smacky
+       wrote", "Send it".
+
+VERIFIED in a browser: headline and all step headings render as intended,
+one brand red plus the accessibility variant, 5px frame intact, no errors.
