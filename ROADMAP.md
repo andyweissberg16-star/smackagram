@@ -4463,3 +4463,64 @@ would wreck the pacing. If it recurs after this, that's the thing to
 determine: check the stored transcript on the recap page for the literal
 word "comma". Present in the transcript means this fix applies; absent means
 the engine is verbalising punctuation and the fix is elsewhere.
+
+## Moderation: our own generated lines were failing our own rules, and
+## rejections never said what was wrong
+Two real problems reported from live use of the main Smackagram generator.
+
+PROBLEM 1 - WE GENERATED CONTENT THAT VIOLATED OUR OWN GUIDELINES.
+/api/generate-trash-talk returned the AI's line directly with no moderation.
+The generator prompt and the moderation classifier are SEPARATE rule sets
+and can disagree, so someone could be handed a line, carry it to checkout,
+and have it rejected there - for something they didn't write. Ours to fix,
+not theirs.
+FIXED: the endpoint now moderates its own output and REGENERATES on failure,
+up to three attempts. Regenerating is the correct response rather than
+surfacing an error, since the user didn't author it. If all three fail it
+says so honestly and suggests different roast topics or a lower intensity,
+because three consecutive failures usually means the topics themselves steer
+somewhere we won't go.
+
+PROBLEM 2 - REJECTIONS DIDN'T SAY WHAT WAS WRONG.
+check_message_safety already returned a specific reason. Every call site
+LOGGED it server-side and then showed the user the same generic sentence
+listing three possible categories, leaving them to guess which part of their
+message was the problem and edit blind.
+FIXED: added _moderation_error_text(), and all SEVEN user-facing rejection
+paths now surface the actual reason - main order, reply order, armed
+smackagram, Smack Lab, preview, chat post and battle line. The reason is
+also returned as its own JSON field so the frontend can highlight or handle
+it separately if wanted. Zero generic "may contain threatening, sexual, or
+harassing content" messages remain.
+
+Screen-name rejections deliberately left generic - "that screen name isn't
+allowed" is already specific enough, and echoing a classifier's reasoning
+about someone's chosen name reads badly.
+
+## Smackology across every generator
+Smacky now speaks the same language everywhere, not just in Smackcast and
+the battle judge.
+
+Added a THIRD render context, "short", for generators producing a line or
+two rather than a script - the main Smackagram generator and Smack Lab. It
+emits ONLY the invented vocabulary, the heat lines and a profanity note:
+about 2,000 characters against 17,000 for the recap context.
+
+That distinction matters. A Smackagram is 60-90 words of spoken audio. The
+recap block carries score phrasing, segment shape, transitions, the opener
+and the explain-a-word mechanic - all of which assume a multi-part script,
+and all of which would crowd out the actual task at that length. The goal
+here is that he SOUNDS like himself, not that he performs the whole format.
+Explaining a coined word is explicitly disabled in short form for the same
+reason: there's no room, and it kills the pace of a 90-word roast.
+
+Wiring:
+  main Smackagram generator - smackology.render(sensitivity, "short"), so
+    the vocabulary tier follows the message's own sensitivity setting.
+    Verified: Clean gets the coinages and heat lines with no profanity,
+    Savage gets everything.
+  Smack Lab (both the per-turn coaching and the final verdict) - fixed at
+    level 3. It talks TO someone who's learning rather than about a target,
+    so it should sound like Smacky without the full savage register.
+  Smackcast - level 4, "recap" (unchanged)
+  Battle judge - battle.intensity, "battle" (unchanged)

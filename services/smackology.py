@@ -214,6 +214,15 @@ def render(level: int = 4, context: str = "recap") -> str:
                  everything: score phrasing, the read-aloud rules, and the
                  explain-a-word bit, which needs room to breathe.
 
+      "short"  — the main Smackagram generator, Smack Lab and anything else
+                 producing a line or two rather than a script. Gets ONLY the
+                 invented vocabulary and the heat lines, nothing else. A
+                 Smackagram is 60-90 words of spoken audio; the score
+                 phrasing, segment shape, transitions and explain-a-word
+                 mechanic all assume a multi-part script and would crowd out
+                 the actual task. The point here is that Smacky sounds like
+                 himself, not that he performs the whole format.
+
       "battle" — the Smack Battle judge's critiques and coach messages.
                  Short, DISPLAYED as text rather than spoken, and about
                  the quality of someone's trash talk, not about scores.
@@ -225,7 +234,31 @@ def render(level: int = 4, context: str = "recap") -> str:
                  whole critique.
     """
     is_recap = context == "recap"
+    is_short = context == "short"
     out = []
+
+    if is_short:
+        # Vocabulary only. Deliberately no instructional scaffolding - at this
+        # length the model needs the words, not the format.
+        out.append("SMACKY'S OWN LANGUAGE — use it naturally, like it has always")
+        out.append("existed. Never explain a coined word here; there isn't room,")
+        out.append("and explaining it in a 90-word roast kills the pace.")
+        for key, e in SMACKY.items():
+            if not _tier_ok(e["tier"], level):
+                continue
+            note = f" ({e['note']})" if e.get("note") else ""
+            out.append(f"  {key}{note}: {_fmt(e['words'])}")
+        out.append("Smack plus almost any word is fair game - coin new ones freely.")
+        out.append("A couple of these per line at most. They punctuate a joke, they")
+        out.append("are not the joke, and a line stuffed with invented words reads")
+        out.append("as a word list rather than a roast.")
+        if _tier_ok(PROFANE["tier"], level):
+            out.append(f"Curse naturally throughout: {_fmt(PROFANE['intensifiers'])}, "
+                       f"{_fmt(PROFANE['nouns'][:4])}.")
+        out.append("Never write a coined word in capitals or with a hyphen inside")
+        out.append("it - this is read aloud, and engines spell capitals out letter")
+        out.append("by letter and read hyphens as pauses.")
+        return "\n".join(out)
 
     if is_recap:
         out.append("SCORE PHRASING — vary how you lead into every number. Defaulting")

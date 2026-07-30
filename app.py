@@ -581,7 +581,10 @@ def create_order():
     safety = content_moderation.check_message_safety(custom_message)
     if not safety["safe"]:
         print(f"[safety] blocked order attempt — reason: {safety['reason']}")
-        return jsonify({"error": "This message can't be sent — it may contain threatening, sexual, or harassing content. Please revise it."}), 400
+        return jsonify({
+            "error": _moderation_error_text(safety["reason"]),
+            "reason": safety["reason"],
+        }), 400
 
     if not wallet_service.has_sufficient_balance(user, wallet_service.SMACK_COST_CENTS):
         redirect = _store_pending_action(user, "send_smack", data)
@@ -756,6 +759,20 @@ def stripe_webhook():
 
 @app.route("/api/generate-trash-talk", methods=["POST"])
 @login_required
+def _moderation_error_text(reason):
+    """
+    Turns the moderator's reason into a message someone can actually act on.
+
+    Previously every rejection showed the same sentence listing three
+    possible categories, which left people guessing which part of their
+    message was the problem. The classifier already returns a specific
+    reason - it was just being logged and thrown away.
+    """
+    if not reason:
+        return "This message can't be sent. Please revise it and try again."
+    return f"This message can't be sent: {reason} Please edit that part and try again."
+
+
 def generate_trash_talk():
     data = request.json
     team = data.get("team", "").strip()
@@ -773,7 +790,35 @@ def generate_trash_talk():
     if sensitivity not in trash_talk_service.SENSITIVITY_LEVELS:
         return jsonify({"error": "Invalid sensitivity level"}), 400
 
-    line = trash_talk_service.generate_trash_talk(team=team, recipient_name=recipient_name, sensitivity=sensitivity, roast_topics=roast_topics)
+    # Moderate our OWN output before handing it over. The generator and the
+    # moderator are separate rule sets and can disagree, which previously
+    # meant someone could be given a line here and then have it rejected at
+    # checkout - our fault, and confusing, since they didn't write it.
+    # Regenerating is the right response: the fix is a different line, not
+    # asking the user to edit something we produced.
+    line = None
+    last_reason = None
+    for attempt in range(3):
+        candidate = trash_talk_service.generate_trash_talk(
+            team=team, recipient_name=recipient_name,
+            sensitivity=sensitivity, roast_topics=roast_topics,
+        )
+        verdict = content_moderation.check_message_safety(candidate)
+        if verdict["safe"]:
+            line = candidate
+            break
+        last_reason = verdict["reason"]
+        print(f"[safety] self-generated line failed moderation (attempt {attempt + 1}): {last_reason}")
+
+    if line is None:
+        # Three strikes usually means the topics themselves steer somewhere
+        # we won't go, so say that rather than blaming the generator.
+        return jsonify({
+            "error": "Couldn't write a line for that without crossing a line. "
+                     "Try different roast topics or a lower intensity.",
+            "reason": last_reason,
+        }), 400
+
     return jsonify({"generated_text": line})
 
 
@@ -811,7 +856,7 @@ def smack_lab_respond():
     # different from a custom message elsewhere.
     safety = content_moderation.check_message_safety(user_line)
     if not safety["safe"]:
-        return jsonify({"error": "That line can't be processed — it may contain threatening, sexual, or harassing content. Try a different angle."}), 400
+        return jsonify({"error": _moderation_error_text(safety["reason"]), "reason": safety["reason"]}), 400
 
     result = trash_talk_service.smack_lab_respond(team=team, my_team=my_team, conversation_history=conversation_history, user_line=user_line)
     rate_limiter.record_hit(identifier)
@@ -888,7 +933,7 @@ def preview_audio():
     safety = content_moderation.check_message_safety(text)
     if not safety["safe"]:
         print(f"[safety] blocked preview attempt — reason: {safety['reason']}")
-        return jsonify({"error": "This message can't be previewed — it may contain threatening, sexual, or harassing content. Please revise it."}), 400
+        return jsonify({"error": _moderation_error_text(safety["reason"]), "reason": safety["reason"]}), 400
 
     voice_key = request.json.get("voice_key", voice_options.DEFAULT_VOICE_KEY)
     voice_id = voice_options.get_voice_id(voice_key)
@@ -1226,7 +1271,7 @@ def create_chat_post():
     safety = content_moderation.check_message_safety(message)
     if not safety["safe"]:
         print(f"[safety] blocked chat post — reason: {safety['reason']}")
-        return jsonify({"error": "That message can't be posted — it may contain threatening, sexual, or harassing content. Try a different angle."}), 400
+        return jsonify({"error": _moderation_error_text(safety["reason"]), "reason": safety["reason"]}), 400
 
     post = ChatPost(league=league, team=team, display_name=display_name or "Anonymous", message=message)
     db.session.add(post)
@@ -1577,7 +1622,7 @@ def submit_battle_line(challenge_code):
         safety = content_moderation.check_message_safety(message)
         if not safety["safe"]:
             print(f"[safety] blocked battle line — reason: {safety['reason']}")
-            return jsonify({"error": "That message can't be posted — it may contain threatening, sexual, or harassing content. Try a different angle."}), 400
+            return jsonify({"error": _moderation_error_text(safety["reason"]), "reason": safety["reason"]}), 400
 
     db.session.add(BattleLine(battle_id=battle.id, side=side, round_number=battle.round_number, message=message, timed_out=timed_out))
 
@@ -2226,7 +2271,10 @@ def create_reply_order():
     safety = content_moderation.check_message_safety(custom_message)
     if not safety["safe"]:
         print(f"[safety] blocked reply order attempt — reason: {safety['reason']}")
-        return jsonify({"error": "This message can't be sent — it may contain threatening, sexual, or harassing content. Please revise it."}), 400
+        return jsonify({
+            "error": _moderation_error_text(safety["reason"]),
+            "reason": safety["reason"],
+        }), 400
 
     price = 200 if data.get("include_recording", True) else 100
     order = Order(
@@ -2359,7 +2407,10 @@ def arm_smackagram():
         safety = content_moderation.check_message_safety(data.get("custom_message", ""))
         if not safety["safe"]:
             print(f"[safety] blocked smackagram arm attempt — reason: {safety['reason']}")
-            return jsonify({"error": "This message can't be sent — it may contain threatening, sexual, or harassing content. Please revise it."}), 400
+            return jsonify({
+            "error": _moderation_error_text(safety["reason"]),
+            "reason": safety["reason"],
+        }), 400
 
     sensitivity = data.get("sensitivity", trash_talk_service.DEFAULT_SENSITIVITY)
     if sensitivity not in trash_talk_service.SENSITIVITY_LEVELS:
