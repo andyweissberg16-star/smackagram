@@ -142,34 +142,38 @@
      pushing at the card padding. */
   /* Collapsed step rows. The whole row is the target, not a small link -
      easier to hit, and it reads as a row you can open. */
+  /* Completed steps use the OPPOSITE accent to the page - amber here against
+     the red frame - so a finished step is unmistakably a different zone from
+     the one you're working in. */
   .sas-summary{
     display:flex; align-items:center; gap:11px; cursor:pointer;
-    padding:13px 0; margin:0;
+    padding:13px 12px; margin:0 -12px;
+    background:#2A2114;
     /* A solid rule under each collapsed row, in the page's own red. Stacked
        rows then read as separate boxes rather than one undifferentiated list,
        which is the whole point of collapsing them. Solid rather than the
        faded rule used elsewhere: a fade reads as a soft section break, and
        here the line is doing structural work. */
-    border-bottom:1px solid var(--punch);
+    border-bottom:2px solid #FFB800;
   }
-  .sas-summary:hover{background:rgba(224,27,36,0.06);}
+  .sas-summary:hover{background:#332818;}
   .sas-summary[hidden]{display:none;}
   .sas-tick{
-    width:20px; height:20px; border-radius:50%; background:var(--punch);
+    width:20px; height:20px; border-radius:50%; background:#FFB800; color:#0D0D0D;
     color:#fff; font-size:12px; display:grid; place-items:center; flex-shrink:0;
   }
   .sas-summary-body{flex:1; min-width:0;}
   .sas-summary-label{
     display:block; font-family:'JetBrains Mono',monospace; font-size:9px;
-    letter-spacing:1.5px; text-transform:uppercase; color:var(--muted-2);
+    letter-spacing:1.5px; text-transform:uppercase; color:#A08A5A;
   }
   .sas-summary-text{
-    display:block; font-size:13.5px; color:var(--chalk); font-weight:600;
+    display:block; font-size:13.5px; color:#F0E4CC; font-weight:600;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .sas-summary-change{
     font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:1px;
-    color:var(--punch); flex-shrink:0;
+    color:#FFB800; flex-shrink:0;
   }
 
   .btn-center{display:flex; justify-content:center;}
@@ -887,7 +891,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Scroll the frame back to the top - without this, moving from a long
     // step to a short one leaves you halfway down a page of whitespace.
-    if (card) card.scrollIntoView({behavior: 'smooth', block: 'start'});
+    if (card) card.scrollIntoView({block: 'start'});
 
     // Carry the recipient's name from step 1 into step 3, so it's obvious
     // WHOSE number is being asked for. Falls back to neutral wording when the

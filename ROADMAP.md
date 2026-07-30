@@ -5391,3 +5391,31 @@ isn't ready yet.
 
 Step 3 now carries only Generate, Preview this voice, Listen, and Send it -
 no Next, since Send it is that step's advance button.
+
+## Completed steps: opposite accent per generator
+Each generator's collapsed steps now use the OTHER one's accent, so a
+finished step is unmistakably a different zone from the one being worked on:
+  Send a Smack  - red frame, AMBER completed rows (#2A2114 panel, #FFB800
+                  border and tick, warm off-white text)
+  Locked&Loaded - amber frame, RED completed rows (#2A1214 panel, #E01B24
+                  border, pale red text)
+
+This was approved from mockups earlier and then never built - I moved on to
+the next request without implementing it. Caught when the colours didn't
+appear on the deployed site.
+
+## Momentary freeze advancing a step - PARTIAL, theory not diagnosis
+Reported on Locked & Loaded moving to step 2. Traced the selection path and
+it is fast: two DOM elements, no network, and the 15-second live-refresh
+timer is cleared on selection.
+
+What I can point at is that both generators now carry TWO continuously
+repainting conic-gradient animations - the site-wide body LED plus the
+console's own - and the accordion was animating a smooth scroll on top of
+that. Changed both to instant scroll, and shortened the Locked & Loaded
+delay from 80ms to 40ms.
+
+NOT CONFIRMED as the cause. If it still stalls, the next step is dropping the
+BODY LED and keeping only the console one - two orbiting gradients on one
+screen was always the riskier half, flagged when it was added. One-line
+change to test.

@@ -87,21 +87,24 @@
   /* The whole collapsed card is the target - it reads as a row you press,
      and the padding around the text is no longer dead space. */
   .card.collapsed{cursor:pointer;}
-  .card.collapsed:hover{background:rgba(255,184,0,0.06);}
+  .card.collapsed:hover{background:rgba(224,27,36,0.05);}
+  /* Completed steps in red, opposite this page's amber - a finished step
+     reads as a different zone from the one you're in. */
   .step-summary{
     display:flex; justify-content:space-between; align-items:center;
-    cursor:pointer; padding:13px 0;
+    cursor:pointer; padding:13px 14px; margin:0 -14px;
+    background:#2A1214;
     /* Same treatment as the Smackagram generator, in this page's amber. The
        rule under each collapsed row makes the stack read as separate boxes. */
-    border-bottom:1px solid var(--amber);
+    border-bottom:2px solid #E01B24;
   }
-  .step-summary:hover{background:rgba(255,184,0,0.06);}
-  .step-summary-text{font-size:14px; color:var(--chalk); font-weight:600;}
+  .step-summary:hover{background:#3A1A1D;}
+  .step-summary-text{font-size:14px; color:#F5D8DB; font-weight:600;}
   .step-summary-change{
     font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--chalk-dim); text-decoration:underline;
     cursor:pointer; background:none; border:none; padding:0; text-transform:uppercase; letter-spacing:0.5px;
   }
-  .step-summary-change:hover{color:var(--flare);}
+  .step-summary-change{color:#FF6B75;}
 
   /* POPULAR TEAM CHIPS */
   .popular-teams{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;}
@@ -1011,7 +1014,7 @@ loadVoices();
     });
     if (typeof updateProgress === 'function') updateProgress(n + 1);
     var target = el(STEPS[n].card);
-    if (target) setTimeout(function(){ target.scrollIntoView({behavior:'smooth', block:'start'}); }, 80);
+    if (target) setTimeout(function(){ target.scrollIntoView({block:'start'}); }, 40);
   };
 
   window.lnlFurthest = 0;
