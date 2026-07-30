@@ -4836,3 +4836,127 @@ rgba(245,245,243,0.26). JS parses clean, one function definition, div balance
 NOT VERIFIED: tapping a tick label. The fader lives on wizard step 2, which
 is hidden on load, so the browser test couldn't click it - the drag path
 works and the tap handler is the same code, but it hasn't been exercised.
+
+## Send a Smack: four steps condensed to two
+Two of the four steps weren't earning their place.
+
+- Step 2 held a single control (the intensity fader) on its own page.
+- Step 4 held NO inputs at all - just a $1 price card and a Send button,
+  repeating what the page intro already says. It padded the count without
+  asking the user anything.
+
+Now:
+  STEP 1 - Set it up: team, roast topics, recipient, and the intensity
+    fader. All of it defines the roast, so it belongs together. The fader
+    sits under a ruled "How hard should he go" subheading so the grouping
+    still reads clearly.
+  STEP 2 - Hear it and send: voice picker, generated line, preview, and the
+    send button with the price stated inline rather than in its own card.
+
+Console header updated to match: two states (Line open / Ready to dial),
+two field labels, two track segments, and aria-valuemax corrected to 2.
+
+VERIFIED in a browser: step 1 contains both the recipient field and the
+fader, step 2 contains both generate and send, counter reads 01/02 then
+02/02, both segments light on the final step, Next correctly hides at the
+end, price line renders. No page errors.
+
+Note on method after last session's mess: every edit here used unique string
+anchors, and the two places that needed positional cuts (removing whole
+step blocks) took their bounds from two distinct marker strings rather than
+one, so an inverted slice was impossible.
+
+## Send a Smack: age gate, step 2 reorder, disabled states
+AGE GATE (step 1). A checkbox appears below the intensity fader whenever
+intensity is above Clean, confirming the RECIPIENT is 18 or older - the
+recipient, not the buyer, since the risk is who gets the call. Matches the
+pattern Smack Battle already uses. Blocks Next until ticked, and RESETS
+whenever intensity changes: an acknowledgement carried over from a different
+setting isn't an acknowledgement. Sits directly under the readout so it reads
+as a consequence of the choice, and is the only red-bordered element on the
+step so it can't be skimmed past.
+
+STEP 2 REORDERED to generate -> what he'll say -> voice + voice preview ->
+listen -> send. Dropped the "What Smacky wrote" heading. The two audio
+controls are deliberately different weights: "Preview this voice" is a quiet
+outlined button beside the dropdown (a two-second sample), while "Listen to
+your Smackagram" is the centred red-outlined payoff (your line, your voice,
+as they'll hear it). Making them look alike would blur two different actions.
+
+BUTTONS narrowed and centred so the red bars don't run edge to edge, sized by
+importance: generate/listen 250px, Send 250px but heavier, Back smallest.
+Uses max-width rather than fixed width so they shrink on a phone instead of
+pressing against the card padding.
+
+DISABLED STATES. "Listen to your Smackagram" and "Send it" are disabled until
+there is actually a line - sending an empty one would still charge for a call
+with nothing in it. Whitespace-only counts as empty. "Preview this voice"
+stays live throughout, since it plays a canned voice sample rather than the
+user's line. All state-disabled buttons carry .no-spinner, or the site-wide
+rule would put a spinner on them and make "not yet" look like "working".
+
+Wired refreshOutputState() into every place the textarea is populated
+programmatically - the input event only fires for human typing, so generating
+a line would otherwise have left the buttons dead. Deliberately NOT called
+after the two error branches: an error message in the box is not a line worth
+sending.
+
+VERIFIED in a browser: gate hidden on Clean, shown above it, Next blocked
+until ticked, resets on intensity change; step 2 element order matches the
+design; listen and send disabled when empty, enabled with a line, disabled
+again on whitespace only. No page errors.
+
+## Send a Smack: rebuilt as a three-step flow
+Consolidated the generator and removed every duplicated question.
+
+STRUCTURE. Was four wizard steps plus a checkout modal that re-asked four
+things already answered (message, voice, recipient name, age confirmation) -
+so a shortened wizard was followed by a form that looked like nothing had
+saved. Now three steps, nothing asked twice:
+  1. Team, roast topics, recipient name, intensity fader, age gate
+  2. Generate, the line, voice + voice preview, listen, send
+  3. Recipient's phone, reply opt-in, two consents, send
+
+The modal is gone entirely - a second navigation idiom stacked on a wizard -
+along with openOrderModal(), its close handler, and the code that copied
+values into its duplicate fields. The voice-list loader was repointed at the
+one remaining select.
+
+INTENSITY FADER replaced four tickboxes. Track fills to the handle, labels
+light as you pass them, tapping a label jumps there.
+
+AGE GATE appears above Clean, confirms the RECIPIENT is 18+, blocks Next
+until ticked, and resets whenever intensity changes.
+
+DISABLED STATES. Listen and Send stay dead until a line exists (whitespace
+doesn't count); Preview-this-voice stays live since it plays a canned sample.
+All carry .no-spinner, or the site-wide rule makes "not yet" look like
+"working". refreshOutputState() is wired into every programmatic write to the
+textarea, since the input event only fires for human typing - but deliberately
+NOT after the error branches, since an error message isn't a line worth
+sending.
+
+NAME CARRIED THROUGH. Step 3 reads the name from step 1 on every entry, so
+it shows "where do we reach Andy?", "Andy's phone number" and a "Smack Andy"
+button. Falls back to neutral wording when blank (otherwise "'s phone number"
+and a bare "Smack"), and to the generic button label for names over 12
+characters that would stretch it. Names are stripped of angle brackets and
+ampersands before insertion.
+
+PHONE FORMATTING. Both phone fields format as 1 (555) 555-5555 while typed,
+with the leading 1 filled in on focus and cleared again on blur if nothing
+was entered. Safe to do for display only: twilio_service._to_e164() already
+strips parentheses, dashes and spaces, which was checked BEFORE building this
+- formatting the field without that would have sent Twilio an invalid number.
+The caret only jumps to the end when it was already there, so correcting a
+digit mid-number doesn't throw you to the end on every keystroke.
+
+VERIFIED in a browser: all three steps advance and return correctly, console
+status and segments track, age gate blocks and resets, buttons enable and
+disable on content, name and phone label and button all personalise with
+working fallbacks, phone formats live including a pasted leading 1.
+
+NOT VERIFIED: an actual submission, which hits Stripe. The submit handler now
+reads message/voice/name from steps 1-2 rather than the deleted modal fields;
+the elements exist and the page throws no errors, but the first real order is
+the first end-to-end test of that path.
