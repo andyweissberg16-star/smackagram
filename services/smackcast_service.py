@@ -533,8 +533,23 @@ def assemble_recap_audio(intro: str, segments: list, outro: str) -> str:
         some mono, some stereo) is a known source of corruption when
         concatenating with pydub, which could plausibly explain audio
         overlapping or playing incorrectly instead of sequentially.
+
+        Only actually converts when something differs. set_frame_rate and
+        set_channels resample the whole segment every time they're called,
+        even when the segment is already at the target — which on a
+        single-CPU instance was real, wasted time across seven multi-minute
+        speech segments. Note the original problem this guards against was
+        specifically the SFX FILES disagreeing with each other; ElevenLabs
+        speech all comes from one API at one setting, so it's already
+        correct and needs no conversion at all. Same guarantee as before -
+        everything leaves here at 44100/stereo - just without the no-op
+        resamples.
         """
-        return segment.set_frame_rate(44100).set_channels(2)
+        if segment.frame_rate != 44100:
+            segment = segment.set_frame_rate(44100)
+        if segment.channels != 2:
+            segment = segment.set_channels(2)
+        return segment
 
     # Sound effects were coming through louder than the speech — the
     # final loudness normalization step balances the AVERAGE loudness

@@ -3649,3 +3649,36 @@ VERIFIED the ordering specifically, since that's the real risk: ran the
 same indexing against a stub with jittered delays so fast calls finish
 first, and confirmed output order still matches input order exactly and
 that intro/segment-N/outro all map to the right slots.
+
+## Smackcast: audio CPU waste (bottleneck moved after parallelizing TTS)
+Render logs from a real run told the story precisely: job returned
+instantly, polling worked, site stayed responsive, NO error logged. Claude
+took ~44s (pydub's import warnings mark the handoff at 04:21:13), then
+audio assembly ran 96+ seconds and was still going when the page was
+reloaded. So the architecture fix worked and generation was still
+progressing - it hadn't failed.
+
+Also visible in the logs: "Setting WEB_CONCURRENCY=1 by default, based on
+available CPUs." Single CPU. Parallelizing the ElevenLabs calls removed
+the network wait and exposed a CPU-bound audio bottleneck underneath.
+
+FIXED real waste in _standardize: it called
+.set_frame_rate(44100).set_channels(2) on every piece unconditionally, and
+both of those resample the entire segment even when it's already at the
+target. Its own docstring says the mismatch it guards against was the SFX
+FILES disagreeing with each other (some 96000Hz, some 44100, some mono) -
+ElevenLabs speech all comes from one API at one setting and is already
+correct. So seven multi-minute speech segments were being resampled for
+nothing, on a single-CPU box. Now converts only when a property actually
+differs.
+
+Verified the guarantee is unchanged: speech at 44100/2 does zero work,
+96000/mono sfx still gets both conversions, 44100/mono sfx gets only the
+channel conversion, and everything still leaves at 44100/stereo.
+
+REMAINING inherent cost (not bugs, just the shape of the work): one mp3
+decode per segment, the ffmpeg loudness normalization pass over the whole
+multi-minute file, and the final mp3 export. All CPU-bound on one core.
+If it needs to get materially faster than this, the options are a bigger
+Render instance or dropping the normalization pass - not more code
+tricks.
