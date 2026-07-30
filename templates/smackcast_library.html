@@ -9,24 +9,47 @@
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
+  /* Same tokens as smackcast_product.html and reload.html, so the three
+     Smackcast surfaces read as one product rather than three. */
+  :root{
+    --surface:#141414;
+    --surface-2:#1C1C1C;
+    --hairline:#3A1416;
+    --punch:#E01B24;
+    --ivory:#FFFFFF;
+    --muted:#B5B0B0;
+    --muted-2:#7A7575;
+    --radius:14px;
+  }
+  /* smackagram.css supplies the base variables but deliberately not a body
+     background - every page declares its own. */
+  body{
+    background:var(--ink); color:var(--chalk);
+    font-family:'Inter',sans-serif; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--punch);}
   .wrap{max-width:760px; margin:0 auto; padding:0 24px 60px;}
-  .hero{padding:34px 0 24px; text-align:center;}
+  .hero{padding:34px 0 26px; text-align:center;}
   .hero .label{
     font-family:'JetBrains Mono',monospace; font-size:var(--fs-xs); font-weight:700;
-    letter-spacing:3px; text-transform:uppercase; color:var(--gold);
+    letter-spacing:3px; text-transform:uppercase; color:var(--punch);
   }
   .hero h1{
-    font-family:'Anton',sans-serif; font-size:clamp(30px,7vw,46px);
-    text-transform:uppercase; line-height:1.02; margin-top:8px;
+    font-family:'Anton',sans-serif; font-size:var(--h1-hero);
+    text-transform:uppercase; line-height:0.98; margin-top:10px;
   }
-  .hero p{color:var(--chalk-dim); font-size:14px; margin-top:10px; line-height:1.6;}
+  .hero h1 em{color:var(--punch); font-style:normal;}
+  .hero .sub{
+    font-size:clamp(15px,3.6vw,18px); color:var(--chalk); line-height:1.6;
+    max-width:560px; margin:14px auto 0;
+  }
+  .smacky{color:var(--punch);}
 
-  /* One block per league, since a single person can run Smackcast on
-     several leagues at once and weeks would otherwise interleave. */
   .league{margin-top:30px;}
   .league-head{
     display:flex; align-items:baseline; justify-content:space-between; gap:12px;
-    padding-bottom:10px; border-bottom:2px solid var(--gold);
+    padding-bottom:10px; border-bottom:2px solid var(--punch);
   }
   .league-name{
     font-family:'Anton',sans-serif; font-size:clamp(19px,4.6vw,26px);
@@ -39,8 +62,8 @@
   }
 
   .recap{
-    background:var(--ink-2); border:1px solid var(--line-strong);
-    border-left:3px solid var(--gold); border-radius:6px;
+    background:var(--surface); border:1.5px solid var(--hairline);
+    border-left:3px solid var(--punch); border-radius:var(--radius);
     padding:16px 18px; margin-top:14px;
   }
   .recap.pending{border-left-color:var(--chalk-dim); opacity:0.75;}
@@ -57,7 +80,7 @@
     letter-spacing:1.5px; text-transform:uppercase; padding:3px 8px;
     border-radius:999px; white-space:nowrap;
   }
-  .recap-status.ready{background:rgba(255,212,0,0.14); color:var(--gold);}
+  .recap-status.ready{background:rgba(224,27,36,0.16); color:var(--punch);}
   .recap-status.generating{background:rgba(245,245,243,0.08); color:var(--chalk-dim);}
   .recap-status.failed{background:rgba(232,20,44,0.14); color:var(--flare-text);}
 
@@ -66,7 +89,7 @@
   .best-line{
     font-family:'Inter',sans-serif; font-style:italic; font-weight:600;
     font-size:15px; line-height:1.45; color:var(--chalk);
-    padding-left:12px; border-left:2px solid rgba(255,212,0,0.4);
+    padding-left:12px; border-left:2px solid rgba(224,27,36,0.45);
     margin-bottom:12px;
   }
   audio{width:100%; margin-bottom:12px;}
@@ -77,17 +100,18 @@
     font-family:'JetBrains Mono',monospace; font-size:var(--fs-2xs); font-weight:700;
     letter-spacing:1.2px; text-transform:uppercase; text-decoration:none;
     padding:8px 12px; border-radius:4px; cursor:pointer;
-    border:1px solid var(--line-strong); background:transparent; color:var(--chalk);
+    border:1px solid var(--hairline); background:transparent; color:var(--chalk);
   }
-  .recap-btn:hover{border-color:var(--gold); color:var(--gold);}
+  .recap-btn:hover{border-color:var(--punch); color:var(--punch);}
   /* The download is the primary action on a recap someone paid for, so it
      gets the filled treatment rather than sitting level with the utility
      buttons beside it. */
   .recap-btn-primary{
-    background:var(--gold); border-color:var(--gold); color:#0D0D0D;
+    background:var(--punch); border-color:var(--punch); color:#fff;
+    box-shadow:0 0 18px rgba(224,27,36,0.35);
   }
-  .recap-btn-primary:hover{filter:brightness(1.08); color:#0D0D0D;}
-  .recap-btn.copied{border-color:var(--gold); color:var(--gold);}
+  .recap-btn-primary:hover{filter:brightness(1.08); color:#fff;}
+  .recap-btn.copied{border-color:var(--punch); color:var(--punch);}
 
   details.transcript{margin-top:12px;}
   details.transcript summary{
@@ -95,15 +119,23 @@
     letter-spacing:1.2px; text-transform:uppercase; color:var(--chalk-dim);
     cursor:pointer; padding:6px 0;
   }
-  details.transcript summary:hover{color:var(--gold);}
+  details.transcript summary:hover{color:var(--punch);}
   details.transcript p{
     font-size:13px; line-height:1.7; color:#DCDCD9; white-space:pre-wrap;
     padding-top:8px; border-top:1px solid var(--line); margin-top:4px;
   }
 
+  .btn{
+    font-weight:700; font-size:var(--fs-md); padding:15px 26px; border-radius:8px;
+    border:none; cursor:pointer; text-transform:uppercase; letter-spacing:0.6px;
+    font-family:'Inter',sans-serif;
+  }
+  .btn-flare{background:var(--punch); color:#fff; box-shadow:0 0 22px rgba(224,27,36,0.42);}
+  .btn-flare:hover{filter:brightness(1.08);}
+
   .empty{
-    background:var(--ink-2); border:1px solid var(--line-strong);
-    border-radius:6px; padding:30px 24px; text-align:center; margin-top:24px;
+    background:var(--surface); border:1px solid var(--hairline);
+    border-radius:var(--radius); padding:30px 24px; text-align:center; margin-top:24px;
   }
   .empty h2{font-family:'Anton',sans-serif; font-size:22px; text-transform:uppercase;}
   .empty p{color:var(--chalk-dim); font-size:14px; margin:10px 0 18px; line-height:1.6;}
@@ -118,18 +150,24 @@
 
 {% include '_nav.html' %}
 
+{% if hero_image_exists %}
+<img src="{{ url_for('static', filename=hero_image) }}"
+     alt="Your Smackcast library — every week Smacky has covered"
+     style="width:100%; height:auto; display:block;">
+{% endif %}
+
 <div class="wrap">
   <div class="hero">
     <p class="label">Smackcast</p>
-    <h1>Your Library</h1>
-    <p>Every week Smacky has covered, kept in one place. Audio, transcript and share link for each one.</p>
+    <h1>Every week<br>you got <em>roasted</em>.</h1>
+    <p class="sub">Every recap <span class="smacky">Smacky</span> has filed for your leagues, kept in one place. Play it, download it, or send the link to the group chat.</p>
   </div>
 
   {% if not groups %}
     <div class="empty">
       <h2>Nothing here yet</h2>
       <p>Connect a fantasy league and Smacky starts filing a recap every week for the rest of the season.</p>
-      <a href="/smackcast" class="btn btn-flare">Set up Smackcast</a>
+      <a href="/smackcast" class="btn btn-flare" style="display:inline-block; text-decoration:none;">Set up Smackcast</a>
     </div>
   {% else %}
     {% for g in groups %}

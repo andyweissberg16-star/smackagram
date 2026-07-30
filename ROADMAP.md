@@ -4237,3 +4237,32 @@ CAUGHT MID-BUILD: my edit script appended the anchor twice, producing
 @app.route("/smackcast/library")@app.route("/smackcast/library") on one line
 and a TypeError on boot. Fixed; full app import and both route registrations
 now verified.
+
+## Smackcast library: rethemed to match the product page
+The library was built before the red palette was settled, so it was still on
+gold with the base smackagram.css look while /smackcast had moved to the
+reload-style tokens. Brought fully in line rather than approximately:
+  - Same token block (--punch, --surface, --hairline, --radius) as
+    smackcast_product.html and reload.html
+  - Same full-width hero banner under the nav, behind the same
+    hero_image_exists guard
+  - Hero typography lifted verbatim - label, --h1-hero heading with a red
+    <em>, sub paragraph, .smacky accent
+  - Same .btn / .btn-flare definitions rather than a bespoke button style
+  - Copy rewritten into the product page's voice ("Every week you got
+    roasted") instead of a flat description
+  - Card surfaces moved from --ink-2 to --surface, borders to the red-tinted
+    --hairline, radius to --radius
+Zero gold references remain.
+
+VERIFIED by comparing COMPUTED styles between the two pages rather than
+eyeballing: 7 properties checked, and the only difference turned out to be
+the PRODUCT page using --flare on its hero <em> while everything else on it
+used --punch - a leftover from the palette swap. Fixed the outlier rather
+than degrading the library to match it. Both pages now identical on body
+background, label colour, heading font/size, em colour, sub size and the
+smacky accent.
+
+NOTE on the empty library: that's correct behaviour, not a bug. There are no
+paid Smackcast purchases in production yet, so no subscriptions and no
+recaps. It populates once a real league is connected.

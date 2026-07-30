@@ -2757,7 +2757,18 @@ def smackcast_library_page():
                   .all())
         groups.append({"sub": sub, "recaps": recaps})
 
-    return render_template("smackcast_library.html", groups=groups)
+    # The library has its own banner. Falls back to the product page's hero
+    # if that file isn't present, so the page never renders a broken image
+    # and never loses its header if the dedicated art is missing.
+    img_dir = os.path.join(app.root_path, "static", "img")
+    own_hero = os.path.exists(os.path.join(img_dir, "smackcast-library-hero.png"))
+    shared_hero = os.path.exists(os.path.join(img_dir, "smackcast-hero.png"))
+    return render_template(
+        "smackcast_library.html",
+        groups=groups,
+        hero_image_exists=own_hero or shared_hero,
+        hero_image="img/smackcast-library-hero.png" if own_hero else "img/smackcast-hero.png",
+    )
 
 
 @app.route("/smackcast-recap/<share_token>")
