@@ -25,6 +25,18 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
   :root{
+    /* Locked & Loaded runs amber rather than the site red. Red reads as
+       happening now, which is a Smackagram; amber reads as primed and
+       waiting, which is what this does - it sits armed until a game ends. */
+    --amber:#FFB800;
+    --amber-hot:#FFD400;
+    --amber-hairline:#3A2A08;
+    --surface:#141414;
+    --surface-2:#1C1C1C;
+    --muted:#B5B0B0;
+    --muted-2:#7A7575;
+    --radius:14px;
+
     --ink:#0D0D0D;
     --ink-2:#1A1A1A;
     --chalk:#F5F5F3;
@@ -204,6 +216,82 @@
   }
   .side-mascot.visible{opacity:1;}
   @media(max-width:1300px){ .side-mascot{display:none;} }
+
+  /* ---- Console treatment, matched to the Smackagram generator ---- */
+  @property --lnl-led{ syntax:'<angle>'; initial-value:0deg; inherits:false; }
+
+  #lnlConsole{
+    position:relative;
+    background:var(--surface);
+    border:5px solid var(--amber);
+    border-radius:var(--radius);
+    box-shadow:0 0 26px rgba(255,184,0,0.28);
+    padding:0; margin-bottom:24px;
+  }
+  #lnlConsole::before{
+    content:''; position:absolute; inset:-5px; border-radius:inherit;
+    padding:5px; pointer-events:none; z-index:2;
+    background:conic-gradient(from var(--lnl-led),
+      transparent 0deg, transparent 300deg,
+      rgba(255,214,120,0.35) 320deg, rgba(255,214,120,0.7) 340deg,
+      #FFD45A 350deg, #FFFFFF 355deg, #FFDE7A 358deg,
+      rgba(255,214,120,0.4) 360deg);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+            mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask-composite:exclude;
+    animation:lnlLedOrbit 9s linear infinite;
+  }
+  @keyframes lnlLedOrbit{ to{ --lnl-led:360deg; } }
+  @media(prefers-reduced-motion:reduce){ #lnlConsole::before{animation:none; opacity:0;} }
+
+  .lnl-bar{
+    display:flex; align-items:center; gap:9px;
+    padding:10px 14px; background:var(--surface-2);
+    border-bottom:1.5px solid var(--amber-hairline);
+    font-family:'JetBrains Mono',monospace;
+    border-top-left-radius:calc(var(--radius) - 5px);
+    border-top-right-radius:calc(var(--radius) - 5px);
+  }
+  .lnl-led{
+    width:8px; height:8px; border-radius:50%; background:var(--amber);
+    flex-shrink:0; animation:lnlPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes lnlPulse{0%,100%{opacity:1;} 50%{opacity:0.35;}}
+  @media(prefers-reduced-motion:reduce){ .lnl-led{animation:none;} }
+  .lnl-status{
+    font-size:11px; font-weight:700; letter-spacing:2px;
+    text-transform:uppercase; color:var(--amber);
+  }
+  .lnl-count{font-size:11px; letter-spacing:1.5px; color:var(--muted-2); margin-left:auto;}
+
+  /* The cards keep their own reveal logic; they just lose their standalone
+     chrome so they read as sections of one console rather than four boxes. */
+  #lnlConsole .card{
+    background:transparent; border:none; box-shadow:none;
+    border-radius:0; margin:0; padding:18px 22px;
+  }
+  #lnlConsole .card + .card{
+    background-image:linear-gradient(to right,
+      transparent 0%, var(--amber) 18%, var(--amber) 82%, transparent 100%);
+    background-size:100% 2px; background-repeat:no-repeat; background-position:top left;
+  }
+  #lnlConsole .step-label{color:var(--amber) !important;}
+
+  .btn-center{display:flex; justify-content:center;}
+  .btn-narrow{width:100%; max-width:250px;}
+  #lnlConsole .btn-flare{
+    background:var(--amber); color:#0D0D0D;
+    box-shadow:0 0 20px rgba(255,184,0,0.4);
+  }
+  #lnlConsole .btn-flare:hover:not(:disabled){filter:brightness(1.08);}
+
+  input::placeholder, textarea::placeholder{
+    color:rgba(245,245,243,0.26); opacity:1; font-style:italic;
+  }
+  input::-moz-placeholder, textarea::-moz-placeholder{
+    color:rgba(245,245,243,0.26); opacity:1; font-style:italic;
+  }
 </style>
 </head>
 <body>
@@ -237,6 +325,13 @@
 
   <div id="errorBox" class="error-box" role="alert"></div>
 
+
+  <div id="lnlConsole">
+    <div class="lnl-bar">
+      <span class="lnl-led" aria-hidden="true"></span>
+      <span class="lnl-status" id="lnlStatus">Armed</span>
+      <span class="lnl-count" id="lnlCount">Standing by</span>
+    </div>
 
   <div class="card" id="gameCard">
     <p class="step-label">Step 1</p>
@@ -369,7 +464,11 @@
       <span>1 Smackagram ($1) comes out of your wallet the moment you lock this in. If <strong id="targetTeamNote">the selected team</strong> loses, that's it — the call fires. If they win instead, your $1 is automatically refunded back to your wallet.</span>
     </div>
 
-    <button id="armBtn" class="btn btn-flare">Lock it in — $1</button>
+    <div class="btn-center">
+      <button id="armBtn" class="btn btn-flare btn-narrow">Lock it in &mdash; $1</button>
+    </div>
+  </div>
+
   </div>
 
 </div>

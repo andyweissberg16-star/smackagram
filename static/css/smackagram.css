@@ -75,8 +75,11 @@ nav{display:flex; justify-content:space-between; align-items:center; padding:20p
 }
 .nav-drawer a:last-child{border-bottom:0;}
 .nav-drawer a:hover,.nav-drawer a:focus-visible{color:var(--flare);}
-.nav-drawer a.is-flare{color:var(--flare);}
-.nav-drawer a.is-gold{color:var(--gold);}
+/* Was two accent colours on individual drawer items. Every nav link now uses
+   one colour - the hover state below is what distinguishes them, not a
+   permanent highlight on two of them. */
+.nav-drawer a.is-flare,
+.nav-drawer a.is-gold{color:inherit;}
 
 .nav-drawer-auth{margin-top:20px; padding-top:14px; border-top:1px solid var(--line-strong);}
 .nav-drawer-auth a{font-size:17px;}

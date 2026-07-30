@@ -5105,3 +5105,31 @@ images loading. The two exceptions are sandbox-only - did-you-get-smacked-
 hero.png and smackcast-hero.png aren't in this copy of static/img, so one
 renders a broken image and the other's conditional is false. Both exist in
 production.
+
+## Nav cleanup + Locked & Loaded amber console
+NAV: "Generator" renamed to "Smackagram" and "How it works" removed - both in
+the desktop bar AND the mobile drawer, since each link exists twice in
+_nav.html and changing one would have left them inconsistent. The
+/#how-it-works section still exists on the home page; it's just unlinked.
+
+LOCKED & LOADED restyled to match the Smackagram generator, in amber rather
+than red. The reasoning: red reads as happening now, which is what a
+Smackagram is - you press send and it calls. Amber reads as primed and
+waiting, which is what this does - it sits armed until a game ends. Same
+console language, different state.
+
+DELIBERATELY KEPT THE EXISTING FLOW. The four cards already reveal
+progressively and collapse into one-line summaries when completed - an
+accordion, and arguably better than a wizard since you can see earlier
+choices without navigating back. Converting it would have meant tearing out
+working logic for something that shows less. So the cards keep their reveal
+behaviour and only lose their standalone chrome, so they read as sections of
+one console instead of four separate boxes.
+
+Applied: 5px amber frame with an orbiting LED on the same 9s lap, an ARMED
+status header with a slow pulse, fading amber dividers between sections, the
+narrow centred button treatment, and the faded italic placeholders.
+
+Verified logged in: frame 5px amber, LED sweeping, all four cards inside the
+console with exactly one visible, arm button amber, page frame still present.
+No errors.
