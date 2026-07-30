@@ -4288,3 +4288,52 @@ paid for.
 Reuses one subscription per admin rather than creating a new one per run, so
 repeated test generations stack up as weeks under a single league heading
 instead of littering the library.
+
+## Smackcast: THEREALCHAMPS came out as "Theral Champs"
+Caught in live testing. The sanitizer title-cases long capital runs so they
+aren't spelled out letter by letter - THEREALCHAMPS becomes Therealchamps -
+but the voice engine then read that single long word as "Theral Champs",
+dropping syllables entirely. So the caps fix solved one problem and created
+another.
+
+WRONG LAYER. The sanitizer is a regex; it cannot know that THEREALCHAMPS is
+"the real champs" with the spaces removed. The MODEL can see that trivially.
+
+Fixed in the prompt instead: when a team name is words run together, with or
+without capitals, write it SPACED OUT in the script - "The Real Champs",
+"top dog daddy pants" - so it reads correctly aloud, then mock them for not
+bothering with the spacebar. Gets the joke AND correct pronunciation, where
+the sanitizer approach could only ever get one.
+
+This also explains why topdogdaddypants worked earlier: it happens to be
+made of short common syllables the engine guessed right. That was luck, not
+handling. Now it's instructed.
+
+Sanitizer title-casing stays as the fallback for when the model doesn't
+split a name - it still prevents letter-by-letter spelling, which is the
+worse failure.
+
+## Smackcast: transitions dropped in a stress run
+Live testing: several segments moved to a new matchup with no spoken handoff
+at all, leaving the listener no cue that the subject had changed.
+
+CAUSE: the instruction was phrased as a stylistic preference ("open each
+segment with a short transition") sitting among a dozen other rules in a
+14,000-character prompt. Under pressure - every segment in a stress run has
+an unpronounceable name to deal with inside ~60 words - it was the first
+thing dropped.
+
+FIXED by making it STRUCTURAL rather than stylistic. A segment is now
+defined as an ordered shape: handoff, then both team names, then everything
+else. Explicitly states the handoff is not optional and is not the first
+thing to cut when crowded - if short on room, cut a coinage or trim the
+roast instead. Also states that a segment opening straight into a joke about
+a stupid team name has failed however good the joke is, which is exactly the
+failure that occurred.
+
+Ordering matters as much as presence: the handoff has to come BEFORE the
+name mockery, since orienting the listener is the whole point.
+
+Possibly aggravated by the stress run specifically - a normal recap has
+spare budget per segment, and the earlier non-stress generation sounded
+correct. Worth confirming on both.
