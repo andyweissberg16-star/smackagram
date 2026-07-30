@@ -140,6 +140,31 @@
   /* Narrow, centred buttons so the red bars don't run edge to edge. max-width
      rather than a fixed width, so they shrink gracefully on a phone instead of
      pushing at the card padding. */
+  /* Collapsed step rows. The whole row is the target, not a small link -
+     easier to hit, and it reads as a row you can open. */
+  .sas-summary{
+    display:flex; align-items:center; gap:11px; cursor:pointer;
+    padding:12px 0; margin-bottom:2px;
+  }
+  .sas-summary[hidden]{display:none;}
+  .sas-tick{
+    width:20px; height:20px; border-radius:50%; background:var(--punch);
+    color:#fff; font-size:12px; display:grid; place-items:center; flex-shrink:0;
+  }
+  .sas-summary-body{flex:1; min-width:0;}
+  .sas-summary-label{
+    display:block; font-family:'JetBrains Mono',monospace; font-size:9px;
+    letter-spacing:1.5px; text-transform:uppercase; color:var(--muted-2);
+  }
+  .sas-summary-text{
+    display:block; font-size:13.5px; color:var(--chalk); font-weight:600;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .sas-summary-change{
+    font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:1px;
+    color:var(--punch); flex-shrink:0;
+  }
+
   .btn-center{display:flex; justify-content:center;}
   .btn-narrow{width:100%; max-width:250px;}
   .btn-outline{
@@ -446,6 +471,15 @@
     <p class="console-field" id="consoleField">Target</p>
 
   <div class="wizard-step active" data-step="1">
+    <div class="sas-summary" id="sasSummary1" hidden>
+      <span class="sas-tick" aria-hidden="true">&#10003;</span>
+      <span class="sas-summary-body">
+        <span class="sas-summary-label">Step 1</span>
+        <span class="sas-summary-text" id="sasSummaryText1"></span>
+      </span>
+      <span class="sas-summary-change">Change</span>
+    </div>
+    <div class="sas-body" id="sasBody1">
     <p class="step-label">Step 1</p>
     <h3>Who's getting the call</h3>
     <p class="card-sub">Type a team and who this is for — Smacky'll write the roast.</p>
@@ -474,7 +508,23 @@
     </label>
   </div>
 
+      <div class="btn-center" style="margin-top:20px; padding-top:16px;
+           background-image:linear-gradient(to right,transparent 0%,var(--punch) 18%,var(--punch) 82%,transparent 100%);
+           background-size:100% 2px; background-repeat:no-repeat; background-position:top left;">
+        <button type="button" id="sasNext1" class="btn btn-flare btn-narrow">Next</button>
+      </div>
+    </div>
+
   <div class="wizard-step" data-step="2">
+    <div class="sas-summary" id="sasSummary2" hidden>
+      <span class="sas-tick" aria-hidden="true">&#10003;</span>
+      <span class="sas-summary-body">
+        <span class="sas-summary-label">Step 2</span>
+        <span class="sas-summary-text" id="sasSummaryText2"></span>
+      </span>
+      <span class="sas-summary-change">Change</span>
+    </div>
+    <div class="sas-body" id="sasBody2">
     <p class="step-label">Step 2</p>
     <p class="card-sub">Generate it, pick a voice, hear it, send it.</p>
 
@@ -508,7 +558,15 @@
   </div>
 
 
+      <div class="btn-center" style="margin-top:20px; padding-top:16px;
+           background-image:linear-gradient(to right,transparent 0%,var(--punch) 18%,var(--punch) 82%,transparent 100%);
+           background-size:100% 2px; background-repeat:no-repeat; background-position:top left;">
+        <button type="button" id="sasNext2" class="btn btn-flare btn-narrow">Next</button>
+      </div>
+    </div>
+
   <div class="wizard-step" data-step="3">
+    <div class="sas-body" id="sasBody3">
     <p class="step-label">Step 3</p>
     <p class="card-sub" id="callingSub">Last thing &mdash; where do we reach them?</p>
 
@@ -545,6 +603,8 @@
         <button id="orderSubmitBtn" class="btn btn-flare btn-narrow">Send this Smackagram</button>
       </div>
     </div>
+  </div>
+
   </div>
 
   <div class="wizard-nav">
@@ -720,9 +780,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let current = 0;
 
+  // Furthest step reached. Steps beyond it stay hidden entirely; steps before
+  // the current one collapse to a summary row you can click to reopen.
+  var furthest = 0;
+
+  function summarise(n) {
+    var val = '';
+    if (n === 0) {
+      var team = (document.getElementById('teamInput') || {}).value || '';
+      var who = (document.getElementById('recipientNameInput') || {}).value || '';
+      var lvl = document.getElementById('faderLevel');
+      val = [team.trim(), who.trim(), lvl ? lvl.textContent : ''].filter(Boolean).join('  \u00b7  ');
+    } else if (n === 1) {
+      var line = (document.getElementById('trashTalkOutput') || {}).value || '';
+      var voice = document.getElementById('voiceSelect');
+      var vname = voice && voice.selectedIndex >= 0 ? voice.options[voice.selectedIndex].text : '';
+      line = line.trim();
+      if (line.length > 60) line = line.slice(0, 60) + '\u2026';
+      val = [line, vname].filter(Boolean).join('  \u00b7  ');
+    }
+    var el = document.getElementById('sasSummaryText' + (n + 1));
+    if (el) el.textContent = val || '\u2014';
+  }
+
   function show(i) {
     current = Math.max(0, Math.min(i, steps.length - 1));
-    steps.forEach((el, n) => el.classList.toggle('active', n === current));
+    furthest = Math.max(furthest, current);
+    steps.forEach(function (el, n) {
+      // Every reached step stays in the document; only the current one shows
+      // its body. That's what keeps the completed choices visible without
+      // stacking full panels.
+      el.classList.toggle('active', n <= furthest);
+      var body = document.getElementById('sasBody' + (n + 1));
+      var summ = document.getElementById('sasSummary' + (n + 1));
+      if (body) body.style.display = (n === current) ? '' : 'none';
+      if (summ) {
+        var collapsed = (n < current) || (n > current && n <= furthest);
+        summ.hidden = !collapsed;
+        if (collapsed) summarise(n);
+      }
+    });
     segs.forEach((seg, n) => seg.classList.toggle('on', n <= current));
     if (statusEl) statusEl.textContent = STATUS[current] || STATUS[0];
     if (fieldEl) fieldEl.textContent = FIELDS[current] || FIELDS[0];
@@ -773,6 +870,23 @@ document.addEventListener('DOMContentLoaded', () => {
   // Exposed so 'Send it' on step 2 can advance here rather than opening a
   // separate modal.
   window.__wizardGo = show;
+  // Per-step Next buttons and clickable collapsed rows.
+  [['sasNext1', 0], ['sasNext2', 1]].forEach(function (pair) {
+    var b = document.getElementById(pair[0]);
+    if (b) b.addEventListener('click', function () {
+      if (pair[1] === 0 && !validateStep1(true)) {
+        var e = document.getElementById('step1Error');
+        if (e) e.scrollIntoView({behavior:'smooth', block:'center'});
+        return;
+      }
+      show(pair[1] + 1);
+    });
+  });
+  [1, 2, 3].forEach(function (n) {
+    var summ = document.getElementById('sasSummary' + n);
+    if (summ) summ.addEventListener('click', function () { show(n - 1); });
+  });
+
   nextBtn.addEventListener('click', () => {
     if (current === 0 && !validateStep1(true)) {
       var e = document.getElementById('step1Error');

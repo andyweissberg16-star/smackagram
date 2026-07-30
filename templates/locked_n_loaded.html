@@ -279,6 +279,9 @@
   #lnlConsole .step-label{color:var(--amber) !important;}
 
   .btn-center{display:flex; justify-content:center;}
+  /* Hidden until the step has a valid choice - a Next that does nothing is
+     worse than no Next at all. */
+  #nextFromGame, #nextFromTeam{display:none;}
   .btn-narrow{width:100%; max-width:250px;}
   #lnlConsole .btn-flare{
     background:var(--amber); color:#0D0D0D;
@@ -364,12 +367,17 @@
       <div class="game-list" id="gameList">
         <p class="game-empty">Search for a team above to see their upcoming or live game.</p>
       </div>
+    
+      <div class="btn-center step-next-wrap">
+        <button type="button" id="nextFromGame" class="btn btn-flare btn-narrow step-next">Next</button>
+      </div>
     </div>
   </div>
 
   <div class="card" id="teamCard" style="display:none;">
     <p class="step-label">Step 2</p>
-    <h3>Who has to lose</h3>
+    <h3>Which team needs to lose</h3>
+    <p class="card-sub" id="loseSubtext">Pick the team that has to go down.</p>
 
     <div id="teamCardSummary" class="step-summary" style="display:none;">
       <span class="step-summary-text" id="teamCardSummaryText"></span>
@@ -379,12 +387,23 @@
     <div id="teamCardContent">
       <p class="card-sub">We'll only send it if this team loses. If they win, you're not charged.</p>
       <div class="team-choice" id="teamChoice"></div>
+    
+      <div class="btn-center step-next-wrap">
+        <button type="button" id="nextFromTeam" class="btn btn-flare btn-narrow step-next">Next</button>
+      </div>
     </div>
   </div>
 
   <div class="card" id="modeCard" style="display:none;">
     <p class="step-label">Step 3</p>
     <h3>Choose your message</h3>
+
+    <div id="modeCardSummary" class="step-summary" style="display:none;">
+      <span class="step-summary-text" id="modeCardSummaryText"></span>
+      <button type="button" class="step-summary-change">Change</button>
+    </div>
+
+    <div id="modeCardContent">
     <div class="mode-tabs">
       <div class="mode-tab active" data-mode="custom">
         <h4>Write your own</h4>
@@ -421,6 +440,11 @@
       <button id="voiceSampleBtnLL" class="btn btn-ghost" type="button" style="white-space:nowrap; width:auto; padding:10px 16px;">Preview voice</button>
     </div>
     <audio id="voiceSampleAudioLL" style="display:none;"></audio>
+    
+      <div class="btn-center step-next-wrap">
+        <button type="button" id="nextFromMode" class="btn btn-flare btn-narrow step-next">Next</button>
+      </div>
+    </div>
   </div>
 
   <div class="card" id="recipientCard" style="display:none;">
@@ -465,7 +489,7 @@
     </div>
 
     <div class="btn-center">
-      <button id="armBtn" class="btn btn-flare btn-narrow">Lock it in &mdash; $1</button>
+      <button id="armBtn" class="btn btn-flare btn-narrow">Arm This Smackagram</button>
     </div>
   </div>
 
@@ -670,19 +694,12 @@ function selectGame(game, el) {
     teamChoice.appendChild(opt);
   });
 
-  // collapse Step 1 into a compact summary
-  document.getElementById('gameCardContent').style.display = 'none';
-  const summary = document.getElementById('gameCardSummary');
-  summary.style.display = 'flex';
+  // Record the choice and write the summary text. Visibility is the
+  // accordion's job now - picking a game no longer jumps you forward, the
+  // Next button does.
   document.getElementById('gameCardSummaryText').textContent = `${game.away_team} @ ${game.home_team}`;
-  document.getElementById('gameCard').classList.add('collapsed');
-
-  document.getElementById('teamCard').style.display = 'block';
-  document.getElementById('modeCard').style.display = 'none';
-  document.getElementById('recipientCard').style.display = 'none';
-
-  updateProgress(2);
-  setTimeout(() => document.getElementById('teamCard').scrollIntoView({behavior: 'smooth', block: 'start'}), 100);
+  const nextBtn = document.getElementById('nextFromGame');
+  if (nextBtn) nextBtn.style.display = '';
 }
 
 function selectTeam(team, el) {
@@ -691,19 +708,15 @@ function selectTeam(team, el) {
   selectedTargetTeam = team;
   document.getElementById('targetTeamNote').textContent = team;
 
-  // collapse Step 2 into a compact summary
-  document.getElementById('teamCardContent').style.display = 'none';
-  const summary = document.getElementById('teamCardSummary');
-  summary.style.display = 'flex';
   document.getElementById('teamCardSummaryText').textContent = `${team} must lose`;
-  document.getElementById('teamCard').classList.add('collapsed');
+  // Name the team in the step's own subtext, so it reads as a sentence about
+  // THIS matchup rather than generic instructions.
+  var sub = document.getElementById('loseSubtext');
+  if (sub) sub.textContent = `The call only triggers if the ${team} lose.`;
+  var tNext = document.getElementById('nextFromTeam');
+  if (tNext) tNext.style.display = '';
 
-  document.getElementById('modeCard').style.display = 'block';
-  document.getElementById('recipientCard').style.display = 'block';
   updateAgeCheckboxVisibility();
-
-  updateProgress(3);
-  setTimeout(() => document.getElementById('modeCard').scrollIntoView({behavior: 'smooth', block: 'start'}), 100);
 }
 
 document.getElementById('changeGameBtn').addEventListener('click', () => {
@@ -965,6 +978,72 @@ async function loadSensitivityLevelsLL() {
 loadSensitivityLevelsLL();
 
 loadVoices();
+</script>
+
+<script>
+/* ACCORDION. Exactly one step open at a time - opening any step collapses the
+   others, which is what keeps the page short instead of growing a long column
+   of expanded panels. Layered OVER the existing selection logic rather than
+   replacing it: selectGame/selectTeam still record their choices and write
+   their summaries, they just no longer decide what's visible. */
+(function () {
+  var STEPS = [
+    {card:'gameCard',      content:'gameCardContent',      summary:'gameCardSummary',      next:'nextFromGame'},
+    {card:'teamCard',      content:'teamCardContent',      summary:'teamCardSummary',      next:'nextFromTeam'},
+    {card:'modeCard',      content:'modeCardContent',      summary:'modeCardSummary',      next:'nextFromMode'},
+    {card:'recipientCard', content:null,                   summary:null,                   next:null}
+  ];
+
+  function el(id){ return id ? document.getElementById(id) : null; }
+
+  window.lnlOpenStep = function (n) {
+    STEPS.forEach(function (st, i) {
+      var card = el(st.card), content = el(st.content), summary = el(st.summary);
+      if (!card) return;
+      // Steps after the current one stay hidden entirely; steps before it
+      // collapse to their summary; the current one is open.
+      var reached = i <= window.lnlFurthest;
+      card.style.display = reached ? 'block' : 'none';
+      if (!content) return;
+      if (i === n) {
+        content.style.display = 'block';
+        if (summary) summary.style.display = 'none';
+        card.classList.remove('collapsed');
+      } else if (reached) {
+        content.style.display = 'none';
+        if (summary) summary.style.display = 'flex';
+        card.classList.add('collapsed');
+      }
+    });
+    if (typeof updateProgress === 'function') updateProgress(n + 1);
+    var target = el(STEPS[n].card);
+    if (target) setTimeout(function(){ target.scrollIntoView({behavior:'smooth', block:'start'}); }, 80);
+  };
+
+  window.lnlFurthest = 0;
+
+  function advance(from) {
+    window.lnlFurthest = Math.max(window.lnlFurthest, from + 1);
+    window.lnlOpenStep(from + 1);
+  }
+
+  STEPS.forEach(function (st, i) {
+    var next = el(st.next);
+    if (next) next.addEventListener('click', function () { advance(i); });
+
+    // The whole collapsed row reopens the step - a bigger target than the
+    // small "Change" link, and it reads as a row you can open.
+    var summary = el(st.summary);
+    if (summary) {
+      summary.style.cursor = 'pointer';
+      summary.addEventListener('click', function () { window.lnlOpenStep(i); });
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    window.lnlOpenStep(0);
+  });
+})();
 </script>
 </body>
 </html>

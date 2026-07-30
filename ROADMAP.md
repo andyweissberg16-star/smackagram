@@ -5245,3 +5245,44 @@ THREE THINGS I GOT WRONG AND FIXED WHILE BUILDING:
 
 Verified live: granting 30 to admin1 returned balance 3000 cents / 30 smacks,
 out-of-range returned 400, unknown user returned 404.
+
+## Accordion flow on both generators
+Both generators now use the same pattern: one step open at a time, completed
+steps collapsed into clickable summary rows above it, explicit Next buttons.
+
+LOCKED & LOADED. Previously auto-advanced the instant you picked something,
+with a small "Change" link on each collapsed row. Now:
+  - Next button at the foot of steps 1-3, hidden until that step has a choice
+    (a Next that does nothing is worse than no Next).
+  - The WHOLE collapsed row reopens the step, not just the link.
+  - Exactly one step open at a time - opening any step collapses the rest,
+    which is what keeps the page short instead of growing a column of panels.
+  - Step 2 reworded to "Which team needs to lose", with subtext naming the
+    selection live: "The call only triggers if the Cowboys lose."
+  - Step 4 button is "Arm This Smackagram" rather than "Lock it in - $1".
+    Chosen over "Lock It In" because at the moment of charging someone,
+    "arm" says exactly what happens (it waits for the game) while "lock in"
+    is vague about what's being locked. The price stays on the line above.
+  Built by layering an accordion controller OVER the existing selection logic
+  rather than replacing it - selectGame/selectTeam still record choices and
+  write their summaries, they just no longer decide what's visible.
+
+SEND A SMACK. Converted from a wizard (one step visible, others hidden) to the
+same accordion, so completed choices stay on screen as summary rows. The rows
+show what was actually entered - step 1 reads "Yankees · Andy · Savage", step
+2 shows the generated line truncated plus the chosen voice. Per-step Next
+buttons run the same step 1 validation as before.
+
+VERIFIED in a browser on both: correct initial state, advancing collapses the
+completed step above, clicking a collapsed row reopens it AND collapses
+whatever was open, and exactly one body is visible at any point. No errors.
+
+NOT VERIFIED on Locked & Loaded: the real path from picking an actual game
+through to Next, because this sandbox has no live sports API key. The
+accordion mechanics were driven directly instead. Worth being the first thing
+tested.
+
+LEFT IN PLACE: send_a_smack still has its old shared Next/Back nav below the
+steps, now redundant since each step has its own button. Left rather than
+removed blind - worth deciding whether to drop it or keep Back as an
+affordance once both are visible on screen.
