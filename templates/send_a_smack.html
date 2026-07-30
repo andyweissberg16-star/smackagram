@@ -116,10 +116,41 @@
      as an outgoing-call terminal rather than a form. The status line and
      segmented track advance with the wizard, so it reads as arming
      something rather than filling in boxes. */
+  /* Thick red frame with an LED orbiting it. The travelling light is a
+     conic-gradient rotated via an @property angle, masked so it paints only
+     the border band and not the card face. @property is what makes the
+     angle animatable at all - without it the gradient jumps rather than
+     sweeps. Browsers without @property still get the solid red border
+     underneath, which is why that's a real border rather than part of the
+     gradient. */
+  @property --led-angle{ syntax:'<angle>'; initial-value:0deg; inherits:false; }
   #wizardCard{
-    background:var(--surface); border:1.5px solid var(--hairline);
-    border-radius:var(--radius); box-shadow:none; padding:0; overflow:hidden;
+    position:relative;
+    background:var(--surface);
+    border:3px solid var(--punch);
+    border-radius:var(--radius);
+    box-shadow:0 0 24px rgba(224,27,36,0.28);
+    padding:0;
   }
+  #wizardCard::before{
+    content:''; position:absolute; inset:-3px; border-radius:inherit;
+    padding:3px; pointer-events:none; z-index:2;
+    background:conic-gradient(from var(--led-angle),
+      transparent 0deg, transparent 336deg,
+      rgba(255,120,128,0.65) 344deg,
+      #FF5A64 351deg, #FFFFFF 354deg, #FF5A64 357deg,
+      rgba(255,120,128,0.65) 360deg);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+            mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask-composite:exclude;
+    animation:ledOrbit 3.4s linear infinite;
+  }
+  @keyframes ledOrbit{ to{ --led-angle:360deg; } }
+  @media(prefers-reduced-motion:reduce){ #wizardCard::before{animation:none; opacity:0;} }
+  /* The header sat flush against the old hairline; the thicker frame needs
+     the inner corners clipped so it doesn't square off the radius. */
+  .console-bar{border-top-left-radius:calc(var(--radius) - 3px); border-top-right-radius:calc(var(--radius) - 3px);}
   .console-bar{
     display:flex; align-items:center; gap:9px;
     padding:10px 14px; background:var(--surface-2);

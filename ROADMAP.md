@@ -4704,3 +4704,28 @@ NOT DONE (still open): the intensity fader idea from the broadcast-desk
 direction. Replacing the sensitivity dropdown with a physical slider is a
 better interaction than picking from a list, and would pair well with this
 console frame.
+
+## Send a Smack: thicker red frame with an orbiting LED
+Border thickened to 3px solid --punch with a soft red glow, and an LED now
+travels clockwise around the frame.
+
+HOW IT WORKS: a conic-gradient on ::before, rotated by animating a custom
+property, masked with mask-composite so it paints only the border band and
+not the card face. The white-cored hot spot is a narrow arc in the gradient
+rather than a separate element, so it follows the rounded corners exactly -
+a positioned dot would have to be path-animated and would cut corners.
+
+@property is what makes this work at all. A plain CSS variable can't be
+animated, so the gradient would jump between keyframes instead of sweeping.
+Declaring --led-angle as an <angle> makes it interpolatable.
+
+Degrades cleanly: the 3px red border is a REAL border underneath, not part
+of the gradient, so a browser without @property or mask-composite still
+shows the thick red frame - just without the travelling light. Animation is
+disabled under prefers-reduced-motion.
+
+VERIFIED by sampling the animated property on the pseudo-element (reading it
+from the card itself shows nothing - the animation lives on ::before):
+angle swept 120deg to 226deg across one second, with the conic-gradient
+tracking it, and the animation reported as running rather than merely
+declared. Border computes to 3px rgb(224,27,36), and the wizard still works.
