@@ -4613,3 +4613,35 @@ worth keeping if a short-form generator ever genuinely wants the voice.
 KEPT from that same change (this was the actual request and is unaffected):
   - self-moderation of our own generated output, with regeneration
   - specific rejection reasons on all seven user-facing paths
+
+## Send a Smack: four stacked cards -> single-frame step wizard
+Restructured /send-a-smack. The four cards were stacked down the page; they
+are now one frame showing a step at a time, with Next/Back navigation and a
+four-dot indicator at the top.
+
+Every step stays in the DOM and is only hidden, deliberately. That means
+field values survive moving back and forth, and none of the existing
+handlers (generate, voice preview, pricing, checkout) needed rewiring - a
+real risk if steps had been destroyed and rebuilt.
+
+Details worth keeping:
+- Back is HIDDEN on step 1 rather than disabled. A disabled button picks up
+  the site-wide spinner styling, which reads as loading - the same trap that
+  made the Smackcast league stepper look frozen earlier tonight.
+- Next is hidden on step 4, since that step already has its own "Send it"
+  call to action and a second competing button would be confusing.
+- The frame scrolls back to its top on each change, so moving from a long
+  step to a short one doesn't leave you stranded in whitespace.
+- Dots show three states: upcoming (outline), completed (dim red fill),
+  current (solid red, slightly scaled).
+
+BUG CAUGHT MID-BUILD: the nav initially landed inside the checkout modal,
+because the anchor I matched on ("Continue to payment") exists there as well
+as at the end of the pricing block. Playwright caught it - the button existed
+but was never visible. Re-anchored on the actual end of step 4, and fixed a
+resulting div imbalance.
+
+VERIFIED in a browser: exactly one step visible at every point, counter and
+dots correct at all four, Back/Next visibility correct at the boundaries,
+and a value typed on step 1 still present after navigating to step 4 and
+back. No page errors.

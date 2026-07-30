@@ -54,6 +54,33 @@
     animation:cardFadeIn 0.35s ease;
   }
   @keyframes cardFadeIn{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);}}
+  /* STEP WIZARD — the four cards are now one frame shown a step at a time.
+     Each stays in the DOM (just hidden) so every field keeps its value when
+     moving back and forth, and nothing existing had to be re-wired. */
+  .step-dots{display:flex; justify-content:center; gap:10px; margin-bottom:20px;}
+  .step-dot{
+    width:12px; height:12px; border-radius:50%;
+    background:transparent; border:2px solid var(--line-strong);
+    transition:background .18s ease, border-color .18s ease, transform .18s ease;
+  }
+  .step-dot.done{border-color:var(--flare); background:rgba(232,20,44,0.35);}
+  .step-dot.active{border-color:var(--flare); background:var(--flare); transform:scale(1.25);}
+  .wizard-step{display:none;}
+  .wizard-step.active{display:block;}
+  .wizard-nav{
+    display:flex; gap:10px; margin-top:22px; padding-top:18px;
+    border-top:1px solid var(--line);
+  }
+  .wizard-nav .btn{flex:1;}
+  .btn-back{
+    background:transparent; border:1px solid var(--line-strong); color:var(--chalk);
+  }
+  .btn-back:hover{border-color:var(--flare); color:var(--flare);}
+  .step-counter{
+    text-align:center; font-family:'JetBrains Mono',monospace; font-size:11px;
+    letter-spacing:1.5px; text-transform:uppercase; color:var(--chalk-dim);
+    margin-bottom:14px;
+  }
   .step-label{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare-text); text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; font-weight:700;}
   .card h3{font-family:'Anton',sans-serif; font-size:22px; margin-bottom:6px; text-transform:uppercase;}
   .card-sub{color:var(--chalk-dim); font-size:13px; margin-bottom:18px;}
@@ -134,7 +161,16 @@
 
 <div class="wrap" style="padding-top:24px;">
 
-  <div class="card">
+  <div class="card" id="wizardCard">
+    <div class="step-dots" id="stepDots">
+      <span class="step-dot active"></span>
+      <span class="step-dot"></span>
+      <span class="step-dot"></span>
+      <span class="step-dot"></span>
+    </div>
+    <p class="step-counter" id="stepCounter">Step 1 of 4</p>
+
+  <div class="wizard-step active" data-step="1">
     <p class="step-label">Step 1</p>
     <h3>Who's getting smacked</h3>
     <p class="card-sub">Type a team and who this is for — Smacky'll write the roast.</p>
@@ -150,7 +186,7 @@
     <input id="recipientNameInput" type="text" placeholder="ex. Mike">
   </div>
 
-  <div class="card">
+  <div class="wizard-step" data-step="2">
     <p class="step-label">Step 2</p>
     <h3>How aggressive</h3>
     <p class="card-sub">Pick a tone — tap the (i) on any option to see what it means.</p>
@@ -159,7 +195,7 @@
     </div>
   </div>
 
-  <div class="card">
+  <div class="wizard-step" data-step="3">
     <p class="step-label">Step 3</p>
     <h3>Smacky's first draft</h3>
     <p class="card-sub">Edit it however you want, then preview it in Smacky's voice (or someone else's) before sending.</p>
@@ -184,7 +220,7 @@
     <button id="generateBtn" class="btn btn-flare" style="margin-top:18px;">Generate smack talk</button>
   </div>
 
-  <div class="card">
+  <div class="wizard-step" data-step="4">
     <p class="step-label">Step 4</p>
     <h3>Pick your play</h3>
     <p class="card-sub">No tokens, no subscriptions. Just $1 a smack.</p>
@@ -200,6 +236,11 @@
       </div>
     </div>
   </div>
+
+    <div class="wizard-nav">
+      <button type="button" id="wizardBack" class="btn btn-back">Back</button>
+      <button type="button" id="wizardNext" class="btn btn-flare">Next</button>
+    </div>
 
 </div>
 
@@ -256,9 +297,51 @@
 
     <button id="orderSubmitBtn" class="btn btn-flare">Continue to payment</button>
   </div>
+
+  </div>
 </div>
 
 <script>
+// STEP WIZARD. Every step stays in the DOM and is just hidden, so field
+// values survive moving back and forth and none of the existing handlers
+// (generate, preview, pricing, checkout) needed rewiring.
+document.addEventListener('DOMContentLoaded', () => {
+  const steps = Array.from(document.querySelectorAll('.wizard-step'));
+  const dots = Array.from(document.querySelectorAll('.step-dot'));
+  const backBtn = document.getElementById('wizardBack');
+  const nextBtn = document.getElementById('wizardNext');
+  const counter = document.getElementById('stepCounter');
+  const card = document.getElementById('wizardCard');
+  if (!steps.length || !nextBtn) return;
+
+  let current = 0;
+
+  function show(i) {
+    current = Math.max(0, Math.min(i, steps.length - 1));
+    steps.forEach((el, n) => el.classList.toggle('active', n === current));
+    dots.forEach((d, n) => {
+      d.classList.toggle('active', n === current);
+      d.classList.toggle('done', n < current);
+    });
+    counter.textContent = `Step ${current + 1} of ${steps.length}`;
+
+    // Back is hidden rather than disabled on the first step - a disabled
+    // button would pick up the site-wide spinner, which reads as loading.
+    backBtn.style.display = current === 0 ? 'none' : '';
+    // The last step already has its own "Continue to payment" button, so a
+    // Next here would be a second, competing call to action.
+    nextBtn.style.display = current === steps.length - 1 ? 'none' : '';
+
+    // Scroll the frame back to the top - without this, moving from a long
+    // step to a short one leaves you halfway down a page of whitespace.
+    if (card) card.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }
+
+  nextBtn.addEventListener('click', () => show(current + 1));
+  backBtn.addEventListener('click', () => show(current - 1));
+  show(0);
+});
+
 document.addEventListener('DOMContentLoaded', () => {
 
 // Pre-fill when arriving from Smack Lab's "Lock this in" or the home
