@@ -4434,3 +4434,32 @@ in the BATTLE context as well as recaps. Dropped one line ("that's not a
 lineup, that's a casserole") for exactly that reason: a battle has no
 lineups, and leaving it in risked the judge referencing something that
 doesn't exist.
+
+## Smackcast: spoken "comma" came back — regex was too narrow
+Reported again after a deploy. The sanitizer WAS being applied; the regex
+just didn't match the forms that occurred.
+
+Previous pattern required the word to be FOLLOWED by a comma, space or end
+of string. So it missed:
+  - "comma." with a period after it (the likely real case)
+  - "comma!" or "comma?" before any other punctuation
+  - "comma" at the very START of a segment, since there was nothing behind
+    it to look at
+Widened to anchor on word boundaries, allow any punctuation on either side,
+and match at line start.
+
+Added two cleanup passes for the artifacts that removal leaves behind: a
+comma stranded against the next mark ("disaster,! Unreal") and leading
+punctuation at the start of a line. Both read badly aloud.
+
+Verified across ten cases: all five spoken-comma forms stripped, while
+"period" as emphasis, "period" as a game period, "commander" (word-boundary
+check), ordinary commas and the full branded tagline all survive untouched.
+
+CAVEAT WORTH KEEPING: this only fixes the model WRITING the word. If the
+speech engine is verbalising an actual comma CHARACTER, no text sanitising
+can fix that - the punctuation would have to be removed entirely, which
+would wreck the pacing. If it recurs after this, that's the thing to
+determine: check the stored transcript on the recap page for the literal
+word "comma". Present in the transcript means this fix applies; absent means
+the engine is verbalising punctuation and the fix is elsewhere.

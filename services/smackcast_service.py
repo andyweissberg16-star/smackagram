@@ -598,8 +598,14 @@ def _pick_random_sfx(reaction: str):
 # a dictated punctuation mark would be, rather than matching the bare word
 # anywhere, so a sentence that legitimately discusses commas survives.
 _PUNCT_NAME_RE = re.compile(
-    r"(?:(?<=,)|(?<=\s))\s*(comma|semicolon|ellipsis)\s*(?=,|\s|$)",
-    re.IGNORECASE,
+    # Widened after it kept slipping through. The previous version required
+    # the word to be FOLLOWED by a comma, space or end of string, so
+    # "comma." with a period after it never matched - and it also couldn't
+    # match at the very start of a segment, since there was nothing before
+    # it to look behind at. Now anchored on word boundaries and allowed to
+    # be followed by any punctuation.
+    r"(?:^|(?<=[\s,.!?;:]))\s*(comma|semicolon|ellipsis)\b[\s]*",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 
@@ -687,7 +693,11 @@ def sanitize_for_speech(text: str) -> str:
     # Collapse the artefacts the above can leave behind - doubled commas,
     # a comma butted against a period, runs of whitespace.
     text = re.sub(r"\s*,\s*,+", ",", text)
-    text = re.sub(r",\s*\.", ".", text)
+    # A stripped punctuation name can leave a comma stranded against the next
+    # mark ("disaster,! Unreal") or at the very start of a line. Both are read
+    # oddly aloud, so collapse them.
+    text = re.sub(r",\s*([.!?;:])", r"\1", text)
+    text = re.sub(r"^[\s,;:]+", "", text, flags=re.MULTILINE)
     text = re.sub(r"\s+([,.!?])", r"\1", text)
     text = re.sub(r"\s{2,}", " ", text)
     return text.strip()
