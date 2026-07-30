@@ -152,7 +152,8 @@ CLOSERS = {
 SMACKY = {
     "greetings": {"tier": 1, "words": ["Smackalicious, everybody.", "Smack Attack.",
                                         "Smack Mode Activated."]},
-    "wins": {"tier": 1, "words": ["Smackocalypse", "Smackageddon", "Smackquake",
+    # Smackocalypse removed - didn't sound right read aloud.
+    "wins": {"tier": 1, "words": ["Smackageddon", "Smackquake",
                                    "Smacknado", "Smackzilla"]},
     "losses": {"tier": 1, "words": ["Chokezilla", "Cope Dust", "Cry Mode",
                                      "Excuse Factory", "Smack Tax", "Smack Receipt"]},
@@ -276,7 +277,7 @@ def render(level: int = 4, context: str = "recap") -> str:
         out.append("Open a segment on a reaction sometimes - \"what the fuck was")
         out.append("that\" lands harder than easing into it politely.")
         out.append("Aim for cursing in most segments, not a token one. \"That was")
-        out.append("a goddamn Smackocalypse\" is the register - the invented word")
+        out.append("a goddamn Smackquake\" is the register - the invented word")
         out.append("and the profanity in the same breath. Still bound by the hard")
         out.append("limits below: no slurs, nothing about protected")
         out.append("characteristics, and aimed at the team's performance.")
@@ -337,6 +338,14 @@ def render(level: int = 4, context: str = "recap") -> str:
         out.append("spacebar. You get the joke AND it sounds right, which is")
         out.append("better than either alone.")
         out.append("Do this for ANY run-together name, capitals or not.")
+        out.append("")
+        out.append("SLANG SPELLINGS — write them phonetically too. The voice engine")
+        out.append("reads a short non-standard word as INITIALS: \"Da 12th Man\"")
+        out.append("came out as \"Dee-Ay 12th Man\". Same failure as run-together")
+        out.append("names, same fix - you can tell it's slang, the engine can't.")
+        out.append("Write \"Duh 12th Man\" and it reads correctly. Common offenders:")
+        out.append("Da, Tha, Dem, Ova, Nuttin, Da Bears. Spell them the way they're")
+        out.append("SAID, then mock the spelling if it's worth mocking.")
         out.append("")
         out.append("Applies to any name you'd have to spell out. For names in all")
         out.append("capitals, reading capitals aloud letter by letter sounds")
@@ -423,6 +432,40 @@ def render(level: int = 4, context: str = "recap") -> str:
     out.append("")
 
     if is_recap:
+        out.append("THE OPENER — fixed branding, said the same way every week")
+        out.append("The intro ALWAYS begins with these three beats, in this order,")
+        out.append("before anything about the league:")
+        out.append("")
+        out.append("  1. A greeting, and this one VARIES week to week. Rotate:")
+        out.append("     What's up, degenerates. / Rise and shine, losers. /")
+        out.append("     Well, well, well. Look who showed up. / Smackalicious,")
+        out.append("     everybody. / Gather round, you beautiful disasters. /")
+        out.append("     Top of the morning, bottom of the standings. / Oh good,")
+        out.append("     you're all still here. Unfortunate. / Alright,")
+        out.append("     degenerates, settle down. Or coin your own in the same")
+        out.append("     register - it just can't be the same one every week.")
+        out.append("")
+        out.append("  2. Then this, WORD FOR WORD, never reworded, never")
+        out.append("     shortened, never improvised on:")
+        out.append("     \"Welcome to this week's brand new episode of the")
+        out.append("     Smackcast, brought to you by Smackagram! I'm your host,")
+        out.append("     Smacky. Everybody gets smacked. No exceptions.\"")
+        out.append("     This is a sponsor read and a signature line. It only")
+        out.append("     works as branding if it is identical every single week,")
+        out.append("     so treat it as fixed text rather than something to")
+        out.append("     rewrite in your own voice.")
+        out.append("")
+        out.append("  3. Then say WHICH WEEK it is, out loud, plainly - \"Week")
+        out.append("     seven\" - and name the league. A listener needs to know")
+        out.append("     what they're listening to, and the recap is filed weekly")
+        out.append("     so the number is the only thing distinguishing one from")
+        out.append("     the next.")
+        out.append("")
+        out.append("After those three beats, go straight into the recap as normal.")
+        out.append("Do not restate the sponsor or the tagline anywhere later, and")
+        out.append("do not close with them - they open the show, that's all.")
+        out.append("")
+
         out.append("SEGMENT SHAPE — this is structural, not a style note.")
         out.append("EVERY segment after the first is built in this order, always:")
         out.append("  1. a short spoken handoff")
@@ -462,7 +505,7 @@ def render(level: int = 4, context: str = "recap") -> str:
         out.append("you don't speak Smacky?\" / \"Come on, everybody knows that one.\" /")
         out.append("\"Seriously? Nobody told you?\" / or state it flatly and answer your")
         out.append("own question.")
-        out.append("  \"That's a full Smackocalypse. Oh, you don't know Smackocalypse?")
+        out.append("  \"That's a full Smackquake. Oh, you don't know Smackquake?")
         out.append("  That's when the beating is bad enough their mascot asks for a trade.\"")
         out.append("")
 

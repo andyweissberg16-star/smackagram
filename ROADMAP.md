@@ -4337,3 +4337,73 @@ name mockery, since orienting the listener is the whole point.
 Possibly aggravated by the stress run specifically - a normal recap has
 spare budget per segment, and the earlier non-stress generation sounded
 correct. Worth confirming on both.
+
+## Smackcast: slang spellings read as initials, and Smackocalypse removed
+Two from the same live listening session.
+
+1. "Da 12th Man" came out as "Dee-Ay 12th Man" - the engine read the short
+   non-standard word as INITIALS, the same instinct that correctly spells out
+   QB and NFL. Right rule, wrong case, and the sanitizer can't distinguish
+   them. Same fix as run-together names: the MODEL can tell it's slang, so it
+   now writes such words PHONETICALLY in the script ("Duh 12th Man") and can
+   still mock the spelling. Covers Da, Tha, Dem, Ova and similar, which are
+   common in fantasy team names.
+
+2. Smackocalypse removed from the invented vocabulary - didn't sound right
+   read aloud. Also had to be replaced in TWO worked examples in the prompt,
+   which would otherwise have kept reintroducing it despite the list entry
+   being gone. Wins vocabulary is now Smackageddon, Smackquake, Smacknado,
+   Smackzilla. Verified it appears nowhere in the rendered prompt.
+
+Pattern worth noting across all three read-aloud fixes tonight
+(THEREALCHAMPS, Da, and run-together names generally): the sanitizer is the
+wrong layer for anything requiring comprehension. A regex cannot know that
+THEREALCHAMPS is three words or that Da is slang. The model can, trivially.
+The sanitizer's job is mechanical hazards only - emoji, separators, caps runs
+- and everything requiring understanding belongs in the prompt.
+
+## Smackcast: fixed branded opener
+Every episode now opens with three beats in a fixed order before anything
+about the league:
+
+1. A greeting that VARIES week to week - eight supplied to rotate through
+   ("What's up, degenerates", "Rise and shine, losers", "Well, well, well.
+   Look who showed up", etc), or he can coin his own in the same register.
+   The only rule is that it can't be the same one every week.
+
+2. Then, WORD FOR WORD:
+   "Welcome to this week's brand new episode of the Smackcast, brought to you by
+   Smackagram! I'm your host, Smacky. Everybody gets smacked. No exceptions."
+   Explicitly flagged as fixed text rather than something to reword in his
+   own voice - it's a sponsor read plus a signature line, and both only work
+   as branding if they're identical every week.
+
+3. Then the WEEK NUMBER said out loud, plainly, and the league name. Recaps
+   are filed weekly, so the number is the only thing distinguishing one from
+   the next, and a listener opening a link needs to know what they're
+   hearing. The week is already passed in as data, so it's accurate rather
+   than invented.
+
+Also instructed NOT to restate the sponsor or tagline later or close on
+them - they open the show, that's it.
+
+TAGLINE NOTE: "Everybody gets smacked. No exceptions." was chosen over
+several alternatives because it states a rule rather than making a joke -
+the same shape as taglines that last - and is built from the brand's own
+word, so no competitor could use it. Written as its own sentence rather than
+joined with "and", so it lands as a declaration rather than a trailing
+clause. Provisional; easy to swap.
+
+## WATCH: recap prompt is now 23,261 characters
+Grew from ~16,000 over this session as vocabulary, read-aloud handling and
+the branded opener were added. Crowding has ALREADY caused two regressions
+tonight - the manager criticism faded, then the segment transitions did -
+and both were fixed by making the instruction structural rather than adding
+more text.
+
+If something that previously worked starts slipping (score-phrasing variety,
+coinage frequency, player callouts), assume crowding before assuming the
+instruction is wrong, and TRIM rather than add. Candidates to cut first if it
+comes to that: the losing-vocabulary word lists are the longest section and
+the most redundant, since the model reliably generates that register without
+being handed a list.
