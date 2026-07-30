@@ -57,25 +57,80 @@
   /* STEP WIZARD — the four cards are now one frame shown a step at a time.
      Each stays in the DOM (just hidden) so every field keeps its value when
      moving back and forth, and nothing existing had to be re-wired. */
+  /* Same tokens as reload.html and the Smackcast pages, so checkout and the
+     generator read as one product. --flare stays available underneath since
+     the existing rules on this page reference it. */
+  :root{
+    --surface:#141414;
+    --surface-2:#1C1C1C;
+    --hairline:#3A1416;
+    --punch:#E01B24;
+    --ivory:#FFFFFF;
+    --muted:#B5B0B0;
+    --muted-2:#7A7575;
+    --radius:14px;
+  }
+
+  /* PAGE INTRO */
+  .intro{text-align:center; padding:34px 0 8px;}
+  .intro .eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
+    letter-spacing:3px; text-transform:uppercase; color:var(--punch);
+  }
+  .intro h1{
+    font-family:'Anton',sans-serif; font-size:var(--h1-hero);
+    text-transform:uppercase; line-height:0.98; margin-top:10px;
+  }
+  .intro h1 em{color:var(--punch); font-style:normal;}
+  .intro .lede{
+    font-size:clamp(15px,3.6vw,18px); color:var(--chalk); line-height:1.6;
+    max-width:600px; margin:16px auto 0;
+  }
+  .intro .lede b{color:var(--punch);}
+  .how{
+    display:grid; gap:12px; margin:26px auto 0; max-width:640px;
+    grid-template-columns:1fr;
+  }
+  @media(min-width:640px){ .how{grid-template-columns:repeat(3,1fr);} }
+  .how-item{
+    background:var(--surface); border:1.5px solid var(--hairline);
+    border-radius:var(--radius); padding:16px 14px; text-align:left;
+  }
+  .how-num{
+    font-family:'Anton',sans-serif; font-size:26px; color:var(--punch);
+    line-height:1; opacity:0.7;
+  }
+  .how-item h4{
+    font-family:'Anton',sans-serif; font-size:15px; text-transform:uppercase;
+    margin-top:4px; line-height:1.15;
+  }
+  .how-item p{font-size:12.5px; color:var(--muted-2); line-height:1.5; margin-top:5px;}
+  /* .how-num is a <p>, so the rule above would otherwise override its colour
+     by virtue of coming later at equal specificity. */
+  .how-item p.how-num{
+    font-family:'Anton',sans-serif; font-size:26px; color:var(--punch);
+    line-height:1; opacity:0.7; margin-top:0;
+  }
+
   .step-dots{display:flex; justify-content:center; gap:10px; margin-bottom:20px;}
   .step-dot{
     width:12px; height:12px; border-radius:50%;
-    background:transparent; border:2px solid var(--line-strong);
+    background:transparent; border:2px solid var(--hairline);
     transition:background .18s ease, border-color .18s ease, transform .18s ease;
   }
-  .step-dot.done{border-color:var(--flare); background:rgba(232,20,44,0.35);}
-  .step-dot.active{border-color:var(--flare); background:var(--flare); transform:scale(1.25);}
+  .step-dot.done{border-color:var(--punch); background:rgba(224,27,36,0.4);}
+  .step-dot.active{border-color:var(--punch); background:var(--punch); transform:scale(1.25);}
   .wizard-step{display:none;}
   .wizard-step.active{display:block;}
   .wizard-nav{
     display:flex; gap:10px; margin-top:22px; padding-top:18px;
-    border-top:1px solid var(--line);
+    border-top:1px solid var(--hairline);
   }
   .wizard-nav .btn{flex:1;}
   .btn-back{
-    background:transparent; border:1px solid var(--line-strong); color:var(--chalk);
+    background:transparent; border:1.5px solid var(--hairline); color:var(--chalk);
   }
-  .btn-back:hover{border-color:var(--flare); color:var(--flare);}
+  .btn-back:hover{border-color:var(--punch); color:var(--punch);}
   .step-counter{
     text-align:center; font-family:'JetBrains Mono',monospace; font-size:11px;
     letter-spacing:1.5px; text-transform:uppercase; color:var(--chalk-dim);
@@ -160,6 +215,30 @@
 </picture>
 
 <div class="wrap" style="padding-top:24px;">
+
+  <div class="intro">
+    <p class="eyebrow">Send a Smackagram</p>
+    <h1>Somebody you know<br>deserves a <em>phone call</em>.</h1>
+    <p class="lede">A Smackagram is a <b>real phone call</b> to your buddy, where Smacky roasts their team in his own voice. You pick the target and how brutal it gets &mdash; he writes it, calls them, and records their reaction so you can hear it.</p>
+
+    <div class="how">
+      <div class="how-item">
+        <p class="how-num">1</p>
+        <h4>Pick your victim</h4>
+        <p>Their name and the team they'll defend to the grave.</p>
+      </div>
+      <div class="how-item">
+        <p class="how-num">2</p>
+        <h4>Set the damage</h4>
+        <p>Clean enough for your uncle, or savage enough to end a friendship.</p>
+      </div>
+      <div class="how-item">
+        <p class="how-num">3</p>
+        <h4>Send it for a buck</h4>
+        <p>The call goes out, the reaction gets recorded, and you get to keep it.</p>
+      </div>
+    </div>
+  </div>
 
   <div class="card" id="wizardCard">
     <div class="step-dots" id="stepDots">

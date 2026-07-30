@@ -4645,3 +4645,30 @@ VERIFIED in a browser: exactly one step visible at every point, counter and
 dots correct at all four, Back/Next visibility correct at the boundaries,
 and a value typed on step 1 still present after navigating to step 4 and
 back. No page errors.
+
+## Send a Smack: page intro + checkout palette
+Two changes to make the generator page explain itself and match checkout.
+
+INTRO ADDED above the wizard: eyebrow, a large Anton headline with a red
+<em>, a lede that actually says what a Smackagram IS (a real phone call
+where Smacky roasts their team, with the reaction recorded), and a
+three-step "how it works" strip - pick your victim, set the damage, send it
+for a buck. The page previously went straight from the hero banner into
+"Step 1" with no explanation of the product at all, which assumed the
+visitor already knew what they were buying.
+
+PALETTE brought onto the reload.html / Smackcast tokens (--punch,
+--surface, --hairline, --radius) so the generator and checkout read as one
+product. Wizard chrome retimed to match: dots, Back button border, and the
+nav divider.
+
+BUG CAUGHT: .how-num is a <p>, so the later .how-item p rule overrode its
+colour and size at equal specificity - the step numbers rendered grey at
+12.5px instead of red at 26px. Fixed by qualifying the selector. Also worth
+noting the test server caches templates with debug off, so the first
+verification showed a stale result and needed a restart before the fix was
+visible - the fix was correct, the check wasn't.
+
+VERIFIED: headline and em resolve to rgb(224,27,36), step numbers red at
+26px, three how-it-works items, body on --ink, and the wizard still shows
+exactly one step and advances correctly after the restyle. No page errors.
