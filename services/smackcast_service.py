@@ -464,10 +464,16 @@ _TRICKY_TEAM_NAMES = [
     "🔥🔥 Fire Squad 🔥",          # emoji - sanitizer strips them, the words survive
     "Saquon The Barbarian",      # player-name pun - perfectly sayable, good material
     "2 Chainz 2 Furious",        # leading digit - reads fine, tests number handling mid-name
+    "AAAAAAAAA",                 # caps run with no word structure at all
+    "Ctrl+Alt+Defeat",           # symbols mid-name - engines may read "plus" aloud
+    "iiiiiiii",                  # repeated single letter, lowercase
+    "Da 12th Man",               # ordinal inside a name
+    "🏈🏈🏈",                      # emoji ONLY - nothing left after sanitizing, needs a nickname
+    "Mr. Fantasy Pants Jr.",     # periods mid-name - abbreviation handling
 ]
 
 
-def generate_sample_matchups(sport: str, team_count: int) -> list:
+def generate_sample_matchups(sport: str, team_count: int, stress: bool = False) -> list:
     """
     Realistic-but-entirely-fake matchup data for testing the generation
     pipeline without needing a real league or touching any real
@@ -493,9 +499,18 @@ def generate_sample_matchups(sport: str, team_count: int) -> list:
     # them on purpose: a generation needs some ordinary names alongside, so we
     # can see both that the tricky ones are handled AND that Smacky doesn't
     # start refusing perfectly sayable names now that he has the option.
-    tricky = random.sample(_TRICKY_TEAM_NAMES, min(2, len(names)))
-    for i, t in enumerate(tricky):
-        names[random.randrange(len(names))] = t
+    # stress=True replaces EVERY name with an awkward one, for deliberately
+    # hammering the read-aloud handling. Default is two, which is closer to a
+    # real league and also checks the opposite failure - that Smacky doesn't
+    # start refusing ordinary names now that he can.
+    if stress:
+        pool = list(_TRICKY_TEAM_NAMES)
+        random.shuffle(pool)
+        for i in range(len(names)):
+            names[i] = pool[i % len(pool)]
+    else:
+        for t in random.sample(_TRICKY_TEAM_NAMES, min(2, len(names))):
+            names[random.randrange(len(names))] = t
 
     # Obviously-fictional player names. Deliberately NOT real players -
     # the test page runs the real pipeline, and inventing stat lines for

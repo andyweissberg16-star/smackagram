@@ -93,6 +93,11 @@
     <label for="weekInput">Week Number</label>
     <input id="weekInput" type="number" value="13" min="1" max="18">
 
+    <label style="display:flex; align-items:center; gap:10px; margin:14px 0; cursor:pointer;">
+      <input type="checkbox" id="stressInput" style="width:20px; height:20px; flex-shrink:0;">
+      <span>Stress test read-aloud handling &mdash; replaces every team name with a deliberately awkward one (leetspeak, emoji, all-caps, symbols)</span>
+    </label>
+
     <div id="formError" role="alert"></div>
     <button id="generateBtn" class="btn btn-flare">Generate Test Recap</button>
   </div>
@@ -121,6 +126,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     league_name: document.getElementById('leagueNameInput').value.trim(),
     team_count: parseInt(document.getElementById('teamCountInput').value, 10),
     week: parseInt(document.getElementById('weekInput').value, 10),
+    stress: document.getElementById('stressInput').checked,
   };
 
   btn.textContent = 'Generating... (this takes a bit — real AI + audio + image generation)';

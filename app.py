@@ -2519,6 +2519,9 @@ def api_smackcast_test_generate():
     league_name = (data.get("league_name") or "Test League").strip()
     team_count = int(data.get("team_count") or 10)
     week = int(data.get("week") or 1)
+    # Stress mode replaces every team name with a deliberately awkward one,
+    # for testing the read-aloud handling rather than a realistic league.
+    stress = bool(data.get("stress"))
 
     if sport not in ("nfl", "nba", "mlb"):
         return jsonify({"error": "Unsupported sport."}), 400
@@ -2529,7 +2532,7 @@ def api_smackcast_test_generate():
     _smackcast_test_jobs[job_id] = {"status": "generating"}
     threading.Thread(
         target=_run_smackcast_test_async,
-        args=(job_id, sport, league_name, team_count, week),
+        args=(job_id, sport, league_name, team_count, week, stress),
         daemon=True,
     ).start()
     return jsonify({"job_id": job_id, "status": "generating"})
@@ -2728,7 +2731,7 @@ def smackcast_call_instructions(recap_id):
 _smackcast_test_jobs = {}
 
 
-def _run_smackcast_test_async(job_id, sport, league_name, team_count, week):
+def _run_smackcast_test_async(job_id, sport, league_name, team_count, week, stress=False):
     """
     The test generator's pipeline, moved off the request. Inline it blocked
     the single gunicorn worker for minutes, which took the entire site down
@@ -2736,7 +2739,7 @@ def _run_smackcast_test_async(job_id, sport, league_name, team_count, week):
     """
     with app.app_context():
         try:
-            matchups = smackcast_service.generate_sample_matchups(sport, team_count)
+            matchups = smackcast_service.generate_sample_matchups(sport, team_count, stress=stress)
             result = smackcast_service.generate_weekly_recap_script(
                 league_name=league_name, week=week, matchups=matchups,
                 team_count=team_count, sport=sport,

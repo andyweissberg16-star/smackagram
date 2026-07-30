@@ -3928,3 +3928,24 @@ over-triggering on perfectly sayable names now that the model has it.
 Verified a real sample: drew the emoji name and topdogdaddypants alongside
 ten normal ones, and confirmed the emoji name sanitizes to "Fire Squad"
 while topdogdaddypants passes through untouched.
+
+## Smackcast test page: stress-test toggle for read-aloud handling
+Two tricky names per generation was hardcoded, so hitting the genuinely
+unsayable cases was down to luck - and after several runs the refuse-and-
+nickname path still hadn't been exercised.
+
+Added a "Stress test read-aloud handling" checkbox to /smackcast/test which
+replaces EVERY team name with a deliberately awkward one. Expanded the pool
+from 8 to 14 so a 12-team stress run has no repeats, adding: a caps run with
+no word structure (AAAAAAAAA), symbols mid-name (Ctrl+Alt+Defeat), a
+repeated lowercase letter (iiiiiiii), an ordinal (Da 12th Man), an
+EMOJI-ONLY name (nothing survives sanitizing, so it must be nicknamed), and
+periods mid-name (Mr. Fantasy Pants Jr.).
+
+Default stays at two tricky names, deliberately. That's closer to a real
+league AND it tests the opposite failure - that Smacky doesn't start
+refusing perfectly sayable names now that he has the option. The stress
+toggle is for probing the handling, not the normal case.
+
+Confirmed a 10-team stress run produces all-awkward names including both
+refusal cases (xXx_L33T_xXx, Ftghjklmn United) and the emoji-only name.
