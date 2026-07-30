@@ -84,6 +84,10 @@
   .progress-line.completed{background:var(--flare);}
 
   /* COLLAPSED STEP SUMMARY */
+  /* The whole collapsed card is the target - it reads as a row you press,
+     and the padding around the text is no longer dead space. */
+  .card.collapsed{cursor:pointer;}
+  .card.collapsed:hover{background:rgba(255,184,0,0.06);}
   .step-summary{
     display:flex; justify-content:space-between; align-items:center;
     cursor:pointer; padding:13px 0;
@@ -168,15 +172,6 @@
   .team-option.selected{border-color:var(--flare); background:rgba(232,20,44,0.1); box-shadow:4px 4px 0 var(--flare);}
   .team-option small{display:block; color:var(--chalk-dim); font-weight:400; font-size:11px; margin-top:4px; text-transform:uppercase; font-family:'JetBrains Mono',monospace;}
 
-  .mode-tabs{display:flex; gap:10px; margin-bottom:16px;}
-  .mode-tab{
-    flex:1; border:2px solid var(--line-strong); border-radius:2px; padding:14px; text-align:center; cursor:pointer;
-    transition:all 0.15s ease; background:var(--ink);
-  }
-  .mode-tab:hover{border-color:var(--flare); transform:translate(-2px,-2px);}
-  .mode-tab.active{border-color:var(--flare); background:rgba(232,20,44,0.1); box-shadow:4px 4px 0 var(--flare);}
-  .mode-tab h4{font-size:14px; margin-bottom:4px;}
-  .mode-tab p{font-size:11px; color:var(--chalk-dim);}
 
   label{display:block; font-size:12px; color:var(--chalk-dim); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;}
   input[type=text], input[type=tel], textarea, select{
@@ -406,7 +401,8 @@
 
   <div class="card" id="modeCard" style="display:none;">
     <p class="step-label">Step 3</p>
-    <h3>Choose your message</h3>
+    <h3>How hard should Smacky go</h3>
+    <p class="card-sub">He writes it after the game, using what actually happened.</p>
 
     <div id="modeCardSummary" class="step-summary" style="display:none;">
       <span class="step-summary-text" id="modeCardSummaryText"></span>
@@ -414,23 +410,11 @@
     </div>
 
     <div id="modeCardContent">
-    <div class="mode-tabs">
-      <div class="mode-tab active" data-mode="custom">
-        <h4>Write your own</h4>
-        <p>Locked in now, sent exactly as written</p>
-      </div>
-      <div class="mode-tab" data-mode="auto_summary">
-        <h4>Auto-generate from recap</h4>
-        <p>Written after the game ends, using real details from how it went</p>
-      </div>
-    </div>
-
-    <div id="customMessageBlock">
-      <label for="customMessageInput">Your message</label>
-      <textarea id="customMessageInput" placeholder="Type what you want said if they lose..."></textarea>
-    </div>
-
-    <div id="autoSummaryBlock" style="display:none;">
+    <!-- Mode selection removed. Locked & Loaded is now always written by
+         Smacky AFTER the game ends, using what actually happened - a
+         pre-written line can't reference a result that hasn't occurred yet,
+         which was the whole point of the feature. -->
+    <div id="autoSummaryBlock">
       <div class="hold-note">
         <span>&#9203;</span>
         <span>Nothing to write — once the game ends, Smacky'll pull the real box score and headlines and write a roast referencing what actually happened.</span>
@@ -535,7 +519,9 @@ if (sideMascot && heroBanner) {
 let selectedSport = 'nfl';
 let selectedGame = null;
 let selectedTargetTeam = null;
-let selectedMode = 'custom';
+// Always auto_summary: the line is written after the game, from the real
+// result. There is no other mode.
+let selectedMode = 'auto_summary';
 
 // 18+ confirmation is required whenever content could be more than
 // "Clean" — for custom-written messages we can't verify the tone at all,
@@ -781,16 +767,7 @@ document.getElementById('teamSearchInput').addEventListener('input', (e) => {
   searchDebounceTimer = setTimeout(() => searchGames(selectedSport, query), 350);
 });
 
-document.querySelectorAll('.mode-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    selectedMode = tab.dataset.mode;
-    document.getElementById('customMessageBlock').style.display = selectedMode === 'custom' ? 'block' : 'none';
-    document.getElementById('autoSummaryBlock').style.display = selectedMode === 'auto_summary' ? 'block' : 'none';
-    updateAgeCheckboxVisibility();
-  });
-});
+// Mode switching removed - auto_summary is the only mode.
 
 async function loadVoices() {
   try {
@@ -841,7 +818,7 @@ document.getElementById('armBtn').addEventListener('click', async () => {
     showError('Pick a game and who has to lose first.');
     return;
   }
-  if (selectedMode === 'custom' && !document.getElementById('customMessageInput').value.trim()) {
+  if (false) {
     showError('Write your message, or switch to auto-generate.');
     return;
   }
@@ -890,7 +867,7 @@ document.getElementById('armBtn').addEventListener('click', async () => {
         target_team: selectedTargetTeam,
         game_start_time: selectedGame.start_time,
         mode: selectedMode,
-        custom_message: selectedMode === 'custom' ? document.getElementById('customMessageInput').value.trim() : null,
+        custom_message: null,
         voice_key: document.getElementById('voiceSelectLL').value,
         sensitivity: selectedSensitivityLL,
         recipient_name: recipientName,
@@ -1050,10 +1027,15 @@ loadVoices();
 
     // The whole collapsed row reopens the step - a bigger target than the
     // small "Change" link, and it reads as a row you can open.
-    var summary = el(st.summary);
-    if (summary) {
-      summary.style.cursor = 'pointer';
-      summary.addEventListener('click', function () { window.lnlOpenStep(i); });
+    var card = el(st.card);
+    if (card && st.summary) {
+      card.addEventListener('click', function (e) {
+        // Only while collapsed, so clicks on the open step's own controls
+        // (buttons, inputs, the fader) aren't hijacked.
+        if (!card.classList.contains('collapsed')) return;
+        e.preventDefault();
+        window.lnlOpenStep(i);
+      });
     }
   });
 

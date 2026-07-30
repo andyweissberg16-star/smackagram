@@ -174,14 +174,22 @@
 
   .btn-center{display:flex; justify-content:center;}
   .btn-narrow{width:100%; max-width:250px;}
-  .btn-outline{
-    background:transparent; border:1.5px solid var(--punch); color:var(--punch);
+  /* .btn sets border:none, so this needs to be specific enough to win -
+     without it the outline never rendered and the button was just text. */
+  .btn.btn-outline{
+    background:transparent; border:2px solid var(--punch) !important; color:var(--punch);
   }
-  .btn-outline:hover:not(:disabled){background:rgba(224,27,36,0.1);}
+  .btn.btn-outline:hover:not(:disabled){background:rgba(224,27,36,0.1);}
   /* Buttons disabled for STATE (nothing to play, nothing to send) rather than
      because something is loading. Without .no-spinner the site-wide rule puts
      a spinner on them, which reads as "working" instead of "not yet". */
-  .btn:disabled{opacity:0.4; cursor:not-allowed;}
+  .btn:disabled{opacity:0.55; cursor:not-allowed;}
+  /* Outlined buttons need their box to stay legible when disabled, or they
+     read as floating text rather than a button that isn't ready yet. */
+  .btn.btn-outline:disabled{
+    opacity:1; border-color:var(--muted-2) !important; color:var(--muted-2);
+    background:rgba(245,245,243,0.03);
+  }
 
   #step1Error, #step2Error{
     background:rgba(224,27,36,0.12); border:1px solid var(--punch);
@@ -504,9 +512,7 @@
 
     <div id="step1Error" role="alert" style="display:none;"></div>
 
-      <div class="btn-center" style="margin-top:20px; padding-top:16px;
-           background-image:linear-gradient(to right,transparent 0%,var(--punch) 18%,var(--punch) 82%,transparent 100%);
-           background-size:100% 2px; background-repeat:no-repeat; background-position:top left;">
+      <div class="btn-center" style="margin-top:22px;">
         <button type="button" id="sasNext1" class="btn btn-flare btn-narrow">Next</button>
       </div>
     </div>
@@ -522,7 +528,7 @@
     </div>
     <div class="sas-body" id="sasBody2">
     <p class="step-label">Step 2</p>
-    <p class="field-group-label">How hard should Smacky go</p>
+    <p class="field-group-label" style="border-top:none; background-image:none; padding-top:0; margin-top:0;">How hard should Smacky go</p>
     <p class="card-sub" style="margin-top:0;">Slide it. Clean is PG. Savage is not.</p>
     <div id="sensitivitySelector">
       <p style="color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
@@ -536,9 +542,7 @@
 
       <div id="step2Error" role="alert" style="display:none;"></div>
 
-      <div class="btn-center" style="margin-top:20px; padding-top:16px;
-           background-image:linear-gradient(to right,transparent 0%,var(--punch) 18%,var(--punch) 82%,transparent 100%);
-           background-size:100% 2px; background-repeat:no-repeat; background-position:top left;">
+      <div class="btn-center" style="margin-top:22px;">
         <button type="button" id="sasNext2" class="btn btn-flare btn-narrow">Next</button>
       </div>
     </div>
@@ -554,7 +558,7 @@
       <span class="sas-summary-change">Change</span>
     </div>
     <div class="sas-body" id="sasBody3">
-    <p class="step-label">Step 2</p>
+    <p class="step-label">Step 3</p>
     <p class="card-sub">Generate it, pick a voice, hear it, send it.</p>
 
     <div class="btn-center">
@@ -587,11 +591,7 @@
   </div>
 
 
-      <div class="btn-center" style="margin-top:20px; padding-top:16px;
-           background-image:linear-gradient(to right,transparent 0%,var(--punch) 18%,var(--punch) 82%,transparent 100%);
-           background-size:100% 2px; background-repeat:no-repeat; background-position:top left;">
-        <button type="button" id="sasNext3" class="btn btn-flare btn-narrow">Next</button>
-      </div>
+      <!-- No Next here: "Send it" below is this step's advance button. -->
     </div>
 
   <div class="wizard-step" data-step="4">
@@ -636,10 +636,9 @@
 
   </div>
 
-  <div class="wizard-nav">
-      <button type="button" id="wizardBack" class="btn btn-back">Back</button>
-      <button type="button" id="wizardNext" class="btn btn-flare">Next</button>
-    </div>
+  <!-- Shared Next/Back nav removed: every step carries its own Next, and the
+       collapsed rows are how you go back. Two Next buttons were stacking on
+       step 1. -->
 
 </div>
 
@@ -813,11 +812,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // set up rather than decoration. Field label names what's being captured.
   const STATUS = ['Line open', 'Target locked', 'Ready to dial', 'Dialing'];
   const FIELDS = ['Target', 'Intensity', 'Payload', 'Who are we calling'];
-  const backBtn = document.getElementById('wizardBack');
-  const nextBtn = document.getElementById('wizardNext');
+  const backBtn = document.getElementById('wizardBack'); // removed from markup; guarded below
+  const nextBtn = document.getElementById('wizardNext'); // removed from markup; guarded below
   const counter = document.getElementById('stepCounter');
   const card = document.getElementById('wizardCard');
-  if (!steps.length || !nextBtn) return;
+  if (!steps.length) return;
 
   let current = 0;
 
@@ -881,10 +880,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Back is hidden rather than disabled on the first step - a disabled
     // button would pick up the site-wide spinner, which reads as loading.
-    backBtn.style.display = current === 0 ? 'none' : '';
+    if (backBtn) backBtn.style.display = current === 0 ? 'none' : '';
     // The last step already has its own "Continue to payment" button, so a
     // Next here would be a second, competing call to action.
-    nextBtn.style.display = current === steps.length - 1 ? 'none' : '';
+    if (nextBtn) nextBtn.style.display = current === steps.length - 1 ? 'none' : '';
 
     // Scroll the frame back to the top - without this, moving from a long
     // step to a short one leaves you halfway down a page of whitespace.
@@ -942,7 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (summ) summ.addEventListener('click', function () { show(n - 1); });
   });
 
-  nextBtn.addEventListener('click', () => {
+  if (nextBtn) nextBtn.addEventListener('click', () => {
     if (current === 0 && !validateStep1(true)) {
       var e = document.getElementById('step1Error');
       if (e) e.scrollIntoView({behavior: 'smooth', block: 'center'});
@@ -950,7 +949,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     show(current + 1);
   });
-  backBtn.addEventListener('click', () => show(current - 1));
+  if (backBtn) backBtn.addEventListener('click', () => show(current - 1));
   show(0);
 });
 

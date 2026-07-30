@@ -2430,7 +2430,13 @@ def _execute_arm_smackagram(user, data: dict) -> dict:
     if game_start <= datetime.now(timezone.utc):
         raise ValueError("This game has already started, so it can no longer be armed.")
 
-    mode = data.get("mode", "custom")
+    # auto_summary is the only supported mode. A pre-written line can't
+    # reference a result that hasn't happened yet, which is the entire point
+    # of Locked & Loaded - so "custom" is refused rather than silently
+    # accepted from a stale client.
+    mode = data.get("mode") or "auto_summary"
+    if mode != "auto_summary":
+        mode = "auto_summary"
 
     smackagram = Smackagram(
         user_id=user.id,
@@ -2480,7 +2486,13 @@ def arm_smackagram():
     if not data.get("consent_confirmed"):
         return jsonify({"error": "Consent confirmation required"}), 400
 
-    mode = data.get("mode", "custom")
+    # auto_summary is the only supported mode. A pre-written line can't
+    # reference a result that hasn't happened yet, which is the entire point
+    # of Locked & Loaded - so "custom" is refused rather than silently
+    # accepted from a stale client.
+    mode = data.get("mode") or "auto_summary"
+    if mode != "auto_summary":
+        mode = "auto_summary"
     if mode not in ("custom", "auto_summary"):
         return jsonify({"error": "Invalid mode"}), 400
 

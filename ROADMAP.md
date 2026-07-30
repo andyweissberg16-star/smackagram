@@ -5340,3 +5340,54 @@ re-opening step 1 shows no Next anywhere.
 ARROW, NOT A DOT, in the step 1 summary. "New York Yankees → Andy" instead of
 "New York Yankees · Andy" - the pair has direction, the roast is aimed AT the
 recipient, and a dot reads as two unrelated facts sitting side by side.
+
+## Locked & Loaded: custom message mode removed
+Locked & Loaded is now always written by Smacky AFTER the game ends, from the
+real result. The "write your own" option is gone.
+
+The post-game generator already existed - trash_talk_service has a
+recap_mode=True path that takes the actual facts from the finished game and
+writes from them. This was one of two options; now it's the only one. A
+pre-written line can't reference a result that hasn't happened yet, which was
+the whole point of the feature.
+
+Removed in THREE places, not one:
+  - UI: mode tabs, the custom message field, and the dead CSS for both.
+  - Client: mode locked to auto_summary, custom-message validation and payload
+    field dropped.
+  - Server: mode is now FORCED to auto_summary rather than defaulting to it,
+    so a stale browser tab or a hand-rolled request can't reintroduce the old
+    path. Without this, anyone with the page already open could still submit a
+    custom message and have it accepted.
+
+## Locked & Loaded: whole collapsed card is clickable
+The listener sat on the summary ROW, which is narrower than the card - so
+every click in the card's padding did nothing. Moved to the card, guarded to
+fire only while collapsed, or clicks on the open step's own controls (buttons,
+inputs, the fader) would be hijacked and reopen the step you're already on.
+
+## Send a Smack: duplicate buttons, wrong label, invisible outline
+Four fixes, all found by testing rather than reading:
+
+DUPLICATE NEXT BUTTONS. I added per-step Next buttons and left the old shared
+Next/Back nav in place, flagged as "worth deciding whether to remove". It
+should have just gone - two buttons doing the same job on one screen isn't a
+decision. Removed, with every reference to it guarded rather than deleted so
+nothing throws on a null.
+
+STEP 3 WAS LABELLED "STEP 2" - leftover from splitting step 1 in two.
+
+STRAY DIVIDERS. "How hard should Smacky go" is a step heading now rather than
+a section break inside a step, so it shouldn't carry the rule. Same for the
+rule above each Next button - with one button per step and a separator already
+under every collapsed row, it was a third line doing nothing.
+
+THE LISTEN BUTTON HAD NO BORDER AT ALL. Reported as "floating text", and that
+was literally true: .btn sets border:none and comes later in the stylesheet
+than .btn-outline, so the outline never rendered. Computed border was 0px.
+Fixed with .btn.btn-outline specificity. Also kept the box legible while
+disabled - at 0.4 opacity an outline reads as text rather than a button that
+isn't ready yet.
+
+Step 3 now carries only Generate, Preview this voice, Listen, and Send it -
+no Next, since Send it is that step's advance button.
