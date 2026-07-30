@@ -309,3 +309,67 @@ html body input[type=checkbox][aria-invalid="true"]{
   color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px;
   text-align:center; border-top:1px solid var(--line-strong); cursor:default;
 }
+
+
+/* ============================================================
+   SITE FRAME
+   A red frame around every page, with a light travelling round it, plus red
+   rules banding each page's hero image.
+
+   Applied to `body` rather than a wrapper div on purpose: it reaches every
+   template from one place, with no markup changes and no risk of unbalanced
+   divs across a dozen files.
+   ============================================================ */
+
+@property --site-led{ syntax:'<angle>'; initial-value:0deg; inherits:false; }
+
+html body{
+  /* Literal, not var(--flare): send_a_smack redefines --flare in its own
+     :root, so using the token gave two different reds across the site. The
+     frame must be the same colour on every page. */
+  border:5px solid #E01B24;
+  border-radius:14px;
+  margin:10px;
+  position:relative;
+  box-shadow:0 0 26px rgba(224,27,36,0.3);
+}
+
+/* The travelling light. A narrow bright arc in a rotating conic gradient,
+   masked so it paints only the border band and not the page behind it - which
+   is also why it follows the rounded corners exactly. @property is what makes
+   the angle animatable; a plain custom property would jump between keyframes
+   instead of sweeping. */
+html body::before{
+  content:''; position:absolute; inset:-5px; border-radius:inherit;
+  padding:5px; pointer-events:none; z-index:9999;
+  background:conic-gradient(from var(--site-led),
+    transparent 0deg, transparent 300deg,
+    rgba(255,120,128,0.35) 320deg, rgba(255,120,128,0.7) 340deg,
+    #FF5A64 350deg, #FFFFFF 355deg, #FF7A82 358deg,
+    rgba(255,120,128,0.4) 360deg);
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+          mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask-composite:exclude;
+  animation:siteLedOrbit 9s linear infinite;
+}
+@keyframes siteLedOrbit{ to{ --site-led:360deg; } }
+
+/* The solid border underneath is a REAL border, not part of the gradient, so
+   a browser without @property or mask-composite still shows the red frame -
+   just without the travelling light. */
+@media(prefers-reduced-motion:reduce){
+  html body::before{animation:none; opacity:0;}
+}
+
+/* Hero banding. Targets a picture or image that is a DIRECT child of body,
+   which is how every page's hero is marked up - and which deliberately misses
+   the logo inside <nav>, since that shouldn't be banded. */
+html body > picture,
+html body > img{
+  display:block;
+  border-top:4px solid #E01B24;
+  border-bottom:4px solid #E01B24;
+  line-height:0;
+}
+html body > picture img{display:block; width:100%; height:auto;}

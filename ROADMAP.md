@@ -5028,3 +5028,44 @@ frame plus banded hero still gives the wraparound.
 VERIFIED: nav, hero and footer all inside the frame; hero banded 4px both
 sides; both LEDs confirmed sweeping at their separate speeds; validation
 blocks and names each missing field in turn. No page errors.
+
+## Site-wide red frame with travelling LED
+Moved the frame out of send_a_smack and into smackagram.css so every page
+gets it from one place.
+
+APPLIED TO `body` rather than a wrapper div, deliberately. A wrapper would
+have meant editing a dozen templates, each an opportunity to unbalance divs -
+which has already bitten twice this session. A border on body reaches every
+page with zero markup changes. The page-specific #pageFrame and .hero-band
+were removed from send_a_smack so there's one implementation, not two.
+
+LED laps in 9s, matching the generator as requested. Note this means two
+lights at the SAME speed on send-a-smack, which will drift in and out of
+phase with each other - worth watching, since it may pull attention to the
+frame rather than the generator inside it. Dropping the body LED is a
+one-line change if so.
+
+COLOUR PINNED TO A LITERAL (#E01B24) rather than var(--flare). send_a_smack
+redefines --flare in its own :root, so using the token rendered the frame in
+TWO different reds - #E01B24 on that page and #E8142C everywhere else.
+Verified afterwards across six pages: one colour, consistent.
+
+Degrades cleanly: the solid border is a real border, not part of the
+gradient, so a browser without @property or mask-composite still shows the
+frame without the light. Animation disabled under prefers-reduced-motion.
+
+### HERO BANDING IS INCOMPLETE - only works on send-a-smack
+The selector targets a picture or img that is a DIRECT child of body, which
+is how send_a_smack marks up its hero and which correctly misses the nav
+logo. But every other page nests its hero differently - index.html wraps it
+in a styled div, meet_smacky has it inside a content block behind a
+conditional - so the rule doesn't match and those heroes are unbanded.
+
+Verified: hero band present on /send-a-smack, absent on /, /meet-smacky,
+/smack-battle, /did-you-get-smacked, /smackcast.
+
+TO FINISH THIS properly, each hero needs a shared class (e.g. class="hero-band"
+on its existing wrapper) added per template, then the CSS can target that
+instead of relying on document position. That's roughly ten small template
+edits. Not done here because it wasn't verified as safe across all ten and
+would have shipped half-checked.

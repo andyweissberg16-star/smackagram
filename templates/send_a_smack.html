@@ -179,47 +179,6 @@
   }
   .age-gate[hidden]{display:none;}
 
-  /* PAGE FRAME. Wraps the whole layout - nav, hero, content, footer - with
-     the same treatment the generator wears, and carries its own travelling
-     light. Scrolls with the page rather than being fixed to the viewport, so
-     it genuinely wraps the hero and footer instead of floating over them. */
-  @property --page-led{ syntax:'<angle>'; initial-value:0deg; inherits:false; }
-  #pageFrame{
-    position:relative;
-    border:5px solid var(--punch);
-    border-radius:14px;
-    margin:10px;
-    overflow:hidden;
-    box-shadow:0 0 26px rgba(224,27,36,0.3);
-  }
-  #pageFrame::before{
-    content:''; position:absolute; inset:-5px; border-radius:inherit;
-    padding:5px; pointer-events:none; z-index:5;
-    background:conic-gradient(from var(--page-led),
-      transparent 0deg, transparent 300deg,
-      rgba(255,120,128,0.35) 320deg, rgba(255,120,128,0.7) 340deg,
-      #FF5A64 350deg, #FFFFFF 355deg, #FF7A82 358deg,
-      rgba(255,120,128,0.4) 360deg);
-    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite:xor;
-            mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-            mask-composite:exclude;
-    animation:pageLedOrbit 14s linear infinite;
-  }
-  @keyframes pageLedOrbit{ to{ --page-led:360deg; } }
-  /* Deliberately slower than the generator's 9s lap. Two lights at the same
-     speed drift in and out of sync with each other, which pulls the eye to
-     the frame instead of the generator inside it. */
-  @media(prefers-reduced-motion:reduce){ #pageFrame::before{animation:none; opacity:0;} }
-
-  /* Hero banded top and bottom so it reads as its own section rather than
-     floating between the nav and the copy. */
-  .hero-band{
-    border-top:4px solid var(--punch);
-    border-bottom:4px solid var(--punch);
-    line-height:0;
-  }
-
   /* INTENSITY FADER - a physical control instead of tickboxes. */
   .fader{padding:4px 0 0;}
   .fader-scale{display:flex; justify-content:space-between; margin-bottom:10px;}
@@ -435,11 +394,8 @@
 </head>
 <body>
 
-<div id="pageFrame">
-
 {% include '_nav.html' %}
 
-<div class="hero-band">
 <picture>
   <source type="image/webp" sizes="100vw"
           srcset="{{ url_for('static', filename='img/hero-mascot-780.webp') }} 780w,
@@ -448,7 +404,6 @@
   <img src="{{ url_for('static', filename='img/hero-mascot-1560.jpg') }}" alt="Send a Smackagram"
        width="1983" height="793" style="width:100%; height:auto; display:block;">
 </picture>
-</div>
 
 <div class="wrap" style="padding-top:24px;">
 
@@ -602,8 +557,6 @@
 <footer>
   <a href="/terms">Terms</a> &middot; <a href="/contact">Contact</a>
 </footer>
-
-</div>
 
 
 
