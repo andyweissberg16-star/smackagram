@@ -5452,3 +5452,27 @@ is not the same as testing the interaction.
 - Step 3's SUMMARY row still read "Step 2". The step labels were renumbered
   when step 1 was split, but the summary labels were missed - collapsed rows
   would have read 1, 2, 2.
+
+## Locked & Loaded: collapsed cards, step 2 copy, Smackback tooltip
+COLLAPSED CARDS now show only the step number and the choice. The heading and
+prompt text are hidden once a step is answered - "Pick a game" sitting above
+"Yankees @ White Sox" is the question repeated over its own answer.
+
+STEP 3 HAD NO SUMMARY AT ALL. The element existed but nothing ever wrote to
+it, so that row would have been blank when collapsed regardless. Now shows
+voice and intensity, e.g. "Smacky — Savage", kept current as either control
+changes.
+  Known edge: if the voice list hasn't loaded yet, the summary can capture
+  "Loading voices...". Falls back cleanly on a real connection, but worth
+  watching.
+
+STEP 2 COPY merged from two paragraphs into one sentence, in BOTH states -
+the generic prompt and the team-specific version written by JS when a team is
+picked. Updating only the first would have reverted to the old two-sentence
+style the moment someone clicked a team.
+
+SMACKBACK TOOLTIP: a "(What is Smackback?)" line with an info icon under the
+reply checkbox, explaining that the target can send exactly one Smackagram
+back and that the number is used only for that. Opens on hover AND on
+keyboard focus - hover alone is unreachable by keyboard and completely
+unusable on a phone, where a good share of the traffic will be.

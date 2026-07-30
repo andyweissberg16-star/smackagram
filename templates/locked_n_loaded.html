@@ -90,6 +90,11 @@
   /* The whole collapsed card is the target - it reads as a row you press,
      and the padding around the text is no longer dead space. */
   .card.collapsed{cursor:pointer;}
+  /* Hide the prompt copy once a step is answered - the summary row below it
+     already carries the choice, and repeating "Pick a game" above "Yankees at
+     White Sox" is noise. The step number stays. */
+  .card.collapsed h3,
+  .card.collapsed .card-sub{display:none;}
   .card.collapsed:hover{background:rgba(224,27,36,0.05);}
   /* Completed steps in red, opposite this page's amber - a finished step
      reads as a different zone from the one you're in. */
@@ -119,6 +124,33 @@
   .popular-chip:hover{border-color:var(--flare); color:var(--chalk);}
 
   /* CONSENT BOX — more visual weight since it matters legally */
+  .smackback-help{
+    display:inline-flex; align-items:center; gap:5px; margin-top:4px;
+    position:relative; cursor:help;
+    font-size:11.5px; color:var(--muted-2); white-space:nowrap;
+  }
+  .help-icon{
+    width:14px; height:14px; border-radius:50%;
+    border:1px solid var(--muted-2); color:var(--muted-2);
+    font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700;
+    display:inline-grid; place-items:center; line-height:1;
+  }
+  .smackback-help:hover .help-icon,
+  .smackback-help:focus .help-icon{border-color:var(--amber); color:var(--amber);}
+  .smackback-help:hover, .smackback-help:focus{color:var(--amber); outline:none;}
+  .help-bubble{
+    position:absolute; bottom:calc(100% + 8px); left:0; z-index:20;
+    width:260px; white-space:normal;
+    background:var(--ink); border:1px solid var(--amber); border-radius:8px;
+    padding:10px 12px; font-size:12px; line-height:1.5; color:var(--chalk);
+    box-shadow:0 6px 20px rgba(0,0,0,0.5);
+    opacity:0; visibility:hidden; transition:opacity .15s ease;
+  }
+  /* Shown on focus as well as hover - hover alone leaves this unreachable by
+     keyboard, and unusable on a phone where there is no hover at all. */
+  .smackback-help:hover .help-bubble,
+  .smackback-help:focus .help-bubble{opacity:1; visibility:visible;}
+
   .consent-box{
     border:2px solid var(--line-strong); border-radius:2px; padding:14px; margin-bottom:16px; background:var(--ink);
   }
@@ -391,7 +423,7 @@
   <div class="card" id="teamCard" style="display:none;">
     <p class="step-label">Step 2</p>
     <h3>Which team needs to lose</h3>
-    <p class="card-sub" id="loseSubtext">Pick the team that has to go down.</p>
+    <p class="card-sub" id="loseSubtext">Pick the team that has to go down &mdash; the call only fires if they lose, and you&rsquo;re not charged if they win.</p>
 
     <div id="teamCardSummary" class="step-summary" style="display:none;">
       <span class="step-summary-text" id="teamCardSummaryText"></span>
@@ -399,7 +431,7 @@
     </div>
 
     <div id="teamCardContent">
-      <p class="card-sub">We'll only send it if this team loses. If they win, you're not charged.</p>
+      <!-- Folded into the subtext above - it was saying the same thing twice. -->
       <div class="team-choice" id="teamChoice"></div>
     
       <div class="btn-center step-next-wrap">
@@ -463,7 +495,16 @@
     <div class="consent-box">
       <label class="consent-row">
         <input id="replyOptInLL" type="checkbox">
-        <span>If they want to smack you back, let them. I'm okay with receiving a reply.</span>
+        <span>If they want to smack you back, let them. I&rsquo;m okay with receiving a reply.
+          <span class="smackback-help" tabindex="0"
+                aria-label="What is Smackback? If your target wants to hit back, they can send you one Smackagram in return. We only share your number for that single reply, and only if you tick this box.">
+            (What is Smackback?)
+            <span class="help-icon" aria-hidden="true">i</span>
+            <span class="help-bubble" role="tooltip">If your target wants to hit back, they can send you
+            <strong>one</strong> Smackagram in return. Your number is only used for that single reply,
+            and only because you ticked this box.</span>
+          </span>
+        </span>
       </label>
       <div id="replyPhoneRowLL" style="display:none; margin-top:10px;">
         <label for="senderPhoneLL">Your phone number (only used if they reply)</label>
@@ -707,6 +748,18 @@ function selectGame(game, el) {
   if (nextBtn) nextBtn.classList.add('is-ready');
 }
 
+// Step 3's collapsed row shows what was actually chosen - the voice and the
+// intensity - rather than the heading that prompted for them.
+function updateModeSummary() {
+  var out = document.getElementById('modeCardSummaryText');
+  if (!out) return;
+  var sel = document.getElementById('voiceSelectLL');
+  var voice = sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex].text : '';
+  var levels = {1: 'Clean', 2: 'Mild', 3: 'Aggressive', 4: 'Savage'};
+  var lvl = levels[typeof selectedSensitivityLL !== 'undefined' ? selectedSensitivityLL : 4] || '';
+  out.textContent = [voice, lvl].filter(Boolean).join(' \u2014 ');
+}
+
 function selectTeam(team, el) {
   document.querySelectorAll('.team-option').forEach(o => o.classList.remove('selected'));
   el.classList.add('selected');
@@ -716,8 +769,9 @@ function selectTeam(team, el) {
   document.getElementById('teamCardSummaryText').textContent = `${team} must lose`;
   // Name the team in the step's own subtext, so it reads as a sentence about
   // THIS matchup rather than generic instructions.
+  updateModeSummary();
   var sub = document.getElementById('loseSubtext');
-  if (sub) sub.textContent = `The call only triggers if the ${team} lose.`;
+  if (sub) sub.textContent = `The call only fires if the ${team} lose \u2014 if they win, you're not charged.`;
   var tNext = document.getElementById('nextFromTeam');
   if (tNext) tNext.classList.add('is-ready');
 
@@ -736,6 +790,14 @@ document.getElementById('changeTeamBtn').addEventListener('click', () => {
   document.getElementById('teamCardSummary').style.display = 'none';
   document.getElementById('teamCard').classList.remove('collapsed');
   updateProgress(2);
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+  var v = document.getElementById('voiceSelectLL');
+  if (v) v.addEventListener('change', updateModeSummary);
+  var sens = document.getElementById('sensitivitySelectorLL');
+  if (sens) sens.addEventListener('click', function () { setTimeout(updateModeSummary, 0); });
+  updateModeSummary();
 });
 
 document.getElementById('sportTabs').addEventListener('click', (e) => {
