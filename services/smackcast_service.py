@@ -603,13 +603,24 @@ _PUNCT_NAME_RE = re.compile(
 )
 
 
+# Broadened to cover essentially any emoji or pictograph, not just the common
+# blocks. Fantasy team names use all of it - flags, arrows, stars, keycaps,
+# trademark symbols, compound emoji joined with zero-width joiners.
 _EMOJI_RE = re.compile(
-    "[" 
-    "\U0001F300-\U0001FAFF"   # pictographs, symbols, emoji
-    "\U0001F000-\U0001F2FF"
-    "\U00002600-\U000027BF"   # misc symbols, dingbats
+    "["
+    "\U0001F000-\U0001FAFF"   # all pictographs, emoji, symbols, supplemental
+    "\U00002190-\U000021FF"   # arrows
+    "\U00002300-\U000023FF"   # misc technical (watches, hourglasses, keyboard)
+    "\U00002460-\U000024FF"   # enclosed alphanumerics (circled letters/numbers)
+    "\U00002500-\U00002BFF"   # box drawing, block elements, misc symbols, dingbats, arrows
+    "\U00002E00-\U00002E7F"   # supplemental punctuation
+    "\U00003000-\U0000303F"   # CJK symbols and punctuation
     "\U0000FE00-\U0000FE0F"   # variation selectors
     "\U0001F1E6-\U0001F1FF"   # regional indicators (flags)
+    "\U000000A9\U000000AE"    # copyright, registered
+    "\U00002122"               # trademark
+    "\U0000200D"               # zero-width joiner (compound emoji)
+    "\U000020E3"               # combining keycap enclosure
     "]+",
     flags=re.UNICODE,
 )
@@ -649,6 +660,15 @@ def sanitize_for_speech(text: str) -> str:
     }
     for bad, good in replacements.items():
         text = text.replace(bad, good)
+
+    # Underscores and similar separators read as a silent gap rather than a
+    # word break - confirmed in a real generation, where xXx_L33T_xXx came out
+    # as a stutter, dead air, "L33T", dead air, stutter. Converting them to
+    # spaces keeps the name awkward enough to mock (which is the point) without
+    # the broken-sounding pauses. Deliberately does NOT try to smooth the name
+    # out further: stumbling over a genuinely stupid name is good material, and
+    # over-sanitising would remove the joke along with the noise.
+    text = re.sub(r"[_~^|`]+", " ", text)
 
     # A spoken punctuation name is always a mistake here.
     text = _PUNCT_NAME_RE.sub("", text)

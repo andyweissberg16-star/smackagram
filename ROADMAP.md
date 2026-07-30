@@ -3949,3 +3949,102 @@ toggle is for probing the handling, not the normal case.
 
 Confirmed a 10-team stress run produces all-awkward names including both
 refusal cases (xXx_L33T_xXx, Ftghjklmn United) and the emoji-only name.
+
+## Smackcast: emoji team names — locked in the behavior that emerged
+A stress-test run produced, unprompted: "Three football emojis in a row.
+There's nothing I respect about that team name." That's better than what was
+designed for - the plan was strip-then-nickname, and instead it DESCRIBED
+the name and made the description the insult.
+
+That worked because of a split built for a different reason: the model reads
+the RAW text (emoji included) in the prompt, while only the SANITIZED text
+reaches text-to-speech. So it knows exactly what the name is without having
+to pronounce it. Emergent, not instructed - so now made explicit rather than
+left to luck. Prompt instructs: count them, name them, let how stupid it
+sounds out loud do the work, and note that an emoji-ONLY name is the best
+version since there's literally nothing to read.
+
+Also broadened _EMOJI_RE well beyond the common blocks, since fantasy names
+use all of it: flags (regional indicators), arrows, stars, hearts, keycap
+sequences, enclosed alphanumerics, CJK symbols, trademark/copyright, and
+zero-width joiners for compound emoji like family groupings.
+
+Verified across ten cases - fire, football-only, star, flag, keycap, heart,
+compound family, trademark, arrows - all stripped correctly, with an
+ordinary team name left untouched.
+
+## Smackcast: underscores in names produced dead air
+Real stress-test observation on xXx_L33T_xXx: stutter on the x run, then a
+SILENT GAP where the underscore was, "L33T", another silent gap, then the
+stutter again. The stumble is fine - it's the joke, and Smacky weaponised it
+- but the gaps just sound broken.
+
+Underscores, tildes, carets, pipes and backticks now become spaces before
+synthesis, so they read as word breaks. Common in gamertag-style names, so
+this generalises beyond the one case.
+
+Deliberately NOT smoothing further. Stumbling over a genuinely stupid name
+is good material; over-sanitising would strip the joke out along with the
+noise. Left "+" alone in Ctrl+Alt+Defeat pending a listen - if the engine
+speaks "plus" aloud that's a separate call, and it might well be funnier
+than silence.
+
+Verified nothing else regressed: THEREALCHAMPS still title-cases, the
+Mr./Jr. periods survive, emoji-only still empties, ordinary names untouched.
+
+## Session status — Smackcast read-aloud handling, all paths confirmed
+Every case verified in real generations, not just unit tests:
+  AAAAAAAAA           said aloud and mocked ("a name like that tells me
+                      everything I need to know about you")
+  topdogdaddypants    said in full, not refused - the escape hatch is not
+  thewaiverwirekings  over-triggering on sayable names
+  2 Chainz 2 Furious  digits spoken as words ("two chains two furious")
+  football emoji only DESCRIBED rather than attempted, and the description
+                      became the insult
+  xXx_L33T_xXx        stumbled, then turned the stumble into the joke
+  Ftghjklmn United    attempted it, degraded into gibberish, then self-
+                      rescued: "ahhh I'm just going to call you Fudge" - and
+                      used Fudge for the rest of the recap
+ALL SIX PATHS NOW CONFIRMED in real audio.
+
+REFINEMENT from that last one: he built the nickname OUT OF the name's own
+sounds (Ftghjklmn -> Fudge) rather than describing it from outside, which is
+better than the generic "Alphabet Soup" example the prompt gave. It reads as
+his genuine attempt at saying it. Written into the prompt as the preferred
+approach: grab the first syllable or two and run with it.
+
+RESOLVED - the refuse-and-nickname instruction STAYS, and I was about to
+recommend cutting it, which would have been wrong. Real output:
+  stumbles on xXx_L33T_xXx, then "I'm just going to call you L33T for now so
+  I don't have to do that again."
+The nickname comes from the instruction, but he EARNS it in the moment by
+reacting to his own struggle. That's better than either half alone: a clean
+upfront refusal reads as a workaround, and stumbling with no resolution just
+sounds broken. The stumble becoming the REASON for the nickname is the
+pattern, and it's now written into the prompt as the preferred handling
+rather than left to chance.
+
+## Smackcast: manager criticism wasn't firing
+Noted after the stress run - no shots taken at the people running the teams,
+despite the unseen-manager section being in the prompt.
+
+TWO CAUSES, one of them a testing artifact:
+1. The stress run had all TWELVE team names deliberately awkward. At ~60
+   words per segment, handling a bizarre name consumed the entire budget,
+   leaving nothing for manager criticism. A normal league with one or two odd
+   names would not squeeze it out the same way - so this is partly an
+   artifact of an unfair test.
+2. But the section was also too passive. It described what was ALLOWED
+   without ever saying how often to do it, in a prompt now well over 16,000
+   characters competing for attention.
+
+Made it directive and tied it to the evidence: any segment with a bust
+starter should question whoever chose to start them, targeting at least a
+third of segments, with an explicit note that a recap discussing only scores
+and never questioning anybody's judgement has left the best angle unused.
+Pairing the manager criticism with the bust data is what moves it from "the
+team scored badly" to "a person made this happen on purpose".
+
+Worth re-testing on a NORMAL generation (stress off) rather than another
+all-awkward run, since the name handling competes directly with this for
+segment budget.
