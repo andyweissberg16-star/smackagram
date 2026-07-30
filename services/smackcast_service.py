@@ -547,12 +547,34 @@ def assemble_recap_audio(intro: str, segments: list, outro: str) -> str:
     # of the overall normalization pass.
     SFX_VOLUME_REDUCTION_DB = -10
 
-    intro_bytes = elevenlabs_service.generate_speech_bytes(intro)
-    combined += _standardize(AudioSegment.from_mp3(io.BytesIO(intro_bytes)))
+    # Every piece of speech is generated in PARALLEL rather than one after
+    # another. This was the whole reason a recap took minutes: a 10-team
+    # league is intro + 5 segments + outro = 7 separate ElevenLabs calls,
+    # each 10-25 seconds for a paragraph, run strictly in sequence. The
+    # calls are completely independent of each other - only the assembly
+    # below needs to happen in order - so waiting for each one before
+    # starting the next was pure dead time.
+    #
+    # Concurrency is capped rather than unbounded: a 14-team league would
+    # otherwise fire a dozen simultaneous requests at ElevenLabs and risk
+    # rate limiting, which would be slower than doing it sequentially.
+    from concurrent.futures import ThreadPoolExecutor
 
-    for seg in segments:
-        seg_bytes = elevenlabs_service.generate_speech_bytes(seg["text"])
-        combined += _standardize(AudioSegment.from_mp3(io.BytesIO(seg_bytes)))
+    texts = [intro] + [seg["text"] for seg in segments]
+    if outro:
+        texts.append(outro)
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        # .map preserves input order, which is what keeps the recap from
+        # being assembled with its segments shuffled.
+        speech_bytes = list(pool.map(elevenlabs_service.generate_speech_bytes, texts))
+
+    rendered = [_standardize(AudioSegment.from_mp3(io.BytesIO(b))) for b in speech_bytes]
+
+    combined += rendered[0]  # intro
+
+    for i, seg in enumerate(segments):
+        combined += rendered[1 + i]
 
         sfx = _pick_random_sfx(seg.get("reaction", "none"))
         if sfx is not None:
@@ -562,8 +584,7 @@ def assemble_recap_audio(intro: str, segments: list, outro: str) -> str:
             combined += _standardize(sfx) + SFX_VOLUME_REDUCTION_DB
 
     if outro:
-        outro_bytes = elevenlabs_service.generate_speech_bytes(outro)
-        combined += _standardize(AudioSegment.from_mp3(io.BytesIO(outro_bytes)))
+        combined += rendered[-1]
 
     # Export the fully-assembled audio back to raw mp3 bytes, then run it
     # through the same loudness normalization every other spoken clip on

@@ -3623,3 +3623,29 @@ NOTE: adding --workers 2 would also have relieved the blocking, but was
 deliberately NOT done - it breaks the in-memory _pending_call_audio cache
 fixed earlier for Twilio, which is exactly the dead-air bug from David's
 handoff item #2.
+
+## Smackcast: parallelized speech generation (the actual slowness)
+After the background-thread fix the site stayed responsive, but generation
+itself still took minutes. Found the real bottleneck: assemble_recap_audio
+made every ElevenLabs call STRICTLY SEQUENTIALLY. A 10-team league is
+intro + 5 segments + outro = 7 separate calls, each 10-25 seconds for a
+paragraph, each waiting for the previous one to finish. That sequencing was
+essentially all of the runtime.
+
+The calls are completely independent - only the assembly needs to be in
+order - so they now run through a ThreadPoolExecutor. Expected effect on a
+10-team league: roughly 105s of speech generation down to roughly 30s.
+
+Two deliberate choices:
+- Concurrency capped at 4, not unbounded. A 14-team league would otherwise
+  fire a dozen simultaneous requests at ElevenLabs and risk rate limiting,
+  which would end up slower than sequential.
+- pool.map rather than as_completed, because map preserves input order.
+  Assembling on completion order would shuffle the segments, which is a
+  genuinely nasty bug - a recap where the outro lands mid-way and the
+  matchups are out of sequence.
+
+VERIFIED the ordering specifically, since that's the real risk: ran the
+same indexing against a stub with jittered delays so fast calls finish
+first, and confirmed output order still matches input order exactly and
+that intro/segment-N/outro all map to the right slots.
