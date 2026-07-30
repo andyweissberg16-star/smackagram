@@ -4136,3 +4136,72 @@ But three things make the first real Tuesday risky, and none are built:
 Related, already logged separately: chunked cron becomes necessary somewhere
 around 10-15 subscribers, since the run is sequential at ~2-3 min each and a
 restart mid-run currently loses the remainder until the following week.
+
+## SMACKCAST TODO LIST — consolidated (as of end of this session)
+Everything outstanding in one place. Ranked within each group.
+
+### A. BEFORE SELLING TO ANYONE
+A1. THE REAL DATA PATH HAS NEVER RUN. Every generation to date used the
+    admin test page against generate_sample_matchups() - fake data. The live
+    chain (sleeper_service/espn_service fetch -> generate -> deliver) has
+    never touched a real league. Right now the first paying customer is also
+    the first integration test.
+    BEST SINGLE TEST: connect one real Sleeper league AND one real ESPN
+    league of your own, then hit the cron endpoint manually. That exercises
+    every item in group B at once.
+
+A2. FAILURES ARE SILENT. Per-subscription try/except is correct (one bad
+    league can't kill the run) but a failure only prints to a log nobody
+    reads. At two subscribers a missing recap would go unnoticed for a week,
+    and they paid for it. Needs failure state surfaced - status="failed"
+    already exists on SmackcastRecap, so at minimum write it and show it,
+    ideally alert.
+
+A3. NO SAMPLE ON THE SALES PAGE. Asking $39.99 for an audio product with
+    nothing to listen to. SMACKCAST_SAMPLES in app.py is deliberately empty
+    and the section renders a placeholder. One-line fix once real samples
+    exist: audio_url, best_line, league_name, sport, week per sample.
+
+A4. SMS DELIVERY IS OFFERED BUT BLOCKED. A2P 10DLC still pending, so the
+    text option silently won't send even though signup presents it. Gate it
+    in the UI until approval, or make the failure visible.
+
+### B. LIVE-DATA RISKS (all untested, ranked by likelihood of biting)
+B1. Sleeper player-name dump on a 512MB instance. Fetching real player names
+    downloads Sleeper's full player file (several MB) and holds ~11,000
+    players in memory for the process lifetime. This box already OOM'd once
+    tonight. Fires on the FIRST real recap. Most likely thing to break.
+B2. ESPN box score shape. The view param was changed to mBoxscore and
+    _standouts() written against an ASSUMED response structure. Best case no
+    player callouts, worst case it throws. Never seen a real ESPN response.
+B3. ESPN private-league cookies expire. SWID/espn_s2 captured once at
+    signup, no refresh, no notification. Recaps would quietly stop working.
+B4. Tuesday 9am timing. If a Monday night game hasn't finalised, the recap
+    could generate off incomplete scores. Confirm both platforms have
+    settled by then.
+B5. Rotisserie / category leagues are documented unsupported - but is that
+    caught at SIGNUP or only at generation? Difference between a clear error
+    and a customer paying for nothing.
+B6. Non-English team names. Sanitizer leaves them intact (correct), but TTS
+    handling is unknown.
+CONFIRMED FINE: bye weeks / odd team counts are skipped cleanly.
+
+### C. SCALE (not needed yet, thresholds noted)
+C1. Chunked cron. Run is sequential at ~170s per recap. 10 subscribers is
+    ~30 min, 100 is ~5 hours, and a restart mid-run loses the remainder
+    until the following week. Build around 10-15 subscribers.
+C2. ElevenLabs cost. ~2,700-4,500 characters per recap. At 100 subscribers
+    that's well over a million characters a month against a plan including
+    ~100k. Price the overage before selling volume - this bites at a much
+    lower subscriber count than the infrastructure does.
+C3. Pricing tiers for larger leagues. Requested, never built. Needs bands
+    and prices. Note the 13+ band is flat to 32 teams, so a 32-team league
+    gets ~43 words per matchup, which may be too thin to sell at any price.
+
+### D. TOOLING
+D1. Local audio download / S3 filenames. Every file is a random UUID in one
+    flat tts/ folder mixed with prank-call audio. Preferred fix: download
+    button with a database-derived filename. Better long-term: store a
+    human-readable S3 key at upload.
+D2. Connect page still wears the old sales-page styling, unchanged since it
+    became the post-checkout step.
