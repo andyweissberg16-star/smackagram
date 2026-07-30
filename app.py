@@ -2505,6 +2505,11 @@ def smackcast_test_page():
 @app.route("/api/smackcast/test-generate", methods=["POST"])
 @login_required
 def api_smackcast_test_generate():
+    """
+    Kicks off a test generation and returns a job id immediately. The page
+    then polls /test-status/<job_id>. Previously this ran the whole pipeline
+    inline, which blocked the site's only worker for minutes.
+    """
     user = get_current_user()
     if not user.is_admin:
         return jsonify({"error": "Not authorized."}), 403
@@ -2520,103 +2525,14 @@ def api_smackcast_test_generate():
     if team_count < 4 or team_count > 20:
         return jsonify({"error": "Team count must be between 4 and 20."}), 400
 
-    try:
-        matchups = smackcast_service.generate_sample_matchups(sport, team_count)
-
-        result = smackcast_service.generate_weekly_recap_script(
-            league_name=league_name, week=week, matchups=matchups, team_count=team_count, sport=sport,
-        )
-        script = result["full_text"]
-        best_line = result["best_line"]
-        audio_url = smackcast_service.assemble_recap_audio(
-            result["intro"], result["segments"], result["outro"]
-        )
-        meme_url = None
-        if best_line:
-            try:
-                meme_url = smackcast_service.generate_meme_image(best_line, league_name, week)
-            except Exception as e:
-                print(f"[smackcast test] meme generation failed: {e}")
-    except Exception as e:
-        print(f"[smackcast test] generation failed: {e}")
-        return jsonify({"error": f"Generation failed: {e}"}), 500
-
-    return jsonify({
-        "matchups": matchups,
-        "script": script,
-        "best_line": best_line,
-        "audio_url": audio_url,
-        "meme_url": meme_url,
-    })
-
-
-@app.route("/api/smackcast/start-purchase", methods=["POST"])
-@login_required
-def api_smackcast_start_purchase():
-    """
-    Buy-first checkout. Takes only a plan and (for a season pass) how many
-    leagues, then sends the buyer to Stripe. Leagues get connected
-    afterwards against the resulting purchase.
-
-    The total is computed here from the constants in stripe_service, never
-    taken from the request - the browser sends a plan and a league count,
-    not a price.
-    """
-    user = get_current_user()
-    data = request.json or {}
-
-    plan = (data.get("plan") or "").strip()
-    if plan not in ("single", "season"):
-        return jsonify({"error": "Pick a plan first."}), 400
-
-    if plan == "single":
-        # A single recap covers exactly one league, and extra leagues are a
-        # season-pass add-on - so this is fixed at one regardless of input.
-        slots = 1
-        amount = stripe_service.SMACKCAST_SINGLE_CENTS
-    else:
-        try:
-            slots = int(data.get("leagues") or 1)
-        except (TypeError, ValueError):
-            return jsonify({"error": "Invalid league count."}), 400
-        # Upper bound is a sanity guard, not a product rule - nobody is
-        # legitimately buying 50 leagues, and an unbounded quantity is an
-        # easy way to generate an absurd Stripe session.
-        if slots < 1 or slots > 10:
-            return jsonify({"error": "Leagues must be between 1 and 10."}), 400
-        amount = stripe_service.SMACKCAST_SEASON_CENTS + (slots - 1) * stripe_service.SMACKCAST_EXTRA_LEAGUE_CENTS
-
-    purchase = SmackcastPurchase(
-        user_id=user.id, plan=plan, league_slots=slots,
-        amount_cents=amount, status="pending",
-    )
-    db.session.add(purchase)
-    db.session.commit()
-
-    base_url = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
-    session_obj = stripe_service.create_smackcast_purchase_session(purchase, base_url)
-    purchase.stripe_session_id = session_obj.id
-    db.session.commit()
-
-    return jsonify({"checkout_url": session_obj.url, "amount_cents": amount})
-
-
-@app.route("/smackcast/connect")
-@login_required
-def smackcast_connect_page():
-    """
-    Where a buyer hooks up their league(s), after paying. This is the
-    original /smackcast page - /smackcast is now the product page, since
-    asking someone to connect a fantasy league before they've even seen
-    pricing was the wrong order.
-    """
-    user = get_current_user()
-    purchases = (SmackcastPurchase.query
-                 .filter_by(user_id=user.id, status="paid")
-                 .order_by(SmackcastPurchase.id.desc())
-                 .all())
-    open_purchases = [p for p in purchases if p.slots_remaining > 0]
-    return render_template("smackcast_connect.html", open_purchases=open_purchases)
+    job_id = secrets.token_urlsafe(12)
+    _smackcast_test_jobs[job_id] = {"status": "generating"}
+    threading.Thread(
+        target=_run_smackcast_test_async,
+        args=(job_id, sport, league_name, team_count, week),
+        daemon=True,
+    ).start()
+    return jsonify({"job_id": job_id, "status": "generating"})
 
 
 @app.route("/api/smackcast/find-sleeper-leagues", methods=["POST"])
@@ -2809,6 +2725,77 @@ def smackcast_call_instructions(recap_id):
     return Response(twiml, mimetype="text/xml")
 
 
+_smackcast_test_jobs = {}
+
+
+def _run_smackcast_test_async(job_id, sport, league_name, team_count, week):
+    """
+    The test generator's pipeline, moved off the request. Inline it blocked
+    the single gunicorn worker for minutes, which took the entire site down
+    until the 180s timeout killed and restarted it.
+    """
+    with app.app_context():
+        try:
+            matchups = smackcast_service.generate_sample_matchups(sport, team_count)
+            result = smackcast_service.generate_weekly_recap_script(
+                league_name=league_name, week=week, matchups=matchups,
+                team_count=team_count, sport=sport,
+            )
+            audio_url = smackcast_service.assemble_recap_audio(
+                result["intro"], result["segments"], result["outro"]
+            )
+            meme_url = None
+            if result.get("best_line"):
+                try:
+                    meme_url = smackcast_service.generate_meme_image(
+                        result["best_line"], league_name, week
+                    )
+                except Exception as e:
+                    print(f"[smackcast test] meme generation failed: {e}")
+            _smackcast_test_jobs[job_id] = {
+                "status": "ready",
+                "matchups": matchups,
+                "script": result["full_text"],
+                "best_line": result["best_line"],
+                "audio_url": audio_url,
+                "meme_url": meme_url,
+            }
+        except Exception as e:
+            print(f"[smackcast test] generation failed: {e}")
+            _smackcast_test_jobs[job_id] = {"status": "failed", "error": str(e)}
+
+
+@app.route("/api/smackcast/test-status/<job_id>")
+@login_required
+def api_smackcast_test_status(job_id):
+    user = get_current_user()
+    if not user.is_admin:
+        return jsonify({"error": "Not authorized."}), 403
+    job = _smackcast_test_jobs.get(job_id)
+    if not job:
+        return jsonify({"status": "unknown"}), 404
+    if job["status"] in ("ready", "failed"):
+        # Hand it over once and drop it - these are disposable previews and
+        # the audio itself lives on S3, so there's nothing to keep.
+        return jsonify(_smackcast_test_jobs.pop(job_id))
+    return jsonify(job)
+
+
+def _generate_smackcasts_async():
+    """
+    Background wrapper for the weekly Smackcast run. Needs its own app
+    context since it runs outside the request cycle, and swallows nothing
+    silently - a failure here means somebody's paid recap didn't generate,
+    so it needs to show up in the logs.
+    """
+    with app.app_context():
+        try:
+            generate_weekly_smackcasts()
+            print("[smackcast cron] weekly run finished")
+        except Exception as e:
+            print(f"[smackcast cron] weekly run FAILED: {e}")
+
+
 @app.route("/api/cron/generate-smackcasts", methods=["GET", "POST"])
 def cron_generate_smackcasts():
     """
@@ -2824,8 +2811,19 @@ def cron_generate_smackcasts():
     if not expected_key or provided_key != expected_key:
         return jsonify({"error": "unauthorized"}), 401
 
-    generate_weekly_smackcasts()
-    return jsonify({"ok": True})
+    # Runs in a background thread rather than inline. This loops over every
+    # subscription and, for each, makes a Claude call plus one ElevenLabs
+    # call per matchup plus an S3 upload plus a meme generation - minutes of
+    # work per subscriber. Render runs a single gunicorn worker with a 180s
+    # timeout, so inline it would (a) block every other request on the site
+    # for the whole run and (b) get the worker killed partway through,
+    # leaving most subscribers with no recap at all.
+    #
+    # Safe to fire and forget: generate_weekly_smackcasts already skips any
+    # subscription that already has this week's recap, so a re-hit after an
+    # interrupted run picks up where it left off rather than duplicating.
+    threading.Thread(target=_generate_smackcasts_async, daemon=True).start()
+    return jsonify({"ok": True, "started": True})
 
 
 @app.route("/api/admin/check-team-codes")

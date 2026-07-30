@@ -126,17 +126,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
   btn.textContent = 'Generating... (this takes a bit — real AI + audio + image generation)';
   btn.disabled = true;
 
-  try {
-    const resp = await fetch('/api/smackcast/test-generate', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload)
-    });
-    const data = await resp.json();
-    if (data.error) {
-      errorEl.textContent = data.error;
-      errorEl.style.display = 'block';
-    } else {
+  function render(data) {
       document.getElementById('matchupsList').innerHTML = data.matchups.map(m =>
         `<div class="matchup-line">${m.team_a} (${m.team_a_score}) vs ${m.team_b} (${m.team_b_score})</div>`
       ).join('');
@@ -157,6 +147,60 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
 
       document.getElementById('scriptText').textContent = data.script;
       resultCard.style.display = 'block';
+  }
+
+  // Generation is a background job now - it makes a Claude call, one
+  // ElevenLabs call per matchup, an S3 upload and a meme, which took
+  // minutes. Running that inline blocked the site's single worker and took
+  // every other page down with it until gunicorn killed the worker. So this
+  // starts the job, gets an id back immediately, and polls.
+  try {
+    const startResp = await fetch('/api/smackcast/test-generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const started = await startResp.json();
+    if (started.error) {
+      errorEl.textContent = started.error;
+      errorEl.style.display = 'block';
+      btn.textContent = 'Generate Test Recap';
+      btn.disabled = false;
+      return;
+    }
+
+    const jobId = started.job_id;
+    const startedAt = Date.now();
+    // Generous ceiling - a 14-team league is a dozen-plus TTS calls - but
+    // finite, so a stalled job reports instead of spinning forever.
+    const LIMIT_MS = 8 * 60 * 1000;
+
+    while (true) {
+      await new Promise(r => setTimeout(r, 3000));
+      if (Date.now() - startedAt > LIMIT_MS) {
+        errorEl.textContent = "Generation is taking unusually long — check the Render logs.";
+        errorEl.style.display = 'block';
+        break;
+      }
+      const poll = await fetch(`/api/smackcast/test-status/${jobId}`);
+      if (poll.status === 404) {
+        errorEl.textContent = "Lost track of that job — the server may have restarted. Try again.";
+        errorEl.style.display = 'block';
+        break;
+      }
+      const data = await poll.json();
+      if (data.status === 'generating') {
+        const secs = Math.round((Date.now() - startedAt) / 1000);
+        btn.textContent = `Generating... ${secs}s (AI + audio + image)`;
+        continue;
+      }
+      if (data.status === 'failed') {
+        errorEl.textContent = data.error || 'Generation failed — try again.';
+        errorEl.style.display = 'block';
+        break;
+      }
+      render(data);
+      break;
     }
   } catch (err) {
     errorEl.textContent = "Generation failed — try again.";

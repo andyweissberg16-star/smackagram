@@ -3575,3 +3575,51 @@ Also in this session's prompt work (all now inside the directory):
 VERIFIED: all Python compiles, full app imports, all templates parse, and
 the assembled Smackcast prompt (11,377 chars) contains every section with
 player standouts flowing into the user content.
+
+## Smackcast: moved generation off the web worker (site-outage fix)
+Reported symptom: test generator button spun forever, then the WHOLE SITE
+stopped loading any page, then recovered on its own.
+
+ROOT CAUSE: Render runs `gunicorn app:app --timeout 180` with no --workers
+flag, so a single worker serves every request on the site. Both the test
+generator and the weekly cron ran their full pipeline INLINE in the
+request: a Claude call, one ElevenLabs call per matchup, sfx splicing, an
+S3 upload and a meme generation - minutes of work. While that ran, the one
+worker was blocked and nothing else on the site could be served. At 180s
+gunicorn killed and restarted the worker, which is exactly why it appeared
+to recover by itself.
+
+The cron was the serious half. generate_weekly_smackcasts() loops over
+EVERY subscription doing the full pipeline each time. Inline on a single
+worker with a 180s ceiling, the worker would be killed partway through
+every Tuesday - so most paying subscribers would never get a recap at all,
+and the site would be down while it tried. That breaks the paid product,
+not just an admin tool.
+
+FIXED - both now use the same background-thread pattern already
+established by _judge_round_async:
+- Cron: fires a thread and returns immediately. Safe to fire and forget
+  because generate_weekly_smackcasts already skips subscriptions that
+  already have this week's recap, so an interrupted run resumes rather
+  than duplicating on the next hit.
+- Test generator: returns a job id immediately; new
+  /api/smackcast/test-status/<job_id> endpoint is polled every 3s. Results
+  are held in memory and popped on collection - they're disposable
+  previews and the audio itself lives on S3. Page shows elapsed seconds
+  instead of an indefinite spinner, with an 8 minute ceiling so a stalled
+  job reports rather than hanging, and a clear message if the job id is
+  lost to a worker restart.
+
+ALSO FIXED while diagnosing:
+- The Anthropic call had NO timeout, so the SDK default of 600s applied
+  while gunicorn kills the worker at 180s - a slow call became a request
+  that never returned at all rather than a clean error. Now 90s.
+- max_tokens raised 1800 -> 3000. The prompt now asks for considerably
+  more (score registers, losing vocabulary, smackology, named players),
+  and a truncated response is invalid JSON, which silently burned the
+  retry and doubled the wait.
+
+NOTE: adding --workers 2 would also have relieved the blocking, but was
+deliberately NOT done - it breaks the in-memory _pending_call_audio cache
+fixed earlier for Twilio, which is exactly the dead-air bug from David's
+handoff item #2.

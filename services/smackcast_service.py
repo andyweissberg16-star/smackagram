@@ -201,7 +201,15 @@ Respond with ONLY a JSON object, nothing else:
         try:
             message = _get_client().messages.create(
                 model="claude-sonnet-4-6",
-                max_tokens=1800,
+                # Raised from 1800. The prompt now asks for considerably
+                # more (score registers, losing vocabulary, smackology,
+                # named players), and a truncated response is invalid JSON,
+                # which silently burns the retry and doubles the wait.
+                max_tokens=3000,
+                # Without this the SDK waits up to 600s. Gunicorn kills the
+                # worker at 180s, so a slow call became a request that never
+                # returned at all rather than a clean error.
+                timeout=90.0,
                 system=system_prompt,
                 messages=[{"role": "user", "content": user_content}],
             )
