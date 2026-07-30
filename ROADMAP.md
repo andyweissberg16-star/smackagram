@@ -4266,3 +4266,25 @@ smacky accent.
 NOTE on the empty library: that's correct behaviour, not a bug. There are no
 paid Smackcast purchases in production yet, so no subscriptions and no
 recaps. It populates once a real league is connected.
+
+## Smackcast test page: save a generation into the admin library
+Asked for a recap to exist in the admin library for testing. Rather than
+hand-seeding a database row (which also wouldn't have had real audio), added
+a "Save to my Smackcast library" checkbox to /smackcast/test.
+
+When ticked, the generated recap is persisted as a real SmackcastRecap
+against a self-created "__admin_test__" subscription owned by the admin - so
+it shows up in the library with a working player, a share link and a
+download, exercising the whole surface end to end.
+
+Useful beyond testing: this is also how samples for the product page get
+produced. The audio already lives on S3 either way; saving just gives it a
+row, a share token and a proper download filename.
+
+Save failure is caught and rolled back separately from the generation, so a
+database problem can never lose audio that has already been generated and
+paid for.
+
+Reuses one subscription per admin rather than creating a new one per run, so
+repeated test generations stack up as weeks under a single league heading
+instead of littering the library.

@@ -98,6 +98,11 @@
       <span>Stress test read-aloud handling &mdash; replaces every team name with a deliberately awkward one (leetspeak, emoji, all-caps, symbols)</span>
     </label>
 
+    <label style="display:flex; align-items:center; gap:10px; margin:14px 0; cursor:pointer;">
+      <input type="checkbox" id="saveInput" style="width:20px; height:20px; flex-shrink:0;">
+      <span>Save to my Smackcast library &mdash; keeps this recap with a share link and download, so you can hear it again or publish it as a sample</span>
+    </label>
+
     <div id="formError" role="alert"></div>
     <button id="generateBtn" class="btn btn-flare">Generate Test Recap</button>
   </div>
@@ -127,6 +132,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     team_count: parseInt(document.getElementById('teamCountInput').value, 10),
     week: parseInt(document.getElementById('weekInput').value, 10),
     stress: document.getElementById('stressInput').checked,
+    save_to_library: document.getElementById('saveInput').checked,
   };
 
   btn.textContent = 'Generating... (this takes a bit — real AI + audio + image generation)';

@@ -2522,6 +2522,7 @@ def api_smackcast_test_generate():
     # Stress mode replaces every team name with a deliberately awkward one,
     # for testing the read-aloud handling rather than a realistic league.
     stress = bool(data.get("stress"))
+    save_to_library = bool(data.get("save_to_library"))
 
     if sport not in ("nfl", "nba", "mlb"):
         return jsonify({"error": "Unsupported sport."}), 400
@@ -2532,7 +2533,7 @@ def api_smackcast_test_generate():
     _smackcast_test_jobs[job_id] = {"status": "generating"}
     threading.Thread(
         target=_run_smackcast_test_async,
-        args=(job_id, sport, league_name, team_count, week, stress),
+        args=(job_id, sport, league_name, team_count, week, stress, save_to_library, user.id),
         daemon=True,
     ).start()
     return jsonify({"job_id": job_id, "status": "generating"})
@@ -2802,7 +2803,7 @@ def smackcast_call_instructions(recap_id):
 _smackcast_test_jobs = {}
 
 
-def _run_smackcast_test_async(job_id, sport, league_name, team_count, week, stress=False):
+def _run_smackcast_test_async(job_id, sport, league_name, team_count, week, stress=False, save_to_library=False, user_id=None):
     """
     The test generator's pipeline, moved off the request. Inline it blocked
     the single gunicorn worker for minutes, which took the entire site down
@@ -2826,6 +2827,40 @@ def _run_smackcast_test_async(job_id, sport, league_name, team_count, week, stre
                     )
                 except Exception as e:
                     print(f"[smackcast test] meme generation failed: {e}")
+            # Optionally persist it as a real library recap. Useful for two
+            # things: seeing the library populated without waiting for a
+            # paying subscriber, and producing keepable samples for the
+            # product page (the audio already lives on S3 either way - this
+            # just gives it a row, a share link and a download filename).
+            if save_to_library:
+                try:
+                    sub = (SmackcastSubscription.query
+                           .filter_by(user_id=user_id, league_id="__admin_test__")
+                           .first())
+                    if not sub:
+                        sub = SmackcastSubscription(
+                            user_id=user_id, platform="sleeper", sport=sport,
+                            league_id="__admin_test__",
+                            league_name=f"{league_name} (test)",
+                            team_count=team_count, season_year=datetime.utcnow().year,
+                            deliver_web_link=True, is_active=True, plan="season",
+                        )
+                        db.session.add(sub)
+                        db.session.flush()
+                    db.session.add(SmackcastRecap(
+                        subscription_id=sub.id, week_number=week,
+                        season_year=sub.season_year,
+                        script_text=result["full_text"], audio_url=audio_url,
+                        meme_image_url=meme_url, best_line=result["best_line"],
+                        share_token=secrets.token_urlsafe(16), status="ready",
+                    ))
+                    db.session.commit()
+                except Exception as e:
+                    # Never let a save failure lose the generation itself -
+                    # the audio is already made and paid for.
+                    db.session.rollback()
+                    print(f"[smackcast test] save to library failed: {e}")
+
             _smackcast_test_jobs[job_id] = {
                 "status": "ready",
                 "matchups": matchups,
