@@ -4960,3 +4960,33 @@ NOT VERIFIED: an actual submission, which hits Stripe. The submit handler now
 reads message/voice/name from steps 1-2 rather than the deleted modal fields;
 the elements exist and the page throws no errors, but the first real order is
 the first end-to-end test of that path.
+
+## Send a Smack: intensity as a temperature scale
+Four changes to the intensity control and step 1 copy.
+
+REVERSED SCALE, defaulting to Savage. Reads Savage / Aggressive / Mild /
+Clean left to right. Implemented with direction:rtl on the range input rather
+than inverting the arithmetic, so the underlying value-to-label mapping is
+untouched and nothing downstream needs to know the scale is drawn backwards.
+
+TEMPERATURE TRACK. The track is now a permanent spectrum - red at Savage
+through orange to yellow at Clean - rather than a fill bar, so the whole
+scale stays visible like a thermometer and the colour under the thumb tells
+you how hot the setting is. The thumb border, its glow, the lit label and the
+big readout all take that same colour, driven by a --heat variable set per
+level. A red handle sitting on the yellow end would have fought the metaphor.
+
+LABEL LIGHTING changed to only the selected one. Worth recording why: with
+the scale reversed, lighting a RANGE of labels contradicted the bar - at
+Savage the fill was full but one label lit, at Clean the fill was empty but
+all four lit. Highlighting only the current level is unambiguous at every
+position. If cumulative lighting is wanted later it needs a different visual
+that doesn't fight the gradient.
+
+COPY: "How hard should he go" -> "How hard should Smacky go". All three step 1
+placeholders now carry an "ex - " prefix so they read unmistakably as
+examples rather than entered values.
+
+VERIFIED in a browser at all four levels: tick order, default Savage, heat
+colour, readout colour and lit label all correct; track renders the full
+gradient. No page errors.

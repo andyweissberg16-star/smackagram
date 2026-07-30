@@ -171,24 +171,27 @@
     letter-spacing:1.5px; text-transform:uppercase; color:var(--muted-2);
     cursor:pointer; transition:color .15s ease;
   }
-  .fader-tick.on{color:var(--punch);}
+  .fader-tick.on{color:var(--heat, var(--punch));}
+  /* A temperature scale, not a progress bar. The whole spectrum stays visible
+     the way a thermometer does - red at Savage on the left, cooling through
+     orange to yellow at Clean on the right - so the colour under the thumb
+     tells you how hot the setting is at a glance. */
   .fader-input{
-    -webkit-appearance:none; appearance:none; width:100%; height:6px;
-    border-radius:3px; margin:0 0 14px; cursor:pointer;
+    -webkit-appearance:none; appearance:none; width:100%; height:8px;
+    border-radius:4px; margin:0 0 14px; cursor:pointer;
     background:linear-gradient(to right,
-      var(--punch) 0%, var(--punch) var(--fill,0%),
-      var(--hairline) var(--fill,0%), var(--hairline) 100%);
+      #E01B24 0%, #F03A18 22%, #FF6B14 45%, #FF9F0A 72%, #FFD400 100%);
   }
   .fader-input::-webkit-slider-thumb{
     -webkit-appearance:none; appearance:none;
-    width:18px; height:28px; border-radius:4px; background:var(--ivory);
-    border:2px solid var(--punch); cursor:grab;
-    box-shadow:0 0 12px rgba(224,27,36,0.5);
+    width:18px; height:30px; border-radius:4px; background:var(--ivory);
+    border:3px solid var(--heat, var(--punch)); cursor:grab;
+    box-shadow:0 0 14px var(--heat-glow, rgba(224,27,36,0.5));
   }
   .fader-input::-moz-range-thumb{
-    width:18px; height:28px; border-radius:4px; background:var(--ivory);
-    border:2px solid var(--punch); cursor:grab;
-    box-shadow:0 0 12px rgba(224,27,36,0.5);
+    width:18px; height:30px; border-radius:4px; background:var(--ivory);
+    border:3px solid var(--heat, var(--punch)); cursor:grab;
+    box-shadow:0 0 14px var(--heat-glow, rgba(224,27,36,0.5));
   }
   .fader-input:focus-visible{outline:2px solid var(--punch); outline-offset:4px;}
   .fader-readout{
@@ -197,7 +200,7 @@
   }
   .fader-level{
     display:block; font-family:'Anton',sans-serif; font-size:19px;
-    text-transform:uppercase; color:var(--punch); line-height:1;
+    text-transform:uppercase; color:var(--heat, var(--punch)); line-height:1;
   }
   .fader-desc{display:block; font-size:13px; color:var(--muted); line-height:1.5; margin-top:5px;}
 
@@ -430,16 +433,16 @@
     <p class="card-sub">Type a team and who this is for — Smacky'll write the roast.</p>
 
     <label for="teamInput">Team to trash talk</label>
-    <input id="teamInput" type="text" placeholder="Yankees" data-team-search>
+    <input id="teamInput" type="text" placeholder="ex - Yankees" data-team-search>
 
     <label for="roastTopicsInput">Specific things to roast them about (optional)</label>
-    <input id="roastTopicsInput" type="text" placeholder="cheating, trash cans">
+    <input id="roastTopicsInput" type="text" placeholder="ex - cheating, trash cans">
     <p class="field-hint">Leave blank and Smacky'll roast them generally, using whatever real history and current events fit.</p>
 
     <label for="recipientNameInput">Who's receiving this</label>
-    <input id="recipientNameInput" type="text" placeholder="Mike">
+    <input id="recipientNameInput" type="text" placeholder="ex - Mike">
 
-    <p class="field-group-label">How hard should he go</p>
+    <p class="field-group-label">How hard should Smacky go</p>
     <p class="card-sub" style="margin-top:0;">Slide it. Clean is PG. Savage is not.</p>
     <div id="sensitivitySelector">
       <p style="color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
@@ -789,7 +792,9 @@ async function loadSensitivityLevels() {
     // dragging from clean to savage says so. selectedSensitivity remains the
     // single source of truth, so generate/preview/checkout are untouched.
     var keys = Object.keys(levels).map(Number).sort(function(x, y){ return x - y; });
-    var ticksHtml = keys.map(function(k){
+    // Highest intensity on the LEFT, so the scale reads savage-to-clean.
+    var display = keys.slice().reverse();
+    var ticksHtml = display.map(function(k){
       return '<span class="fader-tick" data-level="' + k + '">' + levels[k].label + '</span>';
     }).join('');
 
@@ -798,6 +803,7 @@ async function loadSensitivityLevels() {
         '<div class="fader-scale">' + ticksHtml + '</div>' +
         '<input type="range" id="intensityRange" class="fader-input" ' +
           'min="' + keys[0] + '" max="' + keys[keys.length - 1] + '" step="1" ' +
+          'style="direction:rtl;" ' +
           'value="' + selectedSensitivity + '" aria-label="How hard should Smacky go">' +
         '<div class="fader-readout">' +
           '<span class="fader-level" id="faderLevel"></span>' +
@@ -815,12 +821,24 @@ async function loadSensitivityLevels() {
       levelEl.textContent = levels[selectedSensitivity].label;
       descEl.textContent = levels[selectedSensitivity].description;
       ticks.forEach(function(t){
-        t.classList.toggle('on', parseInt(t.dataset.level, 10) <= selectedSensitivity);
+        // Only the selected label lights. With the scale reversed, lighting a
+        // RANGE of labels contradicted the fill bar - at Savage the bar was
+        // full but one label lit, at Clean the bar was empty but all four lit.
+        t.classList.toggle('on', parseInt(t.dataset.level, 10) === selectedSensitivity);
       });
       // Fill the track up to the handle. A default range renders identically
       // either side of the thumb, which loses the sense of how far up it is.
-      var pct = (selectedSensitivity - range.min) / (range.max - range.min) * 100;
-      range.style.setProperty('--fill', pct + '%');
+      // Temperature for the thumb, the lit label and the readout. Sampled to
+      // match the track gradient at that point, so the handle looks like it
+      // picked up the colour it is sitting on.
+      var HEAT = {4: '#E01B24', 3: '#FF6B14', 2: '#FF9F0A', 1: '#FFD400'};
+      var GLOW = {4: 'rgba(224,27,36,0.55)', 3: 'rgba(255,107,20,0.5)',
+                  2: 'rgba(255,159,10,0.45)', 1: 'rgba(255,212,0,0.4)'};
+      var fader = range.closest('.fader') || range.parentNode;
+      fader.style.setProperty('--heat', HEAT[selectedSensitivity] || '#E01B24');
+      fader.style.setProperty('--heat-glow', GLOW[selectedSensitivity] || 'rgba(224,27,36,0.55)');
+      range.style.setProperty('--heat', HEAT[selectedSensitivity] || '#E01B24');
+      range.style.setProperty('--heat-glow', GLOW[selectedSensitivity] || 'rgba(224,27,36,0.55)');
 
       // Anything above Clean needs an age acknowledgement. Reset it whenever
       // intensity changes - an acknowledgement carried over from a different
