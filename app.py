@@ -799,25 +799,57 @@ def generate_trash_talk():
     line = None
     last_reason = None
     for attempt in range(3):
-        candidate = trash_talk_service.generate_trash_talk(
-            team=team, recipient_name=recipient_name,
-            sensitivity=sensitivity, roast_topics=roast_topics,
-        )
-        verdict = content_moderation.check_message_safety(candidate)
+        try:
+            candidate = trash_talk_service.generate_trash_talk(
+                team=team, recipient_name=recipient_name,
+                sensitivity=sensitivity, roast_topics=roast_topics,
+            )
+        except Exception as e:
+            print(f"[generate] generation failed (attempt {attempt + 1}): {e}")
+            continue
+
+        try:
+            verdict = content_moderation.check_message_safety(candidate)
+        except Exception as e:
+            # Moderation is a SAFETY NET over our own output here, not the
+            # gate that protects users from each other - that check still
+            # runs at checkout on whatever is actually sent. So if the
+            # moderator is unavailable, don't take the whole generator down
+            # with it; hand the line over and let checkout catch anything
+            # genuinely bad. Failing closed here would mean an outage in one
+            # service breaks a feature it only supervises.
+            print(f"[safety] moderation unavailable during generation, passing through: {e}")
+            line = candidate
+            break
+
         if verdict["safe"]:
+            line = candidate
+            break
+        # Same reasoning: a moderator that can't reach its API reports unsafe
+        # by design. That's right at checkout, wrong here.
+        if verdict.get("reason") == "moderation check unavailable — please try again":
+            print("[safety] moderation unreachable during generation, passing through")
             line = candidate
             break
         last_reason = verdict["reason"]
         print(f"[safety] self-generated line failed moderation (attempt {attempt + 1}): {last_reason}")
 
     if line is None:
-        # Three strikes usually means the topics themselves steer somewhere
-        # we won't go, so say that rather than blaming the generator.
+        if last_reason:
+            # Three strikes on moderation usually means the topics themselves
+            # steer somewhere we won't go, so say that rather than blaming
+            # the generator.
+            return jsonify({
+                "error": "Couldn't write a line for that without crossing a line. "
+                         "Try different roast topics or a lower intensity.",
+                "reason": last_reason,
+            }), 400
+        # No moderation reason means generation itself kept failing - an
+        # upstream problem, not anything the user did. Don't tell them to
+        # change their input when their input was fine.
         return jsonify({
-            "error": "Couldn't write a line for that without crossing a line. "
-                     "Try different roast topics or a lower intensity.",
-            "reason": last_reason,
-        }), 400
+            "error": "Couldn't reach the writer just now. Give it a second and try again.",
+        }), 503
 
     return jsonify({"generated_text": line})
 

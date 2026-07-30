@@ -4524,3 +4524,34 @@ Wiring:
     so it should sound like Smacky without the full savage register.
   Smackcast - level 4, "recap" (unchanged)
   Battle judge - battle.intensity, "battle" (unchanged)
+
+## Generator broke after adding self-moderation — made it resilient
+Reported immediately after deploying the self-moderation change: the main
+Smackagram generator returned the frontend's generic "Couldn't generate right
+now" fallback, which is what shows when the response isn't usable JSON -
+i.e. an unhandled 500, not one of our own error paths.
+
+Root cause not yet confirmed from logs, but the change introduced two real
+fragilities worth fixing regardless:
+
+1. MODERATION FAILING CLOSED TOOK DOWN GENERATION. check_message_safety
+   deliberately reports UNSAFE when its own API call errors - correct at
+   checkout, where it's the gate protecting users from each other. But here
+   it's only a safety net over OUR OWN output, and failing closed meant an
+   outage in the moderation service broke a feature it merely supervises.
+   Now: if moderation is unreachable, the line passes through and checkout
+   still catches anything genuinely bad on whatever actually gets sent.
+
+2. GENERATION ERRORS WERE UNHANDLED. A raise from generate_trash_talk
+   propagated as a 500 with an HTML body, which the frontend can't parse -
+   hence the generic fallback with no useful information. Now caught per
+   attempt and retried.
+
+Also split the failure response: three moderation rejections still says "try
+different roast topics or a lower intensity" (the input genuinely is the
+problem), but repeated GENERATION failures now return 503 with "couldn't
+reach the writer" - because telling someone to change their input when their
+input was fine is misleading.
+
+STILL WANT THE RENDER LOG to confirm the original cause. The traceback will
+name it directly, and this fix is defensive rather than confirmed.
