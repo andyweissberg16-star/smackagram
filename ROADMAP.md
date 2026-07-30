@@ -4672,3 +4672,35 @@ visible - the fix was correct, the check wasn't.
 VERIFIED: headline and em resolve to rgb(224,27,36), step numbers red at
 26px, three how-it-works items, body on --ink, and the wizard still shows
 exactly one step and advances correctly after the restyle. No page errors.
+
+## Send a Smack: generator restyled as a call console
+Chosen from eleven design directions. The reasoning: the product IS a phone
+call to a real person, and nothing on the page said so. A console frames the
+flow as arming a call rather than filling in a form, and it's ownable - no
+competitor's generator can be a call console.
+
+What changed:
+- The step dots became a console header: a pulsing LED, a status line, and a
+  zero-padded counter (01 / 04, which reads as instrumentation rather than
+  pagination).
+- A four-segment progress track replaces the dots, filling left to right.
+- A field label above each step names what's being captured - Target,
+  Intensity, Payload, Delivery.
+- Status text advances with the step: Line open, Target locked, Writing
+  payload, Ready to dial. This is the part that makes it feel like a call
+  being set up rather than decoration.
+- The card lost its comic offset shadow in favour of the flat --surface /
+  --hairline treatment used by checkout, so the generator and the payment
+  step now match.
+
+Accessibility: the track carries role="progressbar" with aria-valuenow kept
+in sync, and the LED pulse is disabled under prefers-reduced-motion.
+
+VERIFIED in a browser across all four steps forward and back: status, field
+label, counter, lit segment count and aria-valuenow all stay in sync with
+the active step. No page errors.
+
+NOT DONE (still open): the intensity fader idea from the broadcast-desk
+direction. Replacing the sensitivity dropdown with a physical slider is a
+better interaction than picking from a list, and would pair well with this
+console frame.

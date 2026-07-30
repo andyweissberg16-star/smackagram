@@ -112,6 +112,46 @@
     line-height:1; opacity:0.7; margin-top:0;
   }
 
+  /* CALL CONSOLE — the product is a phone call, so the generator is styled
+     as an outgoing-call terminal rather than a form. The status line and
+     segmented track advance with the wizard, so it reads as arming
+     something rather than filling in boxes. */
+  #wizardCard{
+    background:var(--surface); border:1.5px solid var(--hairline);
+    border-radius:var(--radius); box-shadow:none; padding:0; overflow:hidden;
+  }
+  .console-bar{
+    display:flex; align-items:center; gap:9px;
+    padding:10px 14px; background:var(--surface-2);
+    border-bottom:1.5px solid var(--hairline);
+    font-family:'JetBrains Mono',monospace;
+  }
+  .console-led{
+    width:8px; height:8px; border-radius:50%; background:var(--punch);
+    flex-shrink:0; animation:ledPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes ledPulse{0%,100%{opacity:1;} 50%{opacity:0.35;}}
+  @media(prefers-reduced-motion:reduce){ .console-led{animation:none;} }
+  .console-status{
+    font-size:11px; font-weight:700; letter-spacing:2px;
+    text-transform:uppercase; color:var(--punch);
+  }
+  .console-spacer{flex:1;}
+  .console-count{font-size:11px; letter-spacing:1.5px; color:var(--muted-2);}
+  .console-track{display:flex; gap:2px; padding:0 14px; background:var(--surface-2);}
+  .track-seg{
+    flex:1; height:3px; background:var(--hairline);
+    transition:background .2s ease;
+  }
+  .track-seg.on{background:var(--punch);}
+  .console-field{
+    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
+    letter-spacing:3px; text-transform:uppercase; color:var(--muted-2);
+    padding:16px 24px 0; margin:0;
+  }
+  .wizard-step{padding:0 24px;}
+  .wizard-nav{padding:18px 24px 22px !important; margin-top:22px;}
+
   .step-dots{display:flex; justify-content:center; gap:10px; margin-bottom:20px;}
   .step-dot{
     width:12px; height:12px; border-radius:50%;
@@ -241,13 +281,19 @@
   </div>
 
   <div class="card" id="wizardCard">
-    <div class="step-dots" id="stepDots">
-      <span class="step-dot active"></span>
-      <span class="step-dot"></span>
-      <span class="step-dot"></span>
-      <span class="step-dot"></span>
+    <div class="console-bar">
+      <span class="console-led" aria-hidden="true"></span>
+      <span class="console-status" id="consoleStatus">Line open</span>
+      <span class="console-spacer"></span>
+      <span class="console-count" id="stepCounter">01 / 04</span>
     </div>
-    <p class="step-counter" id="stepCounter">Step 1 of 4</p>
+    <div class="console-track" id="consoleTrack" role="progressbar" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1">
+      <span class="track-seg on"></span>
+      <span class="track-seg"></span>
+      <span class="track-seg"></span>
+      <span class="track-seg"></span>
+    </div>
+    <p class="console-field" id="consoleField">Target</p>
 
   <div class="wizard-step active" data-step="1">
     <p class="step-label">Step 1</p>
@@ -386,7 +432,15 @@
 // (generate, preview, pricing, checkout) needed rewiring.
 document.addEventListener('DOMContentLoaded', () => {
   const steps = Array.from(document.querySelectorAll('.wizard-step'));
-  const dots = Array.from(document.querySelectorAll('.step-dot'));
+  const segs = Array.from(document.querySelectorAll('.track-seg'));
+  const statusEl = document.getElementById('consoleStatus');
+  const fieldEl = document.getElementById('consoleField');
+  const track = document.getElementById('consoleTrack');
+
+  // Status text advances with the step so the header reads as a call being
+  // set up rather than decoration. Field label names what's being captured.
+  const STATUS = ['Line open', 'Target locked', 'Writing payload', 'Ready to dial'];
+  const FIELDS = ['Target', 'Intensity', 'Payload', 'Delivery'];
   const backBtn = document.getElementById('wizardBack');
   const nextBtn = document.getElementById('wizardNext');
   const counter = document.getElementById('stepCounter');
@@ -398,11 +452,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function show(i) {
     current = Math.max(0, Math.min(i, steps.length - 1));
     steps.forEach((el, n) => el.classList.toggle('active', n === current));
-    dots.forEach((d, n) => {
-      d.classList.toggle('active', n === current);
-      d.classList.toggle('done', n < current);
-    });
-    counter.textContent = `Step ${current + 1} of ${steps.length}`;
+    segs.forEach((seg, n) => seg.classList.toggle('on', n <= current));
+    if (statusEl) statusEl.textContent = STATUS[current] || STATUS[0];
+    if (fieldEl) fieldEl.textContent = FIELDS[current] || FIELDS[0];
+    if (track) track.setAttribute('aria-valuenow', String(current + 1));
+    // Zero-padded, which reads as instrumentation rather than pagination.
+    counter.textContent = `${String(current + 1).padStart(2, '0')} / ${String(steps.length).padStart(2, '0')}`;
 
     // Back is hidden rather than disabled on the first step - a disabled
     // button would pick up the site-wide spinner, which reads as loading.
