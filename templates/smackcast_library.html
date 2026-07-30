@@ -80,6 +80,13 @@
     border:1px solid var(--line-strong); background:transparent; color:var(--chalk);
   }
   .recap-btn:hover{border-color:var(--gold); color:var(--gold);}
+  /* The download is the primary action on a recap someone paid for, so it
+     gets the filled treatment rather than sitting level with the utility
+     buttons beside it. */
+  .recap-btn-primary{
+    background:var(--gold); border-color:var(--gold); color:#0D0D0D;
+  }
+  .recap-btn-primary:hover{filter:brightness(1.08); color:#0D0D0D;}
   .recap-btn.copied{border-color:var(--gold); color:var(--gold);}
 
   details.transcript{margin-top:12px;}
@@ -161,6 +168,12 @@
 
             {% if r.meme_image_url %}
               <img class="recap-meme" src="{{ r.meme_image_url }}" alt="Week {{ r.week_number }} meme" loading="lazy">
+            {% endif %}
+
+            {% if r.audio_url %}
+              <div class="recap-actions" style="margin-bottom:8px;">
+                <a class="recap-btn recap-btn-primary" href="/smackcast/recap/{{ r.id }}/download">Download audio</a>
+              </div>
             {% endif %}
 
             {% if r.share_token %}

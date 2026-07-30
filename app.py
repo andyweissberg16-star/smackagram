@@ -2674,6 +2674,66 @@ def smackcast_success_page():
     return render_template("smackcast_success.html")
 
 
+def _recap_filename(recap, subscription):
+    """
+    A filename someone would actually want in their Downloads folder.
+    S3 keys are bare UUIDs, so a direct link saves as
+    "a3f9c2e1-....mp3" with no indication of what it is.
+    """
+    league = (subscription.league_name or "league").lower()
+    league = re.sub(r"[^a-z0-9]+", "-", league).strip("-") or "league"
+    return f"smackcast-{league}-week{recap.week_number}-{recap.season_year}.mp3"
+
+
+@app.route("/smackcast/recap/<int:recap_id>/download")
+@login_required
+def smackcast_download_recap(recap_id):
+    """
+    Serves a subscriber their own recap audio as a proper download.
+
+    Proxied rather than linking straight to S3 for one reason: the object
+    key is a UUID, so a direct link downloads as gibberish. Going through
+    here lets us set Content-Disposition with a real filename.
+
+    Streamed in chunks rather than read into memory - a multi-minute recap
+    is several MB and this box has already hit its memory ceiling once.
+
+    Ownership is checked against the requesting user. Recap IDs are
+    sequential integers, so without this anyone logged in could walk the
+    range and pull down other people's audio.
+    """
+    user = get_current_user()
+    recap = SmackcastRecap.query.get(recap_id)
+    if not recap:
+        return "Recap not found.", 404
+
+    subscription = SmackcastSubscription.query.get(recap.subscription_id)
+    if not subscription or subscription.user_id != user.id:
+        # Deliberately 404 rather than 403 - no reason to confirm that a
+        # recap with this id exists to someone who doesn't own it.
+        return "Recap not found.", 404
+
+    if not recap.audio_url:
+        return "That recap has no audio yet.", 404
+
+    try:
+        upstream = requests.get(recap.audio_url, stream=True, timeout=30)
+        if upstream.status_code != 200:
+            return "Couldn't retrieve that audio file.", 502
+    except Exception as e:
+        print(f"[smackcast] download failed for recap {recap_id}: {e}")
+        return "Couldn't retrieve that audio file.", 502
+
+    return Response(
+        upstream.iter_content(chunk_size=64 * 1024),
+        mimetype="audio/mpeg",
+        headers={
+            "Content-Disposition": f'attachment; filename="{_recap_filename(recap, subscription)}"',
+            "Content-Length": upstream.headers.get("Content-Length", ""),
+        },
+    )
+
+
 @app.route("/smackcast/library")
 @login_required
 def smackcast_library_page():

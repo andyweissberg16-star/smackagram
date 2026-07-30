@@ -4205,3 +4205,35 @@ D1. Local audio download / S3 filenames. Every file is a random UUID in one
     human-readable S3 key at upload.
 D2. Connect page still wears the old sales-page styling, unchanged since it
     became the post-checkout step.
+
+## Smackcast: download button in the subscriber library
+Subscribers could already stream every recap from /smackcast/library, but
+saving one meant right-clicking and hunting for "Save Audio As". Added a
+proper Download button per recap.
+
+PROXIED through the app rather than linking straight to S3, for one concrete
+reason: the S3 object key is a bare UUID, so a direct link saves as
+"a3f9c2e1-....mp3". Going through the app allows Content-Disposition with a
+real filename - smackcast-the-dynasty-disasters-week7-2026.mp3. This also
+covers the tooling TODO logged earlier about unusable S3 filenames.
+
+Streamed in 64KB chunks rather than read into memory - a multi-minute recap
+is several MB and this instance has already hit its ceiling once tonight.
+
+OWNERSHIP IS CHECKED. Recap IDs are sequential integers, so without it any
+logged-in user could walk the range and pull down other subscribers' audio.
+Returns 404 rather than 403 for a non-owner, so it doesn't confirm that a
+recap with that id exists.
+
+Filename generation verified against awkward league names: punctuation and
+symbols collapse to hyphens, and an emoji-only or missing league name falls
+back to "league" rather than producing an unusable filename.
+
+Access verified three ways: owner reaches the fetch (502 only because the
+test row pointed at an unreachable URL, which also confirms the upstream
+error path), non-owner gets 404, anonymous gets redirected to login.
+
+CAUGHT MID-BUILD: my edit script appended the anchor twice, producing
+@app.route("/smackcast/library")@app.route("/smackcast/library") on one line
+and a TypeError on boot. Fixed; full app import and both route registrations
+now verified.
