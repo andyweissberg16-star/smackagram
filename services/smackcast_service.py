@@ -784,6 +784,12 @@ def assemble_recap_audio(intro: str, segments: list, outro: str) -> str:
     combined += _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[0])))
 
     for i, seg in enumerate(segments):
+        # A real beat before each new matchup. Spoken transitions carry most of
+        # the work, but back-to-back speech with no gap still runs together to
+        # the ear. Skipped before the first segment, which follows the intro
+        # and already has the intro's own trailing pause.
+        if i > 0:
+            combined += AudioSegment.silent(duration=450)
         combined += _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[1 + i])))
 
         sfx = _pick_random_sfx(seg.get("reaction", "none"))

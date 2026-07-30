@@ -4048,3 +4048,27 @@ team scored badly" to "a person made this happen on purpose".
 Worth re-testing on a NORMAL generation (stress off) rather than another
 all-awkward run, since the name handling competes directly with this for
 segment budget.
+
+## Smackcast: no audible break between matchups
+Segments ran straight into each other with nothing signalling a new matchup.
+In text you can see a paragraph break; in audio there's nothing, so a
+listener loses track of who's even being discussed.
+
+Fixed in two places, because either alone is insufficient:
+
+1. SPOKEN TRANSITIONS. Every segment after the first opens with a short
+   handoff - moving on, next up, elsewhere, meanwhile, which brings me to -
+   with an explicit instruction to VARY them, since the same phrase six times
+   is worse than none. Better still, make the transition carry contempt or
+   connect to the previous segment ("if you thought that was bad", "somehow
+   it gets worse"). Naming the teams immediately after the handoff is what
+   actually orients the listener. No transition on the first segment (it
+   follows the intro) and the outro closes rather than transitions.
+
+2. A 450ms SILENCE before each new matchup in the audio assembly. Spoken
+   transitions do most of the work, but back-to-back speech with no gap still
+   runs together to the ear. Skipped before the first segment, which already
+   follows the intro's trailing pause.
+
+Costs a few seconds of runtime on a 6-matchup recap - worth it for being able
+to follow what's happening.
