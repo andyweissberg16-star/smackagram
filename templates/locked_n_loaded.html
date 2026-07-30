@@ -84,7 +84,14 @@
   .progress-line.completed{background:var(--flare);}
 
   /* COLLAPSED STEP SUMMARY */
-  .step-summary{display:flex; justify-content:space-between; align-items:center; cursor:default;}
+  .step-summary{
+    display:flex; justify-content:space-between; align-items:center;
+    cursor:pointer; padding:13px 0;
+    /* Same treatment as the Smackagram generator, in this page's amber. The
+       rule under each collapsed row makes the stack read as separate boxes. */
+    border-bottom:1px solid var(--amber);
+  }
+  .step-summary:hover{background:rgba(255,184,0,0.06);}
   .step-summary-text{font-size:14px; color:var(--chalk); font-weight:600;}
   .step-summary-change{
     font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--chalk-dim); text-decoration:underline;
@@ -1008,6 +1015,13 @@ loadVoices();
       var reached = i <= window.lnlFurthest;
       card.style.display = reached ? 'block' : 'none';
       if (!content) return;
+      // Next only on the furthest step reached - same reasoning as the other
+      // generator. Re-opening a completed step is for editing.
+      var nb = st.next ? el(st.next) : null;
+      if (nb && nb.parentElement) {
+        nb.parentElement.style.display =
+          (i === n && i === window.lnlFurthest) ? '' : 'none';
+      }
       if (i === n) {
         content.style.display = 'block';
         if (summary) summary.style.display = 'none';

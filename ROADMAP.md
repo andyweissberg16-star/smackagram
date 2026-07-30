@@ -5322,3 +5322,21 @@ by a CSS rule and the reveal code set style.display = '' - which CLEARS the
 inline style and hands control back to the stylesheet, which still said
 display:none. Now toggles an .is-ready class so the stylesheet decides and
 there's no inline-vs-CSS fight.
+
+## Accordion polish on both generators
+THEMED SEPARATOR under every collapsed row - 1px solid, red on the Smackagram
+generator and amber on Locked & Loaded, each matching its own page. Stacked,
+the rows then read as separate boxes rather than one undifferentiated list,
+which is the point of collapsing them at all. Solid rather than the faded rule
+used for section breaks elsewhere: a fade reads as a soft divider, and here the
+line is doing structural work. Kept at 1px deliberately - a heavier line starts
+competing with the 5px console frame around everything.
+
+NEXT ONLY ON THE FURTHEST STEP REACHED. Re-opening a completed step is for
+editing, and the collapsed rows are how you move around - a second way to go
+forward would just be noise. Verified: on step 2 only step 2's Next shows;
+re-opening step 1 shows no Next anywhere.
+
+ARROW, NOT A DOT, in the step 1 summary. "New York Yankees → Andy" instead of
+"New York Yankees · Andy" - the pair has direction, the roast is aimed AT the
+recipient, and a dot reads as two unrelated facts sitting side by side.

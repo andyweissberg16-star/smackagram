@@ -144,8 +144,15 @@
      easier to hit, and it reads as a row you can open. */
   .sas-summary{
     display:flex; align-items:center; gap:11px; cursor:pointer;
-    padding:12px 0; margin-bottom:2px;
+    padding:13px 0; margin:0;
+    /* A solid rule under each collapsed row, in the page's own red. Stacked
+       rows then read as separate boxes rather than one undifferentiated list,
+       which is the whole point of collapsing them. Solid rather than the
+       faded rule used elsewhere: a fade reads as a soft section break, and
+       here the line is doing structural work. */
+    border-bottom:1px solid var(--punch);
   }
+  .sas-summary:hover{background:rgba(224,27,36,0.06);}
   .sas-summary[hidden]{display:none;}
   .sas-tick{
     width:20px; height:20px; border-radius:50%; background:var(--punch);
@@ -823,7 +830,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (n === 0) {
       var team = (document.getElementById('teamInput') || {}).value || '';
       var who = (document.getElementById('recipientNameInput') || {}).value || '';
-      val = [team.trim(), who.trim()].filter(Boolean).join('  \u00b7  ');
+      // An arrow, not a dot: this pair has direction - the roast is aimed AT
+      // the recipient. A dot would read as two unrelated facts.
+      val = [team.trim(), who.trim()].filter(Boolean).join('  \u2192  ');
     } else if (n === 1) {
       var lvl = document.getElementById('faderLevel');
       val = lvl ? lvl.textContent : '';
@@ -850,6 +859,13 @@ document.addEventListener('DOMContentLoaded', () => {
       var body = document.getElementById('sasBody' + (n + 1));
       var summ = document.getElementById('sasSummary' + (n + 1));
       if (body) body.style.display = (n === current) ? '' : 'none';
+      // Next belongs only on the furthest step reached. Re-opening an earlier
+      // step is for editing, and the collapsed rows are how you move around -
+      // a second way to go forward would just be noise.
+      var nb = document.getElementById('sasNext' + (n + 1));
+      if (nb && nb.parentElement) {
+        nb.parentElement.style.display = (n === current && n === furthest) ? '' : 'none';
+      }
       if (summ) {
         var collapsed = (n < current) || (n > current && n <= furthest);
         summ.hidden = !collapsed;
