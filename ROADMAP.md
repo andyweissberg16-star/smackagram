@@ -4729,3 +4729,18 @@ from the card itself shows nothing - the animation lives on ::before):
 angle swept 120deg to 226deg across one second, with the conic-gradient
 tracking it, and the animation reported as running rather than merely
 declared. Border computes to 3px rgb(224,27,36), and the wizard still works.
+
+## Generator frame: thicker border, slower LED
+Border 3px -> 5px with a slightly stronger glow, and the orbit slowed from
+3.4s to 9s per lap. At 3.4s it read as a warning light; at 9s it idles.
+
+Also lengthened the gradient's tail from ~24deg to ~60deg. A slower head
+with a short tail looks like it's crawling - the longer trail is what makes
+the slow speed read as gliding rather than sluggish.
+
+Note the ::before inset and padding must track the border width exactly (now
+-5px / 5px), or the mask stops lining up with the band it paints and the
+light bleeds onto the card face.
+
+VERIFIED by measuring actual travel rather than trusting the declaration:
+81 degrees in 2 seconds, which is a 9-second lap. Border computes to 5px.

@@ -127,30 +127,31 @@
   #wizardCard{
     position:relative;
     background:var(--surface);
-    border:3px solid var(--punch);
+    border:5px solid var(--punch);
     border-radius:var(--radius);
-    box-shadow:0 0 24px rgba(224,27,36,0.28);
+    box-shadow:0 0 30px rgba(224,27,36,0.32);
     padding:0;
   }
   #wizardCard::before{
-    content:''; position:absolute; inset:-3px; border-radius:inherit;
-    padding:3px; pointer-events:none; z-index:2;
+    content:''; position:absolute; inset:-5px; border-radius:inherit;
+    padding:5px; pointer-events:none; z-index:2;
     background:conic-gradient(from var(--led-angle),
-      transparent 0deg, transparent 336deg,
-      rgba(255,120,128,0.65) 344deg,
-      #FF5A64 351deg, #FFFFFF 354deg, #FF5A64 357deg,
-      rgba(255,120,128,0.65) 360deg);
+      transparent 0deg, transparent 300deg,
+      rgba(255,120,128,0.35) 320deg,
+      rgba(255,120,128,0.7) 340deg,
+      #FF5A64 350deg, #FFFFFF 355deg, #FF7A82 358deg,
+      rgba(255,120,128,0.4) 360deg);
     -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite:xor;
             mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
             mask-composite:exclude;
-    animation:ledOrbit 3.4s linear infinite;
+    animation:ledOrbit 9s linear infinite;
   }
   @keyframes ledOrbit{ to{ --led-angle:360deg; } }
   @media(prefers-reduced-motion:reduce){ #wizardCard::before{animation:none; opacity:0;} }
   /* The header sat flush against the old hairline; the thicker frame needs
      the inner corners clipped so it doesn't square off the radius. */
-  .console-bar{border-top-left-radius:calc(var(--radius) - 3px); border-top-right-radius:calc(var(--radius) - 3px);}
+  .console-bar{border-top-left-radius:calc(var(--radius) - 5px); border-top-right-radius:calc(var(--radius) - 5px);}
   .console-bar{
     display:flex; align-items:center; gap:9px;
     padding:10px 14px; background:var(--surface-2);
