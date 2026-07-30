@@ -3490,3 +3490,30 @@ about 3.6:1 on --surface, under WCAG AA. Matched reload.html deliberately
 since consistency was the ask and that page does the same, but flagging it
 - if it matters, those two could take --ivory with red reserved for
 borders and the large price type.
+
+## Smackcast product page: red checkout button + Smacky in accent red
+The checkout button rendered as a plain white browser button. Cause: the
+page used class="btn btn-flare" but never DEFINED those classes.
+smackagram.css only sets min-height on .btn/.btn-flare/.btn-play/.btn-ghost -
+the actual colours live per-page (smackcast_connect.html defines them at
+lines 73-75). With no definition it fell back to the UA default. Added .btn
+and .btn-flare using --punch to match the reload palette, plus hover and
+disabled states.
+
+Also wrapped "Smacky" in a .smacky span (accent red) in the two places it
+appears as visible copy - the hero subheading and the samples heading. Left
+the three meta/alt-text occurrences alone since they never render.
+
+VERIFIED: checkout button computes to rgb(224,27,36) with white text; both
+.smacky spans resolve to rgb(224,27,36).
+
+## Smackcast pricing: Season Pass moved to the left
+Swapped tier order so Season Pass leads and Single Recap follows. The grid
+was 1fr 1.12fr to widen the anchor column (originally the second one), so
+that flipped to 1.12fr 1fr - otherwise Season would have kept the
+scale/gradient treatment while sitting in the narrower column.
+
+VERIFIED by actual rendered position rather than DOM order: season at x106
+(415px wide), single at x529 (357px). Season remains the anchor and the
+default selection, and both tier switching and the league stepper still
+work after the move ($7.99 on Single, $69.98 at 2 leagues).

@@ -137,7 +137,7 @@
   /* PRICING - same tier pattern as reload.html: click-to-select cards with
      a radio dot and one confirm button, rather than a button per card. Keeps
      the two checkout surfaces feeling like one product. */
-  .tiers{display:grid; grid-template-columns:1fr 1.12fr; gap:16px; align-items:stretch; margin-top:26px;}
+  .tiers{display:grid; grid-template-columns:1.12fr 1fr; gap:16px; align-items:stretch; margin-top:26px;}
   @media(max-width:720px){ .tiers{grid-template-columns:1fr; gap:14px;} .tier--anchor{transform:scale(1) !important;} }
   .tier{
     position:relative; background:var(--surface);
@@ -212,6 +212,16 @@
   .stepper-val{font-family:'Anton',sans-serif; font-size:26px; min-width:28px; text-align:center;}
   .stepper-note{font-size:12px; color:var(--muted-2); margin-top:9px; line-height:1.5;}
 
+  .btn{
+    font-weight:700; font-size:var(--fs-md); padding:15px 26px; border-radius:8px;
+    border:none; cursor:pointer; text-transform:uppercase; letter-spacing:0.6px;
+    font-family:'Inter',sans-serif;
+  }
+  .btn-flare{background:var(--punch); color:#fff; box-shadow:0 0 22px rgba(224,27,36,0.42);}
+  .btn-flare:hover:not(:disabled){filter:brightness(1.08);}
+  .btn-flare:disabled{opacity:0.6; cursor:not-allowed;}
+  /* Smacky's name carries the accent wherever it appears in copy. */
+  .smacky{color:var(--punch);}
   .checkout-bar{margin-top:24px; text-align:center;}
   .checkout-total{
     font-family:'Anton',sans-serif; font-size:30px; line-height:1; margin-bottom:4px;
@@ -252,7 +262,7 @@
   <div class="hero">
     <p class="label">Smackcast</p>
     <h1>Your league.<br>Roasted <em>every week</em>.</h1>
-    <p class="sub">Connect your fantasy league once. Every Tuesday, Smacky pulls your <b>real scores</b> and roasts your whole league &mdash; by name, in his own voice. Nobody has to write a thing.</p>
+    <p class="sub">Connect your fantasy league once. Every Tuesday, <span class="smacky">Smacky</span> pulls your <b>real scores</b> and roasts your whole league &mdash; by name, in his own voice. Nobody has to write a thing.</p>
   </div>
 
   <!-- HOW IT WORKS -->
@@ -281,7 +291,7 @@
   <!-- SAMPLES -->
   <div class="section">
     <p class="section-label">Hear it</p>
-    <h2>What Smacky sounds like</h2>
+    <h2>What <span class="smacky">Smacky</span> sounds like</h2>
     <p class="lede">Real recaps, generated the same way yours will be.</p>
 
     {% if samples %}
@@ -332,15 +342,6 @@
     <h2>Pick your damage</h2>
 
     <div class="tiers" id="tiers">
-      <div class="tier" data-plan="single" tabindex="0" role="button" aria-pressed="false">
-        <div class="plan-name">Single Recap</div>
-        <div class="price">$7.99</div>
-        <div class="divider"></div>
-        <div class="what">1<small>Week, One League</small></div>
-        <div class="jump">One full roast of your fantasy week &mdash; audio, meme, transcript and a share link. Any league, any supported platform.</div>
-        <div class="choose"><span class="radio"><i></i></span>Select</div>
-      </div>
-
       <div class="tier tier--anchor selected" data-plan="season" tabindex="0" role="button" aria-pressed="true">
         <div class="ribbon">Best Value</div>
         <div class="plan-name">Season Pass</div>
@@ -361,6 +362,16 @@
 
         <div class="choose"><span class="radio"><i></i></span>Selected</div>
       </div>
+
+      <div class="tier" data-plan="single" tabindex="0" role="button" aria-pressed="false">
+        <div class="plan-name">Single Recap</div>
+        <div class="price">$7.99</div>
+        <div class="divider"></div>
+        <div class="what">1<small>Week, One League</small></div>
+        <div class="jump">One full roast of your fantasy week &mdash; audio, meme, transcript and a share link. Any league, any supported platform.</div>
+        <div class="choose"><span class="radio"><i></i></span>Select</div>
+      </div>
+
     </div>
 
     <div class="checkout-bar">
