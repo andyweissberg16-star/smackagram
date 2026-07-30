@@ -11,6 +11,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
+  /* smackagram.css supplies the :root colour variables and .btn, but not a
+     body background - every page sets its own (see smackcast_connect.html,
+     smack_lab.html etc). Without this the page renders white. */
+  *{margin:0; padding:0; box-sizing:border-box;}
+  body{
+    background:var(--ink); color:var(--chalk);
+    font-family:'Inter',sans-serif; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--gold);}
   .wrap{max-width:820px; margin:0 auto; padding:0 24px 70px;}
 
   /* HERO */
@@ -186,6 +196,12 @@
 <body>
 
 {% include '_nav.html' %}
+
+{% if hero_image_exists %}
+<img src="{{ url_for('static', filename='img/smackcast-hero.png') }}"
+     alt="Smackcast — your fantasy league roasted every week by Smacky"
+     style="width:100%; height:auto; display:block;">
+{% endif %}
 
 <div class="wrap">
 

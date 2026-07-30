@@ -2483,6 +2483,7 @@ def smackcast_page():
         "smackcast_product.html",
         samples=SMACKCAST_SAMPLES,
         smacky_image_exists=os.path.exists(os.path.join(app.root_path, "static", "img", "smacky-hero.png")),
+        hero_image_exists=os.path.exists(os.path.join(app.root_path, "static", "img", "smackcast-hero.png")),
     )
 
 

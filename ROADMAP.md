@@ -3361,3 +3361,28 @@ errors.
 
 STILL TO DO: publish real samples; the connect page is functional but
 still styled as the old sales page and could use a pass.
+
+## Smackcast product page: fixed white background + added hero banner
+The new product page rendered with a WHITE background. Cause: static/css/
+smackagram.css supplies the :root colour variables and .btn, but NOT a body
+background - every page on the site sets its own (smackcast_connect.html,
+smack_lab.html etc all do). The product page linked the stylesheet and
+assumed the theme came with it, so the gold/red accents were rendering on
+white. Added the body background/colour, box-sizing reset and link colour
+the other pages declare.
+
+Added a full-width hero banner directly under the nav, matching the
+existing pattern used by smack_lab.html and did-you-get-smacked
+(single image, width:100%, height:auto). Guarded behind a
+hero_image_exists check so the page renders cleanly before the file is
+dropped in rather than showing a broken image - same approach already used
+for smacky-hero.png.
+
+Expected filename: static/img/smackcast-hero.png (follows the
+smack-lab-hero.jpg / did-you-get-smacked-hero.png single-file convention
+rather than the multi-size -780/-1560/-1983 responsive sets).
+
+VERIFIED: body computes to rgb(13,13,13) (--ink) with rgb(245,245,243)
+text, featured plan border / price / step borders all resolve to gold
+rgb(255,212,0), Inter loading, no page errors, and the hero block
+correctly stays hidden while the image is absent.
