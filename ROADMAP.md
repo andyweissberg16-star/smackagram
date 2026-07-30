@@ -3435,3 +3435,58 @@ var() referencing a nonexistent token silently collapses, so this is the
 only way to be sure): --h1-hero -> 60px, --h1-page -> 36px, --fs-2xs ->
 10px, --fs-md -> 14px, --fs-base -> 13px, body -> rgb(13,13,13), and zero
 elements under 10px.
+
+## Smackcast product page: matched to reload.html's checkout design + 2 bug fixes
+User pointed at /reload (the Smackagram pricing page) as the design to
+match. Read the template rather than the rendered page (smackagram.com is
+outside the sandbox's allowed domains), which was better anyway - got the
+real tokens instead of eyeballing colours.
+
+That page runs its OWN token names layered over smackagram.css: --punch
+(#E01B24) for the accent, --surface (#141414) for cards, --line (#3A1416)
+as a red-tinted hairline, --ivory/--muted/--muted-2 for text, --radius:14px.
+Redeclared the same set here so the two checkout surfaces share one palette.
+
+Adopted its tier pattern wholesale: click-to-select cards with a radio dot
+and ONE confirm button below, instead of a button per card. Anchor tier gets
+the gradient + scale(1.04) + ribbon treatment. Keyboard accessible
+(tabindex, role, aria-pressed, Enter/Space, focus-visible), matching the
+original. Removed the circular Smacky portrait - the hero banner already
+carries him.
+
+TWO REAL BUGS FIXED:
+1. FROZEN LEAGUE SELECTOR. smackagram.css auto-applies a spinner to ANY
+   disabled button, and explicitly documents the exception: add .no-spinner
+   to buttons disabled to express a permanent state rather than a wait. The
+   stepper disables minus at 1 and plus at 10 - permanent states - so both
+   spun forever and looked stuck loading. Added .no-spinner. I'd missed
+   that rule when writing the stepper.
+2. CHECKOUT BUTTON STUCK SPINNING. Two causes, both mine:
+   - The success path assigned window.location.href unconditionally, so a
+     response without a checkout_url navigated to "undefined" and the
+     button just sat there disabled (and therefore spinning). Now guarded
+     with an explicit failure message.
+   - A 500 returns an HTML error page, and resp.json() threw on it, landing
+     in the generic catch with no clue what broke. Now reads the body as
+     text first, then parses, and surfaces the actual status code.
+   Every failure path now restores the button rather than leaving it
+   disabled.
+
+Also: stepper clicks stopPropagation so adjusting leagues doesn't
+re-trigger tier selection, and adjusting leagues while Single is selected
+now switches to Season rather than silently changing a number that doesn't
+apply.
+
+VERIFIED in a browser: initial state Season/$39.99/1 league with minus
+correctly disabled AND carrying .no-spinner; clicking Single swaps to
+$7.99 and updates the label; Season +2 gives $99.97 (3 leagues); using the
+stepper while Single is selected correctly switches to Season and shows
+$129.96 (4 leagues); anchor border and plan name both compute to
+rgb(224,27,36); zero remaining gold (255,212,0) references; circular
+portrait gone; no page errors.
+
+NOTE: --punch on sub-18px text (.plan-name at 14px, .choose at 13px) is
+about 3.6:1 on --surface, under WCAG AA. Matched reload.html deliberately
+since consistency was the ask and that page does the same, but flagging it
+- if it matters, those two could take --ivory with red reserved for
+borders and the large price type.
