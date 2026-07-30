@@ -3714,3 +3714,61 @@ LESSON WORTH KEEPING: on this instance size, anything touching decoded
 audio must be streamed one piece at a time. Bulk-decoding a multi-minute
 recap will always OOM. Concurrency on the DOWNLOADS is fine (a few MB);
 concurrency on DECODED segments is not.
+
+## Smackcast: I DELETED the length instruction — 7-minute recaps
+Reported: a 12-team recap came out over 7 minutes, when earlier ones were
+3-4. Something changed with the smackology work.
+
+ROOT CAUSE, and it was my error: the length instruction was GONE from the
+prompt entirely. target_words was still being computed and then referenced
+nowhere. When I consolidated the vocabulary into smackology.render(), I
+replaced everything between "SCORE PHRASING" and "REAL PLAYERS" - and the
+"Target length: approximately {target_words} words" line sat inside that
+range. I swallowed it. So the model had no length guidance at all, which is
+exactly why output nearly doubled. Raising max_tokens 1800 -> 3000 removed
+the incidental ceiling that had been masking it.
+
+FIXED:
+1. Restored the instruction, and made it enforceable. A single total proved
+   too abstract to hold to in a 12,000-character prompt, so it now gives a
+   PER-PIECE budget: intro ~55 words, each matchup segment ~N words (total
+   divided by the actual matchup count), outro ~45. A 12-team league now
+   reads "about 83 words per segment, there are 6 matchups this week",
+   which is concrete enough to write against.
+2. Recalibrated to the requested runtimes, banded rather than a linear
+   ramp: up to 9 teams -> 450 words (~3 min), 10-12 -> 600 (~4 min), 13+ ->
+   900 (~6 min). Previously a linear 450-750 topping out at 5 min.
+3. Added an explicit instruction that the vocabulary is a palette, not a
+   checklist, and that if it's over budget the COINAGES get cut first - the
+   scores and player callouts are the content. The length overrun was
+   partly the model trying to demonstrate all the new vocabulary.
+
+Verified the rendered prompt shows real numbers: 600 words / 4.0 minutes /
+83 words per segment / 6 matchups for a 12-team league.
+
+## Smackcast: cursing vanished — clean vocabulary crowded out the profanity
+Reported: no cursing at all in a 7-minute generation, when the product has
+always been heavily profane.
+
+CAUSE: the instruction was still there ("heavily profane... real cursing
+throughout", line 110) — but everything I added in the smackology work was
+CLEAN. Zero instances of any real profanity across ~12,000 characters of
+concrete word lists. Given that much specific vocabulary, the model writes
+FROM the list, so one line of instruction lost against a wall of clean
+words. A crowding-out effect I should have anticipated when adding a
+vocabulary that large.
+
+FIX: put the profanity into the vocabulary itself, at tier 4, so the
+concrete list the model draws from actually contains it — profane verbs,
+intensifiers meant to sit in front of the existing adjectives/nouns
+("fucking pathetic", "a goddamn shitshow"), nouns, and names for people.
+Plus an explicit statement that the coinages go WITH the profanity rather
+than instead of it, and that the target register is both in one breath:
+"that was a goddamn Smackocalypse."
+
+Tiering verified: level 1 and level 3 render zero profanity terms, level 4
+renders 15. So Clean and Aggressive battles stay clean while Smackcast
+(always 4) and Savage battles curse.
+
+Still bound by the existing hard limits — no slurs, nothing targeting
+protected characteristics, aimed at team performance.

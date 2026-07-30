@@ -67,6 +67,24 @@ SCORE_PHRASING = {
 # ---------------------------------------------------------------------------
 # LOSING — escalating by how bad the beating actually was.
 # ---------------------------------------------------------------------------
+# Tier 4 only. Smackcast and Savage battles are explicitly profane products;
+# these live in the vocabulary rather than in a single instruction because a
+# concrete word list is what the model actually writes from.
+PROFANE = {
+    "tier": 4,
+    "verbs": ["got their shit kicked in", "got absolutely fucked up",
+              "got their ass handed to them", "shit the bed",
+              "got their teeth kicked in", "got run the fuck over"],
+    "intensifiers": ["fucking", "goddamn", "absolutely fucking"],
+    "nouns": ["shitshow", "dumpster fire", "absolute shitpile",
+              "clown show", "disaster of a week"],
+    "people": ["dumbass", "clown", "jabroni", "sorry bastard"],
+    "note": ("intensifiers go in front of the adjectives and nouns above - "
+             "\"fucking pathetic\", \"a goddamn shitshow\" - rather than "
+             "standing alone"),
+}
+
+
 LOSING_VERBS = {
     "plain": {
         "tier": 1,
@@ -236,6 +254,23 @@ def render(level: int = 4, context: str = "recap") -> str:
     out.append("\"their offense was gutless\" is the job; the same word aimed at the")
     out.append("person managing the roster is not.")
     out.append("")
+
+    if _tier_ok(PROFANE["tier"], level):
+        out.append("PROFANITY — you curse, constantly, and it is not optional.")
+        out.append("This matters because everything above is a clean word list,")
+        out.append("and working only from it produces a recap with no cursing at")
+        out.append("all - which is not this show. The coinages go WITH the")
+        out.append("profanity, never instead of it.")
+        out.append(f"  verbs: {_fmt(PROFANE['verbs'])}")
+        out.append(f"  intensifiers ({PROFANE['note']}): {_fmt(PROFANE['intensifiers'])}")
+        out.append(f"  nouns: {_fmt(PROFANE['nouns'])}")
+        out.append(f"  for people: {_fmt(PROFANE['people'])}")
+        out.append("Aim for cursing in most segments, not a token one. \"That was")
+        out.append("a goddamn Smackocalypse\" is the register - the invented word")
+        out.append("and the profanity in the same breath. Still bound by the hard")
+        out.append("limits below: no slurs, nothing about protected")
+        out.append("characteristics, and aimed at the team's performance.")
+        out.append("")
 
     out.append("SMACKOLOGY — YOUR OWN LANGUAGE")
     out.append("You don't use slang, you have a vocabulary, and you deploy it like")

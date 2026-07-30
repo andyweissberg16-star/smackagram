@@ -43,10 +43,11 @@ def _target_word_count(team_count: int) -> int:
     scales roughly linearly between ~3 minutes (8 teams) and ~5 minutes
     (14+ teams), at a natural spoken pace of ~150 words/minute.
     """
-    team_count = max(8, min(team_count, 14))
-    min_words, max_words = 450, 750
-    fraction = (team_count - 8) / (14 - 8)
-    return round(min_words + fraction * (max_words - min_words))
+    if team_count <= 9:
+        return 450    # ~3 min
+    if team_count <= 12:
+        return 600    # ~4 min
+    return 900        # ~6 min
 
 
 _SPORT_LABELS = {"nfl": "fantasy football", "nba": "fantasy basketball", "mlb": "fantasy baseball"}
@@ -71,6 +72,14 @@ def generate_weekly_recap_script(league_name: str, week: int, matchups: list, te
     """
     target_words = _target_word_count(team_count)
     sport_label = _SPORT_LABELS.get(sport, "fantasy football")
+
+    # A per-piece budget, because a single total proved too abstract to hold
+    # to once the prompt grew - real output ran 7+ minutes on a 12-team
+    # league against a 650-word target.
+    segment_count = max(1, len(matchups))
+    intro_words, outro_words = 55, 45
+    per_segment_words = max(40, round((target_words - intro_words - outro_words) / segment_count))
+    target_minutes = round(target_words / 150, 1)
 
     matchup_lines = []
     for m in matchups:
@@ -151,6 +160,25 @@ way a reader could. This applies throughout, every time, not just the
 first mention.
 
 {smackology.render(4)}
+
+LENGTH — a hard constraint, not a suggestion. This instruction was
+missing entirely and scripts ran nearly double their intended runtime.
+Total budget: {target_words} words across intro, ALL segments and outro
+combined, which is about {target_minutes} minutes spoken.
+
+Because a single total is easy to lose track of, budget per piece:
+  intro: about {intro_words} words
+  EACH matchup segment: about {per_segment_words} words
+  outro: about {outro_words} words
+There are {segment_count} matchups this week. Every segment gets roughly
+the same share — don't spend 200 words on the blowout and 40 on the rest.
+
+The vocabulary and smackology sections above are a PALETTE, not a
+checklist, and you do not need to demonstrate all of it. Three sharp
+words inside {per_segment_words} words beats cramming in ten and running
+to double the length. If you're over budget, cut the coinages first — the
+scores and player callouts are the content, the invented language is
+seasoning.
 
 REAL PLAYERS — some matchups come with a best and worst starter named,
 with their actual fantasy points. When they do, use them every so often:
