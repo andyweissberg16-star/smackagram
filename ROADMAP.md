@@ -4586,3 +4586,30 @@ THIRD TIME TONIGHT for this general shape of error - the duplicated
 before a "def" is unsafe in a decorated codebase, because the def is not the
 top of the block. Anchor on the decorator instead, and re-run the route audit
 after any insertion near a view.
+
+## REVERTED: smackology removed from the Smackagram generator and Smack Lab
+Requested. Embedding the Smackcast voice into the Smackagram generator was
+overreach on my part - the ask had been to fix the moderation GUIDELINES,
+not to change how those generators sound. The existing Smackagram voice was
+already right and didn't need Smacky's invented vocabulary layered onto it.
+
+Reverted:
+  main Smackagram generator (_build_system_prompt) - back to exactly
+    f"{intro}\\n\\n{tone}\\n\\n{accuracy}\\n\\n{_HARD_LIMITS}". Verified no
+    smackology terms appear at any sensitivity, and the sign-off rule is
+    intact (the "you've just been smacked by Smackagram" tag plus smack
+    sound is appended after generation, not written by the model - that was
+    never touched).
+  Smack Lab (per-turn coaching and final verdict) - back to their original
+    system prompts.
+
+STILL USING SMACKOLOGY, correctly:
+  Smackcast - render(4, "recap")
+  Smack Battle judge - render(battle.intensity, "battle")
+
+The "short" render context stays in smackology.py. It's harmless unused and
+worth keeping if a short-form generator ever genuinely wants the voice.
+
+KEPT from that same change (this was the actual request and is unaffected):
+  - self-moderation of our own generated output, with regeneration
+  - specific rejection reasons on all seven user-facing paths

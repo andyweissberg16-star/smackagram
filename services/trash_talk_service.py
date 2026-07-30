@@ -154,12 +154,7 @@ humiliations). If you're not confident a specific stat or event is accurate,
 use a real but more general true fact instead of inventing a fake specific one
 — never fabricate a specific year, score, or event that didn't happen."""
 
-    prompt = f"{intro}\n\n{tone}\n\n{accuracy}\n\n{_HARD_LIMITS}"
-    # Same Smacky voice as Smackcast and the battle judge, rendered at
-    # THIS message's sensitivity and in the short-form context - a
-    # Smackagram is 60-90 words, so it gets the vocabulary without the
-    # script scaffolding.
-    return prompt + "\n\n" + smackology.render(sensitivity, context="short")
+    return f"{intro}\n\n{tone}\n\n{accuracy}\n\n{_HARD_LIMITS}"
 
 
 GREETINGS = [
@@ -347,7 +342,7 @@ def smack_lab_respond(team: str, conversation_history: list[dict], user_line: st
     message = _get_client().messages.create(
         model="claude-sonnet-4-6",
         max_tokens=400,
-        system=SMACK_LAB_SYSTEM_PROMPT + "\n\n" + smackology.render(3, context="short"),
+        system=SMACK_LAB_SYSTEM_PROMPT,
         messages=messages,
     )
     raw = message.content[0].text.strip().replace("```json", "").replace("```", "").strip()
@@ -416,7 +411,7 @@ def smack_lab_final_verdict(team: str, average_rating: float, session_lines: lis
     message = _get_client().messages.create(
         model="claude-sonnet-4-6",
         max_tokens=250,
-        system=SMACK_LAB_VERDICT_SYSTEM_PROMPT + "\n\n" + smackology.render(3, context="short"),
+        system=SMACK_LAB_VERDICT_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_content}],
     )
     return message.content[0].text.strip()
