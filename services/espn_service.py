@@ -76,6 +76,35 @@ def get_league_info(league_id: str, season: str, sport: str = "nfl", swid: str =
     }
 
 
+def _standouts(side: dict) -> dict:
+    """
+    Best and worst STARTER for one ESPN team in a matchup, matching the
+    shape sleeper_service._standouts returns so the recap prompt doesn't
+    care which platform the league came from.
+
+    ESPN marks bench slots with lineupSlotId 20 (bench) and 21 (IR);
+    everything else is a starter. Filtering those out matters because a
+    bench player's points never counted toward the score.
+    """
+    entries = ((side.get("rosterForCurrentScoringPeriod") or {}).get("entries") or [])
+    scored = []
+    for e in entries:
+        if e.get("lineupSlotId") in (20, 21):
+            continue
+        player = (e.get("playerPoolEntry") or {}).get("player") or {}
+        name = player.get("fullName")
+        if not name:
+            continue
+        pts = e.get("playerPoolEntry", {}).get("appliedStatTotal")
+        if pts is None:
+            pts = 0
+        scored.append({"name": name, "points": round(float(pts), 1)})
+    if not scored:
+        return {}
+    scored.sort(key=lambda p: p["points"], reverse=True)
+    return {"top": scored[0], "bust": scored[-1]}
+
+
 def get_week_recap_data(league_id: str, season: str, week: int, sport: str = "nfl", swid: str = None, espn_s2: str = None) -> dict | None:
     """
     Pulls one week's matchup data. ESPN returns team names as separate
@@ -93,7 +122,11 @@ def get_week_recap_data(league_id: str, season: str, week: int, sport: str = "nf
     """
     resp = requests.get(
         f"{_base_url(sport)}/{season}/segments/0/leagues/{league_id}",
-        params={"view": "mMatchupScore", "scoringPeriodId": week},
+        # mBoxscore (rather than mMatchupScore) is what makes ESPN return
+        # per-player roster entries alongside the totals. Player names come
+        # inline here, so no separate ID->name lookup is needed the way
+        # Sleeper requires.
+        params={"view": ["mBoxscore", "mMatchupScore"], "scoringPeriodId": week},
         cookies=_cookies(swid, espn_s2),
         timeout=10,
     )
@@ -121,6 +154,10 @@ def get_week_recap_data(league_id: str, season: str, week: int, sport: str = "nf
             "team_a_score": home.get("totalPoints", 0),
             "team_b": team_name_by_id.get(away.get("teamId"), "Unknown Team"),
             "team_b_score": away.get("totalPoints", 0),
+            # Empty dicts if this league/view didn't return rosters - the
+            # recap still writes from totals alone.
+            "team_a_standouts": _standouts(home),
+            "team_b_standouts": _standouts(away),
         })
 
     if not matchup_list:

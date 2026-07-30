@@ -188,7 +188,7 @@ def generate_weekly_smackcasts():
                 continue  # already generated this week's recap for this league
 
             if sub.platform == "sleeper":
-                week_data = sleeper_service.get_week_recap_data(sub.league_id, current_week)
+                week_data = sleeper_service.get_week_recap_data(sub.league_id, current_week, sub.sport)
             else:
                 week_data = espn_service.get_week_recap_data(
                     sub.league_id, str(sub.season_year), current_week, sport=sub.sport,

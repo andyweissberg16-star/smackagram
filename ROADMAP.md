@@ -3517,3 +3517,61 @@ VERIFIED by actual rendered position rather than DOM order: season at x106
 (415px wide), single at x529 (357px). Season remains the anchor and the
 default selection, and both tier switching and the league stepper still
 work after the move ($7.99 on Single, $69.98 at 2 leagues).
+
+## Smackology: Smacky's language directory (new services/smackology.py)
+Consolidated everything from this session's vocabulary work into one
+shared module instead of three inline prompt blocks.
+
+WHY CURATED, NOT EXHAUSTIVE: the raw input was several hundred terms.
+Pasting all of it in backfires - past a certain prompt length a model
+starts working through the list rather than writing, and output gets MORE
+mechanical. Cut to ~130, chosen to be distinct from each other rather
+than near-synonyms ("destroyed/annihilated/obliterated/demolished/
+decimated" is one idea, not five), TTS-safe, and in Smacky's register.
+
+TTS FILTERING (all read-aloud, so these were real problems):
+- Dropped "L-ified" - a bare letter plus suffix mangles in speech.
+  Kept "L Collector", which reads as an ordinary two-word phrase.
+- De-hyphenated "Turbo-smack"/"Mega-smack" - a hyphen is read as a pause
+  or spoken as "dash".
+- Added a rule against writing coinages in CAPS. The source examples used
+  SMACKAGEDDON and FUMBLETRON; speech engines read capital runs letter by
+  letter, so that becomes "S-M-A-C-K-A-G-E-D-D-O-N". Emphasis now has to
+  live in the sentence, not the casing.
+
+SENSITIVITY TIERING: terms carry the LOWEST level they may appear at
+(matching trash_talk_service.SENSITIVITY_LEVELS 1-4). Anything above the
+requested level is omitted entirely, not softened. Verified at Clean:
+"ass-kicking", "dog-walked", "Cope Captain", "torched them for" all
+absent - but Smackquake, Smack Meter, Cry Mode and the catchphrases all
+survive, so a Clean generation still sounds like Smacky rather than a
+generic announcer. That distinction is the point of tiering.
+
+CONTEXT SPLIT: render(level, context) changes which SECTIONS appear,
+because the two places Smacky speaks are different jobs.
+  recap  - Smackcast. Long spoken script about game scores. Everything.
+  battle - the Smack Battle judge's critiques and coach messages. Omits
+           score phrasing (its scores are 0-10 ratings, and those rules
+           would push it to invent point totals), omits the read-aloud
+           rules (critiques are displayed text, never spoken), and omits
+           the explain-a-word mechanic (a 20-word aside would consume a
+           short critique whole).
+Verified all four combinations: recap lvl1 5063ch / lvl4 5598ch, battle
+lvl1 2755ch / lvl4 3122ch, with the right sections present in each.
+
+UNIFIED THE TWO VOICES: the battle judge now calls
+smackology.render(battle.intensity, "battle"), so it speaks the same
+language as the Smackcast host at whatever intensity that specific battle
+was created with. Previously it had an entirely separate voice.
+
+Also in this session's prompt work (all now inside the directory):
+- Score phrasing by register, with energetic named as the home register
+  and neutral demoted to a sparing rhythm break
+- Losing vocabulary as a palette with honest escalation
+- best_line guarded against picking a line whose punch depends on an
+  unexplained coinage - "that's a Smackquake" means nothing on a
+  shareable graphic
+
+VERIFIED: all Python compiles, full app imports, all templates parse, and
+the assembled Smackcast prompt (11,377 chars) contains every section with
+player standouts flowing into the user content.

@@ -9,6 +9,7 @@ import os
 import json
 import anthropic
 import requests
+from services import smackology
 
 _client = None
 
@@ -75,10 +76,25 @@ def generate_weekly_recap_script(league_name: str, week: int, matchups: list, te
     for m in matchups:
         winner = m["team_a"] if m["team_a_score"] > m["team_b_score"] else m["team_b"]
         margin = abs(m["team_a_score"] - m["team_b_score"])
-        matchup_lines.append(
+        line = (
             f"{m['team_a']} ({m['team_a_score']:.1f}) vs {m['team_b']} ({m['team_b_score']:.1f}) "
             f"— {winner} won by {margin:.1f}"
         )
+        # Real player detail when the platform gave us any. Absent for
+        # leagues/platforms where the roster fetch came back empty, so the
+        # prompt has to cope with some matchups having it and some not.
+        for side, label in ((m.get("team_a_standouts"), m["team_a"]),
+                            (m.get("team_b_standouts"), m["team_b"])):
+            if not side:
+                continue
+            bits = []
+            if side.get("top"):
+                bits.append(f"best starter {side['top']['name']} {side['top']['points']:.1f}")
+            if side.get("bust"):
+                bits.append(f"worst starter {side['bust']['name']} {side['bust']['points']:.1f}")
+            if bits:
+                line += f"\n    {label} — " + "; ".join(bits)
+        matchup_lines.append(line)
     matchups_block = "\n".join(matchup_lines)
 
     system_prompt = f"""You write the weekly Smackcast — a savage, heavily
@@ -134,10 +150,30 @@ idea what it means, since they can't see parenthetical score data the
 way a reader could. This applies throughout, every time, not just the
 first mention.
 
-Target length: approximately {target_words} words total across intro,
-all segments, and outro combined — this scales with how many matchups
-are in the league this week, so hit it reasonably closely rather than
-running short or padding it out.
+{smackology.render(4)}
+
+REAL PLAYERS — some matchups come with a best and worst starter named,
+with their actual fantasy points. When they do, use them every so often:
+a named player is far more cutting than another abstract team total.
+Roughly one matchup in three is about right — leaning on it every
+segment turns the recap into a stat sheet read aloud.
+
+The bust is usually the better material. A starter who put up 2.1 points
+is the whole joke; you don't have to build one. A monster game from the
+top starter works too, especially when the team lost anyway — starting a
+30-point player and still losing is its own kind of pain.
+
+Absolute rule: you may ONLY name a player who was explicitly given to
+you above, and you may ONLY cite the exact points listed next to their
+name. Do not mention any other real player, do not reference a real NFL,
+NBA or MLB game, injury, headline or news story, and do not invent or
+round a stat. You have no information about the real season beyond these
+numbers. If a matchup lists no players, write it from the totals and say
+nothing about players at all.
+
+Roast the PERFORMANCE, not the human — "2.1 points from your starting
+running back is a war crime" is the job. Real players are working
+professionals, so keep it about the box score.
 
 {_HARD_LIMITS}
 
@@ -145,7 +181,10 @@ After writing everything, pull out the single most quotable, savage
 line from anywhere in it verbatim (word-for-word as it appears) — this
 gets used on its own as a shareable image, so it needs to land
 completely out of context, not rely on the rest of the recap to make
-sense.
+sense. Because of that, avoid picking a line whose punch depends on a
+coined word the reader hasn't had explained — "that's a Smackquake"
+means nothing on a graphic by itself. Either pick a line that works
+cold, or pick one where the coinage is explained inside that same line.
 
 Respond with ONLY a JSON object, nothing else:
 {{"intro": "...", "segments": [{{"text": "...", "reaction": "boo|laugh|cheer|gasp|trombone|flourish|aww|none"}}], "outro": "...", "best_line": "..."}}"""
@@ -385,13 +424,39 @@ def generate_sample_matchups(sport: str, team_count: int) -> list:
     while len(names) < team_count:
         names.append(f"Team {len(names) + 1}")
 
+    # Obviously-fictional player names. Deliberately NOT real players -
+    # the test page runs the real pipeline, and inventing stat lines for
+    # actual professionals is exactly what the prompt forbids in
+    # production. Fake names keep the preview honest.
+    fake_players = {
+        "nfl": ["Dex Hollaway (QB)", "Ronnie Stackhouse (RB)", "Trey Milbourne (WR)",
+                "Cal Vensetti (TE)", "Duke Farrady (RB)", "Ozzie Brantwood (WR)",
+                "Rube Castellan (QB)", "Miles Trepper (K)"],
+        "nba": ["Jace Kimbrough", "Ade Fontanel", "Rudy Vashenko", "Terrance Pell",
+                "Ori Lindqvist", "Bo Chatham", "Nash Everly", "Kip Solano"],
+        "mlb": ["Rocco Delmar", "Sy Hatterly", "Junior Vasquez-Poe", "Wes Kirkbride",
+                "Ollie Mancuso", "Rafe Dunleavy", "Cy Portelli", "Gus Havemeyer"],
+    }
+    pool = fake_players.get(sport, fake_players["nfl"])
+    # Per-player scale, derived from the team total so a "bust" reads as a
+    # bust relative to that sport's scoring rather than an absolute number.
+    p_low, p_high = low / 12, high / 5
+
     matchups = []
     for i in range(0, len(names) - 1, 2):
+        def standouts():
+            picks = random.sample(pool, 2)
+            top = round(random.uniform(p_high * 0.6, p_high), 1)
+            bust = round(random.uniform(p_low * 0.1, p_low), 1)
+            return {"top": {"name": picks[0], "points": top},
+                    "bust": {"name": picks[1], "points": bust}}
         matchups.append({
             "team_a": names[i],
             "team_a_score": round(random.uniform(low, high), 1),
             "team_b": names[i + 1],
             "team_b_score": round(random.uniform(low, high), 1),
+            "team_a_standouts": standouts(),
+            "team_b_standouts": standouts(),
         })
     return matchups
 

@@ -68,7 +68,70 @@ def get_league_info(league_id: str) -> dict | None:
     }
 
 
-def get_week_recap_data(league_id: str, week: int) -> dict | None:
+_PLAYER_NAME_CACHE = {}
+
+
+def _player_names(sport: str = "nfl") -> dict:
+    """
+    Maps Sleeper player_id -> real player name.
+
+    Sleeper's matchup rows only ever contain player IDs, so this table is
+    the only way to name an actual player. The dump is several MB, which
+    is why it's fetched once per process and held in memory rather than
+    per recap — a weekly cron generating a dozen recaps would otherwise
+    pull it a dozen times.
+
+    Returns an empty dict on any failure. Player detail is a bonus on top
+    of the recap, never a prerequisite: callers must treat missing names
+    as "no player data this week" and still produce a recap from the
+    team totals.
+    """
+    if sport in _PLAYER_NAME_CACHE:
+        return _PLAYER_NAME_CACHE[sport]
+    try:
+        resp = requests.get(f"{BASE_URL}/players/{sport}", timeout=30)
+        if resp.status_code != 200:
+            return {}
+        names = {}
+        for pid, info in (resp.json() or {}).items():
+            name = info.get("full_name") or " ".join(
+                x for x in [info.get("first_name"), info.get("last_name")] if x
+            ).strip()
+            if name:
+                pos = info.get("position") or ""
+                names[str(pid)] = f"{name} ({pos})" if pos else name
+        _PLAYER_NAME_CACHE[sport] = names
+        return names
+    except Exception as e:
+        print(f"[sleeper] player name lookup failed: {e}")
+        return {}
+
+
+def _standouts(entry: dict, names: dict) -> dict:
+    """
+    Picks the best and worst STARTER for one team from a Sleeper matchup
+    row. Starters only — a big score on the bench is a different (and
+    much funnier) story than a starter busting, and mixing the two would
+    let the recap credit points that never counted.
+    """
+    starters = entry.get("starters") or []
+    points = entry.get("players_points") or {}
+    scored = []
+    for pid in starters:
+        # "0" is Sleeper's placeholder for an empty roster slot.
+        if not pid or str(pid) == "0":
+            continue
+        name = names.get(str(pid))
+        if not name:
+            continue
+        scored.append({"name": name, "points": round(float(points.get(str(pid), 0) or 0), 1)})
+    if not scored:
+        return {}
+    scored.sort(key=lambda p: p["points"], reverse=True)
+    return {"top": scored[0], "bust": scored[-1]}
+
+
+def get_week_recap_data(league_id: str, week: int, sport: str = "nfl") -> dict | None:
     """
     Pulls everything needed to write one week's recap: who played whom,
     the final scores, and each team's display name. Sleeper splits this
@@ -107,6 +170,9 @@ def get_week_recap_data(league_id: str, week: int) -> dict | None:
     for entry in matchups:
         grouped.setdefault(entry["matchup_id"], []).append(entry)
 
+    # Once per call, not once per matchup.
+    player_names = _player_names(sport)
+
     matchup_list = []
     for matchup_id, entries in grouped.items():
         if len(entries) != 2:
@@ -117,6 +183,10 @@ def get_week_recap_data(league_id: str, week: int) -> dict | None:
             "team_a_score": a.get("points", 0),
             "team_b": roster_owner_name.get(b["roster_id"], "Unknown Team"),
             "team_b_score": b.get("points", 0),
+            # Empty dicts when the name lookup failed - the recap still
+            # writes fine from totals alone, it just can't name players.
+            "team_a_standouts": _standouts(a, player_names),
+            "team_b_standouts": _standouts(b, player_names),
         })
 
     return {

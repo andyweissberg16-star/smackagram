@@ -2,6 +2,7 @@ import os
 import json
 import random
 import anthropic
+from services import smackology
 
 _client = None
 
@@ -568,8 +569,15 @@ real numbers you're given, not a generic pep talk."""
 def _build_battle_judge_system_prompt(intensity: int) -> str:
     intensity = intensity if intensity in _BATTLE_JUDGE_TONE_BY_LEVEL else 4
     tone = _BATTLE_JUDGE_TONE_BY_LEVEL[intensity]
+    # Same Smacky voice the Smackcast host uses, rendered at THIS battle's
+    # intensity so a Clean battle never sees the crude vocabulary, and in
+    # "battle" context so the score-phrasing and read-aloud sections are
+    # left out - critiques are short displayed text about the quality of a
+    # line, not a spoken script about point totals.
+    voice = smackology.render(intensity, context="battle")
     return (
-        BATTLE_ROUND_JUDGE_SYSTEM_PROMPT_INTRO + "\n\n" + tone + "\n\n" + _BATTLE_HARD_LIMITS +
+        BATTLE_ROUND_JUDGE_SYSTEM_PROMPT_INTRO + "\n\n" + tone + "\n\n" + voice +
+        "\n\n" + _BATTLE_HARD_LIMITS +
         """\n\nRespond with ONLY a JSON object, nothing else:
 {"winner": "a" or "b" or "tie", "critique_a": "...", "critique_b": "...", "score_a": 0-10, "score_b": 0-10, "coach_message_a": "...", "coach_message_b": "..."}"""
     )
