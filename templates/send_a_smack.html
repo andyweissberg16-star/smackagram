@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+{% if embed %}<base target="_top">{% endif %}
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Send a Smack — Smackagram</title>
 <meta name="description" content="Pick a team, Smacky writes the roast, and calls your friend to read it himself. The call gets recorded so you can hear the reaction.">
@@ -618,6 +619,16 @@
   @media(max-width:600px){
     .pricing{grid-template-columns:1fr;}
   }
+
+  /* EMBEDDED - the parent supplies the frame, so drop ours. */
+  {% if embed %}
+  html body{border:none !important; margin:0 !important; box-shadow:none !important; border-radius:0 !important; min-height:0 !important;}
+  html body::before{display:none !important;}
+  html{min-height:0 !important;}
+  .wrap{padding:0 !important;}
+  #wizardCard{border:none !important; box-shadow:none !important; border-radius:0 !important; margin:0 !important;}
+  #wizardCard::before{display:none !important;}
+  {% endif %}
 </style>
 </head>
 <body>
@@ -628,6 +639,7 @@
   <script src="{{ url_for('static', filename='js/smackagram.js') }}"></script>
 {% endif %}
 
+{% if not embed %}
 <picture class="hero-band">
   <source type="image/webp" sizes="100vw"
           srcset="{{ url_for('static', filename='img/hero-mascot-780.webp') }} 780w,
@@ -636,6 +648,7 @@
   <img src="{{ url_for('static', filename='img/hero-mascot-1560.jpg') }}" alt="Send a Smackagram"
        width="1983" height="793" style="width:100%; height:auto; display:block;">
 </picture>
+{% endif %}
 
 <div class="wrap" style="padding-top:24px;">
 
@@ -646,6 +659,7 @@
 
   </div>
 
+{% if not embed %}
   <div class="gen-switch">
     <p class="gen-eyebrow">Two ways to do it</p>
     <h2 class="gen-headline">Talk now. Or let the <em>scoreboard</em> talk for you.</h2>
@@ -665,6 +679,8 @@
 
   <!-- Wrapped in the same card shell as the Smackagram generator, so both
        measure identically and only the border colour differs on switch. -->
+{% endif %}
+
   <div class="card" id="lockedShell" style="display:none; padding:0; overflow:hidden;">
     <iframe id="lockedFrame" title="Locked &amp; Loaded generator"
             style="width:100%; border:0; display:block;" scrolling="no"></iframe>
@@ -875,9 +891,11 @@
 
 </div>
 
+{% if not embed %}
 <footer>
   <a href="/terms">Terms</a> &middot; <a href="/contact">Contact</a>
 </footer>
+{% endif %}
 
 
 
@@ -1675,6 +1693,22 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       ? 'What a Smackback is '
       : 'Don\u2019t know what a Smackback is? ';
   });
+})();
+</script>
+<script>
+// Only when framed. Reports the card's own height - documentElement
+// .scrollHeight never drops below the viewport, which would leave dead space
+// under a short step.
+(function () {
+  if (window.self === window.top) return;
+  function report() {
+    var el = document.getElementById('wizardCard');
+    var h = el ? Math.ceil(el.getBoundingClientRect().height) : document.documentElement.scrollHeight;
+    window.parent.postMessage({smkFrameHeight: h, src: 'send-a-smack'}, '*');
+  }
+  new ResizeObserver(report).observe(document.getElementById('wizardCard') || document.body);
+  window.addEventListener('load', report);
+  setTimeout(report, 300);
 })();
 </script>
 </body>

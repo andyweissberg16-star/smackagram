@@ -255,13 +255,6 @@
 
   footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim); border-top:1px solid var(--line);}
 
-  .side-mascot{
-    position:fixed; left:0; bottom:40px; width:230px; height:auto;
-    z-index:-1; pointer-events:none; filter:drop-shadow(4px 0 0 var(--flare));
-    opacity:0; transition:opacity 0.3s ease;
-  }
-  .side-mascot.visible{opacity:1;}
-  @media(max-width:1300px){ .side-mascot{display:none;} }
 
   /* ---- Console treatment, matched to the Smackagram generator ---- */
   @property --lnl-led{ syntax:'<angle>'; initial-value:0deg; inherits:false; }
@@ -423,7 +416,7 @@
      similar width rather than running the full card. */
   .gen-wordmark{
     font-family:'Anton',sans-serif; font-weight:400;
-    font-size:clamp(26px,5.6vw,38px); line-height:1;
+    font-size:clamp(32px,7.4vw,50px); line-height:1;
     text-transform:uppercase; letter-spacing:-1px;
     text-align:center; margin:20px 0 4px;
     background:linear-gradient(180deg,#FFFFFF,#C9D1DA 42%,#828A94 58%,#EDF1F5);
@@ -449,6 +442,23 @@
     margin:-2px 0 8px;
   }
   h3 .smacky{color:#E01B24;}
+
+  /* The site-wide frame in smackagram.css is red. This page is silver, so
+     override it here - and repaint red only while the Smackagram generator is
+     showing, so there's one border that changes colour rather than two nested
+     ones in different colours. */
+  html body{border-color:#C3CAD3 !important; box-shadow:0 0 26px rgba(190,200,212,0.25) !important;}
+
+  body.gen-smack{border-color:#E01B24 !important; box-shadow:0 0 26px rgba(224,27,36,0.3) !important;}
+  body.gen-smack .gen-eyebrow{color:#E01B24;}
+  body.gen-smack .gen-headline em{color:#E01B24;}
+
+  #smackShell{
+    position:relative; background:var(--surface);
+    border:5px solid #E01B24; border-radius:var(--radius);
+    box-shadow:0 0 22px rgba(224,27,36,0.28);
+    margin-bottom:24px;
+  }
 
   .btn-center{display:flex; justify-content:center;}
   /* Same issue here: the Next button was touching the section rule beneath
@@ -503,7 +513,6 @@
   <script src="{{ url_for('static', filename='js/smackagram.js') }}"></script>
 {% endif %}
 
-<img id="sideMascot" src="{{ url_for('static', filename='img/mascot-sidebar-800.webp') }}" alt="Smacky" class="side-mascot" width="800" height="584">
 
 <div style="width:100%; overflow:hidden; line-height:0;">
 {% if not embed %}
@@ -532,18 +541,25 @@
     <p class="gen-sub">Send one today, or set one that stays quiet until their team loses &mdash; then goes off on its own.</p>
 
     <div class="gen-tabs">
-      <a class="gen-tab gen-tab-alt" href="/send-a-smack">
+      <button type="button" class="gen-tab gen-tab-alt" id="tabSmackLL">
         <span class="gen-tab-kicker">Send it now</span>
         <span class="gen-tab-name">Smackagram</span>
-      </a>
-      <span class="gen-tab is-active">
+      </button>
+      <button type="button" class="gen-tab is-active" id="tabLockedLL">
         <span class="gen-tab-kicker">Arm it for later</span>
         <span class="gen-tab-name">Locked &amp; Loaded</span>
-      </span>
+      </button>
     </div>
   </div>
 
 {% endif %}
+
+  <!-- Same shell as the console, in the Smackagram red, so switching changes
+       only the colour and nothing shifts. -->
+  <div id="smackShell" style="display:none;">
+    <iframe id="smackFrame" title="Smackagram generator"
+            style="width:100%; border:0; display:block;" scrolling="no"></iframe>
+  </div>
 
   <div id="lnlConsole">
     <!-- Circles sit in the status strip itself, matching the Smackagram
@@ -730,20 +746,7 @@
 // guarantees it can never visually overlap the hero, regardless of
 // viewport width/height, since it's based on actual measured hero height
 // rather than a guessed CSS breakpoint.
-const sideMascot = document.getElementById('sideMascot');
-const heroBanner = document.getElementById('heroBanner');
-if (sideMascot && heroBanner) {
-  const updateMascotVisibility = () => {
-    const heroBottom = heroBanner.getBoundingClientRect().bottom;
-    if (heroBottom <= 0) {
-      sideMascot.classList.add('visible');
-    } else {
-      sideMascot.classList.remove('visible');
-    }
-  };
-  window.addEventListener('scroll', updateMascotVisibility);
-  updateMascotVisibility();
-}
+// Side mascot removed.
 
 let selectedSport = 'nfl';
 let selectedGame = null;
@@ -1411,6 +1414,40 @@ loadVoices();
       ? 'What a Smackback is '
       : 'Don\u2019t know what a Smackback is? ';
   });
+})();
+</script>
+<script>
+(function () {
+  var frame = document.getElementById('smackFrame');
+  var shell = document.getElementById('smackShell');
+  var lnl   = document.getElementById('lnlConsole');
+  var tabS  = document.getElementById('tabSmackLL');
+  var tabL  = document.getElementById('tabLockedLL');
+  if (!frame || !shell || !lnl || !tabS || !tabL) return;
+
+  var loaded = false;
+
+  function show(which) {
+    var smack = which === 'smack';
+    // Lazy - don't pay for a second generator until it's asked for.
+    if (smack && !loaded) { frame.src = '/send-a-smack?embed=1'; loaded = true; }
+    shell.style.display = smack ? 'block' : 'none';
+    lnl.style.display   = smack ? 'none'  : '';
+    tabS.classList.toggle('is-active', smack);
+    tabL.classList.toggle('is-active', !smack);
+    // Page frame follows whichever generator is showing.
+    document.body.classList.toggle('gen-smack', smack);
+    history.replaceState(null, '', smack ? '?gen=smack' : location.pathname);
+  }
+
+  tabS.addEventListener('click', function () { show('smack'); });
+  tabL.addEventListener('click', function () { show('locked'); });
+
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.smkFrameHeight) frame.style.height = e.data.smkFrameHeight + 'px';
+  });
+
+  if (new URLSearchParams(location.search).get('gen') === 'smack') show('smack');
 })();
 </script>
 </body>

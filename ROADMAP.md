@@ -5877,3 +5877,39 @@ amber.
   hover-only tooltip.
 - ARMED light and text turned red - "armed" is a warning state, and amber was
   signalling "waiting" for the thing that's about to fire a call.
+
+## In-page switching on the Locked & Loaded page too
+The switcher on /locked-n-loaded navigated away instead of swapping in place.
+Now mirrors /send-a-smack: tabs are buttons, the other generator loads in an
+isolated frame, URL reflects it via replaceState (?gen=smack).
+
+TWO THINGS HAD TO BE BUILT FIRST, so this wasn't a mirror of existing code:
+  - send_a_smack's embed mode was INCOMPLETE. It only hid the nav - the hero,
+    switcher and footer would all have rendered inside the frame. It now
+    strips its own frame, reports its card height, and carries
+    <base target="_top"> so checkout breaks out.
+  - The page frame needed an explicit silver override on this page. The
+    site-wide frame in smackagram.css is red, so without it a silver console
+    would sit inside a red page frame - the exact nesting problem fixed
+    earlier on the other page. Repaints red only while the Smackagram
+    generator is showing.
+Verified: silver on load, red on switch, silver on return, height synced.
+
+## Wordmark size matched
+Locked & Loaded was 38px against Smackagram's 50px. Now both 50px. They no
+longer match in WIDTH (356px vs 457px) - the longer name simply takes more
+room at equal type size, which is the right trade if both titles should read
+with the same weight. Still fits: 457px inside a 672px card, thanks to the
+tighter tracking set earlier.
+
+## Side mascot removed
+The fixed image that faded in bottom-left on scroll. Removed the image, its
+styles, AND the scroll listener - left behind, that would have run on every
+scroll event looking for an element that no longer exists.
+
+## Nav order
+Smackcast moved to sit between Locked & Loaded and Smack Lab, in both the
+desktop bar and the mobile drawer. Smackcast Library moved WITH it in the
+drawer - it sat directly beneath Smackcast, and moving only the parent would
+have stranded the library between Smack Battle and Did You Get Smacked.
+Side effect worth noting: the three paid products now sit together at the top.
