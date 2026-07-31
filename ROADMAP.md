@@ -6666,3 +6666,18 @@ outage. Changing the message would have silently broken it. Now checks the
 flag.
 
 Consolidated to one helper rather than the two that briefly existed.
+
+## Generator tab switcher: separated, with a swap indicator
+The Smackagram / Locked & Loaded switcher was two buttons inside one bordered
+box. Visually that reads as a single control with a divider down the middle,
+not as two things you choose between.
+
+Each button now has its own border and radius, with a gap between them and a
+double-headed arrow in the middle. Both arrowheads rather than one, because
+neither tab is a next step — they are alternatives that swap.
+
+Applied to both send_a_smack.html and locked_n_loaded.html. Each page leads
+with itself, so the tab order differs between the two files and the markup had
+to be matched per file rather than assumed.
+
+Desktop gap 44px, mobile 30px with a smaller icon; separation holds at both.
