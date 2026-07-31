@@ -3363,44 +3363,80 @@ def _generate_smackcasts_async():
             print(f"[smackcast cron] weekly run FAILED: {e}")
 
 
+def _produce_daily_show_async(app_obj):
+    """
+    The actual work, off the request thread.
+
+    Rendering five minutes of speech takes well over a minute, and Render cuts
+    a request off long before that - the endpoint has to hand off and return.
+    Same pattern already used for battle recaps and smackcast generation.
+    """
+    with app_obj.app_context():
+        try:
+            result = show_service.produce_daily_show(days_back=1)
+        except Exception as e:
+            # Swallowed on purpose. Yesterday's episode keeps playing and the
+            # error is in the logs, rather than the home page losing its player.
+            print(f"[show] production failed, keeping previous episode: {e}")
+            return
+
+        if not result.get("published"):
+            print(f"[show] not published: {result.get('reason')}")
+            return
+
+        show = DailyShow(
+            audio_url=result["audio_url"],
+            date_label=result.get("date_label", ""),
+            minutes=result.get("minutes"),
+            game_count=result.get("game_count"),
+            leagues=", ".join(result.get("leagues", [])),
+            best_line=result.get("best_line", ""),
+            is_live=True,
+        )
+        DailyShow.query.filter_by(is_live=True).update({"is_live": False})
+        db.session.add(show)
+        db.session.commit()
+        print(f"[show] published #{show.id}: {result['minutes']}min, {result['game_count']} games")
+
+
 @app.route("/api/cron/daily-show", methods=["GET", "POST"])
 def cron_daily_show():
     """
-    Builds and publishes The Smacky Report. Hit once each morning by the
-    external scheduler - same mechanism as the armed-smackagram check.
+    Kicks off The Smacky Report. Hit once each morning by the external
+    scheduler - same mechanism as the armed-smackagram check.
 
-    Fails SAFE: if anything goes wrong, the previous episode keeps playing.
-    A silent morning is much better than a broken player on the home page.
+    Returns immediately and does the work in the background, because a
+    five-minute TTS render takes far longer than a request is allowed to live.
+    Progress and failures go to the logs; /admin/show-status reads the result.
     """
     if request.args.get("key") != os.environ.get("CRON_SECRET"):
         return "Nope.", 403
 
-    try:
-        result = show_service.produce_daily_show(days_back=1)
-    except Exception as e:
-        # Deliberately swallowed. Yesterday's show stays live and the error is
-        # in the logs, rather than the home page losing its player.
-        print(f"[show] production failed, keeping previous episode: {e}")
-        return jsonify({"published": False, "error": str(e)}), 200
+    threading.Thread(
+        target=_produce_daily_show_async, args=(app,), daemon=True
+    ).start()
+    return jsonify({
+        "started": True,
+        "note": "Producing in the background. Check /api/show/current in a few minutes, "
+                "or the logs for [show] lines."
+    }), 202
 
-    if not result.get("published"):
-        return jsonify(result), 200
 
-    show = DailyShow(
-        audio_url=result["audio_url"],
-        date_label=result.get("date_label", ""),
-        minutes=result.get("minutes"),
-        game_count=result.get("game_count"),
-        leagues=", ".join(result.get("leagues", [])),
-        best_line=result.get("best_line", ""),
-        is_live=True,
-    )
-    # Exactly one episode is live at a time.
-    DailyShow.query.filter_by(is_live=True).update({"is_live": False})
-    db.session.add(show)
-    db.session.commit()
+@app.route("/api/admin/show-status")
+@login_required
+def admin_show_status():
+    """Recent episodes, newest first - so 'did it work' is a page, not a log."""
+    user = get_current_user()
+    if not user.is_admin:
+        return jsonify({"error": "Not authorized."}), 403
 
-    return jsonify({**result, "show_id": show.id}), 200
+    shows = DailyShow.query.order_by(DailyShow.id.desc()).limit(10).all()
+    return jsonify({"shows": [{
+        "id": s.id, "audio_url": s.audio_url, "date_label": s.date_label,
+        "minutes": s.minutes, "game_count": s.game_count, "leagues": s.leagues,
+        "best_line": s.best_line, "is_live": s.is_live,
+        "created_at": s.created_at.isoformat() if s.created_at else "",
+    } for s in shows]})
 
 
 @app.route("/api/show/current")

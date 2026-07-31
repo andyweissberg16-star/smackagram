@@ -6225,3 +6225,14 @@ tragic, and now actually true. news_service stays in the tree for /admin/news
 but nothing depends on it.
 
 /admin/espn is the test page for verifying scores against reality.
+
+## Daily show production moved off the request thread
+The cron endpoint did the whole job inline and the request hung with no
+response - rendering five minutes of speech takes well over a minute, and
+Render cuts a request off long before that.
+
+Now hands off to a background thread and returns 202 immediately, the same
+pattern already used for battle recaps and smackcast generation.
+
+/api/admin/show-status lists recent episodes so "did it work" is a page rather
+than a log grep.
