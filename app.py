@@ -1313,8 +1313,11 @@ def admin_news_preview():
     sports = request.args.get("sports", "nfl,nba,mlb,nhl").split(",")
 
     raw = []
+    per_league = {}
     for sport in sports:
-        raw.extend(news_service.fetch_headlines(sport.strip(), days_back=days_back))
+        got = news_service.fetch_headlines(sport.strip(), days_back=days_back)
+        per_league[sport.strip()] = len(got)
+        raw.extend(got)
 
     seen, deduped = set(), []
     for item in raw:
@@ -1341,6 +1344,7 @@ def admin_news_preview():
 
     return jsonify({
         "fetched": len(raw),
+        "per_league": per_league,
         "after_dedupe": len(deduped),
         "selected": [
             {**i, "juice": news_service._juice_score(i)} for i in ranked[:6]

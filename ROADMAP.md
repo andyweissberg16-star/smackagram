@@ -5993,3 +5993,20 @@ ElevenLabs render, the daily cron, the home page player, and the two
 safeguards agreed - a fallback to yesterday's show when fewer than three
 stories survive, and an admin kill switch that pulls the player without a
 deploy.
+
+## News pull: wrong endpoint, and an empty result that couldn't explain itself
+The admin screen returned nothing for both today and yesterday.
+
+CAUSE: I used /NewsByDate/{date}, which this subscription doesn't serve. The
+plain /News endpoint - the one confirmed working by hand - does. Switched to
+/News and date-filter the feed in code instead.
+
+Also widened the window: a strict single-day match can legitimately return
+nothing, which reads as a broken pull rather than a quiet day. Now keeps
+anything within days_back + 1.
+
+AND made an empty result diagnose itself. "Nothing came back" has three very
+different causes - an empty feed, an HTTP error on one league, or every story
+being filtered out - and they need completely different fixes. The admin view
+now reports per-league counts and says which case it is. Per-league counts are
+logged server-side too.

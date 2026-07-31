@@ -101,17 +101,41 @@ def fetch_headlines(sport: str, days_back: int = 1) -> list[dict]:
     if not path:
         return []
 
-    date_str = (datetime.utcnow() - timedelta(days=days_back)).strftime("%Y-%b-%d").upper()
-    url = f"{BASE}/{path}/scores/json/NewsByDate/{date_str}"
+    # Uses /News rather than /NewsByDate. NewsByDate returned nothing on this
+    # subscription; /News is confirmed working and returns the recent feed,
+    # which we date-filter below. One endpoint that works beats a tidier one
+    # that doesn't.
+    url = f"{BASE}/{path}/scores/json/News"
     try:
         resp = requests.get(url, params={"key": _api_key()}, timeout=15)
         if resp.status_code != 200:
-            print(f"[news] {sport} {date_str} -> HTTP {resp.status_code}")
+            print(f"[news] {sport} -> HTTP {resp.status_code}: {resp.text[:160]}")
             return []
         items = resp.json() or []
     except Exception as e:
         print(f"[news] {sport} fetch failed: {e}")
         return []
+
+    print(f"[news] {sport}: {len(items)} items returned by /News")
+
+    # Keep a window rather than a single day. The feed's density varies by
+    # league and season - a strict one-day match can legitimately return
+    # nothing, which reads as a broken pull rather than a quiet day.
+    cutoff = datetime.utcnow() - timedelta(days=days_back + 1)
+    windowed = []
+    for i in items:
+        stamp = (i.get("Updated") or "")[:19]
+        if not stamp:
+            windowed.append(i)
+            continue
+        try:
+            if datetime.fromisoformat(stamp) >= cutoff:
+                windowed.append(i)
+        except ValueError:
+            windowed.append(i)
+
+    print(f"[news] {sport}: {len(windowed)} within the last {days_back + 1} day(s)")
+    items = windowed
 
     return [
         {

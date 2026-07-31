@@ -177,12 +177,26 @@
         document.getElementById('cModel').textContent    = d.rejected_by_model.length;
         document.getElementById('cKeyword').textContent  = d.rejected_by_keyword.length;
 
-        out.innerHTML =
+        var body =
           section('Would be in the show', 'tag-go', d.selected, {picked: true}) +
           section('Passed, not used', 'tag-go', d.also_passed, {}) +
           section('Cut by the model', 'tag-warn', d.rejected_by_model, {model: true}) +
-          section('Cut by keyword', 'tag-stop', d.rejected_by_keyword, {keyword: true}) ||
-          '<p class="empty">Nothing came back for that day.</p>';
+          section('Cut by keyword', 'tag-stop', d.rejected_by_keyword, {keyword: true});
+
+        if (!body) {
+          // An empty result has three very different causes - say which, so a
+          // quiet news day doesn't look like a broken pull.
+          var pl = d.per_league || {};
+          var lines = Object.keys(pl).map(function (k) {
+            return k.toUpperCase() + ': ' + pl[k] + ' returned';
+          }).join(' &nbsp;·&nbsp; ');
+          body = '<p class="empty">Nothing survived the screen.<br><br>' +
+                 '<strong>What each league returned:</strong><br>' + (lines || 'no leagues queried') +
+                 '<br><br>If every league shows 0, the feed came back empty &mdash; check the ' +
+                 'Render logs for a [news] line with an HTTP code. If they returned items but ' +
+                 'nothing survived, the screen rejected all of them.</p>';
+        }
+        out.innerHTML = body;
       })
       .catch(function () {
         out.innerHTML = '<p class="empty">Couldn&rsquo;t run the screen. Check the logs.</p>';
