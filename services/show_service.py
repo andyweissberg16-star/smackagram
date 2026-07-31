@@ -573,6 +573,20 @@ def produce_daily_show(days_back: int = 1) -> dict:
     # em dashes and emoji that TTS would otherwise read aloud.
     intro = sanitize_for_speech(script.get("intro") or script.get("opening") or "")
     outro = sanitize_for_speech(script.get("outro") or script.get("closing") or "")
+
+    # Attribution that survives the file being forwarded.
+    #
+    # A shared LINK carries the site with it; a shared FILE doesn't. Once
+    # someone downloads the mp3 and sends it on, every trace of where it came
+    # from is gone unless it's in the audio itself. So the sign-off names the
+    # site, spoken by Smacky in his own voice as part of the show rather than
+    # bolted on as an ad.
+    #
+    # Appended to the outro TEXT rather than mixed in as a second audio file:
+    # it goes through the same voice and the same loudness normalisation, so
+    # it sounds like him finishing his sentence instead of a tacked-on stinger.
+    if outro and "smackagram" not in outro.lower():
+        outro = outro.rstrip() + " Smackagram dot com."
     # The model doesn't always use the key it was asked for - "text" came back
     # as something else and the whole run died on a KeyError. Accept the
     # obvious variants and skip anything genuinely empty rather than losing a

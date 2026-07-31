@@ -363,3 +363,50 @@ html body .hero-band{
 }
 html body .hero-band img,
 html body img.hero-band{display:block; width:100%; height:auto;}
+
+/* ---- Share sheet (desktop fallback for navigator.share) ---- */
+#smkShareSheet{position:fixed; inset:0; z-index:9999; display:grid; place-items:center;}
+.smk-share-scrim{position:absolute; inset:0; background:rgba(0,0,0,.72); backdrop-filter:blur(3px);}
+.smk-share-panel{
+  position:relative; background:#141414; border:2px solid #E01B24;
+  border-radius:12px; padding:22px; width:min(92vw,420px);
+  box-shadow:0 0 40px rgba(224,27,36,.35);
+}
+.smk-share-title{
+  font-family:'Anton',sans-serif; font-size:20px; text-transform:uppercase;
+  margin:0 0 16px; color:#F5F5F3; letter-spacing:.5px;
+}
+.smk-share-grid{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; justify-content:center;}
+.smk-share-btn{
+  width:52px; height:52px; border-radius:50%;
+  display:grid; place-items:center;
+  background:#1C1C1C; border:1px solid #2A2A2A; color:#9A9595;
+  text-decoration:none; transition:transform .12s, background .12s, color .12s, border-color .12s;
+}
+.smk-share-btn svg{width:23px; height:23px; display:block;}
+.smk-share-btn:hover{transform:translateY(-2px); color:#fff;}
+/* Each mark takes its own brand colour on hover - recognition is the entire
+   point of a logo, and a grid of identical grey circles wastes it. */
+.smk-x:hover{background:#000; border-color:#000;}
+.smk-facebook:hover{background:#1877F2; border-color:#1877F2;}
+.smk-whatsapp:hover{background:#25D366; border-color:#25D366;}
+.smk-reddit:hover{background:#FF4500; border-color:#FF4500;}
+.smk-telegram:hover{background:#26A5E4; border-color:#26A5E4;}
+.smk-sms:hover{background:#34C759; border-color:#34C759;}
+.smk-email:hover{background:#E01B24; border-color:#E01B24;}
+.smk-share-copy{display:flex; gap:8px; margin-bottom:14px;}
+.smk-share-copy input{
+  flex:1; min-width:0; background:#0D0D0D; border:1px solid #2A2A2A;
+  color:#B5B0B0; padding:10px 12px; border-radius:7px; font-size:12px;
+}
+.smk-share-copy button{
+  background:#E01B24; border:none; color:#fff; padding:10px 16px;
+  border-radius:7px; font-weight:700; font-size:12.5px; cursor:pointer;
+}
+.smk-share-dl{display:block; color:#E01B24; font-size:12.5px; margin-bottom:12px; text-decoration:none;}
+.smk-share-note{font-size:11.5px; color:#7A7575; line-height:1.5; margin:0 0 14px;}
+.smk-share-close{
+  width:100%; background:transparent; border:1px solid #2A2A2A; color:#B5B0B0;
+  padding:10px; border-radius:7px; cursor:pointer; font-size:13px;
+}
+@media(max-width:420px){ .smk-share-btn{width:46px; height:46px;} .smk-share-btn svg{width:20px; height:20px;} }

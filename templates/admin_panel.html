@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Admin — Smackagram</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0A0A0A; --surface:#141414; --surface-2:#1C1C1C; --line:#2A2A2A;
+    --punch:#E01B24; --go:#2FBF6B; --warn:#FFB800;
+    --chalk:#F5F5F3; --muted:#B5B0B0; --muted-2:#7A7575;
+  }
+  *{box-sizing:border-box;}
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; margin:0;}
+
+  header{
+    display:flex; align-items:center; gap:14px; padding:14px 22px;
+    background:var(--surface); border-bottom:1px solid var(--line);
+  }
+  header h1{font-family:'Anton',sans-serif; font-size:20px; text-transform:uppercase; margin:0; letter-spacing:1px;}
+  header .who{margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted-2);}
+  header a{color:var(--muted); font-size:12.5px; text-decoration:none;}
+  header a:hover{color:var(--punch);}
+
+  .wrap{max-width:1180px; margin:0 auto; padding:22px;}
+
+  .tabs{display:flex; gap:6px; margin-bottom:20px; flex-wrap:wrap;}
+  .tab{
+    background:var(--surface); border:1px solid var(--line); color:var(--muted);
+    padding:9px 16px; border-radius:7px; cursor:pointer; font-size:13px;
+    font-family:'Inter',sans-serif;
+  }
+  .tab.on{background:var(--punch); border-color:var(--punch); color:#fff; font-weight:600;}
+
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:22px;}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px;}
+  .card .n{font-family:'Anton',sans-serif; font-size:30px; line-height:1; display:block;}
+  .card .l{font-size:10px; letter-spacing:1.6px; text-transform:uppercase; color:var(--muted-2); margin-top:6px; display:block;}
+  .card .s{font-size:11px; color:var(--muted-2); margin-top:5px; display:block;}
+  .card.money .n{color:var(--go);}
+  .card.owe .n{color:var(--warn);}
+  .card.comp .n{color:var(--punch);}
+
+  h2{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:2.5px;
+     text-transform:uppercase; color:var(--muted-2); margin:26px 0 10px;}
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th{
+    text-align:left; font-family:'JetBrains Mono',monospace; font-size:9.5px;
+    letter-spacing:1.5px; text-transform:uppercase; color:var(--muted-2);
+    padding:9px 10px; border-bottom:1px solid var(--line); font-weight:400;
+  }
+  td{padding:11px 10px; border-bottom:1px solid #1E1E1E;}
+  tr.row{cursor:pointer;}
+  tr.row:hover td{background:var(--surface);}
+  .mono{font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--muted);}
+  .pos{color:var(--go);} .neg{color:var(--punch);}
+
+  input, select, textarea{
+    background:var(--surface); border:1px solid var(--line); color:var(--chalk);
+    padding:10px 12px; border-radius:7px; font-family:'Inter',sans-serif; font-size:13px;
+  }
+  input:focus{outline:none; border-color:var(--punch);}
+  button.act{
+    background:var(--punch); border:none; color:#fff; padding:10px 18px;
+    border-radius:7px; font-weight:700; font-size:13px; cursor:pointer;
+    font-family:'Inter',sans-serif;
+  }
+  button.act:disabled{opacity:.5; cursor:not-allowed;}
+  button.ghost{
+    background:transparent; border:1px solid var(--line); color:var(--muted);
+    padding:9px 14px; border-radius:7px; font-size:12.5px; cursor:pointer;
+  }
+
+  .panel{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:18px; margin-bottom:14px;}
+  .panel h3{font-size:15px; margin:0 0 12px;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  @media(max-width:860px){ .grid2{grid-template-columns:1fr;} }
+
+  .kv{display:flex; justify-content:space-between; padding:6px 0; font-size:13px; border-bottom:1px solid #1E1E1E;}
+  .kv span:first-child{color:var(--muted-2);}
+  .empty{color:var(--muted-2); font-size:13px; padding:14px 0;}
+  .flash{
+    background:rgba(47,191,107,.12); border:1px solid var(--go); color:var(--go);
+    padding:11px 14px; border-radius:8px; font-size:13px; margin-bottom:14px;
+  }
+  .flash.bad{background:rgba(224,27,36,.12); border-color:var(--punch); color:var(--punch);}
+  a.audio{color:var(--punch); font-size:12px; text-decoration:none;}
+  .hide{display:none;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Smackagram Admin</h1>
+  <a href="/">&larr; Site</a>
+  <a href="/admin/show">Daily Smack</a>
+  <a href="/admin/espn">Scores</a>
+  <span class="who" id="who"></span>
+</header>
+
+<div class="wrap">
+  <div id="flash" class="hide"></div>
+
+  <div class="tabs">
+    <button class="tab on" data-view="dash">Dashboard</button>
+    <button class="tab" data-view="customers">Customers</button>
+    <button class="tab" data-view="settings">Settings</button>
+  </div>
+
+  <!-- ---------- DASHBOARD ---------- -->
+  <div id="view-dash">
+    <h2>Revenue</h2>
+    <div class="cards" id="revCards"><p class="empty">Loading&hellip;</p></div>
+
+    <h2>Activity</h2>
+    <div class="cards" id="actCards"></div>
+
+    <div class="panel" style="margin-top:18px;">
+      <h3>By period</h3>
+      <table id="periodTable"></table>
+    </div>
+  </div>
+
+  <!-- ---------- CUSTOMERS ---------- -->
+  <div id="view-customers" class="hide">
+    <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
+      <input id="q" type="text" placeholder="Name, email, phone or customer number" style="flex:1; min-width:240px;">
+      <button class="act" id="searchBtn" type="button">Search</button>
+    </div>
+    <div id="customerList"><p class="empty">Loading&hellip;</p></div>
+  </div>
+
+  <!-- ---------- SETTINGS ---------- -->
+  <div id="view-settings" class="hide">
+    <div class="panel">
+      <h3>Two-factor authentication</h3>
+      <p style="font-size:13px; color:var(--muted); margin:0 0 18px; line-height:1.6;">
+        Separate switches because the risk differs. An admin account can see
+        every customer&rsquo;s details and hand out credit, so you may want it
+        protected even while customer 2FA is off.
+      </p>
+
+      <div id="bypassWarn" class="hide" style="background:rgba(255,184,0,.12); border:1px solid var(--warn); color:var(--warn); padding:11px 14px; border-radius:8px; font-size:12.5px; margin-bottom:16px;">
+        <strong>ADMIN_BYPASS_2FA is set in Render.</strong> Admin 2FA will show
+        as on but won&rsquo;t actually be enforced. Remove that variable once
+        texts are arriving reliably.
+      </div>
+
+      <div class="kv" style="align-items:center; padding:14px 0;">
+        <span style="color:var(--chalk); font-size:14px;">
+          Customers
+          <div style="font-size:12px; color:var(--muted-2); margin-top:3px;">
+            Texted a code at registration and every login.
+          </div>
+        </span>
+        <label style="display:inline-flex; align-items:center; gap:9px; cursor:pointer;">
+          <input type="checkbox" id="sw_customers" style="width:18px; height:18px; accent-color:var(--punch);">
+          <span id="lbl_customers" class="mono">off</span>
+        </label>
+      </div>
+
+      <div class="kv" style="align-items:center; padding:14px 0; border-bottom:none;">
+        <span style="color:var(--chalk); font-size:14px;">
+          Admins
+          <div style="font-size:12px; color:var(--muted-2); margin-top:3px;">
+            Protects this panel, customer data and credit grants.
+          </div>
+        </span>
+        <label style="display:inline-flex; align-items:center; gap:9px; cursor:pointer;">
+          <input type="checkbox" id="sw_admins" style="width:18px; height:18px; accent-color:var(--punch);">
+          <span id="lbl_admins" class="mono">off</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Before turning on admin 2FA</h3>
+      <p style="font-size:13px; color:var(--muted); line-height:1.6; margin:0 0 12px;">
+        Texts are currently unreliable &mdash; Twilio reports them sent but they
+        don&rsquo;t always arrive, pending A2P approval. If you switch admin 2FA
+        on and no code reaches you, <strong>you lose access to this page</strong>,
+        including the switch that would turn it back off.
+      </p>
+      <p style="font-size:13px; color:var(--muted); line-height:1.6; margin:0;">
+        Safe order: set <code style="color:var(--punch)">ADMIN_BYPASS_2FA=1</code>
+        in Render, turn this on, confirm a real code arrives, then remove the
+        variable.
+      </p>
+    </div>
+  </div>
+
+  <!-- ---------- ONE CUSTOMER ---------- -->
+  <div id="view-detail" class="hide">
+    <button class="ghost" id="backBtn" type="button" style="margin-bottom:16px;">&larr; All customers</button>
+    <div id="detail"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var flash = document.getElementById('flash');
+
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function money(cents) {
+    return '$' + ((cents || 0) / 100).toFixed(2);
+  }
+  function when(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'});
+  }
+  function say(msg, bad) {
+    flash.className = bad ? 'flash bad' : 'flash';
+    flash.textContent = msg;
+    setTimeout(function () { flash.className = 'hide'; }, 5000);
+  }
+
+  // ---- tabs ----
+  var views = {dash:'view-dash', customers:'view-customers', settings:'view-settings'};
+  document.querySelectorAll('.tab').forEach(function (t) {
+    t.addEventListener('click', function () {
+      document.querySelectorAll('.tab').forEach(function (x) { x.classList.remove('on'); });
+      t.classList.add('on');
+      Object.values(views).forEach(function (id) { document.getElementById(id).classList.add('hide'); });
+      document.getElementById('view-detail').classList.add('hide');
+      document.getElementById(views[t.dataset.view]).classList.remove('hide');
+      if (t.dataset.view === 'customers') loadCustomers();
+      if (t.dataset.view === 'settings') loadSettings();
+    });
+  });
+
+  // ---- dashboard ----
+  fetch('/api/admin/summary')
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.error) { document.getElementById('revCards').innerHTML = '<p class="empty">' + esc(d.error) + '</p>'; return; }
+
+      document.getElementById('revCards').innerHTML =
+        card('money', money(d.month.total_cents), 'Revenue, 30 days',
+             money(d.week.total_cents) + ' this week') +
+        card('money', money(d.all.total_cents), 'Revenue, all time',
+             money(d.all.topups_cents) + ' wallet · ' + money(d.all.smackcast_cents) + ' smackcast') +
+        card('owe', money(d.outstanding_balance_cents), 'Unspent credit',
+             'money taken, service still owed') +
+        card('comp', money(d.all.comped_cents), 'Comped, all time',
+             'free credits given out');
+
+      document.getElementById('actCards').innerHTML =
+        card('', d.total_users, 'Customers', '+' + d.month.new_users + ' in 30 days') +
+        card('', d.total_orders, 'Smacks sent', d.week.smacks_sent + ' this week') +
+        card('', d.armed_pending, 'Armed & waiting', 'Locked & Loaded');
+
+      var rows = ['<tr><th>Period</th><th>Wallet</th><th>Smackcast</th><th>Total</th><th>Comped</th><th>New</th><th>Smacks</th></tr>'];
+      [['Today','today'],['7 days','week'],['30 days','month'],['All time','all']].forEach(function (p) {
+        var x = d[p[1]];
+        rows.push('<tr><td>' + p[0] + '</td>' +
+          '<td class="mono">' + money(x.topups_cents) + '</td>' +
+          '<td class="mono">' + money(x.smackcast_cents) + '</td>' +
+          '<td class="mono pos">' + money(x.total_cents) + '</td>' +
+          '<td class="mono">' + money(x.comped_cents) + '</td>' +
+          '<td class="mono">' + x.new_users + '</td>' +
+          '<td class="mono">' + x.smacks_sent + '</td></tr>');
+      });
+      document.getElementById('periodTable').innerHTML = rows.join('');
+    })
+    .catch(function () {
+      document.getElementById('revCards').innerHTML = '<p class="empty">Couldn\\u2019t load.</p>';
+    });
+
+  function card(cls, n, label, sub) {
+    return '<div class="card ' + cls + '"><span class="n">' + n + '</span>' +
+           '<span class="l">' + label + '</span>' +
+           (sub ? '<span class="s">' + sub + '</span>' : '') + '</div>';
+  }
+
+  // ---- customers ----
+  function loadCustomers() {
+    var q = document.getElementById('q').value.trim();
+    var box = document.getElementById('customerList');
+    box.innerHTML = '<p class="empty">Loading&hellip;</p>';
+    fetch('/api/admin/customers?q=' + encodeURIComponent(q))
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.customers || !d.customers.length) { box.innerHTML = '<p class="empty">Nobody found.</p>'; return; }
+        box.innerHTML = '<table><tr><th>#</th><th>Name</th><th>Email</th><th>Balance</th><th>Spent</th><th>Smacks</th><th>Joined</th></tr>' +
+          d.customers.map(function (c) {
+            return '<tr class="row" data-id="' + c.id + '">' +
+              '<td class="mono">' + c.customer_number + '</td>' +
+              '<td>' + esc(c.name) + (c.is_admin ? ' <span style="color:var(--punch);font-size:10px;">ADMIN</span>' : '') +
+                '<div class="mono" style="color:var(--muted-2)">' + esc(c.screen_name) + '</div></td>' +
+              '<td class="mono">' + esc(c.email) + '</td>' +
+              '<td class="mono">' + c.balance_smacks + ' smacks</td>' +
+              '<td class="mono pos">' + money(c.lifetime_spend_cents) + '</td>' +
+              '<td class="mono">' + c.orders + '</td>' +
+              '<td class="mono">' + when(c.created_at) + '</td></tr>';
+          }).join('') + '</table>';
+        box.querySelectorAll('tr.row').forEach(function (r) {
+          r.addEventListener('click', function () { openCustomer(r.dataset.id); });
+        });
+      });
+  }
+  document.getElementById('searchBtn').addEventListener('click', loadCustomers);
+  document.getElementById('q').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') loadCustomers();
+  });
+  document.getElementById('backBtn').addEventListener('click', function () {
+    document.getElementById('view-detail').classList.add('hide');
+    document.getElementById('view-customers').classList.remove('hide');
+  });
+
+  // ---- one customer ----
+  function openCustomer(id) {
+    document.getElementById('view-customers').classList.add('hide');
+    document.getElementById('view-dash').classList.add('hide');
+    var box = document.getElementById('detail');
+    box.innerHTML = '<p class="empty">Loading&hellip;</p>';
+    document.getElementById('view-detail').classList.remove('hide');
+
+    fetch('/api/admin/customer/' + id)
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.error) { box.innerHTML = '<p class="empty">' + esc(d.error) + '</p>'; return; }
+
+        box.innerHTML =
+          '<div class="panel"><h3>' + esc(d.name) +
+            ' <span class="mono" style="color:var(--muted-2)">#' + d.customer_number + '</span></h3>' +
+            '<div class="grid2"><div>' +
+              kv('Email', d.email) + kv('Phone', d.phone) +
+              kv('Screen name', d.screen_name) + kv('Joined', when(d.created_at)) +
+            '</div><div>' +
+              kv('Balance', d.balance_smacks + ' smacks (' + money(d.balance_cents) + ')') +
+              kv('Lifetime spend', money(d.lifetime_spend_cents)) +
+              kv('Comped', money(d.comped_cents)) +
+              kv('Orders', d.orders.length) +
+            '</div></div></div>' +
+
+          // Grants
+          '<div class="panel"><h3>Give free credit</h3>' +
+            '<div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">' +
+              '<select id="gKind"><option value="smacks">Smacks</option><option value="smackcast">Smackcast leagues</option></select>' +
+              '<input id="gAmt" type="number" min="1" max="500" value="5" style="width:90px;">' +
+              '<input id="gNote" type="text" placeholder="Why (optional, logged)" style="flex:1; min-width:180px;">' +
+              '<button class="act" id="gBtn" data-id="' + d.id + '">Grant</button>' +
+            '</div>' +
+            '<p style="font-size:11.5px; color:var(--muted-2); margin:10px 0 0;">' +
+            'Grants are recorded as comps, not revenue, and logged against your name.</p>' +
+          '</div>' +
+
+          '<div class="grid2">' +
+            '<div class="panel"><h3>Locker</h3>' + locker(d) + '</div>' +
+            '<div class="panel"><h3>Wallet ledger</h3>' + ledger(d) + '</div>' +
+          '</div>' +
+
+          (d.smackcast.length ? '<div class="panel"><h3>Smackcast</h3>' + smackcast(d) + '</div>' : '');
+
+        document.getElementById('gBtn').addEventListener('click', function () {
+          grant(this.dataset.id);
+        });
+      });
+  }
+
+  function kv(k, v) {
+    return '<div class="kv"><span>' + k + '</span><span>' + esc(v) + '</span></div>';
+  }
+
+  function locker(d) {
+    var items = (d.orders || []).concat(d.armed || []);
+    if (!items.length) return '<p class="empty">Nothing yet.</p>';
+    return '<table><tr><th>To</th><th>Status</th><th>When</th><th>Audio</th></tr>' +
+      d.orders.map(function (o) {
+        var url = o.recording_url || o.audio_url;
+        return '<tr><td>' + esc(o.recipient_name || '—') + '</td>' +
+          '<td class="mono">' + esc(o.call_status) + '</td>' +
+          '<td class="mono">' + when(o.created_at) + '</td>' +
+          '<td>' + (url ? '<a class="audio" href="' + esc(url) + '" target="_blank">Listen</a>' : '—') + '</td></tr>';
+      }).join('') +
+      d.armed.map(function (s) {
+        return '<tr><td>' + esc(s.recipient_name || '—') + '</td>' +
+          '<td class="mono" style="color:var(--warn)">armed: ' + esc(s.status) + '</td>' +
+          '<td class="mono">' + when(s.created_at) + '</td><td>—</td></tr>';
+      }).join('') + '</table>';
+  }
+
+  function ledger(d) {
+    if (!d.ledger.length) return '<p class="empty">No transactions.</p>';
+    return '<table><tr><th>Amount</th><th>Type</th><th>Balance after</th><th>When</th></tr>' +
+      d.ledger.map(function (t) {
+        var cls = t.amount_cents >= 0 ? 'pos' : 'neg';
+        var sign = t.amount_cents >= 0 ? '+' : '';
+        return '<tr><td class="mono ' + cls + '">' + sign + money(t.amount_cents) + '</td>' +
+          '<td class="mono">' + esc(t.type) + '</td>' +
+          '<td class="mono">' + money(t.balance_after_cents) + '</td>' +
+          '<td class="mono">' + when(t.created_at) + '</td></tr>';
+      }).join('') + '</table>';
+  }
+
+  function smackcast(d) {
+    return '<table><tr><th>Plan</th><th>Paid</th><th>Slots</th><th>Used</th><th>When</th></tr>' +
+      d.smackcast.map(function (p) {
+        return '<tr><td class="mono">' + esc(p.status) + '</td>' +
+          '<td class="mono">' + (p.amount_cents ? money(p.amount_cents) : '<span style="color:var(--punch)">comped</span>') + '</td>' +
+          '<td class="mono">' + p.league_slots + '</td>' +
+          '<td class="mono">' + (p.slots_used || 0) + '</td>' +
+          '<td class="mono">' + when(p.created_at) + '</td></tr>';
+      }).join('') + '</table>';
+  }
+
+  // ---- settings ----
+  function paint(id, on) {
+    document.getElementById('sw_' + id).checked = on;
+    var l = document.getElementById('lbl_' + id);
+    l.textContent = on ? 'on' : 'off';
+    l.style.color = on ? 'var(--go)' : 'var(--muted-2)';
+  }
+
+  function loadSettings() {
+    fetch('/api/admin/settings')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.error) return;
+        paint('customers', d.twofactor_customers);
+        paint('admins', d.twofactor_admins);
+        document.getElementById('bypassWarn').className =
+          d.admin_bypass_env ? '' : 'hide';
+      });
+  }
+
+  ['customers', 'admins'].forEach(function (which) {
+    document.getElementById('sw_' + which).addEventListener('change', function () {
+      var on = this.checked;
+      var key = 'twofactor_' + which;
+      var body = {key: key, value: on};
+
+      // The server refuses to enable admin 2FA blind. Asking here rather than
+      // silently sending confirm=true keeps the decision with the person who
+      // has to live with the consequence.
+      if (key === 'twofactor_admins' && on) {
+        var ok = confirm(
+          'Turn on 2FA for admin accounts?\n\n' +
+          'If texts are not arriving, this locks you out of this page.\n\n' +
+          'Only continue if you have received a test code, or ' +
+          'ADMIN_BYPASS_2FA=1 is set in Render.');
+        if (!ok) { paint('admins', false); return; }
+        body.confirm_sms_works = true;
+      }
+
+      fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.error) {
+            say(d.detail || d.error, true);
+            loadSettings();
+            return;
+          }
+          paint('customers', d.settings.twofactor_customers);
+          paint('admins', d.settings.twofactor_admins);
+          say('Saved.');
+        })
+        .catch(function () { say('Could not save.', true); loadSettings(); });
+    });
+  });
+
+  function grant(userId) {
+    var kind = document.getElementById('gKind').value;
+    var amount = parseInt(document.getElementById('gAmt').value, 10);
+    var note = document.getElementById('gNote').value.trim();
+    var btn = document.getElementById('gBtn');
+    btn.disabled = true;
+
+    fetch('/api/admin/grant', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user_id: userId, kind: kind, amount: amount, note: note})
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.error) { say(d.error, true); return; }
+        say('Granted. ' + (d.balance_smacks != null
+            ? 'New balance: ' + d.balance_smacks + ' smacks.'
+            : d.league_slots + ' league slot(s) added.'));
+        openCustomer(userId);
+      })
+      .catch(function () { say('Grant failed.', true); })
+      .finally(function () { btn.disabled = false; });
+  }
+})();
+</script>
+
+</body>
+</html>

@@ -6478,3 +6478,154 @@ something people browse.
 Also handles the empty case properly: if no episode is live, the player is
 replaced by a note saying Smacky records at 6am Eastern, rather than a dead
 control.
+
+## Admin panel at /admin
+Dashboard, customer search, per-customer detail with locker and ledger, and
+free-credit grants.
+
+ON THE SUBDOMAIN: admin.smackagram.com was requested. Built at /admin instead
+and said why - a subdomain is the same app, same session, same auth check, so
+it adds DNS and a Render custom domain without adding security. The effort
+went into the auth instead.
+
+CLOSED A REAL HOLE: admins SKIPPED 2FA entirely (app.py, "if user.is_admin").
+That was defensible when /admin was two diagnostic pages; it is not when the
+panel exposes customer PII, purchase history and the power to mint credit.
+Now admins go through 2FA like everyone else, with ADMIN_BYPASS_2FA=1 as a
+break-glass env var for lockout recovery only.
+
+Non-admins hitting an admin URL get 404, not 403 - a 403 confirms the endpoint
+exists. Attempts are logged with the user id.
+
+MONEY IS RECONSTRUCTED FROM THE LEDGER, not read off balance_cents. Revenue
+comes from WalletTransaction rows and paid SmackcastPurchases; the cached
+balance is only ever shown as "what they can spend".
+
+ADMIN GRANTS ARE EXCLUDED FROM REVENUE - tagged transaction_type
+"admin_grant", counted as "comped" instead. Folding giveaways into income
+would corrupt the one number on the page that has to be trustworthy. Verified
+end to end: a 5-smack grant showed revenue 0, comped $5, liability +$5.
+
+Grants go through wallet_service.credit_wallet rather than writing balances
+directly, so the ledger stays reconstructable, and every grant logs WHO did it.
+
+Smackcast comps create a normal paid purchase with amount_cents=0 rather than
+a special type, so every entitlement check downstream works unchanged.
+
+"Unspent credit" is surfaced as its own card - money already taken that still
+owes a service, which belongs next to revenue rather than buried.
+
+FOUR SCHEMA ASSUMPTIONS WERE WRONG and caught by testing against a real DB
+rather than by reading: WalletTransaction has transaction_type not reason,
+Order has no team column, SmackcastPurchase has no notes column and its plan
+field is NOT NULL.
+
+## 2FA master switches in the admin panel
+Two independent toggles - customers and admins - replacing the hardcoded
+TWO_FACTOR_ENABLED constant that needed a deploy to change.
+
+SEPARATE because the risk profiles differ. An admin account can see every
+customer's details and mint credit, so it may warrant protection even while
+customer 2FA is off during a delivery problem.
+
+BUILT ON A GENERIC SETTINGS TABLE rather than two columns, because the same
+machinery will carry the show's league selection, runtime bounds and kill
+switch. Rows are cheaper than migrations. Values cached in-process for 15s
+since they're read on every login; a change applies within seconds across
+workers without a restart.
+
+THE LOCKOUT PROBLEM, and why there's friction: an admin can turn ON admin 2FA
+and, if SMS is broken - which it currently is, pending A2P approval - lock
+themselves out of the very page that would turn it back off. So:
+  - The endpoint REFUSES to enable admin 2FA without explicit confirmation,
+    unless ADMIN_BYPASS_2FA is already set.
+  - The panel confirms in the browser first, so the decision sits with the
+    person who lives with it.
+  - The panel WARNS when ADMIN_BYPASS_2FA is set, since admin 2FA would
+    otherwise show as on while silently not being enforced.
+
+Verified end to end: 2FA off logs straight in; 2FA on attempts SMS and blocks
+on failure; ADMIN_BYPASS_2FA=1 recovers access. Unknown keys rejected. Every
+change logged with who made it.
+
+Env vars remain the seed defaults, so an unseeded database behaves exactly as
+before this existed.
+
+## Customer sharing to every platform
+static/js/share.js - one module, loaded on the locker, public smack pages,
+Daily Smack, home page, Smackcast recaps and conversations.
+
+TWO PATHS, chosen by capability:
+  1. NATIVE SHEET (navigator.share). On a phone this is the whole game - one
+     tap opens Instagram, TikTok, WhatsApp, Messages, whatever they have, and
+     it carries the actual audio FILE rather than a link.
+  2. PLATFORM BUTTONS on desktop, where navigator.share mostly doesn't exist.
+     X, Facebook, WhatsApp, Reddit, Telegram, SMS, email, plus copy-link and
+     a direct download.
+
+WHY NOT PLATFORM APIS: posting to Instagram or TikTok on a user's behalf needs
+OAuth, app review and a business account each. The native sheet gets the same
+outcome - their post, from their account - for none of that. APIs are only
+worth it for posting from OUR accounts automatically, which is separate work.
+
+INSTAGRAM AND TIKTOK have no web intent URL and reject plain links from a
+desktop browser. Rather than offering a button that silently does nothing, the
+sheet says so and points people to their phone.
+
+Sharing the FILE not just the link matters: the recipient hears it without
+leaving the app they're in. Falls back to link-only if the fetch fails, which
+it will on a cross-origin audio host without CORS - worth adding to the S3
+bucket, same setting the real waveform needs.
+
+An AbortError from the native sheet means they opened it and backed out. That's
+a normal outcome and is deliberately NOT treated as a failure.
+
+## Share sheet: brand icons instead of text buttons
+A row of grey text buttons read as a form; a grid of recognisable marks reads
+as a share sheet at a glance, which is the whole point.
+
+Inline SVG rather than an icon font or images - no extra request, scales
+cleanly, and takes currentColor so hover states are one CSS line.
+
+Each mark carries its OWN brand colour on hover (X black, WhatsApp green,
+Reddit orange, and so on). Recognition is what a logo is for, and seven
+identical grey circles waste it.
+
+aria-label and title on every one, since an icon alone tells a screen reader
+nothing.
+
+## Attribution on every share - four mechanisms, four failure modes
+Each covers a way the previous one gets lost.
+
+1. THE LINK. Every share points back to a page here. Fails if someone
+   screenshots or reposts without the link.
+
+2. THE TEXT. " - smackagram.com" appended to the share text, so the site is
+   named in the post BODY rather than only in the link preview. Guarded so it
+   can't double up. The native sheet always lets them edit it first, which is
+   what keeps this honest rather than pushy.
+
+3. THE OPEN GRAPH TAGS. og:site_name puts "Smackagram" on the preview card in
+   Facebook, iMessage, Slack and anywhere else that unfurls a link - without
+   it the card shows a bare domain. og:audio added so some platforms play it
+   inline.
+
+4. THE AUDIO ITSELF - the only one that survives a FILE being forwarded. Once
+   someone downloads the mp3 and sends it on, every trace of origin is gone
+   unless it's in the recording. So the daily show's sign-off now ends
+   "Smackagram dot com", appended to the outro TEXT rather than mixed in as a
+   separate stinger, so it runs through the same voice and the same loudness
+   normalisation and sounds like Smacky finishing his sentence.
+
+Plus UTM tagging per platform, because without it there's no way to know
+whether sharing brings anyone back - and therefore no way to know if any of
+this is worth keeping. X and Facebook are distinguishable rather than both
+reading as "social".
+
+WHERE THE LINE IS: all of this is fine because it's our content and their
+choice to post. Posting on someone's behalf, pre-filling text they can't edit,
+or auto-following would not be. The native sheet always shows them the post
+before it goes.
+
+The landing page CTA already existed - "Send one of your own", with the price
+and the anonymity promise underneath.

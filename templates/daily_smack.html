@@ -163,7 +163,14 @@
       </div>
     </div>
 
-    <div class="ds-foot">New episode every morning &middot; 6am ET</div>
+    <div class="ds-foot" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+      <span>New episode every morning &middot; 6am ET</span>
+      <button type="button" id="shareShow" style="margin-left:auto; background:transparent;
+              border:1px solid var(--line); color:var(--chalk-dim); padding:7px 14px;
+              border-radius:6px; font-size:12px; cursor:pointer; font-family:'Inter',sans-serif;">
+        &#8599;&nbsp; Share today&rsquo;s show
+      </button>
+    </div>
     <audio id="oaAudio" preload="none" crossorigin="anonymous"></audio>
   </div>
 
@@ -224,6 +231,19 @@
       bar.hidden = false;
       sizeCanvas();
       drawFlat();
+
+      var sb = document.getElementById('shareShow');
+      if (sb) {
+        sb.addEventListener('click', function () {
+          window.smkShare({
+            url: location.origin + '/daily-smack',
+            title: 'The Daily Smack',
+            text: d.best_line ? '\u201C' + d.best_line + '\u201D' : 'Last night\u2019s scores, roasted.',
+            audioUrl: d.audio_url,
+            filename: 'the-daily-smack.mp3',
+          });
+        });
+      }
     })
     .catch(function () { noShow.hidden = false; });
 
@@ -361,5 +381,6 @@
 })();
 </script>
 
+<script src="{{ url_for('static', filename='js/share.js') }}"></script>
 </body>
 </html>

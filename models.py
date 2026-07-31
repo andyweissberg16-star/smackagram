@@ -481,6 +481,27 @@ class PendingAction(db.Model):
     completed_at = db.Column(db.DateTime, nullable=True)
 
 
+class Setting(db.Model):
+    """
+    Runtime configuration, changeable from the admin panel without a deploy.
+
+    Key/value rather than typed columns on purpose: the settings this needs to
+    carry will keep growing (2FA switches now; the show's leagues, runtime and
+    kill switch next), and rows are cheaper to add than migrations.
+
+    updated_by records WHO changed it. For settings that affect security -
+    which the 2FA switches do - knowing who flipped it matters as much as
+    knowing what it is.
+    """
+    __tablename__ = "settings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(60), unique=True, nullable=False, index=True)
+    value = db.Column(db.String(255), nullable=False)
+    updated_by = db.Column(db.String(60))
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class DailyShow(db.Model):
     """
     One episode of The Smacky Report.

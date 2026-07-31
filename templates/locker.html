@@ -205,7 +205,12 @@
                 '<a class="act act-quiet" href="/api/locker/download/' + esc(it.kind) + '/' + it.id + '">&#8595;&nbsp; Download</a>'
               : '') +
             (it.share_token
-              ? '<button class="act act-quiet" data-share="/smack/' + esc(it.share_token) + '" type="button">&#8599;&nbsp; Share</button>'
+              ? '<button class="act act-quiet" type="button"' +
+                ' data-smk-share="' + location.origin + '/smack/' + esc(it.share_token) + '"' +
+                ' data-smk-title="' + esc(it.title || 'Somebody got Smacked') + '"' +
+                ' data-smk-text="Listen to what Smacky said."' +
+                (it.audio_url ? ' data-smk-audio="' + esc(it.audio_url) + '"' : '') +
+                '>&#8599;&nbsp; Share</button>'
               : '') +
           '</div>';
 
@@ -261,5 +266,6 @@
 })();
 </script>
 
+<script src="{{ url_for('static', filename='js/share.js') }}"></script>
 </body>
 </html>

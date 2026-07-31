@@ -10,8 +10,8 @@ from sqlalchemy import func
 import requests
 from dotenv import load_dotenv
 
-from models import db, DailyShow, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
-from services import news_service, show_service, show_service
+from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
+from services import news_service, show_service, admin_service, settings_service, show_service
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
 
@@ -167,7 +167,10 @@ def api_register():
     db.session.add(user)
     db.session.commit()
 
-    if not TWO_FACTOR_ENABLED:
+    # Customer 2FA is now a runtime setting, changeable from the admin panel
+    # rather than a constant needing a deploy. The old TWO_FACTOR_ENABLED
+    # constant remains as the seed value only.
+    if not settings_service.get_bool("twofactor_customers"):
         session["user_id"] = user.id
         return jsonify({"ok": True})
 
@@ -211,11 +214,31 @@ def api_login():
     if not user or not user.check_password(password):
         return jsonify({"error": "Incorrect email or password."}), 401
 
-    # The seeded admin test account always skips 2FA (frictionless
-    # testing, no real phone behind it) — and right now, per the
-    # TWO_FACTOR_ENABLED toggle above, everyone does while the SMS
-    # delivery issue gets sorted out.
-    if user.is_admin or not TWO_FACTOR_ENABLED:
+    # Admins NO LONGER skip 2FA. That exemption was fine when /admin was a
+    # couple of diagnostic pages; it is not fine now that the admin panel
+    # exposes customer PII, purchase history and the ability to hand out
+    # credits. An account that can do that should not be protected by a
+    # password alone.
+    #
+    # ADMIN_BYPASS_2FA exists only so a locked-out admin can recover without
+    # a deploy - it should be unset in normal operation.
+    # Two independent switches, both set from the admin panel: one for
+    # customers, one for admins. They're separate because the risk profiles
+    # differ - an admin account can see every customer's details and mint
+    # credit, so you may well want it protected even while customer 2FA is
+    # off during a delivery problem.
+    #
+    # ADMIN_BYPASS_2FA is break-glass for lockout recovery. It exists because
+    # an admin can turn ON admin 2FA and, if SMS is broken, lock themselves
+    # out of the very page that turns it off.
+    if user.is_admin:
+        needs_2fa = settings_service.get_bool("twofactor_admins")
+        if os.environ.get("ADMIN_BYPASS_2FA") == "1":
+            needs_2fa = False
+    else:
+        needs_2fa = settings_service.get_bool("twofactor_customers")
+
+    if not needs_2fa:
         session["user_id"] = user.id
         return jsonify({"ok": True})
 
@@ -1283,6 +1306,157 @@ def locker_download(kind, item_id):
         mimetype="audio/mpeg",
         headers={"Content-Disposition": f'attachment; filename="smackagram-{who}-{when}.mp3"'},
     )
+
+
+def _require_admin():
+    """
+    One gate for every admin surface.
+
+    Returns (user, None) when allowed, or (None, response) to return straight
+    back. Centralised deliberately - the previous pattern repeated the same
+    two-line check in each handler, which is exactly how one eventually gets
+    written wrong.
+    """
+    user = get_current_user()
+    if not user:
+        return None, (jsonify({"error": "Not signed in."}), 401)
+    if not user.is_admin:
+        # Deliberately vague, and logged. A non-admin poking at admin URLs is
+        # worth knowing about.
+        print(f"[admin] denied: user {user.id} ({user.email}) tried {request.path}")
+        return None, (jsonify({"error": "Not found."}), 404)
+    return user, None
+
+
+@app.route("/admin")
+@login_required
+def admin_home():
+    user, err = _require_admin()
+    if err:
+        return "Not found.", 404
+    return render_template("admin_panel.html")
+
+
+@app.route("/api/admin/summary")
+@login_required
+def api_admin_summary():
+    user, err = _require_admin()
+    if err:
+        return err
+    return jsonify(admin_service.accounting_summary())
+
+
+@app.route("/api/admin/customers")
+@login_required
+def api_admin_customers():
+    user, err = _require_admin()
+    if err:
+        return err
+    return jsonify({
+        "customers": admin_service.customer_list(
+            search=request.args.get("q", ""),
+            limit=min(int(request.args.get("limit", 50)), 200),
+        )
+    })
+
+
+@app.route("/api/admin/customer/<int:user_id>")
+@login_required
+def api_admin_customer(user_id):
+    user, err = _require_admin()
+    if err:
+        return err
+    detail = admin_service.customer_detail(user_id)
+    if not detail:
+        return jsonify({"error": "No such customer."}), 404
+    return jsonify(detail)
+
+
+@app.route("/api/admin/settings")
+@login_required
+def api_admin_settings_get():
+    user, err = _require_admin()
+    if err:
+        return err
+    s = settings_service.all_settings()
+    # Surfaced so the panel can warn that the break-glass var is live -
+    # otherwise admin 2FA would appear on while silently doing nothing.
+    s["admin_bypass_env"] = os.environ.get("ADMIN_BYPASS_2FA") == "1"
+    return jsonify(s)
+
+
+@app.route("/api/admin/settings", methods=["POST"])
+@login_required
+def api_admin_settings_set():
+    """
+    Changes a runtime setting.
+
+    Refuses to turn on admin 2FA unless the SMS path has actually been proven,
+    because the failure mode is locking yourself out of the page that would
+    undo it. The check is deliberate friction, not paranoia - Twilio is
+    currently reporting messages as sent that never arrive.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+
+    data = request.json or {}
+    key = (data.get("key") or "").strip()
+    value = bool(data.get("value"))
+
+    if key not in ("twofactor_customers", "twofactor_admins"):
+        return jsonify({"error": "Unknown setting."}), 400
+
+    if key == "twofactor_admins" and value:
+        if os.environ.get("ADMIN_BYPASS_2FA") == "1":
+            pass    # break-glass is set, safe to enable
+        elif not data.get("confirm_sms_works"):
+            return jsonify({
+                "error": "Confirm SMS delivery works first.",
+                "needs_confirmation": True,
+                "detail": ("If texts aren't arriving, turning this on locks you "
+                           "out of this page. Set ADMIN_BYPASS_2FA=1 in Render "
+                           "first, or tick the box to confirm you've received a "
+                           "test code."),
+            }), 400
+
+    settings_service.set_value(key, value, changed_by=user.screen_name)
+    return jsonify({"ok": True, "settings": settings_service.all_settings()})
+
+
+@app.route("/api/admin/grant", methods=["POST"])
+@login_required
+def api_admin_grant():
+    """
+    Hands out free smacks or Smackcast slots.
+
+    Every grant is logged with WHO did it, because this is the one admin
+    action that creates value out of nothing and the audit trail matters more
+    than the convenience.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+
+    data = request.json or {}
+    target_id = data.get("user_id")
+    kind = (data.get("kind") or "").strip()
+    amount = int(data.get("amount") or 0)
+    note = (data.get("note") or "").strip()
+
+    if not target_id:
+        return jsonify({"error": "Pick a customer."}), 400
+
+    if kind == "smacks":
+        result = admin_service.grant_smacks(int(target_id), amount, note, user.screen_name)
+    elif kind == "smackcast":
+        result = admin_service.grant_smackcast(int(target_id), amount, note, user.screen_name)
+    else:
+        return jsonify({"error": "kind must be 'smacks' or 'smackcast'."}), 400
+
+    if result.get("error"):
+        return jsonify(result), 400
+    return jsonify(result)
 
 
 @app.route("/admin/espn")
@@ -3622,6 +3796,14 @@ with app.app_context():
                 created_at TIMESTAMP DEFAULT NOW()
             )"""))
             conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_daily_shows_live ON daily_shows (is_live)"))
+            conn.execute(db.text("""CREATE TABLE IF NOT EXISTS settings (
+                id SERIAL PRIMARY KEY,
+                key VARCHAR(60) UNIQUE NOT NULL,
+                value VARCHAR(255) NOT NULL,
+                updated_by VARCHAR(60),
+                updated_at TIMESTAMP DEFAULT NOW()
+            )"""))
+            conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_settings_key ON settings (key)"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS share_token VARCHAR(64)"))
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS share_token VARCHAR(64)"))
             # Indexed because the locker queries by user on every page view.
