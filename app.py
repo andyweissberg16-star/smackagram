@@ -10,8 +10,8 @@ from sqlalchemy import func
 import requests
 from dotenv import load_dotenv
 
-from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
-from services import news_service
+from models import db, DailyShow, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
+from services import news_service, show_service, show_service
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
 
@@ -1283,6 +1283,34 @@ def locker_download(kind, item_id):
         mimetype="audio/mpeg",
         headers={"Content-Disposition": f'attachment; filename="smackagram-{who}-{when}.mp3"'},
     )
+
+
+@app.route("/admin/show")
+@login_required
+def admin_show_page():
+    user = get_current_user()
+    if not user.is_admin:
+        return "Not authorized.", 403
+    return render_template("admin_show.html")
+
+
+@app.route("/api/admin/show-material")
+@login_required
+def admin_show_material():
+    """
+    What a given night actually gives Smacky to work with.
+
+    Exists so the MATERIAL can be judged before any audio is generated -
+    whether a typical night produces enough to fill 90 seconds, and whether
+    the facts are ones a person would actually find funny.
+    """
+    user = get_current_user()
+    if not user.is_admin:
+        return jsonify({"error": "Not authorized."}), 403
+
+    days_back = int(request.args.get("days_back", 1))
+    leagues = [l.strip() for l in request.args.get("leagues", "mlb,nfl,nba,nhl").split(",")]
+    return jsonify(show_service.get_show_material(leagues=leagues, days_back=days_back))
 
 
 @app.route("/admin/news")
@@ -3285,6 +3313,62 @@ def _generate_smackcasts_async():
             print(f"[smackcast cron] weekly run FAILED: {e}")
 
 
+@app.route("/api/cron/daily-show", methods=["GET", "POST"])
+def cron_daily_show():
+    """
+    Builds and publishes The Smacky Report. Hit once each morning by the
+    external scheduler - same mechanism as the armed-smackagram check.
+
+    Fails SAFE: if anything goes wrong, the previous episode keeps playing.
+    A silent morning is much better than a broken player on the home page.
+    """
+    if request.args.get("key") != os.environ.get("CRON_SECRET"):
+        return "Nope.", 403
+
+    try:
+        result = show_service.produce_daily_show(days_back=1)
+    except Exception as e:
+        # Deliberately swallowed. Yesterday's show stays live and the error is
+        # in the logs, rather than the home page losing its player.
+        print(f"[show] production failed, keeping previous episode: {e}")
+        return jsonify({"published": False, "error": str(e)}), 200
+
+    if not result.get("published"):
+        return jsonify(result), 200
+
+    show = DailyShow(
+        audio_url=result["audio_url"],
+        date_label=result.get("date_label", ""),
+        minutes=result.get("minutes"),
+        game_count=result.get("game_count"),
+        leagues=", ".join(result.get("leagues", [])),
+        best_line=result.get("best_line", ""),
+        is_live=True,
+    )
+    # Exactly one episode is live at a time.
+    DailyShow.query.filter_by(is_live=True).update({"is_live": False})
+    db.session.add(show)
+    db.session.commit()
+
+    return jsonify({**result, "show_id": show.id}), 200
+
+
+@app.route("/api/show/current")
+def api_current_show():
+    """What the home page player asks for. Public, cached briefly."""
+    show = DailyShow.query.filter_by(is_live=True).order_by(DailyShow.id.desc()).first()
+    if not show:
+        return jsonify({"live": False})
+    return jsonify({
+        "live": True,
+        "audio_url": show.audio_url,
+        "date_label": show.date_label,
+        "minutes": show.minutes,
+        "game_count": show.game_count,
+        "leagues": show.leagues,
+    })
+
+
 @app.route("/api/cron/generate-smackcasts", methods=["GET", "POST"])
 def cron_generate_smackcasts():
     """
@@ -3433,6 +3517,18 @@ with app.app_context():
             conn.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance_cents INTEGER DEFAULT 0 NOT NULL"))
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS user_id INTEGER"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id INTEGER"))
+            conn.execute(db.text("""CREATE TABLE IF NOT EXISTS daily_shows (
+                id SERIAL PRIMARY KEY,
+                audio_url VARCHAR(500) NOT NULL,
+                date_label VARCHAR(60),
+                minutes DOUBLE PRECISION,
+                game_count INTEGER,
+                leagues VARCHAR(200),
+                best_line TEXT,
+                is_live BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT NOW()
+            )"""))
+            conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_daily_shows_live ON daily_shows (is_live)"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS share_token VARCHAR(64)"))
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS share_token VARCHAR(64)"))
             # Indexed because the locker queries by user on every page view.

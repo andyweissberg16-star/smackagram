@@ -481,6 +481,29 @@ class PendingAction(db.Model):
     completed_at = db.Column(db.DateTime, nullable=True)
 
 
+class DailyShow(db.Model):
+    """
+    One episode of The Smacky Report.
+
+    Rows are kept rather than overwritten so a bad morning can be rolled back
+    to the previous show, and so there's a record of what aired on any date.
+    is_live is what the home page reads - publishing sets it on the new row
+    and clears it everywhere else, which also makes the kill switch a single
+    boolean rather than a deploy.
+    """
+    __tablename__ = "daily_shows"
+
+    id = db.Column(db.Integer, primary_key=True)
+    audio_url = db.Column(db.String(500), nullable=False)
+    date_label = db.Column(db.String(60))        # "Thursday, July 30"
+    minutes = db.Column(db.Float)
+    game_count = db.Column(db.Integer)
+    leagues = db.Column(db.String(200))
+    best_line = db.Column(db.Text)
+    is_live = db.Column(db.Boolean, default=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class WalletTransaction(db.Model):
     """
     Append-only audit log of every wallet balance change — both

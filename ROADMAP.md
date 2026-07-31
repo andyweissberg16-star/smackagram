@@ -6022,3 +6022,76 @@ Fixed by DELEGATING to sports_service._api_key() rather than reading the
 environment again. Two modules reading the same key by different names is
 exactly how this broke - now there's one accessor and one name to get wrong.
 Verified there's no circular import.
+
+## The Smacky Report: pivoted from headlines to scores
+Headlines were the wrong source. A full day returned 8 stories across four
+leagues, 6 of which the safety screen rejected - not enough for a daily show,
+and the screen was doing 75% of the work for 1 usable result.
+
+SCORES ARE STRUCTURALLY BETTER for a roast show:
+  - Never tragic. A run differential can't be a death. The entire two-stage
+    safety screen becomes unnecessary on this path.
+  - Always there. ~15 MLB games a night versus 8 headlines across four leagues.
+  - Factual. The biggest legal risk with headlines was the model inventing WHY
+    something happened. A score can't be embellished into defamation.
+  - Funnier. "Lost their ninth straight" beats a contract-extension headline.
+
+NOT USING PlayerGameStatsByDate. It returns real player NAMES with FAKE
+statistics on this tier - 8.9 at-bats, 4.5 hits, identical values across
+different players. Real names on invented numbers is the worst combination:
+credible enough to build on, and one listener who follows the sport would
+catch it instantly. Verified by inspection before building anything on it.
+
+GamesByDate is clean: final score, hits, errors, innings, winner. Facts are
+derived arithmetic on those - blowout margins, losing at home, out-hitting the
+winner and still losing, error counts, and multi-day losing streaks.
+
+SCORE FIELD NAMES DIFFER PER SPORT (HomeTeamRuns / HomeScore / HomeTeamScore).
+Guessing wrong returns zero games, which looks EXACTLY like "no games played" -
+a failure that hides for weeks. Now tries every known variant, the same fix
+already applied to get_game_result after MLB scores silently returned None.
+
+ADAPTIVE RUNTIME rather than a fixed length, banded on how many games actually
+finished: 15+ -> 4 min, 8-14 -> 3 min, 4-7 -> 2 min, under 4 -> hold and keep
+yesterday's show. A fixed four minutes on a quiet night forces padding, and
+padding is far more noticeable than a shorter episode.
+
+Leagues: MLB, WNBA, NFL, NBA, NHL. Only MLB and WNBA are in season in late
+July; the others cost nothing until their seasons start, at which point the
+game count rises and the bands respond on their own.
+
+/admin/show previews the material for any night before anything is written.
+
+## The Smacky Report: fully automated daily production
+Runs unattended. Nothing to press.
+
+/api/cron/daily-show is hit once each morning by the same external scheduler
+already running the armed-smackagram check. It pulls last night's scores,
+decides the runtime from the game count, writes the script, renders the audio
+and publishes it.
+
+REUSES the existing audio pipeline rather than duplicating it -
+smackcast_service.assemble_recap_audio does TTS, sound effects, loudness
+normalisation and the S3 upload, and sanitize_for_speech strips the
+punctuation names and emoji that TTS would otherwise read aloud. The daily
+show gets all of that for free, and stays in sync when either is improved.
+
+Smacky's voice comes from smackology at level 4, recap context - the same
+character as every other surface.
+
+THE ONE HARD RULE IN THE PROMPT: he may only reference the supplied facts. No
+invented injuries, reasons, quotes or player names. He is handed scores, not
+explanations, and inventing why a team lost is how a comedy bit becomes a
+defamation claim.
+
+FAILS SAFE AT EVERY STEP:
+  - Fewer than 4 finished games -> holds, previous episode keeps playing.
+  - Any exception during production -> caught, logged, previous episode keeps
+    playing. A silent morning beats a broken player on the home page.
+  - Exactly one episode is_live at a time; publishing clears the others.
+
+DailyShow rows are kept rather than overwritten, so a bad morning can be
+rolled back and there's a record of what aired on any date. is_live doubles as
+the kill switch agreed earlier - a single boolean, no deploy needed.
+
+/api/show/current is what the home page player will read. Player still to build.

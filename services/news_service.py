@@ -48,32 +48,52 @@ SPORT_PATHS = {
     "nba": "nba",
     "mlb": "mlb",
     "nhl": "nhl",
+    "ncaaf": "cfb",
+    "ncaab": "cbb",
+    "wnba": "wnba",
 }
 
 # Fast reject pass. Cheap, runs on every headline, catches the obvious cases
 # before spending a model call. Substring matching on a lowered string, so
 # fragments are deliberate: "arrest" catches "arrested", "arrests".
+# Fast reject pass. Deliberately PHRASE-based rather than word-based: the
+# first version used bare words like "shot", "cut", "crash" and "loss" and
+# rejected 75% of an ordinary news day - "cut from the roster", "shot 4-for-19",
+# "crash the boards" are all normal sports language. A filter that blocks
+# everything isn't safe, it's just broken.
+#
+# So these are terms that are almost never innocent in a sports headline.
+# Ambiguous ones are left to the model pass, which can read context.
 BANNED_TERMS = [
     # death and grief
-    "died", "death", "dead", "passed away", "obituary", "funeral", "memorial",
-    "fatal", "killed", "tragedy", "tragic", "mourns", "mourning", "condolence",
+    "died", "dies", "death", "passed away", "obituary", "funeral", "memorial",
+    "fatally", "killed", "mourns", "mourning", "condolence", "tragic death",
+    "remembering", "in memory of", "laid to rest",
     # self-harm and mental health
     "suicide", "took his own life", "took her own life", "mental health",
     "depression", "rehab", "overdose", "addiction", "substance abuse",
+    "checked into", "treatment facility",
     # serious medical
-    "cancer", "tumor", "tumour", "chemotherapy", "diagnosis", "diagnosed",
+    "cancer", "tumor", "tumour", "chemotherapy", "diagnosed with",
     "hospitalized", "hospitalised", "intensive care", "life support", "coma",
-    "stroke", "heart attack", "cardiac", "collapsed", "seizure", "paralyzed",
-    "paralysed", "cte", "concussion protocol", "brain injury", "als",
+    "stroke", "heart attack", "cardiac", "collapsed on", "seizure",
+    "paralyzed", "paralysed", "cte", "brain injury", "als", "life-threatening",
+    "critical condition", "medical emergency",
     # crime and abuse
-    "arrest", "charged with", "indicted", "convicted", "sentenced", "lawsuit",
-    "assault", "domestic violence", "abuse", "misconduct", "harassment",
-    "trafficking", "dui", "dwi", "weapon", "shooting", "shot", "stabbed",
-    "investigation into", "allegation", "accuser", "victim",
+    "arrested", "arrest warrant", "charged with", "indicted", "convicted",
+    "sentenced", "pleads guilty", "assault", "domestic violence",
+    "sexual", "abuse", "misconduct", "harassment", "trafficking",
+    "dui", "dwi", "shooting", "stabbed", "gunshot", "homicide",
+    "criminal", "felony", "restraining order", "allegations of",
     # discrimination
     "racist", "racism", "slur", "homophobic", "antisemit", "discrimination",
-    # disaster
-    "crash", "accident", "injury list", "career-ending", "retires due to",
+    "hate speech",
+    # serious accidents
+    "car accident", "car crash", "plane crash", "hospital",
+    # career-ending / long-term injury framing
+    "career-ending", "season-ending", "torn acl", "achilles tear",
+    "ruptured", "surgery", "non-football injury", "personal reasons",
+    "away from the team", "stepping away", "leave of absence",
 ]
 
 # What the show IS about. Not used to filter — used to rank, so the most
@@ -127,7 +147,10 @@ def fetch_headlines(sport: str, days_back: int = 1) -> list[dict]:
     # Keep a window rather than a single day. The feed's density varies by
     # league and season - a strict one-day match can legitimately return
     # nothing, which reads as a broken pull rather than a quiet day.
-    cutoff = datetime.utcnow() - timedelta(days=days_back + 1)
+    # Wide by design. Late July is the quietest week in sport - NBA and NHL
+    # fully out of season, NFL barely into camp - and a narrow window there
+    # returns almost nothing. A story from a few days ago still roasts fine.
+    cutoff = datetime.utcnow() - timedelta(days=max(days_back + 1, 5))
     windowed = []
     for i in items:
         stamp = (i.get("Updated") or "")[:19]
