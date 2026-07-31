@@ -130,6 +130,18 @@ class Order(db.Model):
     # produce a different file, not the original.
     message_audio_url = db.Column(db.String(500), nullable=True)
 
+    # Who sent it. Absent until now, which meant a customer's own orders
+    # couldn't be listed back to them at all - the wallet ledger recorded the
+    # spend but never which order it paid for. Nullable because rows created
+    # before this column existed can't be attributed retroactively; there is
+    # no stored link to recover.
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+
+    # Public token for sharing a single smackagram. Separate from reply_token,
+    # which grants the RECIPIENT a reply - this one only grants playback, so
+    # handing it around can't be used to send anything.
+    share_token = db.Column(db.String(64), unique=True, nullable=True)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -182,6 +194,7 @@ class Smackagram(db.Model):
     recording_url = db.Column(db.String(500), nullable=True)
     answered_by = db.Column(db.String(30), nullable=True)  # see comment on Order — same purpose
     message_audio_url = db.Column(db.String(500), nullable=True)  # see comment on Order — same purpose
+    share_token = db.Column(db.String(64), unique=True, nullable=True)  # see comment on Order — same purpose
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     resolved_at = db.Column(db.DateTime, nullable=True)

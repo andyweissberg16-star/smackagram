@@ -55,6 +55,39 @@
   .btn-logout{background:transparent; border:1px solid var(--line-strong); color:var(--chalk); margin-top:12px;}
   #formError{display:none; color:var(--flare-text); font-size:12px; margin-bottom:12px;}
   #formSuccess{display:none; color:var(--gold); font-size:12px; margin-bottom:12px;}
+  .vault{
+    background:#141414; border:2px solid #3A1416; border-radius:14px;
+    overflow:hidden; margin-bottom:20px;
+  }
+  .vault-row{
+    display:flex; align-items:center; gap:14px; padding:18px 20px;
+    background:#1C1C1C; border-bottom:2px solid #3A1416; flex-wrap:wrap;
+  }
+  .vault-label{
+    font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2.5px;
+    text-transform:uppercase; color:#7A7575; margin:0 0 6px;
+  }
+  /* Smacks only, never a dollar figure - credits include free ones, so a
+     money value would read as cash owed back rather than a product balance. */
+  .vault-count{font-size:38px; font-weight:600; color:var(--flare); margin:0; line-height:1;}
+  .vault-reload{width:auto; padding:10px 20px; text-decoration:none; margin:0;}
+  .vault-recent{padding:14px 20px 16px;}
+  .vault-recent-head{display:flex; align-items:center; margin-bottom:10px;}
+  .vault-link{font-size:11.5px; color:var(--flare-text); text-decoration:none; margin-left:auto;}
+  .vault-item{
+    display:flex; align-items:center; gap:11px; padding:10px 0;
+    border-bottom:1px solid #2A2A2A; text-decoration:none;
+  }
+  .vault-item:last-child{border-bottom:none;}
+  .vault-dot{
+    width:24px; height:24px; border-radius:50%; flex-shrink:0;
+    display:grid; place-items:center; font-size:12px;
+  }
+  .vault-item-body{flex:1; min-width:0;}
+  .vault-item-title{display:block; font-size:13px; color:var(--chalk);}
+  .vault-item-sub{display:block; font-size:10.5px; color:#7A7575;}
+  .vault-none{color:#7A7575; font-size:12.5px; margin:0; padding:6px 0;}
+
 </style>
 </head>
 <body>
@@ -65,6 +98,25 @@
   <div class="hero">
     <h1>My Profile</h1>
     <p class="customer-number" id="customerNumberDisplay"></p>
+  </div>
+
+  <div class="vault">
+    <div class="vault-row">
+      <div>
+        <p class="vault-label">Smacks in the vault</p>
+        <p class="vault-count" id="vaultCount">&mdash;</p>
+      </div>
+      <span style="flex:1"></span>
+      <a href="/reload" class="btn btn-flare vault-reload">Reload</a>
+    </div>
+
+    <div class="vault-recent">
+      <div class="vault-recent-head">
+        <p class="vault-label" style="margin:0;">Recent activity</p>
+        <a href="/locker" class="vault-link">Open your Locker &rarr;</a>
+      </div>
+      <div id="vaultActivity"><p class="vault-none">Nothing yet.</p></div>
+    </div>
   </div>
 
   <div class="card">
@@ -162,6 +214,34 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
 });
 
 loadProfile();
+
+// Balance and a short recent list, from the same endpoint the locker uses -
+// one source, so the two can never disagree about what's in the vault.
+(function () {
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  fetch('/api/locker').then(function (r) { return r.json(); }).then(function (d) {
+    document.getElementById('vaultCount').textContent = d.balance_smacks;
+    var items = (d.items || []).slice(0, 3);
+    if (!items.length) return;
+    document.getElementById('vaultActivity').innerHTML = items.map(function (it) {
+      var armed = it.pending;
+      var locked = it.kind === 'locked';
+      var color = armed ? '#FFB800' : (locked ? '#FFB800' : '#E01B24');
+      var sub = armed ? 'Armed, waiting on the final'
+              : (locked && it.team ? esc(it.team) + ' lost' : 'Smackagram sent');
+      return '<a class="vault-item" href="/locker">' +
+        '<span class="vault-dot" style="background:' + color + '22; color:' + color + ';">&#9679;</span>' +
+        '<span class="vault-item-body">' +
+          '<span class="vault-item-title">' + esc(it.recipient || 'Someone') + '</span>' +
+          '<span class="vault-item-sub">' + sub + '</span>' +
+        '</span></a>';
+    }).join('');
+  }).catch(function () {});
+})();
 </script>
 </body>
 </html>

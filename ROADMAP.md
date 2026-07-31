@@ -5541,3 +5541,63 @@ reload or shared link lands on the right generator.
 KNOWN LIMITATION: anything typed into one generator is lost on switching,
 since the frame holds its own independent state. Fixing that genuinely does
 require the merge. The switcher copy deliberately makes no claim otherwise.
+
+## The Locker - customer history, downloads, and share infrastructure
+
+### The blocker that made this schema work
+Order had NO user_id. The wallet ledger recorded that a dollar was spent but
+never which order it paid for, so a customer's own Smackagrams could not be
+listed back to them AT ALL. Locked & Loaded was fine (it had user_id); the
+flagship product was not. A locker built without fixing this would have shown
+everything except the main thing people buy.
+
+Added: orders.user_id (indexed - the locker queries by user on every view),
+plus share_token on BOTH orders and smackagrams. Migration follows the
+existing ADD COLUMN IF NOT EXISTS pattern.
+
+Share tokens are minted AT CREATION rather than on first share, so every
+record has one and nothing needs back-filling later.
+
+NOT RETROACTIVE: orders placed before this deploys have no user_id and cannot
+be attributed - there is no stored link to recover. The locker starts from
+the day this ships. Confirmed acceptable.
+
+### One play button, not two
+recording_url is a recording of the WHOLE CALL - it already contains Smacky's
+message and whatever the recipient said. It is not a separate reaction file.
+So two buttons would have played overlapping audio. Each row has ONE button
+whose label carries the difference:
+  reached a person -> "Play the call"
+  voicemail/no answer -> "What Smacky said" (message_audio_url alone)
+Armed Locked & Loadeds have no audio at all yet - Smacky writes it after the
+game - so they render as a pending row rather than a dead play button.
+
+### Sharing, built for the social work coming next
+/smack/<share_token> is a public playback page carrying Open Graph and Twitter
+Card tags. Without those a shared link renders as a bare URL on every
+platform. The Share button uses the native share sheet on mobile and falls
+back to clipboard; social buttons will hang off the same URL.
+
+share_token is deliberately SEPARATE from reply_token. Reply tokens let a
+recipient smack back; share tokens grant playback only - so a share link can
+never be used to send anything.
+
+### Downloads
+Proxied through the app rather than linking S3 directly, same reasoning as the
+Smackcast library: the object key is a bare UUID and a direct link saves as
+gibberish. Ownership is checked and returns 404 rather than 403 - ids are
+sequential, so without it anyone logged in could walk the range and pull down
+other people's calls, and a 403 would confirm which ids exist.
+
+### Never a dollar figure
+Balance shows smacks only, on both the locker and the profile. Credits include
+free ones, so a money value would read as cash owed back rather than a product
+balance - and invites refund requests against promotional credit. Verified in
+a browser that no dollar sign renders in the panel.
+
+Profile shows the balance plus the three most recent items, each linking into
+the locker, populated from the SAME /api/locker endpoint - one source, so the
+two views can never disagree.
+
+Filters on the locker stay hidden below 8 items; with three rows they are
+clutter.

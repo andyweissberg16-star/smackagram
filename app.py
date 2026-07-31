@@ -529,6 +529,11 @@ def _execute_send_smack(user, data: dict) -> dict:
     Returns {"order_id": ..., "redirect": ...} on success.
     """
     order = Order(
+        # Attributed so it can be listed back in the sender's locker. Minted
+        # with a share token at creation rather than on first share, so every
+        # order has one and nothing has to back-fill later.
+        user_id=user.id,
+        share_token=secrets.token_urlsafe(16),
         scenario_id=data.get("scenario_id"),
         custom_message=data.get("custom_message", ""),
         voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
@@ -1129,6 +1134,154 @@ def send_a_smack_page():
 @login_required
 def smack_lab_page():
     return render_template("smack_lab.html")
+
+
+@app.route("/smack/<share_token>")
+def public_smack(share_token):
+    """
+    Public playback page for a single smackagram. No login.
+
+    This is what a social share actually points at, so it carries Open Graph
+    and Twitter Card tags - without them a shared link renders as a bare URL
+    on every platform, which is the difference between a share that gets
+    clicked and one that doesn't.
+
+    The token grants PLAYBACK ONLY. It is deliberately separate from
+    reply_token, which lets a recipient smack back - so passing this around
+    can never be used to send anything.
+    """
+    rec = Order.query.filter_by(share_token=share_token).first()
+    kind = "smackagram"
+    if not rec:
+        rec = Smackagram.query.filter_by(share_token=share_token).first()
+        kind = "locked"
+    if not rec:
+        return render_template("404.html"), 404
+
+    audio = rec.recording_url or rec.message_audio_url
+    return render_template(
+        "public_smack.html",
+        rec=rec, kind=kind, audio=audio,
+        has_reaction=bool(rec.recording_url),
+        share_url=f"{os.environ.get('BASE_URL', '')}/smack/{share_token}",
+    )
+
+
+@app.route("/locker")
+@login_required
+def locker_page():
+    return render_template("locker.html")
+
+
+@app.route("/api/locker")
+@login_required
+def api_locker():
+    """
+    Everything the customer has bought, newest first, as one timeline.
+
+    Orders and Smackagrams are separate tables with different shapes, so they
+    are normalised into a common row here rather than in the template - the
+    page shouldn't have to know which table a row came from.
+
+    Playback logic worth stating once: recording_url is a recording of the
+    WHOLE CALL, so it already contains Smacky's message and whatever the
+    recipient said. It is not a separate reaction file. When there's no
+    recording - voicemail, no answer - message_audio_url is the synthesized
+    clip on its own. That's why each row has exactly one play button whose
+    label changes, rather than two buttons playing overlapping audio.
+    """
+    user = get_current_user()
+    items = []
+
+    for o in Order.query.filter_by(user_id=user.id).all():
+        has_call = bool(o.recording_url)
+        items.append({
+            "kind": "smackagram",
+            "id": o.id,
+            "recipient": o.recipient_name,
+            "team": None,
+            "status": o.call_status,
+            "answered_by": o.answered_by,
+            "message": (o.custom_message or "")[:160],
+            "audio_url": o.recording_url or o.message_audio_url,
+            "audio_label": "Play the call" if has_call else "What Smacky said",
+            "has_reaction": has_call,
+            "share_token": o.share_token,
+            "created_at": o.created_at.isoformat() if o.created_at else None,
+            "pending": False,
+        })
+
+    for s in Smackagram.query.filter_by(user_id=user.id).all():
+        has_call = bool(s.recording_url)
+        # An armed one has no audio at all yet - Smacky doesn't write it until
+        # the game ends - so it's shown as pending rather than as a broken row.
+        pending = s.status == "armed"
+        items.append({
+            "kind": "locked",
+            "id": s.id,
+            "recipient": s.recipient_name,
+            "team": s.target_team,
+            "matchup": f"{s.away_team} @ {s.home_team}" if s.away_team else None,
+            "status": s.status,
+            "answered_by": s.answered_by,
+            "message": (s.custom_message or "")[:160],
+            "audio_url": None if pending else (s.recording_url or s.message_audio_url),
+            "audio_label": "Play the call" if has_call else "What Smacky said",
+            "has_reaction": has_call,
+            "share_token": s.share_token,
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+            "pending": pending,
+        })
+
+    items.sort(key=lambda x: x["created_at"] or "", reverse=True)
+    return jsonify({
+        "balance_smacks": user.smackagram_count,
+        "items": items,
+    })
+
+
+@app.route("/api/locker/download/<kind>/<int:item_id>")
+@login_required
+def locker_download(kind, item_id):
+    """
+    Serves a recording as a real download with a sensible filename.
+
+    Proxied rather than linking to S3 for the same reason as the Smackcast
+    library: the object key is a bare UUID, so a direct link saves as
+    gibberish. Ownership is checked - ids are sequential, so without it anyone
+    logged in could walk the range and pull down other people's calls.
+    """
+    user = get_current_user()
+    if kind == "smackagram":
+        rec = Order.query.get(item_id)
+        owned = rec and rec.user_id == user.id
+    else:
+        rec = Smackagram.query.get(item_id)
+        owned = rec and rec.user_id == user.id
+    # 404 rather than 403 - no reason to confirm a record exists to someone
+    # who doesn't own it.
+    if not owned:
+        return "Not found.", 404
+
+    url = rec.recording_url or rec.message_audio_url
+    if not url:
+        return "Nothing to download yet.", 404
+
+    who = re.sub(r"[^a-z0-9]+", "-", (rec.recipient_name or "smackagram").lower()).strip("-")
+    when = rec.created_at.strftime("%Y-%m-%d") if rec.created_at else "smackagram"
+    try:
+        upstream = requests.get(url, stream=True, timeout=30)
+        if upstream.status_code != 200:
+            return "Couldn't retrieve that recording.", 502
+    except Exception as e:
+        print(f"[locker] download failed for {kind} {item_id}: {e}")
+        return "Couldn't retrieve that recording.", 502
+
+    return Response(
+        upstream.iter_content(chunk_size=64 * 1024),
+        mimetype="audio/mpeg",
+        headers={"Content-Disposition": f'attachment; filename="smackagram-{who}-{when}.mp3"'},
+    )
 
 
 @app.route("/api/admin/grant-credit", methods=["POST"])
@@ -2367,6 +2520,9 @@ def create_reply_order():
 
     price = 200 if data.get("include_recording", True) else 100
     order = Order(
+        # A reply can come from someone with no account, so user_id stays
+        # null here - but it's still shareable.
+        share_token=secrets.token_urlsafe(16),
         custom_message=custom_message,
         voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
         recipient_name="Unknown",  # we deliberately never learn/store the original sender's name
@@ -2442,6 +2598,7 @@ def _execute_arm_smackagram(user, data: dict) -> dict:
         mode = "auto_summary"
 
     smackagram = Smackagram(
+        share_token=secrets.token_urlsafe(16),
         user_id=user.id,
         game_id=data["game_id"],
         sport=data.get("sport", "nfl"),
@@ -3202,6 +3359,11 @@ with app.app_context():
         with db.engine.connect() as conn:
             conn.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance_cents INTEGER DEFAULT 0 NOT NULL"))
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS user_id INTEGER"))
+            conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id INTEGER"))
+            conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS share_token VARCHAR(64)"))
+            conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS share_token VARCHAR(64)"))
+            # Indexed because the locker queries by user on every page view.
+            conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_orders_user_id ON orders (user_id)"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS intensity INTEGER DEFAULT 4 NOT NULL"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS turn_started_at TIMESTAMP"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS max_rounds INTEGER DEFAULT 5 NOT NULL"))
