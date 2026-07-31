@@ -5601,3 +5601,19 @@ two views can never disagree.
 
 Filters on the locker stay hidden below 8 items; with three rows they are
 clutter.
+
+## Locker, profile and share page restyled to the checkout design
+All three now use reload.html's design language rather than approximating it -
+same tokens (#000 ink, #141414 surface, #3A1416 line, #E01B24 punch), same
+Anton display type, same pill kicker with the pulsing dot, same card
+treatment with the lift-on-hover and the gradient anchor panel, same button
+shape with the long red shadow.
+
+Caught while matching: the profile's --ink was #0D0D0D against checkout's
+#000000. One shade off, but enough that moving between them reads as two
+different sites rather than one product. Verified afterwards that /reload,
+/locker and /profile all compute to the same body background.
+
+The public share page got the same treatment deliberately - it's the first
+thing a shared visitor sees, and a bare audio player would undersell
+everything else.
