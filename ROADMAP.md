@@ -6681,3 +6681,39 @@ with itself, so the tab order differs between the two files and the markup had
 to be matched per file rather than assumed.
 
 Desktop gap 44px, mobile 30px with a smaller icon; separation holds at both.
+
+## The revenge loop: monetizing Did You Get Smacked
+This page catches somebody at the single highest-motivation moment this
+business will ever produce — they have just heard themselves get roasted and
+they know exactly who did it. It was previously a dead end: listen, leave.
+
+Four things now sit on it.
+
+**Enumeration guard.** Message content was already safe behind VerifiedPhone,
+but the unverified path still answered "this number has 3 smacks waiting", so
+an unthrottled endpoint let anyone walk a list of numbers and learn who had
+been smacked. Capped at 20 lookups/hour/IP in its own bucket — deliberately
+NOT the voice-preview bucket, or checking your number would silently burn your
+preview allowance on an unrelated page.
+
+**One comped smack back.** Granted on verified phone, never on mere signup.
+That gate does double duty: it blocks signup-farming, and it means the comp
+only reaches somebody who was actually smacked — which is the whole point. A
+free smack to a random signup is a cost; a free smack to somebody holding a
+fresh grudge is the cheapest acquisition available, because the motivation was
+manufactured by an existing paying customer.
+
+**Booked as a comp, not revenue.** transaction_type "comp" is already inside
+admin_service.COMP_TYPES, so comped sends show as comped and never inflate the
+revenue figures. Idempotent — the claim is re-checked server-side and a second
+attempt is refused with the balance untouched.
+
+**The CTA.** "Smack them back — free" on any item carrying a reply_token, since
+that token is what attaches a live target. Items without one can't be revenge
+sends and say so rather than pretending.
+
+The comp amount reads SMACK_COST_CENTS live rather than hardcoding a dollar, so
+a price change can't silently desync it.
+
+Still gated on Twilio A2P: verification SMS can't fire until 10DLC lands. The
+flow is complete behind that.

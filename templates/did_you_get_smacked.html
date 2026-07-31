@@ -73,6 +73,33 @@
   .inbox-item.unreplied{border-left:3px solid var(--gold);}
   .inbox-item.replied{border-left:3px solid var(--chalk-dim);}
   .item-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+
+  /* The revenge CTA. This page catches somebody at peak motivation - they
+     have just heard themselves get roasted and they know who did it. The
+     styling leans into that rather than looking like a neutral inbox. */
+  .comp-banner{
+    display:flex; align-items:center; gap:10px;
+    border:2px solid var(--punch); border-radius:12px;
+    padding:12px 14px; margin-bottom:14px;
+    background:linear-gradient(180deg, rgba(226,29,42,0.14), rgba(226,29,42,0.04));
+  }
+  .comp-flag{
+    flex:0 0 auto; font-family:'JetBrains Mono',monospace;
+    font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
+    color:#fff; background:var(--punch); border-radius:999px; padding:4px 9px;
+  }
+  .comp-banner p{margin:0; font-size:13.5px; color:var(--chalk); line-height:1.4;}
+
+  .item-action.strike-back{color:var(--punch); font-weight:700;}
+  /* A comped item gets a warmer edge so the free one reads as the obvious
+     next move without shouting over the message itself. */
+  .inbox-item.comped{border-color:var(--punch);}
+  .inbox-item.comped:hover{background:rgba(226,29,42,0.06);}
+
+  @media(max-width:420px){
+    .comp-banner{flex-direction:column; align-items:flex-start; gap:7px; padding:11px 12px;}
+    .comp-banner p{font-size:12.5px;}
+  }
   .badge{
     font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700; text-transform:uppercase;
     letter-spacing:0.5px; padding:3px 10px; border-radius:20px;
@@ -159,9 +186,9 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
       body: JSON.stringify({phone: phone})
     });
     const data = await resp.json();
-    showInbox(data, phone);
+    showInbox(data, phone);  // async; nothing downstream awaits it
   } catch (err) {
-    showInbox({found: false, items: []});
+    showInbox({found: false, items: []});  // async; fire-and-forget
   } finally {
     btn.textContent = 'Check my inbox';
     btn.disabled = false;
@@ -173,7 +200,22 @@ function formatDate(isoString) {
   return d.toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'});
 }
 
-function showInbox(data, phone) {
+// Fetches whether this visitor still has their comped smack back. Never
+// throws - if the endpoint is unreachable we fall back to the plain
+// "Reply now" wording rather than promising a free send we can't confirm.
+// Over-promising here would mean somebody clicks expecting free and hits
+// a paywall, which is worse than never offering.
+async function fetchCompStatus() {
+  try {
+    const res = await fetch('/api/revenge/comp-status');
+    if (!res.ok) return { eligible: false };
+    return await res.json();
+  } catch (e) {
+    return { eligible: false };
+  }
+}
+
+async function showInbox(data, phone) {
   const inboxArea = document.getElementById('inboxArea');
   inboxArea.style.display = 'block';
 
@@ -190,7 +232,18 @@ function showInbox(data, phone) {
     return;
   }
 
+  const comp = await fetchCompStatus();
+  const compOn = !!comp.eligible;
+
   let html = '';
+  if (compOn) {
+    html += `
+      <div class="comp-banner">
+        <span class="comp-flag">On us</span>
+        <p>Your first one back is free. Pick who's getting it.</p>
+      </div>
+    `;
+  }
   data.items.forEach(item => {
     const dateStr = formatDate(item.created_at);
     const preview = item.preview ? (item.preview.length >= 90 ? item.preview + '...' : item.preview) : 'No preview available';
@@ -208,13 +261,15 @@ function showInbox(data, phone) {
       `;
     } else if (item.reply_token) {
       html += `
-        <a href="/reply/${item.reply_token}" class="inbox-item unreplied">
+        <a href="/reply/${item.reply_token}" class="inbox-item unreplied${compOn ? ' comped' : ''}">
           <div class="item-top">
             <span class="badge new">New</span>
             <span class="item-date">${dateStr}</span>
           </div>
           <p class="item-preview">${escapeHtml(preview)}</p>
-          <p class="item-action">Reply now &rarr;</p>
+          <p class="item-action strike-back">
+            ${compOn ? 'Smack them back &mdash; free &rarr;' : 'Smack them back &rarr;'}
+          </p>
         </a>
       `;
     } else {
@@ -225,7 +280,10 @@ function showInbox(data, phone) {
             <span class="item-date">${dateStr}</span>
           </div>
           <p class="item-preview">${escapeHtml(preview)}</p>
-          <p class="item-action" style="color:var(--chalk-dim);">No reply available — send your own instead</p>
+          <p class="item-action" style="color:var(--chalk-dim);">
+            They sent this without leaving a return address &mdash;
+            <a href="/send-a-smack" style="color:var(--punch);">send your own</a>
+          </p>
         </div>
       `;
     }

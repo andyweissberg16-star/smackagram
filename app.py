@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
 from services import news_service, show_service, admin_service, settings_service, show_service
-from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service
+from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service, revenge_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
 
 load_dotenv()
@@ -2664,6 +2664,21 @@ def check_if_smacked():
     if len(digits) < 10:
         return jsonify({"error": "Enter a valid phone number"}), 400
 
+    # Enumeration guard. Message CONTENT is already safe behind
+    # VerifiedPhone, but the unverified path still answers "yes, this
+    # number has 3 smacks waiting" - so an unthrottled endpoint lets
+    # somebody walk a list of numbers and learn who has been smacked and
+    # how often. That is a real (if modest) privacy leak, and it gets
+    # worse the moment this page becomes a marketing destination. Own
+    # bucket, not the voice-preview one.
+    identifier = request.headers.get("X-Forwarded-For", request.remote_addr) or "unknown"
+    identifier = identifier.split(",")[0].strip()
+    if rate_limiter.is_limited("inbox", identifier, rate_limiter.MAX_INBOX_LOOKUPS_PER_HOUR):
+        return jsonify({
+            "error": "That's a lot of lookups. Give it a few minutes and try again."
+        }), 429
+    rate_limiter.record("inbox", identifier)
+
     def matches(stored_phone):
         return stored_phone and "".join(c for c in stored_phone if c.isdigit()).endswith(digits[-10:])
 
@@ -2795,6 +2810,33 @@ def api_verify_phone_confirm():
 def _find_by_reply_token(token):
     """Shared lookup — checks both Order and Smackagram, same record_id space pattern used elsewhere."""
     return Order.query.filter_by(reply_token=token).first() or Smackagram.query.filter_by(reply_token=token).first()
+
+
+@app.route("/api/revenge/comp-status")
+def api_revenge_comp_status():
+    """
+    Whether this visitor can claim their one free smack back. Deliberately
+    NOT login_required - the page is reachable logged-out, and the front
+    end needs to know to show "verify to claim your free one" rather than
+    nothing at all. Returns a reason code, never an error, for a logged-out
+    caller.
+    """
+    return jsonify(revenge_service.comp_status(get_current_user()))
+
+
+@app.route("/api/revenge/claim-comp", methods=["POST"])
+@login_required
+def api_revenge_claim_comp():
+    """
+    Grants the comped smack as wallet credit. Eligibility is re-checked
+    server-side inside claim_comp - the browser's copy of the status is
+    never trusted, since it is both stale-able and forgeable.
+    """
+    result = revenge_service.claim_comp(get_current_user())
+    if not result.get("granted"):
+        return jsonify(result), 400
+    app.logger.info("[revenge] comped smack granted to user %s", getattr(get_current_user(), "id", "?"))
+    return jsonify(result)
 
 
 @app.route("/api/reply-context/<token>")

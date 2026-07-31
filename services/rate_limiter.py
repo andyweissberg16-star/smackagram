@@ -11,20 +11,47 @@ _hits = defaultdict(list)
 MAX_PREVIEWS_PER_HOUR = 5
 WINDOW_SECONDS = 3600
 
+# Smack Inbox lookups get their OWN bucket, deliberately separate from the
+# preview bucket. Sharing one would mean somebody checking whether they'd
+# been smacked would silently burn their voice-preview allowance on an
+# unrelated page. The cap is higher because legitimate use genuinely
+# involves several tries - people mistype their own number, or check a
+# work phone and then a personal one.
+MAX_INBOX_LOOKUPS_PER_HOUR = 20
+
+
+def _recent(key: str, window_seconds: int) -> list:
+    now = time.time()
+    recent = [t for t in _hits[key] if now - t < window_seconds]
+    _hits[key] = recent
+    return recent
+
+
+def is_limited(namespace: str, identifier: str, max_hits: int,
+               window_seconds: int = WINDOW_SECONDS) -> bool:
+    """Generic namespaced limiter. Each namespace counts independently."""
+    return len(_recent(f"{namespace}:{identifier}", window_seconds)) >= max_hits
+
+
+def record(namespace: str, identifier: str):
+    _hits[f"{namespace}:{identifier}"].append(time.time())
+
+
+def remaining(namespace: str, identifier: str, max_hits: int,
+              window_seconds: int = WINDOW_SECONDS) -> int:
+    return max(0, max_hits - len(_recent(f"{namespace}:{identifier}", window_seconds)))
+
+
+# --- Preview limiter, kept as-is so existing callers don't change. ---
 
 def is_rate_limited(identifier: str) -> bool:
     """Returns True if this identifier (e.g. IP address) has hit the cap."""
-    now = time.time()
-    recent = [t for t in _hits[identifier] if now - t < WINDOW_SECONDS]
-    _hits[identifier] = recent
-    return len(recent) >= MAX_PREVIEWS_PER_HOUR
+    return is_limited("preview", identifier, MAX_PREVIEWS_PER_HOUR)
 
 
 def record_hit(identifier: str):
-    _hits[identifier].append(time.time())
+    record("preview", identifier)
 
 
 def previews_remaining(identifier: str) -> int:
-    now = time.time()
-    recent = [t for t in _hits[identifier] if now - t < WINDOW_SECONDS]
-    return max(0, MAX_PREVIEWS_PER_HOUR - len(recent))
+    return remaining("preview", identifier, MAX_PREVIEWS_PER_HOUR)
