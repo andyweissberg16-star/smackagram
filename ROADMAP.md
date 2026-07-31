@@ -6393,3 +6393,53 @@ anyway. An episode shouldn't be lost over a bed.
 
 Format is matched to the voice before mixing - sample rate and channel
 mismatches are a known corruption source in this pipeline.
+
+## The Daily Smack player - full build
+Replaced the slim bar with the grill design.
+
+THE QUOTE LEADS. best_line is now returned by /api/show/current (one field
+added) and shown at 19px above the play button. This is the whole point: the
+slim bar asked a stranger to gamble thirty seconds on an unknown AI voice; the
+quote lets them read something funny FIRST and then press play. Completely
+different decision.
+
+THE GRILL IMAGERY IS DELIBERATE. Smacky says "the grill's hot, the smoke's
+rising" out loud in every single episode, so the heat glowing off the bottom
+edge makes the visual and the audio the same idea. No other layout tested had
+that.
+
+ON AIR FLASHES on a double blink - two quick blinks, then a rest. A steady
+on/off at one second reads as broken and nags after a minute on the page; two
+and a pause reads as a signal being sent, so the eye catches it and lets go.
+
+Header carries date, leagues and game count - proof it was built from real
+results this morning rather than a canned clip. Footer carries "new episode
+every morning, 6am ET", which is the reason to come back.
+
+Play button label changes with state: "Play today's show" / "Pause" /
+"Resume" / "Play it again". Waveform and time hidden below 640px.
+
+Falls back to "Last night's scores. Roasted." if an episode has no best_line.
+
+## Intro music: out of memory, rewritten to stream
+Render killed every run: "Ran out of memory (used over 512MB)". The logs were
+misleading - the mix SUCCEEDED and logged its success, then the instance died
+before the episode could be saved, so it looked like a deploy restart.
+
+CAUSE was my implementation. The first version downloaded the finished
+five-minute MP3 and decoded it into pydub, which means raw PCM in memory:
+5 min at 44.1kHz stereo is ~250MB for ONE copy, and mixing holds several.
+On a 512MB instance that was never going to fit, and it would have got worse
+as episodes got longer.
+
+NOW USES FFMPEG DIRECTLY. It streams through the file instead of holding it,
+so peak memory is a few MB regardless of episode length. The speech is written
+to a temp file in chunks rather than buffered, and the mix runs as a single
+filter_complex: duck and fade the bed from the moment the voice arrives, delay
+the voice by the solo period, mix.
+
+Verified against the real music file: 25.8s output from an 8s bed plus a 20s
+speech track starting at 5.8s, with levels confirming the duck and fade.
+
+The old pydub mixer was DELETED rather than left in place - it worked
+correctly and would be tempting to reuse.

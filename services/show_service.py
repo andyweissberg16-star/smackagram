@@ -633,94 +633,93 @@ DUCK_DB = -11             # bed drops once he's speaking, still audible
 FADE_OUT_MS = 2600        # fades out under the first line
 
 
-def _apply_intro_music(voice_audio):
-    """
-    Lays the intro bed under the start of the show.
-
-    Returns the audio unchanged if there's no music file - the show should
-    still go out on a morning when the asset is missing rather than failing.
-    """
-    import os
-    from pydub import AudioSegment
-
-    if not os.path.exists(INTRO_MUSIC_PATH):
-        print(f"[show] no intro music at {INTRO_MUSIC_PATH}, skipping bed")
-        return voice_audio
-
-    try:
-        music = AudioSegment.from_file(INTRO_MUSIC_PATH)
-    except Exception as e:
-        print(f"[show] intro music failed to load: {e}")
-        return voice_audio
-
-    # Match the voice's shape before mixing. Sample-rate and channel
-    # mismatches are a known source of corruption in this pipeline - there's
-    # a note about it in assemble_recap_audio for exactly this reason.
-    music = (music
-             .set_frame_rate(voice_audio.frame_rate)
-             .set_channels(voice_audio.channels)
-             .set_sample_width(voice_audio.sample_width))
-
-    solo = min(MUSIC_SOLO_MS, len(music))
-
-    # The bed drops in level and fades from the moment the voice arrives, so
-    # the two never fight for the same space.
-    tail = music[solo:]
-    if len(tail):
-        tail = tail.apply_gain(DUCK_DB).fade_out(min(FADE_OUT_MS, len(tail)))
-        bed = music[:solo] + tail
-    else:
-        bed = music.fade_out(min(FADE_OUT_MS, len(music)))
-
-    # Voice starts at the end of the solo section, while the bed is still
-    # playing underneath it.
-    out = bed.overlay(voice_audio, position=solo)
-
-    # If the voice runs past the bed - it always will - carry the rest.
-    if len(voice_audio) + solo > len(bed):
-        out = out + voice_audio[len(bed) - solo:]
-
-    print(f"[show] intro bed: {len(music)}ms music, voice in at {solo}ms")
-    return out
+# NOTE: an earlier version mixed the bed with pydub, which decoded the whole
+# finished episode into memory - roughly 250MB of raw PCM for five minutes,
+# several times over during the mix. Render's instance is 512MB and killed it
+# every run. Removed rather than left in the file: it worked correctly and
+# would be tempting to reuse.
 
 
 def _assemble_with_music(intro: str, segments: list, outro: str) -> str:
     """
-    Same as smackcast's assemble_recap_audio, plus the intro bed.
+    Builds the episode, then lays the intro bed under the front of it.
 
-    Deliberately not a change to assemble_recap_audio itself - the Smackcast
-    has its own opening and shouldn't inherit this one. This wraps rather than
-    forks: speech generation, sound effects, loudness normalisation and the S3
-    upload all still come from there.
+    USES FFMPEG DIRECTLY, NOT PYDUB. The first version decoded the finished
+    five-minute MP3 into pydub, which means raw PCM in memory: 5 min at
+    44.1kHz stereo is roughly 250MB for ONE copy, and mixing needs several.
+    Render's instance is 512MB, so it was killed every time -
+    "Ran out of memory (used over 512MB)" - after successfully doing the mix
+    but before it could save.
+
+    ffmpeg streams through the file instead of holding it, so peak memory is a
+    few MB regardless of how long the episode is.
     """
-    import io, os, uuid, boto3
-    from pydub import AudioSegment
-    from services import elevenlabs_service, smackcast_service
+    import os, uuid, subprocess, tempfile, boto3, requests
+    from services import smackcast_service
 
-    # Let the existing pipeline build and upload the spoken show.
     url = smackcast_service.assemble_recap_audio(intro, segments, outro)
 
     if not os.path.exists(INTRO_MUSIC_PATH):
-        return url  # nothing to lay under it
+        return url
+
+    tmpdir = tempfile.mkdtemp()
+    speech = os.path.join(tmpdir, "speech.mp3")
+    out = os.path.join(tmpdir, "final.mp3")
 
     try:
-        import requests
-        spoken = AudioSegment.from_file(io.BytesIO(requests.get(url, timeout=60).content),
-                                        format="mp3")
-        mixed = _apply_intro_music(spoken)
+        # Stream the finished show to disk rather than into memory.
+        with requests.get(url, stream=True, timeout=120) as r:
+            r.raise_for_status()
+            with open(speech, "wb") as f:
+                for chunk in r.iter_content(chunk_size=65536):
+                    f.write(chunk)
 
-        buf = io.BytesIO()
-        mixed.export(buf, format="mp3", parameters=["-b:a", "192k"])
-        data = elevenlabs_service.normalize_loudness(buf.getvalue())
+        solo = MUSIC_SOLO_MS / 1000.0
+        fade_start = solo
+        fade_dur = FADE_OUT_MS / 1000.0
+        duck = 10 ** (DUCK_DB / 20.0)      # dB to linear gain
+
+        # The bed: full level until the voice arrives, then ducked and faded.
+        # The speech is delayed by the solo period so it starts on the peak.
+        filters = (
+            f"[0:a]volume=enable='gte(t,{fade_start})':volume={duck:.4f},"
+            f"afade=t=out:st={fade_start}:d={fade_dur}[bed];"
+            f"[1:a]adelay={MUSIC_SOLO_MS}|{MUSIC_SOLO_MS}[voice];"
+            f"[bed][voice]amix=inputs=2:duration=longest:dropout_transition=0,"
+            f"volume=2.0[out]"
+        )
+
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", INTRO_MUSIC_PATH, "-i", speech,
+             "-filter_complex", filters, "-map", "[out]",
+             "-c:a", "libmp3lame", "-b:a", "192k", out],
+            check=True, capture_output=True, timeout=300,
+        )
 
         bucket = os.environ["AUDIO_S3_BUCKET"]
         region = os.environ.get("AWS_REGION", "us-east-1")
         key = f"tts/{uuid.uuid4()}.mp3"
-        boto3.client("s3", region_name=region).put_object(
-            Bucket=bucket, Key=key, Body=data, ContentType="audio/mpeg")
+        with open(out, "rb") as f:
+            boto3.client("s3", region_name=region).put_object(
+                Bucket=bucket, Key=key, Body=f, ContentType="audio/mpeg")
+
+        print(f"[show] intro bed mixed via ffmpeg, voice in at {MUSIC_SOLO_MS}ms")
         return f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
+
+    except subprocess.CalledProcessError as e:
+        print(f"[show] ffmpeg mix failed: {e.stderr[-400:] if e.stderr else e}")
+        return url
     except Exception as e:
-        # The show matters more than the music. Fall back to the spoken
-        # version rather than losing an episode over a bed.
+        # The show matters more than the bed.
         print(f"[show] intro music mix failed, using speech only: {e}")
         return url
+    finally:
+        for f in (speech, out):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+        try:
+            os.rmdir(tmpdir)
+        except OSError:
+            pass

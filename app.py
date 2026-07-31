@@ -3452,6 +3452,7 @@ def api_current_show():
         "minutes": show.minutes,
         "game_count": show.game_count,
         "leagues": show.leagues,
+        "best_line": show.best_line,
     })
 
 
