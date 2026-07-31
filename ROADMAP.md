@@ -5924,3 +5924,34 @@ INACTIVE TAB DIMMED to 55% opacity with a near-black panel and desaturated
 text, so it reads as OFF rather than merely unhighlighted. It brightens to
 full opacity with a hint of its own colour on hover - without that it would
 look disabled, and people don't click things that look disabled.
+
+## Framed generator: chrome stripped by self-detection, not by flag
+The embedded generator was rendering the WHOLE page inside the frame -
+cropped and unscrollable, since the frame is sized to a generator and has
+scrolling="no".
+
+The ?embed=1 flag, its route and the template guards were all correct and
+deployed. Rather than keep chasing why the flag wasn't taking effect, the
+page now DETECTS that it's inside a frame (window.self !== window.top) and
+strips its own chrome via a data attribute set before paint. If the flag
+arrives, the server-side guards already did the work and this is a no-op; if
+it doesn't, for any reason, you still get just the generator.
+
+Verified in the WORST case - frame loaded deliberately WITHOUT ?embed=1: nav,
+hero, switcher and footer all hidden, card visible with a 0px border.
+
+It also hides the mobile nav drawer and its backdrop (which could otherwise
+be triggered inside a frame) and clears the wrapper's max-width so the framed
+generator fills the shell instead of sitting in a narrow column.
+
+## Tab active states were per-page, not per-tab
+On the Locked & Loaded page, clicking Smackagram turned it SILVER - because
+the rule said "whatever is active gets silver", written when that page only
+ever had one active tab. Each tab now carries its own colour wherever it
+appears: Smackagram red when active, Locked & Loaded silver.
+
+The inactive tab is now pure BLACK rather than a dimmed panel, and targets
+:not(.is-active) instead of a fixed class - the old rule was pinned to one
+specific tab, so it couldn't follow the state when you switched. Hover still
+brightens with a hint of that tab's own colour, so "off" doesn't read as
+"disabled".

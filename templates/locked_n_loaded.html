@@ -353,19 +353,31 @@
     display:block; font-size:16px; font-weight:600; letter-spacing:.5px;
     text-transform:uppercase; color:var(--muted-2);
   }
-  .gen-tab.is-active{background:linear-gradient(180deg,#F4F6F9,#C3CAD3 45%,#98A0AA 55%,#E4E9EE);}
-  .gen-tab.is-active .gen-tab-kicker{color:rgba(13,13,13,0.65);}
-  .gen-tab.is-active .gen-tab-name{color:#0D0D0D;}
+  /* Active styling is per TAB, not per page - each generator keeps its own
+     colour wherever it appears. Written per-page before, which meant the
+     Smackagram tab turned silver when activated here. */
+  #tabLockedLL.is-active{background:linear-gradient(180deg,#F4F6F9,#C3CAD3 45%,#98A0AA 55%,#E4E9EE);}
+  #tabLockedLL.is-active .gen-tab-kicker{color:rgba(13,13,13,0.65);}
+  #tabLockedLL.is-active .gen-tab-name{color:#0D0D0D;}
+  #tabSmackLL.is-active{background:#E01B24;}
+  #tabSmackLL.is-active .gen-tab-kicker{color:rgba(255,255,255,0.78);}
+  #tabSmackLL.is-active .gen-tab-name{color:#fff;}
   /* The inactive tab reads as OFF, not just unhighlighted - dimmed panel and
      desaturated text, so which generator is live is obvious at a glance. It
      keeps a colour hint on hover so it still looks clickable rather than
      disabled. */
-  .gen-tab-alt{background:#0A0A0A; opacity:0.55;}
-  .gen-tab-alt .gen-tab-name{color:#6E7278;}
-  .gen-tab-alt .gen-tab-kicker{color:#54585E;}
-  .gen-tab-alt:hover{opacity:1; background:rgba(224,27,36,0.14);}
-  .gen-tab-alt:hover .gen-tab-name,
-  .gen-tab-alt:hover .gen-tab-kicker{color:#E01B24;}
+  /* Whichever tab ISN'T active goes black. Targeted by :not(.is-active)
+     rather than a fixed class, so it follows the state instead of the
+     markup - the previous rule stuck to one tab regardless of which was on. */
+  .gen-tab:not(.is-active){background:#000000;}
+  .gen-tab:not(.is-active) .gen-tab-name{color:#5A5E64;}
+  .gen-tab:not(.is-active) .gen-tab-kicker{color:#44484E;}
+  #tabSmackLL:not(.is-active):hover{background:#1A0507;}
+  #tabSmackLL:not(.is-active):hover .gen-tab-name,
+  #tabSmackLL:not(.is-active):hover .gen-tab-kicker{color:#E01B24;}
+  #tabLockedLL:not(.is-active):hover{background:#15171A;}
+  #tabLockedLL:not(.is-active):hover .gen-tab-name,
+  #tabLockedLL:not(.is-active):hover .gen-tab-kicker{color:#C3CAD3;}
   .gen-tab-alt:hover{background:rgba(224,27,36,0.12);}
   .gen-tab-alt:hover .gen-tab-name,
   .gen-tab-alt:hover .gen-tab-kicker{color:#E01B24;}
@@ -511,6 +523,39 @@
   .wrap{padding:0 !important;}
   #lnlConsole{margin-bottom:0 !important;}
   {% endif %}
+</style>
+<script>
+// Runs before paint. If this page is inside a frame, strip the chrome itself
+// rather than trusting ?embed=1 to have arrived - a lost query param would
+// otherwise render the whole page inside a generator-sized box, cropped and
+// unscrollable.
+(function () {
+  if (window.self === window.top) return;
+  document.documentElement.setAttribute('data-framed', '1');
+})();
+</script>
+<style>
+  html[data-framed] nav,
+  html[data-framed] footer,
+  html[data-framed] .hero-band,
+  html[data-framed] .gen-switch,
+  html[data-framed] .intro,
+  html[data-framed] .nav-drawer,
+  html[data-framed] .nav-scrim{display:none !important;}
+  html[data-framed], html[data-framed] body{
+    border:none !important; margin:0 !important; padding:0 !important;
+    box-shadow:none !important; border-radius:0 !important; min-height:0 !important;
+    background:transparent !important;
+  }
+  html[data-framed] body::before{display:none !important;}
+  html[data-framed] .wrap{padding:0 !important; max-width:none !important;}
+</style>
+<style>
+  html[data-framed] #lnlConsole{
+    border:none !important; box-shadow:none !important;
+    border-radius:0 !important; margin:0 !important;
+  }
+  html[data-framed] #lnlConsole::before{display:none !important;}
 </style>
 </head>
 <body>
