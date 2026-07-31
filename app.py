@@ -1114,12 +1114,15 @@ def recording_done(record_id, record_type=None):
 @app.route("/locked-n-loaded")
 @login_required
 def locked_n_loaded_page():
-    return render_template("locked_n_loaded.html")
+    # ?embed=1 renders the generator alone, no nav/hero/footer, so the other
+    # generator page can frame it. Kept as a flag on the same route rather
+    # than a second template - two copies of a page this complex would drift.
+    return render_template("locked_n_loaded.html", embed=request.args.get("embed") == "1")
 
 
 @app.route("/send-a-smack")
 def send_a_smack_page():
-    return render_template("send_a_smack.html")
+    return render_template("send_a_smack.html", embed=request.args.get("embed") == "1")
 
 
 @app.route("/smack-lab")

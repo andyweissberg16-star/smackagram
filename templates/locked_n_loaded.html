@@ -385,11 +385,12 @@
 </head>
 <body>
 
-{% include '_nav.html' %}
+{% if not embed %}{% include '_nav.html' %}{% endif %}
 
 <img id="sideMascot" src="{{ url_for('static', filename='img/mascot-sidebar-800.webp') }}" alt="Smacky" class="side-mascot" width="800" height="584">
 
 <div style="width:100%; overflow:hidden; line-height:0;">
+{% if not embed %}
   <picture class="hero-band">
   <source type="image/webp" sizes="100vw"
           srcset="{{ url_for('static', filename='img/locked-hero-780.webp') }} 780w,
@@ -398,6 +399,7 @@
   <img id="heroBanner" src="{{ url_for('static', filename='img/locked-hero-1560.jpg') }}" alt="Locked and Loaded — load it now, let the score do the rest"
        width="1983" height="793" style="width:100%; height:auto; display:block;">
 </picture>
+{% endif %}
 </div>
 
 <div class="wrap" style="padding-top:32px;">
@@ -415,6 +417,7 @@
   <div id="errorBox" class="error-box" role="alert"></div>
 
 
+{% if not embed %}
   <div class="gen-switch">
     <p class="gen-eyebrow">Two ways to do it</p>
     <h2 class="gen-headline">Talk now. Or let the <em>scoreboard</em> talk for you.</h2>
@@ -431,6 +434,8 @@
       </span>
     </div>
   </div>
+
+{% endif %}
 
   <div id="lnlConsole">
     <div class="lnl-bar">
@@ -598,10 +603,12 @@
 
 </div>
 
+{% if not embed %}
 <footer>
   <p>Games can only be locked in within 48 hours of kickoff. Holds not captured within 7 days are released automatically.</p>
   <p style="margin-top:12px;"><a href="/terms" style="color:var(--chalk-dim); text-decoration:none;">Terms</a> &middot; <a href="/contact" style="color:var(--chalk-dim); text-decoration:none;">Contact</a></p>
 </footer>
+{% endif %}
 
 <script>
 // Sidebar mascot only fades in once scrolled past the hero banner —
@@ -1179,6 +1186,21 @@ loadVoices();
   document.addEventListener('DOMContentLoaded', function () {
     window.lnlOpenStep(0);
   });
+})();
+</script>
+<script>
+// Only runs when framed. Reports content height to the parent so the iframe
+// can match it - iframes have no intrinsic height, and this content changes
+// height constantly as steps expand and collapse.
+(function () {
+  if (window.self === window.top) return;
+  function report() {
+    var h = document.documentElement.scrollHeight;
+    window.parent.postMessage({smkFrameHeight: h, src: 'locked-n-loaded'}, '*');
+  }
+  new ResizeObserver(report).observe(document.body);
+  window.addEventListener('load', report);
+  setTimeout(report, 300);
 })();
 </script>
 </body>

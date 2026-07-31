@@ -541,16 +541,19 @@
     <p class="gen-sub">Send one today, or set one that stays quiet until their team loses &mdash; then goes off on its own.</p>
 
     <div class="gen-tabs">
-      <span class="gen-tab is-active">
+      <button type="button" class="gen-tab is-active" id="tabSmack">
         <span class="gen-tab-kicker">Send it now</span>
         <span class="gen-tab-name">Smackagram</span>
-      </span>
-      <a class="gen-tab gen-tab-alt" href="/locked-n-loaded">
+      </button>
+      <button type="button" class="gen-tab gen-tab-alt" id="tabLocked">
         <span class="gen-tab-kicker">Arm it for later</span>
         <span class="gen-tab-name">Locked &amp; Loaded</span>
-      </a>
+      </button>
     </div>
   </div>
+
+  <iframe id="lockedFrame" title="Locked &amp; Loaded generator"
+          style="display:none; width:100%; border:0; overflow:hidden;" scrolling="no"></iframe>
 
   <div class="card" id="wizardCard">
     <div class="console-bar">
@@ -1485,6 +1488,46 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
 })();
 
 });
+</script>
+<script>
+(function () {
+  var frame = document.getElementById('lockedFrame');
+  var card  = document.getElementById('wizardCard');
+  var tabS  = document.getElementById('tabSmack');
+  var tabL  = document.getElementById('tabLocked');
+  if (!frame || !card || !tabS || !tabL) return;
+
+  var loaded = false;
+
+  function show(which) {
+    var locked = which === 'locked';
+    // Lazy: don't pay for a second generator until it's actually asked for.
+    if (locked && !loaded) {
+      frame.src = '/locked-n-loaded?embed=1';
+      loaded = true;
+    }
+    frame.style.display = locked ? 'block' : 'none';
+    card.style.display  = locked ? 'none'  : '';
+    tabL.classList.toggle('is-active', locked);
+    tabS.classList.toggle('is-active', !locked);
+    // Reflect it in the URL without navigating, so a reload or a shared link
+    // lands on the same generator.
+    history.replaceState(null, '', locked ? '?gen=locked' : location.pathname);
+  }
+
+  tabS.addEventListener('click', function () { show('smack'); });
+  tabL.addEventListener('click', function () { show('locked'); });
+
+  // The framed page reports its height - an iframe has none of its own, and
+  // this content grows and shrinks as steps open and close.
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.smkFrameHeight) {
+      frame.style.height = e.data.smkFrameHeight + 'px';
+    }
+  });
+
+  if (new URLSearchParams(location.search).get('gen') === 'locked') show('locked');
+})();
 </script>
 </body>
 </html>

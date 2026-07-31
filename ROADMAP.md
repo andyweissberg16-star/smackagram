@@ -5511,3 +5511,33 @@ only half of what's there.
 REPAIRED MID-BUILD: my first cut of those boxes took the wrapper and item 1
 but left items 2 and 3 orphaned and closed .intro early - caught by the div
 balance check, not by eye.
+
+## Generators switch in place - built with an isolated frame, not a merge
+The switcher now swaps the generator without leaving /send-a-smack.
+
+WHY A FRAME RATHER THAN A MERGE. Running both generators' scripts on one page
+means two accordion controllers, two pay flows, game polling, and collisions
+on selectedSensitivity, voiceSelect, .card, .step-label and more. Loading the
+second generator in a frame sidesteps all of it - each keeps its own globals
+and stylesheet with zero chance of clashing - while still being one page with
+an instant switch. Same outcome, a fraction of the risk.
+
+EMBED MODE. Both routes accept ?embed=1, which renders the generator alone -
+no nav, hero, footer or duplicate switcher. Kept as a flag on the existing
+route rather than a second template, since two copies of a page this complex
+would drift apart.
+
+HEIGHT SYNC. An iframe has no intrinsic height, and this content changes
+height constantly as steps expand and collapse. The framed page reports its
+height via postMessage on every resize and the parent matches it. A fixed
+height would either clip the flow or leave a gap that grows as steps close.
+
+LOADED ON DEMAND. The frame has no src until the tab is first clicked, so
+visitors who never switch don't pay for a second generator's scripts.
+
+URL reflects the choice (?gen=locked) via replaceState - no navigation, but a
+reload or shared link lands on the right generator.
+
+KNOWN LIMITATION: anything typed into one generator is lost on switching,
+since the frame holds its own independent state. Fixing that genuinely does
+require the merge. The switcher copy deliberately makes no claim otherwise.
