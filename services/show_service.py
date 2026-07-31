@@ -380,7 +380,7 @@ def write_script(material: dict) -> dict:
     system = smackology.render(level=4, context="recap")
 
     user = (
-        f"You are Smacky, hosting THE SMACK REPORT - a daily sports radio "
+        f"You are Smacky, hosting THE DAILY SMACK - a daily sports radio "
         f"segment. It is {d['today_full']} in Florida right now, and you are "
         f"talking about the games played on {d['games_day_full']}.\n\n"
 
@@ -449,10 +449,11 @@ def write_script(material: dict) -> dict:
 
         "  2. Then this, WORD FOR WORD, never reworded, never shortened, "
         "never improvised on:\n"
-        '     \"Welcome to today\'s brand new episode of the Smack Report, '
-        'brought to you by Smackagram! I\'m your host, Smacky. The grill\'s '
-        'hot, the smoke\'s rising, the flames are burning, and somebody\'s '
-        'about to get roasted!\"\n'
+        '     \"Welcome to today\'s brand new episode of The Daily Smack, '
+        'brought to you by Smackagram! I\'m your host, Smacky. Every sport, '
+        'every score, and somebody out there had a really bad night. The '
+        'grill\'s hot, the smoke\'s rising, the flames are burning, and '
+        'somebody\'s about to get roasted!\"\n'
         "     This is a sponsor read and a signature line. It only works as "
         "branding if it is identical every single day, so treat it as fixed "
         "text rather than something to rewrite in your own voice.\n\n"
@@ -482,7 +483,7 @@ def write_script(material: dict) -> dict:
         "THE CLOSE - the last thing you say, WORD FOR WORD, never reworded, "
         "never shortened. Say something of your own first if you want, then "
         "land on exactly this:\n"
-        '     \"That\'s the Smack Report. The grill\'s cooling down, but it '
+        '     \"That\'s The Daily Smack. The grill\'s cooling down, but it '
         'never goes out. Same time tomorrow - somebody else is getting '
         'roasted. I\'m Smacky, and you\'ve been smacked.\"\n'
         "     Same rule as the opening: it only works as branding if it is "
@@ -595,7 +596,7 @@ def produce_daily_show(days_back: int = 1) -> dict:
               f"{[list(x.keys()) if isinstance(x, dict) else type(x).__name__ for x in script.get('segments', [])][:3]}")
         return {"published": False, "reason": "script returned no usable segments"}
 
-    audio_url = assemble_recap_audio(intro, segments, outro)
+    audio_url = _assemble_with_music(intro, segments, outro)
     print(f"[show] published {plan['minutes']:g} min from {material['game_count']} games")
 
     return {
@@ -607,3 +608,119 @@ def produce_daily_show(days_back: int = 1) -> dict:
         "best_line": script.get("best_line", ""),
         "date_label": material["date"]["games_day_full"],
     }
+
+
+# ---------------------------------------------------------------------------
+# Intro music
+# ---------------------------------------------------------------------------
+
+INTRO_MUSIC_PATH = "static/audio/daily-smack-intro.wav"
+
+# How the bed and the voice overlap. The music does NOT finish before Smacky
+# starts - a clean handoff between two separate things sounds like a jingle
+# glued to a podcast. Real radio has the host talking over the tail while it
+# ducks and fades, which is what makes it sound like one show rather than two
+# files.
+# Tuned to the actual file rather than guessed. It's a RISER - measured at
+# -23dB at the start, climbing steadily to -14.6dB by 6 seconds, and it ends
+# at its loudest, which is exactly why the hard stop was so jarring.
+#
+# So the voice enters ON the peak rather than before it. The build gets to
+# do its job, Smacky arrives at the top of it, and the music falls away
+# underneath him instead of stopping dead.
+MUSIC_SOLO_MS = 5800      # let the riser build, voice in near the peak
+DUCK_DB = -11             # bed drops once he's speaking, still audible
+FADE_OUT_MS = 2600        # fades out under the first line
+
+
+def _apply_intro_music(voice_audio):
+    """
+    Lays the intro bed under the start of the show.
+
+    Returns the audio unchanged if there's no music file - the show should
+    still go out on a morning when the asset is missing rather than failing.
+    """
+    import os
+    from pydub import AudioSegment
+
+    if not os.path.exists(INTRO_MUSIC_PATH):
+        print(f"[show] no intro music at {INTRO_MUSIC_PATH}, skipping bed")
+        return voice_audio
+
+    try:
+        music = AudioSegment.from_file(INTRO_MUSIC_PATH)
+    except Exception as e:
+        print(f"[show] intro music failed to load: {e}")
+        return voice_audio
+
+    # Match the voice's shape before mixing. Sample-rate and channel
+    # mismatches are a known source of corruption in this pipeline - there's
+    # a note about it in assemble_recap_audio for exactly this reason.
+    music = (music
+             .set_frame_rate(voice_audio.frame_rate)
+             .set_channels(voice_audio.channels)
+             .set_sample_width(voice_audio.sample_width))
+
+    solo = min(MUSIC_SOLO_MS, len(music))
+
+    # The bed drops in level and fades from the moment the voice arrives, so
+    # the two never fight for the same space.
+    tail = music[solo:]
+    if len(tail):
+        tail = tail.apply_gain(DUCK_DB).fade_out(min(FADE_OUT_MS, len(tail)))
+        bed = music[:solo] + tail
+    else:
+        bed = music.fade_out(min(FADE_OUT_MS, len(music)))
+
+    # Voice starts at the end of the solo section, while the bed is still
+    # playing underneath it.
+    out = bed.overlay(voice_audio, position=solo)
+
+    # If the voice runs past the bed - it always will - carry the rest.
+    if len(voice_audio) + solo > len(bed):
+        out = out + voice_audio[len(bed) - solo:]
+
+    print(f"[show] intro bed: {len(music)}ms music, voice in at {solo}ms")
+    return out
+
+
+def _assemble_with_music(intro: str, segments: list, outro: str) -> str:
+    """
+    Same as smackcast's assemble_recap_audio, plus the intro bed.
+
+    Deliberately not a change to assemble_recap_audio itself - the Smackcast
+    has its own opening and shouldn't inherit this one. This wraps rather than
+    forks: speech generation, sound effects, loudness normalisation and the S3
+    upload all still come from there.
+    """
+    import io, os, uuid, boto3
+    from pydub import AudioSegment
+    from services import elevenlabs_service, smackcast_service
+
+    # Let the existing pipeline build and upload the spoken show.
+    url = smackcast_service.assemble_recap_audio(intro, segments, outro)
+
+    if not os.path.exists(INTRO_MUSIC_PATH):
+        return url  # nothing to lay under it
+
+    try:
+        import requests
+        spoken = AudioSegment.from_file(io.BytesIO(requests.get(url, timeout=60).content),
+                                        format="mp3")
+        mixed = _apply_intro_music(spoken)
+
+        buf = io.BytesIO()
+        mixed.export(buf, format="mp3", parameters=["-b:a", "192k"])
+        data = elevenlabs_service.normalize_loudness(buf.getvalue())
+
+        bucket = os.environ["AUDIO_S3_BUCKET"]
+        region = os.environ.get("AWS_REGION", "us-east-1")
+        key = f"tts/{uuid.uuid4()}.mp3"
+        boto3.client("s3", region_name=region).put_object(
+            Bucket=bucket, Key=key, Body=data, ContentType="audio/mpeg")
+        return f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
+    except Exception as e:
+        # The show matters more than the music. Fall back to the spoken
+        # version rather than losing an episode over a bed.
+        print(f"[show] intro music mix failed, using speech only: {e}")
+        return url

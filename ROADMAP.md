@@ -6346,3 +6346,50 @@ miserable and back at work and he has no sympathy; Friday means a weekend's
 coming and he's in an unreasonably good mood about other people's suffering.
 One line woven in, not a weather report. This is what should make it feel live
 rather than generated.
+
+## Renamed: The Daily Smack
+"Smack Report" sounded like a segment; "The Daily Smack" sounds like a show
+with a schedule, and the definite article marks it as the flagship rather than
+another Smack-prefixed feature. It also tells people it's new every morning
+without needing a tagline to explain that.
+
+Renamed everywhere: prompt, intro, outro, home page player, and the docstrings
+in app.py and news_service.
+
+FINAL BRANDED LINES, both fixed word-for-word:
+
+  INTRO: "Welcome to today's brand new episode of The Daily Smack, brought to
+  you by Smackagram! I'm your host, Smacky. Every sport, every score, and
+  somebody out there had a really bad night. The grill's hot, the smoke's
+  rising, the flames are burning, and somebody's about to get roasted!"
+
+  OUTRO: "That's The Daily Smack. The grill's cooling down, but it never goes
+  out. Same time tomorrow - somebody else is getting roasted. I'm Smacky, and
+  you've been smacked."
+
+The added line is deliberately thrown away rather than built to a punchline.
+It's spoken word-for-word every single day, so it has to survive a hundred
+hearings - rhythm ages better than a joke does.
+
+## Intro music bed
+static/audio/daily-smack-intro.wav - 8.00s, 44.1kHz stereo, peak -1.0 dBFS.
+
+MEASURED BEFORE TUNING, and the measurement changed the design. The clip is a
+RISER: -23dB at the start, climbing steadily to -14.6dB by 6 seconds, ending
+at its loudest. That's why the raw file's hard stop was so jarring, and it
+means an early voice entry would have cut straight through the build.
+
+So the voice enters ON the peak at 5.8s, not before it. The build does its
+job, Smacky arrives at the top of it, and the bed ducks 11dB and fades away
+underneath him over the remaining 2.2s. Verified: -17dB at 5.5s falling
+through -27, -35, -43 to silence by 8s.
+
+WRAPS rather than forks assemble_recap_audio - the Smackcast has its own
+opening and shouldn't inherit this one. Speech generation, sound effects,
+loudness normalisation and the S3 upload all still come from there.
+
+FAILS SOFT: no music file, or a mix error, and the spoken show goes out
+anyway. An episode shouldn't be lost over a bed.
+
+Format is matched to the voice before mixing - sample rate and channel
+mismatches are a known corruption source in this pipeline.

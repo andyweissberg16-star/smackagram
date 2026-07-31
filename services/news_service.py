@@ -1,5 +1,5 @@
 """
-Sports headlines for The Smacky Report — the daily on-air show.
+Sports headlines for The Daily Smack — the daily on-air show.
 
 The important part of this module is not fetching news. It's REFUSING news.
 

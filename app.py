@@ -3402,7 +3402,7 @@ def _produce_daily_show_async(app_obj):
 @app.route("/api/cron/daily-show", methods=["GET", "POST"])
 def cron_daily_show():
     """
-    Kicks off The Smacky Report. Hit once each morning by the external
+    Kicks off The Daily Smack. Hit once each morning by the external
     scheduler - same mechanism as the armed-smackagram check.
 
     Returns immediately and does the work in the background, because a
