@@ -1285,6 +1285,56 @@ def locker_download(kind, item_id):
     )
 
 
+@app.route("/admin/espn")
+@login_required
+def admin_espn_page():
+    user = get_current_user()
+    if not user.is_admin:
+        return "Not authorized.", 403
+    return render_template("admin_espn.html")
+
+
+@app.route("/api/admin/espn-preview")
+@login_required
+def admin_espn_preview():
+    """
+    Everything ESPN gives us for one night, scores and headlines side by side.
+
+    Exists to answer two questions before any of it feeds the show: are the
+    scores real (they weren't, on the previous provider), and is there enough
+    headline volume to be worth the safety screen it requires.
+    """
+    user = get_current_user()
+    if not user.is_admin:
+        return jsonify({"error": "Not authorized."}), 403
+
+    from services import espn_scores
+
+    days_back = int(request.args.get("days_back", 1))
+    leagues = [l.strip() for l in request.args.get("leagues", "mlb,wnba").split(",")]
+
+    scores = []
+    per_league = {}
+    for lg in leagues:
+        got = espn_scores.fetch_finals(lg, days_back=days_back)
+        per_league[lg] = {"games": len(got)}
+        scores.extend(got)
+
+    # Headlines dropped entirely. ESPN's news feed returns ~6 auto-generated
+    # game PREVIEWS per league ("Pirates bring 3-game losing streak into
+    # matchup with the Reds") - boilerplate about games that haven't happened.
+    # SportsDataIO gave 8 real stories across four leagues. Neither is enough
+    # to be worth the safety screen it requires, so the show is scores only.
+
+    scores.sort(key=lambda g: g["margin"], reverse=True)
+
+    return jsonify({
+        "per_league": per_league,
+        "game_count": len(scores),
+        "games": scores,
+    })
+
+
 @app.route("/admin/show")
 @login_required
 def admin_show_page():

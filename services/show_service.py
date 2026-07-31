@@ -63,54 +63,24 @@ def _team_score(event, side):
 
 
 def fetch_results(league: str, days_back: int = 1) -> list[dict]:
-    """One league's finished games for a given day."""
-    cfg = LEAGUES.get(league)
-    if not cfg:
-        return []
+    """
+    One league's finished games, from ESPN.
 
-    day = datetime.utcnow() - timedelta(days=days_back)
-    date_str = day.strftime("%Y-%b-%d").upper()
+    Switched off SportsDataIO after verifying its scores are scrambled on this
+    tier - see the note at the top of espn_scores. Winners were right, every
+    score was wrong, and margins are what this show is made of.
+    """
+    from services import espn_scores
+    games = espn_scores.fetch_finals(league, days_back=days_back)
 
-    try:
-        events = sports_service._get(
-            league, sports_service._games_by_date_endpoint(league, date_str)
-        )
-    except Exception as e:
-        print(f"[show] {league} {date_str} failed: {e}")
-        return []
-
-    games = []
-    for e in events or []:
-        status = (e.get("Status") or "").lower()
-        if not status.startswith("final") and status != "f/ot":
-            continue
-
-        away = _team_score(e, "away")
-        home = _team_score(e, "home")
-        if away is None or home is None or away == home:
-            continue
-
-        away_name = e.get("AwayTeam") or ""
-        home_name = e.get("HomeTeam") or ""
-        winner, loser = (home_name, away_name) if home > away else (away_name, home_name)
-
-        games.append({
-            "league": cfg["label"],
-            "unit": cfg["unit"],
-            "away": away_name, "home": home_name,
-            "away_score": away, "home_score": home,
-            "winner": winner, "loser": loser,
-            "margin": abs(home - away),
-            "loser_at_home": home < away,
-            "away_hits": _score(e, "AwayTeamHits"),
-            "home_hits": _score(e, "HomeTeamHits"),
-            "away_errors": _score(e, "AwayTeamErrors"),
-            "home_errors": _score(e, "HomeTeamErrors"),
-            "periods": _score(e, cfg["period"]),
-            "date": date_str,
-        })
-
-    print(f"[show] {league}: {len(games)} finished games on {date_str}")
+    # Hits and errors aren't in ESPN's scoreboard payload; facts derived from
+    # them simply won't fire, which is correct - better a shorter fact list
+    # than an invented one.
+    for g in games:
+        g.setdefault("home_hits", None)
+        g.setdefault("away_hits", None)
+        g.setdefault("home_errors", None)
+        g.setdefault("away_errors", None)
     return games
 
 
@@ -136,6 +106,10 @@ def build_facts(game: dict) -> list[str]:
 
     if game["loser_at_home"]:
         facts.append(f"{game['loser']} lost at home")
+
+    # A bad night is one thing; a bad season is funnier.
+    if game.get("loser_record"):
+        facts.append(f"{game['loser']} are now {game['loser_record']}")
 
     # Losing with more hits than the winner: they had the chances and wasted
     # them, which is a specific and funnier kind of failure than being outplayed.

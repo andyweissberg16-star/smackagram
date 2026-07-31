@@ -6142,3 +6142,86 @@ day something actually happens.
 
 If the Fever didn't play, that's its own joke - he's bereft and the rest of
 the league is a formality.
+
+## SportsDataIO scores are SCRAMBLED on this tier - switched the show to ESPN
+Verified against ten MLB finals on 2026-07-30:
+
+  ESPN (real)        SportsDataIO
+  TEX 2 at TB 3      TEX 5 at TB 8
+  NYY 1 at CHW 2     NYY 3 at CHW 5
+  CHC 4 at STL 2     CHC 11 at STL 5
+  BOS 5 at ATH 4     BOS 13 at ATH 11
+  SEA 2 at LAD 6     SEA 5 at LAD 16
+
+ALL TEN WINNERS CORRECT. ALL TEN SCORES WRONG. The scrambling looks like a
+~2.5-3x multiplier, which preserves ordering but destroys the numbers and
+inflates every margin - Boston won by 1 (reported 2), Seattle lost by 4
+(reported 11).
+
+CONSEQUENCES:
+  - THE DAILY SHOW CANNOT USE IT. Margins are the content. Announcing an
+    11-run beating that was a 4-run game destroys credibility in one sentence.
+    Now reads ESPN's public scoreboard: free, keyless, real.
+  - LOCKED & LOADED IS FINE. It only asks who lost, and that's preserved
+    10/10. I initially warned it was charging people wrongly - that was
+    OVERSTATED. I went from "the data is fake" to "the money is wrong"
+    without checking which fields were fake. It isn't.
+
+Same lesson as the player stats (8.9 at-bats) and the "Scrambled" injury
+field: on this tier, verify every field against reality before building on it.
+Real names and real winners attached to invented numbers is the most dangerous
+shape of bad data - credible enough to ship.
+
+ESPN's scoreboard is unofficial and can change without notice. Acceptable: the
+failure mode is yesterday's episode keeps playing.
+
+Hits and errors aren't in ESPN's payload, so those facts simply don't fire.
+Gained instead: the loser's season record - a bad night is one thing, a bad
+season is funnier.
+
+## Switched to ESPN for scores - SportsDataIO's are scrambled
+Verified against all 10 MLB finals on 2026-07-30:
+
+  ESPN (real)      SportsDataIO      winner
+  TEX 2 TB 3       TEX 5  TB 8       both TB
+  KC 3 MIN 4       KC 8   MIN 11     both MIN
+  NYY 1 CHW 2      NYY 3  CHW 5      both CHW
+  CHC 4 STL 2      CHC 11 STL 5      both CHC
+  WSH 4 ATL 5      WSH 11 ATL 13     both ATL
+  MIA 2 NYM 4      MIA 5  NYM 11     both NYM
+  PIT 2 CIN 3      PIT 5  CIN 8      both CIN
+  BOS 5 ATH 4      BOS 13 ATH 11     both BOS
+  SF 4 SD 1        SF 11  SD 3       both SF
+  SEA 2 LAD 6      SEA 5  LAD 16     both LAD
+
+10/10 winners CORRECT. 10/10 scores WRONG. The scrambling is roughly a
+2.5-3x multiplier, which preserves ordering but destroys the values and
+inflates every margin - Boston won by 1 and it reported 2; Seattle lost by 4
+and it reported 11.
+
+FATAL FOR THE SHOW, because margins ARE the content. "An 11-run beating" was a
+4-run game.
+
+LOCKED & LOADED IS UNAFFECTED and I overstated that risk earlier. It only asks
+who lost, and that's correct in all ten. I jumped from "the data is fake" to
+"customers are being charged wrongly" without checking which fields were fake.
+
+ESPN's scoreboard is free, keyless, real, and covers more leagues (soccer,
+college, etc). It's UNOFFICIAL and can change without notice - acceptable,
+since the failure mode is yesterday's episode keeping playing.
+
+Bonus material it carries that SportsDataIO didn't: the loser's season record,
+so the show can point out a bad season rather than just a bad night.
+
+## Headlines dropped entirely
+Both providers fail. SportsDataIO: 8 real stories across four leagues.
+ESPN: ~6 per league and they're auto-generated game PREVIEWS ("Pirates bring
+3-game losing streak into matchup with the Reds") - boilerplate about games
+that haven't been played.
+
+Neither is worth the two-stage safety screen it requires. The show is scores
+only, which is where the reasoning already pointed: always there, never
+tragic, and now actually true. news_service stays in the tree for /admin/news
+but nothing depends on it.
+
+/admin/espn is the test page for verifying scores against reality.
