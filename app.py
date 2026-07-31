@@ -3439,6 +3439,12 @@ def admin_show_status():
     } for s in shows]})
 
 
+@app.route("/daily-smack")
+def daily_smack_page():
+    """The show's own page - player, explainer and the archive."""
+    return render_template("daily_smack.html")
+
+
 @app.route("/api/show/current")
 def api_current_show():
     """What the home page player asks for. Public, cached briefly."""

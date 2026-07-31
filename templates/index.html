@@ -311,67 +311,85 @@
     box-shadow:0 0 34px rgba(232,20,44,0.3);
   }
   #onAirBar[hidden]{display:none;}
-  /* Heat rising off the bottom edge - the grill Smacky names out loud. */
   #onAirBar::after{
-    content:''; position:absolute; left:0; right:0; bottom:0; height:60%;
-    background:radial-gradient(ellipse at 50% 120%, rgba(232,20,44,0.32), transparent 62%);
+    content:''; position:absolute; left:0; right:0; bottom:0; height:55%;
+    background:radial-gradient(ellipse at 50% 125%, rgba(232,20,44,0.28), transparent 62%);
     pointer-events:none;
   }
   #onAirBar > *{position:relative; z-index:1;}
 
   .ds-head{
     display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-    padding:10px 20px; background:rgba(232,20,44,0.09);
+    padding:11px 20px; background:rgba(232,20,44,0.09);
     border-bottom:1px solid rgba(232,20,44,0.26);
   }
-  /* Double blink, then a rest. A steady on/off at one second reads as broken
-     and nags after a minute on the page; two blinks and a pause reads as a
-     signal being sent - the eye catches it and then lets it go. */
-  .ds-sign{display:inline-flex; align-items:center; gap:8px; animation:dsBlink 2.4s ease-in-out infinite;}
-  .ds-sign-dot{width:8px; height:8px; border-radius:50%; background:var(--flare); box-shadow:0 0 10px var(--flare);}
-  .ds-sign-txt{font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:800; letter-spacing:2.5px; color:var(--flare);}
+  /* Two blinks then a rest. A steady one-second on/off reads as broken and
+     nags; this reads as a signal being sent - the eye catches it, then lets go. */
+  .ds-sign{
+    display:inline-flex; align-items:center; gap:9px;
+    animation:dsBlink 2.4s ease-in-out infinite;
+  }
   @keyframes dsBlink{
-    0%,8%{opacity:1} 9%,17%{opacity:.18}
-    18%,26%{opacity:1} 27%,35%{opacity:.18}
-    36%,100%{opacity:1}
+    0%,8%{opacity:1} 9%,17%{opacity:.2} 18%,26%{opacity:1}
+    27%,35%{opacity:.2} 36%,100%{opacity:1}
+  }
+  .ds-sign-dot{
+    width:9px; height:9px; border-radius:50%; background:var(--flare);
+    box-shadow:0 0 12px var(--flare);
+  }
+  .ds-sign-txt{
+    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:800;
+    letter-spacing:3px; color:var(--flare);
   }
   .ds-meta{
     margin-left:auto; font-family:'JetBrains Mono',monospace;
-    font-size:9px; letter-spacing:1.6px; color:var(--chalk-dim); text-transform:uppercase;
+    font-size:9.5px; letter-spacing:1.6px; color:var(--chalk-dim);
   }
 
-  .ds-body{padding:22px 24px 18px;}
+  .ds-body{padding:20px 22px 14px;}
+  .ds-top{display:flex; align-items:center; gap:16px; margin-bottom:16px;}
+  .ds-play{
+    width:56px; height:56px; border-radius:50%; flex-shrink:0;
+    background:var(--flare); border:none; color:#fff; cursor:pointer;
+    font-size:18px; display:grid; place-items:center;
+    box-shadow:0 0 24px rgba(232,20,44,0.5);
+  }
+  .ds-play:hover{transform:scale(1.05);}
+  .ds-titles{min-width:0;}
   .ds-eyebrow{
-    font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:3px;
-    color:var(--chalk-dim); text-transform:uppercase; margin:0 0 12px;
+    font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:3px;
+    color:var(--chalk-dim); text-transform:uppercase; margin:0 0 5px;
   }
   .ds-quote{
-    font-size:19px; line-height:1.45; color:var(--chalk);
-    font-weight:500; margin:0 0 20px; max-width:760px;
+    font-size:17px; line-height:1.4; color:var(--chalk);
+    font-weight:500; margin:0;
   }
 
-  .ds-controls{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
-  .ds-play{
-    display:inline-flex; align-items:center; gap:10px;
-    background:var(--flare); border:none; color:#fff; cursor:pointer;
-    padding:13px 24px; border-radius:7px; font-family:'Inter',sans-serif;
-    font-size:15px; font-weight:700; white-space:nowrap;
-    box-shadow:0 0 22px rgba(232,20,44,0.45);
+  .ds-canvas{
+    display:block; width:100%; height:60px; margin-bottom:12px;
   }
-  .ds-play:hover{transform:translateY(-1px);}
-  .ds-wave{flex:1; min-width:90px; height:30px;}
-  .ds-time{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--chalk-dim); white-space:nowrap;}
+
+  .ds-controls{display:flex; align-items:center; gap:12px;}
+  .ds-track{
+    flex:1; height:4px; border-radius:2px; background:rgba(255,255,255,0.1);
+    cursor:pointer; overflow:hidden;
+  }
+  .ds-fill{height:100%; width:0; background:var(--flare); border-radius:2px;}
+  .ds-time{
+    font-family:'JetBrains Mono',monospace; font-size:11px;
+    color:var(--chalk-dim); white-space:nowrap; min-width:38px;
+  }
 
   .ds-foot{
-    padding:9px 24px; border-top:1px solid rgba(255,255,255,0.07);
-    font-family:'JetBrains Mono',monospace; font-size:9px;
-    letter-spacing:1.8px; color:#5A5555; text-transform:uppercase;
+    font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.8px;
+    text-transform:uppercase; color:#5A5555; padding:11px 22px;
+    border-top:1px solid rgba(255,255,255,0.07);
   }
 
   @media(max-width:640px){
-    .ds-wave{display:none;}
-    .ds-quote{font-size:16px;}
-    .ds-play{width:100%; justify-content:center;}
+    .ds-quote{font-size:15px;}
+    .ds-play{width:48px; height:48px;}
+    .ds-body{padding:16px 16px 12px;}
   }
   @media(prefers-reduced-motion:reduce){ .ds-sign{animation:none;} }
 </style>
@@ -440,37 +458,30 @@
     </div>
 
     <div class="ds-body">
-      <p class="ds-eyebrow">The Daily Smack</p>
-
-      <p class="ds-quote" id="dsQuote">Last night&rsquo;s scores. Roasted.</p>
-
-      <div class="ds-controls">
+      <div class="ds-top">
         <button id="oaPlay" class="ds-play" type="button" aria-label="Play today's show">
           <span id="oaIcon">&#9654;</span>
-          <span class="ds-play-txt" id="dsPlayTxt">Play today&rsquo;s show</span>
         </button>
+        <div class="ds-titles">
+          <p class="ds-eyebrow">The Daily Smack</p>
+          <p class="ds-quote" id="dsQuote">Last night&rsquo;s scores. Roasted.</p>
+        </div>
+      </div>
 
-        <svg class="ds-wave" id="oaWave" viewBox="0 0 600 40" preserveAspectRatio="none" aria-hidden="true">
-          <defs>
-            <linearGradient id="oaFade" x1="0" x2="1">
-              <stop offset="0" stop-color="#E01B24" stop-opacity="0"/>
-              <stop offset="0.1" stop-color="#E01B24" stop-opacity="1"/>
-              <stop offset="0.9" stop-color="#E01B24" stop-opacity="1"/>
-              <stop offset="1" stop-color="#E01B24" stop-opacity="0"/>
-            </linearGradient>
-          </defs>
-          <path id="oaPath" stroke="url(#oaFade)" stroke-width="2" fill="none" stroke-linecap="round"
-                d="M0,20 L600,20"/>
-        </svg>
+      <!-- A real analyser, not a loop. It reads the audio actually playing, so
+           it moves with his voice and sits still when he pauses. Falls back to
+           a simulated trace if the browser or CORS blocks the analyser. -->
+      <canvas id="oaCanvas" class="ds-canvas" height="120" aria-hidden="true"></canvas>
 
+      <div class="ds-controls">
         <span class="ds-time" id="oaTime">&mdash;</span>
+        <div class="ds-track" id="oaTrack"><div class="ds-fill" id="oaFill"></div></div>
+        <span class="ds-time" id="oaDur">&mdash;</span>
       </div>
     </div>
 
-    <div class="ds-foot">
-      <span>New episode every morning &middot; 6am ET</span>
-    </div>
-    <audio id="oaAudio" preload="none"></audio>
+    <div class="ds-foot">New episode every morning &middot; 6am ET</div>
+    <audio id="oaAudio" preload="none" crossorigin="anonymous"></audio>
   </div>
 </div>
 
@@ -621,37 +632,115 @@ document.getElementById('heroLockedTeamInput').addEventListener('keydown', (e) =
 (function () {
   var bar = document.getElementById('onAirBar');
   if (!bar) return;
-  var audio = document.getElementById('oaAudio');
-  var btn   = document.getElementById('oaPlay');
-  var icon  = document.getElementById('oaIcon');
-  var label = document.getElementById('dsPlayTxt');
-  var path  = document.getElementById('oaPath');
-  var time  = document.getElementById('oaTime');
-  var quote = document.getElementById('dsQuote');
-  var meta  = document.getElementById('dsMeta');
+  var audio  = document.getElementById('oaAudio');
+  var btn    = document.getElementById('oaPlay');
+  var icon   = document.getElementById('oaIcon');
+  var quote  = document.getElementById('dsQuote');
+  var meta   = document.getElementById('dsMeta');
+  var canvas = document.getElementById('oaCanvas');
+  var timeEl = document.getElementById('oaTime');
+  var durEl  = document.getElementById('oaDur');
+  var track  = document.getElementById('oaTrack');
+  var fill   = document.getElementById('oaFill');
+  var ctx    = canvas.getContext('2d');
 
-  // Hidden until we know an episode exists. A failed morning shows nothing
-  // rather than a player with no audio behind it.
   fetch('/api/show/current')
     .then(function (r) { return r.json(); })
     .then(function (d) {
       if (!d.live || !d.audio_url) return;
       audio.src = d.audio_url;
-
-      // The best line IS the hook. Reading something funny and then pressing
-      // play is a completely different decision from gambling on an unknown
-      // voice, so it leads - with a fallback for an episode that has none.
       if (d.best_line) quote.textContent = '\u201C' + d.best_line + '\u201D';
-
       var bits = [];
       if (d.date_label) bits.push(d.date_label);
       if (d.leagues) bits.push(d.leagues);
       if (d.game_count) bits.push(d.game_count + ' games');
       meta.textContent = bits.join(' \u00B7 ');
-
       bar.hidden = false;
+      sizeCanvas();
+      drawFlat();
     })
-    .catch(function () { /* leave it hidden */ });
+    .catch(function () {});
+
+  function sizeCanvas() {
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.offsetWidth * dpr;
+    canvas.height = 60 * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', function () { sizeCanvas(); if (audio.paused) drawFlat(); });
+
+  // ---- Real analyser over the playing audio ----
+  // Reads what's actually coming out, so the trace moves with his voice and
+  // sits flat when he stops. Needs CORS on the audio host; if that's missing
+  // or the browser refuses, it falls back to a simulated trace rather than
+  // showing a dead line.
+  var actx = null, analyser = null, data = null, useReal = false;
+
+  function initAnalyser() {
+    if (actx) return;
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      actx = new AC();
+      var src = actx.createMediaElementSource(audio);
+      analyser = actx.createAnalyser();
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.72;
+      data = new Uint8Array(analyser.fftSize);
+      src.connect(analyser);
+      analyser.connect(actx.destination);
+      useReal = true;
+    } catch (e) {
+      useReal = false;   // simulated trace instead
+    }
+  }
+
+  var raf = null, t = 0;
+
+  function drawFlat() {
+    var w = canvas.offsetWidth, h = 60;
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(232,20,44,0.28)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, h / 2);
+    ctx.lineTo(w, h / 2);
+    ctx.stroke();
+  }
+
+  function draw() {
+    var w = canvas.offsetWidth, h = 60, mid = h / 2;
+    ctx.clearRect(0, 0, w, h);
+
+    var grad = ctx.createLinearGradient(0, 0, w, 0);
+    grad.addColorStop(0,    'rgba(232,20,44,0)');
+    grad.addColorStop(0.07, 'rgba(232,20,44,1)');
+    grad.addColorStop(0.93, 'rgba(232,20,44,1)');
+    grad.addColorStop(1,    'rgba(232,20,44,0)');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+
+    ctx.beginPath();
+    if (useReal && analyser) {
+      analyser.getByteTimeDomainData(data);
+      var step = data.length / w;
+      for (var x = 0; x < w; x++) {
+        var v = (data[Math.floor(x * step)] - 128) / 128;   // -1..1
+        var y = mid + v * (mid - 3) * 1.9;
+        x ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      }
+    } else {
+      t += 0.11;
+      for (var x2 = 0; x2 <= w; x2 += 2) {
+        var amp = Math.sin(x2 * 0.05 + t) * Math.sin(x2 * 0.011 + t * 0.6) * (mid - 6);
+        var y2 = mid + amp;
+        x2 ? ctx.lineTo(x2, y2) : ctx.moveTo(x2, y2);
+      }
+    }
+    ctx.stroke();
+    raf = requestAnimationFrame(draw);
+  }
 
   function fmt(s) {
     if (!isFinite(s)) return '\u2014';
@@ -660,44 +749,36 @@ document.getElementById('heroLockedTeamInput').addEventListener('keydown', (e) =
   }
 
   btn.addEventListener('click', function () {
-    if (audio.paused) { audio.play(); } else { audio.pause(); }
+    initAnalyser();
+    if (actx && actx.state === 'suspended') actx.resume();
+    audio.paused ? audio.play() : audio.pause();
   });
 
   audio.addEventListener('play', function () {
     icon.innerHTML = '&#10074;&#10074;';
-    label.textContent = 'Pause';
-    startWave();
+    if (!raf) draw();
   });
   ['pause', 'ended'].forEach(function (e) {
     audio.addEventListener(e, function () {
       icon.innerHTML = '&#9654;';
-      label.textContent = e === 'ended' ? 'Play it again' : 'Resume';
-      stopWave();
+      if (raf) { cancelAnimationFrame(raf); raf = null; }
+      drawFlat();
     });
   });
-  audio.addEventListener('timeupdate', function () {
-    time.textContent = fmt(audio.currentTime) + ' / ' + fmt(audio.duration);
+  audio.addEventListener('loadedmetadata', function () {
+    durEl.textContent = fmt(audio.duration);
   });
-
-  // Decorative rather than analysed from the signal - reading the real audio
-  // needs an AudioContext and buys almost nothing. What matters is that it
-  // moves only while there IS sound.
-  var raf = null, t = 0;
-  function frame() {
-    t += 0.09;
-    var d = 'M0,20';
-    for (var x = 0; x <= 600; x += 20) {
-      var amp = 13 * Math.sin(x * 0.045 + t) * Math.sin(x * 0.013 + t * 0.7);
-      d += ' L' + x + ',' + (20 + amp).toFixed(1);
+  audio.addEventListener('timeupdate', function () {
+    timeEl.textContent = fmt(audio.currentTime);
+    if (isFinite(audio.duration)) {
+      fill.style.width = (audio.currentTime / audio.duration * 100) + '%';
     }
-    path.setAttribute('d', d);
-    raf = requestAnimationFrame(frame);
-  }
-  function startWave() { if (!raf) frame(); }
-  function stopWave() {
-    if (raf) { cancelAnimationFrame(raf); raf = null; }
-    path.setAttribute('d', 'M0,20 L600,20');
-  }
+  });
+  track.addEventListener('click', function (e) {
+    if (!isFinite(audio.duration)) return;
+    var r = track.getBoundingClientRect();
+    audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration;
+  });
 })();
 </script>
 </body>

@@ -6443,3 +6443,38 @@ speech track starting at 5.8s, with levels confirming the duck and fade.
 
 The old pydub mixer was DELETED rather than left in place - it worked
 correctly and would be tempting to reuse.
+
+## Player rebuilt: real waveform, flashing sign
+The waveform now reads the ACTUAL audio via the Web Audio API - an
+AnalyserNode over the playing element, getByteTimeDomainData each frame - so
+the trace moves with his voice and sits flat when paused. The previous one was
+a sine loop that moved whether or not anything was playing.
+
+NEEDS CORS on the audio host. crossorigin="anonymous" is set on the element,
+but createMediaElementSource will throw if S3 doesn't send the header. It
+falls back to a simulated trace rather than showing a dead line, so it
+degrades instead of breaking - but the real thing only appears once the bucket
+allows it.
+
+Sign flashes constantly now (two blinks, then a rest) rather than only while
+playing, so it draws the eye before anyone presses anything.
+
+Also added: a seekable progress bar, elapsed and total time, and a canvas that
+resizes with the viewport at device pixel ratio so it isn't blurry.
+
+## /daily-smack - the show's own page
+Nav entry sits between Locked & Loaded and Smackcast, so the three audio
+products group together.
+
+Carries the same player as the home page but larger, plus an explainer (where
+the scores come from, how long it runs, that it's free) and an archive of past
+episodes that load into the player on click.
+
+The archive reads /api/admin/show-status, which is admin-gated - so a logged
+out visitor sees "nothing archived yet" rather than an error. A public archive
+would need its own endpoint; worth doing if the back catalogue becomes
+something people browse.
+
+Also handles the empty case properly: if no episode is live, the player is
+replaced by a note saying Smacky records at 6am Eastern, rather than a dead
+control.
