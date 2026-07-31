@@ -5723,3 +5723,46 @@ button off the card edge. A COLLAPSED step has no button, so that padding
 stacked with the next step's top padding - a gap that grew with every
 completed step (20px above step 2, 64px above step 3). Collapsed steps now
 drop it. Both measured at 20px after.
+
+## Generator wordmarks and step 1 rewrite
+WORDMARKS: "SMACKAGRAM" in red, "LOCKED & LOADED" in amber, centred under
+each status strip. Placed OUTSIDE the step bodies deliberately - they must not
+move, collapse or disappear as steps advance, since the whole point is knowing
+which generator you're in at a glance.
+
+Anton ships at weight 400 only, so font-weight:bold does nothing. The extra
+heft is a 1.2-1.4px text-stroke painted in the same colour, with
+paint-order:stroke fill so the stroke sits behind the fill and the counters
+stay open. Pushing the stroke further starts closing up the holes in A, R and
+O - genuinely heavier type would need a second font file.
+
+Sized so the two occupy the same footprint despite one being nearly twice the
+characters: Smackagram 50px / -0.5px tracking, Locked & Loaded 38px / -1px.
+Measured 356px and 344px against a 672px card.
+
+STEP 1 REWRITTEN as "Instructions" with three numbered points, and the fields
+reordered to match them: recipient, then team, then topics. Smacky's name is
+red wherever it appears. The validation message now checks fields in SCREEN
+order rather than a hardcoded sentence, so it reads top-to-bottom the way the
+form does and follows automatically if the fields move again.
+
+STEP 3 COPY rewritten to explain what the step does rather than list actions:
+"Now Smacky goes to work." The body also tells people two things nothing on
+the page said before - that generate can be pressed again, and that the output
+box is editable.
+
+VOICE CONTROLS REMOVED from both generators. The selects survive as HIDDEN
+fields because eight places on Smackagram and six on Locked & Loaded read
+voiceSelect.value for generation, preview and checkout - deleting the elements
+would have broken all of them. Preview handlers are guarded rather than
+deleted so they still work if the controls ever return.
+
+FRAME HEIGHT: the embedded generator reported documentElement.scrollHeight,
+which never drops below the viewport - so a short step still claimed a full
+screen and the difference showed as black space inside the amber border. Now
+measures the console element itself. Verified 0px gap across steps 1, 2 and 4,
+shrinking as well as growing.
+
+Also: collapsed steps no longer carry the 22px bottom padding meant for a
+Next button, which had been stacking into a gap that grew with every completed
+step (20px above step 2 vs 64px above step 3; both 20px now).

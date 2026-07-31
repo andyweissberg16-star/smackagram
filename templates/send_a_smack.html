@@ -312,6 +312,21 @@
   /* (The page-wide travelling light was removed entirely - nothing to hide
      here any more.) */
 
+  /* Anton only ships at weight 400, so the extra heft comes from a
+     text-stroke in the same colour - it thickens the letterforms without
+     loading a second font. Negative tracking pulls the letters together so it
+     reads as one solid block rather than spaced-out type. */
+  .gen-wordmark{
+    font-family:'Anton',sans-serif; font-weight:400;
+    font-size:clamp(32px,7.4vw,50px); line-height:1;
+    text-transform:uppercase; letter-spacing:-0.5px;
+    text-align:center; color:var(--punch);
+    margin:20px 0 4px;
+    -webkit-text-stroke:1.4px var(--punch);
+    paint-order:stroke fill;
+    text-shadow:0 0 26px rgba(224,27,36,0.45);
+  }
+
   /* INTENSITY FADER - a physical control instead of tickboxes. */
   .fader{padding:4px 0 0;}
   .fader-scale{display:flex; justify-content:space-between; margin-bottom:10px;}
@@ -484,6 +499,18 @@
   .step-label{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare-text); text-transform:uppercase; letter-spacing:1px; margin:0 0 10px; font-weight:700;}
   .sas-body{padding:20px 24px 0;}
   .card h3{font-family:'Anton',sans-serif; font-size:22px; margin-bottom:6px; text-transform:uppercase;}
+  .step-instructions{
+    margin:0 0 20px; padding-left:20px;
+    color:var(--muted); font-size:13.5px; line-height:1.6;
+  }
+  .step-instructions li{margin-bottom:7px; padding-left:3px;}
+  .step-instructions li::marker{color:var(--punch); font-weight:700;}
+  .step-instructions strong{color:var(--chalk); font-weight:600;}
+  /* His name in the brand red wherever it appears in the instructions -
+     inherits weight from whatever wraps it, so it works inside a <strong>
+     and on its own. */
+  .step-instructions .smacky{color:var(--punch); font-weight:700;}
+
   .card-sub{color:var(--chalk-dim); font-size:13px; margin-bottom:18px;}
 
   .sensitivity-row{
@@ -625,6 +652,11 @@
         <div class="progress-step" data-step="4"><span>4</span></div>
       </div>
     </div>
+    <!-- Fixed wordmark. Sits outside the step bodies so it never moves or
+         disappears - the point is that you always know which generator you're
+         looking at, which only works if it's in the same place every step. -->
+    <p class="gen-wordmark">Smackagram</p>
+
     <p class="console-field" id="consoleField">Target</p>
 
   <div class="wizard-step active" data-step="1">
@@ -638,18 +670,22 @@
     </div>
     <div class="sas-body" id="sasBody1">
     <p class="step-label">Step 1</p>
-    <h3>Who's getting the call</h3>
-    <p class="card-sub">Type a team and who this is for — Smacky'll write the roast.</p>
+    <h3>Instructions</h3>
+    <ol class="step-instructions">
+      <li>Tell <span class="smacky">Smacky</span> <strong>who&rsquo;s getting smacked</strong>.</li>
+      <li>Name <strong>the team you want <span class="smacky">Smacky</span> to roast</strong>. Theirs, obviously.</li>
+      <li>Add <strong>anything specific worth roasting</strong> if you&rsquo;ve got it. Optional &mdash; he can find his own material.</li>
+    </ol>
+
+    <label for="recipientNameInput">Who&rsquo;s receiving this</label>
+    <input id="recipientNameInput" type="text" placeholder="ex - Mike Sullivan">
 
     <label for="teamInput">Team to trash talk</label>
     <input id="teamInput" type="text" placeholder="ex - Yankees" data-team-search>
 
     <label for="roastTopicsInput">Specific things to roast them about (optional)</label>
     <input id="roastTopicsInput" type="text" placeholder="ex - cheating, trash cans">
-    <p class="field-hint">Leave blank and Smacky'll roast them generally, using whatever real history and current events fit.</p>
-
-    <label for="recipientNameInput">Who's receiving this</label>
-    <input id="recipientNameInput" type="text" placeholder="ex - Mike Sullivan">
+    <p class="field-hint">Leave blank and Smacky&rsquo;ll roast them generally, using whatever real history and current events fit.</p>
 
     <div id="step1Error" role="alert" style="display:none;"></div>
 
@@ -699,25 +735,25 @@
     </div>
     <div class="sas-body" id="sasBody3">
     <p class="step-label">Step 3</p>
-    <p class="card-sub">Pick a voice, generate it, hear it, send it.</p>
+    <h3>Now Smacky goes to work.</h3>
+    <p class="card-sub">Hit generate and he&rsquo;ll dig up something ugly about their team. Don&rsquo;t like what he came back with? Hit it again &mdash; he&rsquo;s got a whole vault of this stuff. Think you can do better? Type over it yourself.</p>
 
-    <div style="display:flex; gap:8px; align-items:stretch; justify-content:center; margin-bottom:14px; flex-wrap:wrap;">
-      <select id="voiceSelect" style="margin-bottom:0; flex:0 0 auto; width:125px; min-width:0; font-size:13px;">
-        <option value="default">Loading voices...</option>
-      </select>
-      <!-- "Preview this voice" was what made this row span half the card. The
-           label sits beside a voice dropdown, so "Preview" is unambiguous. -->
-      <button id="voiceSampleBtn" class="btn btn-ghost" type="button"
-              style="flex:0 0 auto; width:auto; white-space:nowrap; margin:0; padding:10px 16px; font-size:12.5px;">Preview</button>
-    </div>
+    <!-- Voice picker and preview removed from the UI. The select survives as
+         a hidden field because the generate, preview and checkout paths all
+         read voiceSelect.value - this keeps them working on the default voice
+         without touching eight call sites. -->
+    <select id="voiceSelect" hidden aria-hidden="true" tabindex="-1">
+      <option value="default" selected>Smacky</option>
+    </select>
     <audio id="voiceSampleAudio" style="display:none;"></audio>
+
+
+    <p class="field-group-label" style="border-top:none; background-image:none; padding-top:0; margin-top:22px;">What Smacky will say</p>
+    <textarea id="trashTalkOutput" placeholder="Smacky’s line lands here"></textarea>
 
     <div class="btn-center">
       <button id="generateBtn" class="btn btn-flare btn-narrow">Generate smack talk</button>
     </div>
-
-    <p class="field-group-label" style="border-top:none; background-image:none; padding-top:0; margin-top:22px;">What Smacky will say</p>
-    <textarea id="trashTalkOutput" placeholder="Smacky’s line lands here"></textarea>
 
     <div class="btn-center">
       <button id="previewBtn" class="btn btn-outline btn-narrow no-spinner" disabled>Listen to your Smackagram</button>
@@ -857,8 +893,10 @@ function validateStep1(showErrors) {
   [team, name].forEach(function (el) { if (el) el.classList.remove('field-missing'); });
   if (gate) gate.classList.remove('field-missing');
 
-  if (team && !team.value.trim()) { missing.push('the team to trash talk'); if (showErrors) team.classList.add('field-missing'); }
+  // Checked in the order the fields appear on screen, so the message reads
+  // top-to-bottom the way the form does.
   if (name && !name.value.trim()) { missing.push('who\u2019s receiving this'); if (showErrors) name.classList.add('field-missing'); }
+  if (team && !team.value.trim()) { missing.push('the team to trash talk'); if (showErrors) team.classList.add('field-missing'); }
   // Intensity always has a value (defaults to Savage), so it can't be missing -
   // but its age confirmation can be.
   // The age gate lives on step 2 now, alongside the intensity it depends on.
@@ -1373,9 +1411,12 @@ document.getElementById('previewBtn').addEventListener('click', async () => {
   } catch (err) {}
 })();
 
-document.getElementById('voiceSampleBtn').addEventListener('click', async () => {
+// Preview button removed from the UI; this stays guarded rather than deleted
+// so the handler is here if the control ever comes back.
+var _voiceSampleBtn = document.getElementById('voiceSampleBtn');
+if (_voiceSampleBtn) _voiceSampleBtn.addEventListener('click', async () => {
   const voiceKey = document.getElementById('voiceSelect').value;
-  const btn = document.getElementById('voiceSampleBtn');
+  const btn = _voiceSampleBtn;
   const audioEl = document.getElementById('voiceSampleAudio');
 
   btn.textContent = 'Loading...';
@@ -1557,6 +1598,8 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
   window.addEventListener('message', function (e) {
     if (e.data && e.data.smkFrameHeight) {
       frame.style.height = e.data.smkFrameHeight + 'px';
+      // Height is set outright rather than only increased, so the frame
+      // follows the content DOWN when a step is shorter than the last.
     }
   });
 

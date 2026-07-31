@@ -410,6 +410,22 @@
   .fader-desc{display:block; font-size:13px; color:var(--muted); line-height:1.5; margin-top:5px;}
 
 
+  /* Same wordmark as the Smackagram generator, in this page's amber. Fixed
+     position above the steps so it reads the same on every one. */
+  /* Same treatment as the Smackagram wordmark. This string is nearly twice
+     as long, so it takes a lower ceiling and tighter tracking to occupy a
+     similar width rather than running the full card. */
+  .gen-wordmark{
+    font-family:'Anton',sans-serif; font-weight:400;
+    font-size:clamp(26px,5.6vw,38px); line-height:1;
+    text-transform:uppercase; letter-spacing:-1px;
+    text-align:center; color:var(--amber);
+    margin:20px 0 4px;
+    -webkit-text-stroke:1.2px var(--amber);
+    paint-order:stroke fill;
+    text-shadow:0 0 26px rgba(255,184,0,0.45);
+  }
+
   .btn-center{display:flex; justify-content:center;}
   /* Same issue here: the Next button was touching the section rule beneath
      it. Lift it off the edge. */
@@ -439,14 +455,16 @@
      Width and padding are left alone so the generator measures the same as
      the Smackagram one it is replacing. */
   {% if embed %}
-  html body{border:none !important; margin:0 !important; box-shadow:none !important; border-radius:0 !important;}
+  html body{border:none !important; margin:0 !important; box-shadow:none !important; border-radius:0 !important; min-height:0 !important;}
+  html{min-height:0 !important;}
   html body::before{display:none !important;}
   #lnlConsole{
     border:none !important; box-shadow:none !important;
     border-radius:0 !important; margin:0 !important;
   }
   #lnlConsole::before{display:none !important;}
-  .wrap{padding-top:0 !important; padding-left:0 !important; padding-right:0 !important;}
+  .wrap{padding:0 !important;}
+  #lnlConsole{margin-bottom:0 !important;}
   {% endif %}
 </style>
 </head>
@@ -520,6 +538,8 @@
         <div class="progress-step" data-step="4"><span>4</span></div>
       </div>
     </div>
+
+  <p class="gen-wordmark">Locked &amp; Loaded</p>
 
   <div class="card" id="gameCard">
     <p class="step-label">Step 1</p>
@@ -601,13 +621,12 @@
       </div>
     </div>
 
-    <label for="voiceSelectLL">Voice</label>
-    <div style="display:flex; gap:8px; align-items:center;">
-      <select id="voiceSelectLL" style="flex:1;">
-        <option value="default">Loading voices...</option>
-      </select>
-      <button id="voiceSampleBtnLL" class="btn btn-ghost" type="button" style="white-space:nowrap; width:auto; padding:10px 16px;">Preview voice</button>
-    </div>
+    <!-- Voice picker and preview removed from the UI. The select survives
+         hidden because six places read voiceSelectLL.value - this keeps them
+         working on the default voice without touching every call site. -->
+    <select id="voiceSelectLL" hidden aria-hidden="true" tabindex="-1">
+      <option value="default" selected>Smacky</option>
+    </select>
     <audio id="voiceSampleAudioLL" style="display:none;"></audio>
     
       <div class="btn-center step-next-wrap">
@@ -1003,9 +1022,12 @@ async function loadVoices() {
   } catch (err) {}
 }
 
-document.getElementById('voiceSampleBtnLL').addEventListener('click', async () => {
+// Preview button removed from the UI; guarded rather than deleted so the
+// handler is here if the control ever returns.
+var _voiceSampleBtnLL = document.getElementById('voiceSampleBtnLL');
+if (_voiceSampleBtnLL) _voiceSampleBtnLL.addEventListener('click', async () => {
   const voiceKey = document.getElementById('voiceSelectLL').value;
-  const btn = document.getElementById('voiceSampleBtnLL');
+  const btn = _voiceSampleBtnLL;
   const audioEl = document.getElementById('voiceSampleAudioLL');
 
   btn.textContent = 'Loading...';
@@ -1293,10 +1315,16 @@ loadVoices();
 (function () {
   if (window.self === window.top) return;
   function report() {
-    var h = document.documentElement.scrollHeight;
+    // The console is the only thing in the frame, so its height IS the frame's
+    // height. documentElement.scrollHeight was wrong here - it never drops
+    // below the viewport, so a short step still reported a full screen and
+    // left black space under the generator.
+    var el = document.getElementById('lnlConsole');
+    var h = el ? Math.ceil(el.getBoundingClientRect().height) : document.documentElement.scrollHeight;
     window.parent.postMessage({smkFrameHeight: h, src: 'locked-n-loaded'}, '*');
   }
-  new ResizeObserver(report).observe(document.body);
+  var target = document.getElementById('lnlConsole') || document.body;
+  new ResizeObserver(report).observe(target);
   window.addEventListener('load', report);
   setTimeout(report, 300);
 })();
