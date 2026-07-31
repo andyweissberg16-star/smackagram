@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Smack Zone — Practice, Spar, Battle | Smackagram</title>
+<meta name="description" content="Sharpen your trash talk before you aim it at anybody. Coaching, open mic, and head-to-head battles. All free, no card, no limits.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Smackagram">
+<meta property="og:title" content="The Smack Zone — where you sharpen it">
+<meta property="og:description" content="Coaching, open mic, and head-to-head battles. All free.">
+<meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="{{ request.base_url }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Smack Zone — where you sharpen it">
+<meta name="twitter:description" content="Coaching, open mic, and head-to-head battles. All free.">
+<meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
+<meta name="theme-color" content="#0D0D0D">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
+<style>
+  :root{
+    --ink:#0D0D0D;
+    --ink-2:#1A1A1A;
+    --chalk:#F5F5F3;
+    --chalk-dim:#9A9A96;
+    --flare:#E8142C;
+    --flare-text:#FF3B50;
+    --flare-dim:#3A0810;
+    --turf:#39FF6A;
+    --gold:#FFD400;
+    --line:rgba(245,245,243,0.10);
+    --line-strong:rgba(245,245,243,0.24);
+  }
+  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:860px; margin:0 auto; padding:0 24px;}
+
+  .zone-hero{padding:44px 0 30px; text-align:center;}
+  .zone-eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
+    letter-spacing:3px; text-transform:uppercase; color:var(--flare-text); margin:0 0 10px;
+  }
+  .zone-title{
+    font-family:'Anton',sans-serif; font-size:clamp(34px,8vw,58px);
+    text-transform:uppercase; line-height:0.98; margin:0 0 14px; letter-spacing:0.5px;
+  }
+  .zone-title em{color:var(--flare); font-style:normal;}
+  .zone-sub{
+    font-size:15px; color:var(--chalk-dim); line-height:1.6;
+    max-width:520px; margin:0 auto;
+  }
+
+  /* Cards rather than a list of links. A nav link gets two words; a card
+     gets to actually sell the thing, which is the whole reason this page
+     earns its place over a dropdown. */
+  .zone-grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+    gap:16px; padding:8px 0 40px;
+  }
+  .zone-card{
+    display:flex; flex-direction:column; text-decoration:none; color:inherit;
+    border:2px solid var(--line-strong); border-radius:14px;
+    background:var(--ink-2); padding:22px 20px 20px;
+    transition:border-color .15s ease, transform .15s ease, background .15s ease;
+  }
+  .zone-card:hover{border-color:var(--flare); transform:translateY(-2px); background:#1F1F1F;}
+  .zone-card-top{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .zone-icon{
+    width:38px; height:38px; border-radius:10px; display:flex;
+    align-items:center; justify-content:center; background:var(--flare-dim);
+    color:var(--flare-text); flex:0 0 auto;
+  }
+  .zone-icon svg{width:20px; height:20px;}
+  .zone-free{
+    font-family:'JetBrains Mono',monospace; font-size:9px; font-weight:700;
+    letter-spacing:1.5px; text-transform:uppercase; color:var(--turf);
+    border:1px solid var(--turf); border-radius:999px; padding:3px 8px;
+  }
+  .zone-card h2{
+    font-family:'Anton',sans-serif; font-size:22px; text-transform:uppercase;
+    margin:0 0 7px; letter-spacing:0.4px; line-height:1.1;
+  }
+  .zone-card p{font-size:13.5px; color:var(--chalk-dim); margin:0 0 16px; line-height:1.55; flex:1;}
+  .zone-go{
+    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
+    letter-spacing:1.5px; text-transform:uppercase; color:var(--flare-text);
+  }
+
+  /* The point of the whole page: everything above is free and leads here. */
+  .zone-cta{
+    border-top:1px solid var(--line); padding:30px 0 60px; text-align:center;
+  }
+  .zone-cta h3{
+    font-family:'Anton',sans-serif; font-size:clamp(20px,4.5vw,26px);
+    text-transform:uppercase; margin:0 0 8px; letter-spacing:0.4px;
+  }
+  .zone-cta p{font-size:14px; color:var(--chalk-dim); margin:0 0 18px;}
+  .zone-btn{
+    display:inline-block; text-decoration:none; background:var(--flare); color:#fff;
+    font-family:'Anton',sans-serif; font-size:17px; text-transform:uppercase;
+    letter-spacing:1px; padding:13px 30px; border-radius:10px;
+    transition:transform .15s ease, filter .15s ease;
+  }
+  .zone-btn:hover{transform:translateY(-1px); filter:brightness(1.08);}
+
+  @media(max-width:520px){
+    .zone-hero{padding:32px 0 22px;}
+    .zone-grid{gap:13px;}
+    .zone-card{padding:18px 16px 16px;}
+  }
+</style>
+</head>
+<body>
+
+{% include '_nav.html' %}
+
+<div class="wrap">
+
+  <header class="zone-hero">
+    <p class="zone-eyebrow">Free · No card · No limits</p>
+    <h1 class="zone-title">The <em>Smack</em> Zone</h1>
+    <p class="zone-sub">
+      Where you sharpen it before you aim it at anybody. Get coached, run your
+      mouth in the open, or go head-to-head. Nothing here costs a thing and
+      nothing here calls anyone's phone.
+    </p>
+  </header>
+
+  <div class="zone-grid">
+
+    <a href="/smack-lab" class="zone-card">
+      <div class="zone-card-top">
+        <span class="zone-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 3h6v5l4 8a3 3 0 0 1-3 4H8a3 3 0 0 1-3-4l4-8V3z"></path>
+            <line x1="9" y1="3" x2="15" y2="3"></line>
+          </svg>
+        </span>
+        <span class="zone-free">Free</span>
+      </div>
+      <h2>Smack Lab</h2>
+      <p>
+        One-on-one with Smacky. Throw your best line, get scored on it, and find
+        out exactly why it landed or didn't. The fastest way to stop being the
+        person whose comebacks arrive twenty minutes late.
+      </p>
+      <span class="zone-go">Start sparring &rarr;</span>
+    </a>
+
+    <a href="/smack-chat" class="zone-card">
+      <div class="zone-card-top">
+        <span class="zone-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.1A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"></path>
+          </svg>
+        </span>
+        <span class="zone-free">Free</span>
+      </div>
+      <h2>Smack Chat</h2>
+      <p>
+        The open mic. Post your best shot, rate everyone else's, and watch the
+        good ones rise. No target, no phone call — just a room full of people
+        trying to outdo each other.
+      </p>
+      <span class="zone-go">Jump in &rarr;</span>
+    </a>
+
+    <a href="/smack-battle" class="zone-card">
+      <div class="zone-card-top">
+        <span class="zone-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.5 17.5 3 6V3h3l11.5 11.5"></path>
+            <path d="m13 19 6-6"></path>
+            <path d="m16 16 4 4"></path>
+            <path d="M19 3h2v2l-5.5 5.5"></path>
+          </svg>
+        </span>
+        <span class="zone-free">Free</span>
+      </div>
+      <h2>Smack Battle</h2>
+      <p>
+        Head-to-head, round by round, with the crowd deciding. Pick a room, take
+        your turn, and let the votes settle it. Losing here is free — losing on
+        a phone call isn't.
+      </p>
+      <span class="zone-go">Find a battle &rarr;</span>
+    </a>
+
+  </div>
+
+  <section class="zone-cta">
+    <h3>Ready to aim it at somebody?</h3>
+    <p>All of the above is practice. This part rings an actual phone.</p>
+    <a href="/send-a-smack" class="zone-btn">Send a Smackagram</a>
+  </section>
+
+</div>
+
+</body>
+</html>

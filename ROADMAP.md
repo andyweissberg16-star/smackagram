@@ -6717,3 +6717,30 @@ a price change can't silently desync it.
 
 Still gated on Twilio A2P: verification SMS can't fire until 10DLC lands. The
 flow is complete behind that.
+
+## The Smack Zone + nav restructure
+Nine product links sat at the top level of the nav. Grouped them by what
+somebody is trying to DO, not by what things cost — "free" is an accounting
+category, not a user's mental model, and a bin labelled that way quietly
+signals "lesser tier" about the exact features meant to pull people in.
+
+Top level went 9 -> 5: Send, Smack Zone, Listen, Did You Get Smacked?, Meet
+Smacky. Nothing was removed. Every page previously one click away is still one
+click (desktop dropdown) or one tap (mobile drawer section) away, and every
+route is untouched.
+
+Did You Get Smacked deliberately stays top-level rather than joining a group —
+it's where somebody lands after being told a URL on a phone call, mid-fury, and
+it has to be findable in one look.
+
+/smack-zone is a real page, not just a dropdown, because a hub only beats a
+dropdown if it sells each feature — cards with actual copy rather than a list
+of links — and because a page can rank in search where a nav item never will.
+
+Named Smack Zone rather than SmackDown: the latter is a famous WWE mark in
+entertainment, same class of risk as the "-gram" suffix issue.
+
+Dropdowns are click-only. A hover layer was built and removed — hover opened
+the menu and the subsequent click read it as already-open and closed it. A
+pinning scheme to reconcile them didn't behave predictably under test. Click-only
+is unambiguous across mouse, touch and keyboard, and is what could be verified.

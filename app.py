@@ -1699,6 +1699,23 @@ def contact_page():
     return render_template("contact.html")
 
 
+@app.route("/smack-zone")
+def smack_zone_page():
+    """
+    Hub for the free, text-only features (Lab, Chat, Battle). Grouping
+    these under one nav slot is what got the top-level nav from nine
+    product links down to five - but a hub only beats a plain dropdown if
+    it actually sells each feature, hence cards with real copy rather than
+    a list of links. It's also a landing page that can rank, which a nav
+    item never will.
+
+    The individual routes are untouched and stay linked from here; this is
+    purely additive. Nothing that used to be reachable stopped being
+    reachable.
+    """
+    return render_template("smack_zone.html")
+
+
 @app.route("/did-you-get-smacked")
 @login_required
 def did_you_get_smacked_page():

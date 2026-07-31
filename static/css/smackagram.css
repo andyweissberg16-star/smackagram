@@ -31,6 +31,45 @@
 
 nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
 .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+
+/* --- Grouped nav dropdowns --- */
+.nav-group{position:relative;}
+.nav-group-btn{
+  background:none; border:0; padding:0; cursor:pointer;
+  font-family:inherit; font-size:14px; color:var(--chalk-dim);
+  display:inline-flex; align-items:center; gap:5px;
+}
+.nav-group-btn:hover, .nav-group.is-open .nav-group-btn{color:var(--chalk);}
+.nav-caret{font-size:9px; transition:transform .15s ease;}
+.nav-group.is-open .nav-caret{transform:rotate(180deg);}
+.nav-menu{
+  display:none; position:absolute; top:calc(100% + 12px); left:50%;
+  transform:translateX(-50%); min-width:186px; z-index:60;
+  background:var(--ink-2); border:1px solid var(--line-strong);
+  border-radius:11px; padding:7px; box-shadow:0 12px 30px rgba(0,0,0,0.5);
+}
+.nav-group.is-open .nav-menu{display:block;}
+/* Bridges the gap between button and menu so moving the cursor down
+   doesn't close it mid-travel. */
+.nav-menu::before{content:''; position:absolute; top:-12px; left:0; right:0; height:12px;}
+.nav-menu a{
+  display:block; padding:8px 11px; border-radius:7px; white-space:nowrap;
+  color:var(--chalk-dim); text-decoration:none; font-size:13.5px;
+}
+.nav-menu a:hover{background:rgba(245,245,243,0.07); color:var(--chalk);}
+.nav-menu-hub{
+  color:var(--flare-text) !important; font-weight:600;
+  border-bottom:1px solid var(--line); border-radius:7px 7px 0 0; margin-bottom:3px;
+}
+
+/* Drawer section headers - the mobile equivalent of the dropdowns. A
+   drawer scrolls, so headers beat nested menus there. */
+.nav-drawer-head{
+  font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
+  letter-spacing:2px; text-transform:uppercase; color:var(--chalk-dim);
+  margin:18px 0 6px; padding:0 2px; opacity:0.75;
+}
+.nav-drawer-head:first-of-type{margin-top:6px;}
 .auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
 
 /* MOBILE / TABLET NAV
