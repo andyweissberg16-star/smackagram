@@ -148,32 +148,32 @@
   .sas-summary{
     display:flex; align-items:center; gap:11px; cursor:pointer;
     padding:13px 16px; margin:0;
-    background:#2A2114;
+    background:#1E2126;
     /* A solid rule under each collapsed row, in the page's own red. Stacked
        rows then read as separate boxes rather than one undifferentiated list,
        which is the whole point of collapsing them. Solid rather than the
        faded rule used elsewhere: a fade reads as a soft section break, and
        here the line is doing structural work. */
-    border-bottom:2px solid #FFB800;
+    border-bottom:2px solid #C3CAD3;
   }
-  .sas-summary:hover{background:#332818;}
+  .sas-summary:hover{background:#262A30;}
   .sas-summary[hidden]{display:none;}
   .sas-tick{
-    width:20px; height:20px; border-radius:50%; background:#FFB800; color:#0D0D0D;
+    width:20px; height:20px; border-radius:50%; background:linear-gradient(180deg,#F4F6F9,#C3CAD3 50%,#98A0AA); color:#0D0D0D;
     color:#fff; font-size:12px; display:grid; place-items:center; flex-shrink:0;
   }
   .sas-summary-body{flex:1; min-width:0;}
   .sas-summary-label{
     display:block; font-family:'JetBrains Mono',monospace; font-size:9px;
-    letter-spacing:1.5px; text-transform:uppercase; color:#A08A5A;
+    letter-spacing:1.5px; text-transform:uppercase; color:#8A9099;
   }
   .sas-summary-text{
-    display:block; font-size:13.5px; color:#F0E4CC; font-weight:600;
+    display:block; font-size:13.5px; color:#E8ECF1; font-weight:600;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
   .sas-summary-change{
     font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:1px;
-    color:#FFB800; flex-shrink:0;
+    color:#C3CAD3; flex-shrink:0;
   }
 
   .btn-center{display:flex; justify-content:center;}
@@ -260,9 +260,9 @@
   .gen-tab.is-active{background:var(--punch);}
   .gen-tab.is-active .gen-tab-kicker{color:rgba(255,255,255,0.75);}
   .gen-tab.is-active .gen-tab-name{color:#fff;}
-  .gen-tab-alt:hover{background:rgba(255,184,0,0.1);}
+  .gen-tab-alt:hover{background:rgba(200,210,222,0.1);}
   .gen-tab-alt:hover .gen-tab-name,
-  .gen-tab-alt:hover .gen-tab-kicker{color:#FFB800;}
+  .gen-tab-alt:hover .gen-tab-kicker{color:#C3CAD3;}
 
   /* The framed generator's shell matches the Smackagram card exactly, in
      amber - same border width, radius and shadow, so switching changes only
@@ -271,9 +271,10 @@
      framed generator was thinner than the one it replaces. */
   #lockedShell{
     position:relative;
-    border:5px solid #FFB800;
-    border-radius:var(--radius);
-    box-shadow:0 0 22px rgba(255,184,0,0.28);
+    border:5px solid;
+    border-image:linear-gradient(150deg,#F2F4F7,#9BA3AD 30%,#E8ECF1 50%,#7C848E 72%,#DDE3EA) 1;
+    border-radius:0;
+    box-shadow:0 0 22px rgba(190,200,212,0.22);
     background:var(--surface);
   }
   /* Same travelling light as the red card, same 9s lap - only the colour of
@@ -284,10 +285,10 @@
     padding:5px; pointer-events:none; z-index:2;
     background:conic-gradient(from var(--led-angle),
       transparent 0deg, transparent 300deg,
-      rgba(255,214,120,0.35) 320deg,
-      rgba(255,214,120,0.7) 340deg,
-      #FFD45A 350deg, #FFFFFF 355deg, #FFDE7A 358deg,
-      rgba(255,214,120,0.4) 360deg);
+      rgba(230,236,242,0.35) 320deg,
+      rgba(230,236,242,0.7) 340deg,
+      #E8ECF1 350deg, #FFFFFF 355deg, #DDE3EA 358deg,
+      rgba(230,236,242,0.4) 360deg);
     -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite:xor;
             mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -304,11 +305,11 @@
   /* Page frame repainted for whichever generator is showing. The frame
      itself lives in smackagram.css and is red by default; this overrides it
      while Locked & Loaded is active so the two never stack. */
-  body.gen-locked{border-color:#FFB800 !important; box-shadow:0 0 26px rgba(255,184,0,0.3) !important;}
-  body.gen-locked .gen-eyebrow{color:#FFB800;}
-  body.gen-locked .gen-headline em{color:#FFB800;}
-  body.gen-locked .gen-tabs{border-color:#3A2A08;}
-  body.gen-locked .gen-tab + .gen-tab{border-left-color:#3A2A08;}
+  body.gen-locked{border-color:#C3CAD3 !important; box-shadow:0 0 26px rgba(190,200,212,0.25) !important;}
+  body.gen-locked .gen-eyebrow{color:#C3CAD3;}
+  body.gen-locked .gen-headline em{color:#C3CAD3;}
+  body.gen-locked .gen-tabs{border-color:#3A3D42;}
+  body.gen-locked .gen-tab + .gen-tab{border-left-color:#3A3D42;}
   /* (The page-wide travelling light was removed entirely - nothing to hide
      here any more.) */
 
@@ -771,7 +772,7 @@
     </div>
     <div class="sas-body" id="sasBody3">
     <p class="step-label">Step 3</p>
-    <h3>Now Smacky goes to work.</h3>
+    <h3>Now <span class="smacky">Smacky</span> goes to work.</h3>
     <p class="card-sub">Hit generate and he&rsquo;ll dig up something ugly about their team. Don&rsquo;t like what he came back with? Hit it again &mdash; he&rsquo;s got a whole vault of this stuff. Think you can do better? Type over it yourself.</p>
 
     <!-- Voice picker and preview removed from the UI. The select survives as
@@ -784,12 +785,13 @@
     <audio id="voiceSampleAudio" style="display:none;"></audio>
 
 
-    <p class="field-group-label" style="border-top:none; background-image:none; padding-top:0; margin-top:22px;">What Smacky will say</p>
-    <textarea id="trashTalkOutput" placeholder="Smacky’s line lands here"></textarea>
-
     <div class="btn-center">
       <button id="generateBtn" class="btn btn-flare btn-narrow">Generate smack talk</button>
     </div>
+
+    <p class="field-group-label" style="border-top:none; background-image:none; padding-top:0; margin-top:22px;">What Smacky will say</p>
+    <textarea id="trashTalkOutput" placeholder="Smacky’s line lands here"></textarea>
+
 
     <div class="btn-center">
       <button id="previewBtn" class="btn btn-outline btn-narrow no-spinner" disabled>Listen to your Smackagram</button>

@@ -5825,3 +5825,55 @@ line: allowing a reply doesn't reveal who sent the original.
 ## Step 4 heading
 "Last thing - where do we reach Andy?" converted from a grey card-sub to the
 same h3 as every other step heading.
+
+## Locked & Loaded: amber replaced with silver
+The generator's accent is now silver rather than gold. Brand colours are red
+and silver.
+
+Silver isn't one colour - a flat grey reads as a DISABLED control, not metal.
+So the surfaces use gradients that run light-to-dark-to-light:
+  - Frame uses border-image, not border-color, so the edge shifts around the
+    perimeter the way a brushed edge catches light.
+  - Wordmark is gradient-FILLED text rather than solid colour plus a stroke.
+    The stroke existed to fake weight in Anton at amber; the fill does that
+    work now.
+  - Buttons carry dark text on a metal face - silver isn't dark enough to hold
+    white text, so the polarity flips.
+Tokens kept their --amber names to avoid touching 34 call sites; the VALUES
+are silver (#C3CAD3 mid, #F4F6F9 highlight, #3A3D42 hairline, #98A0AA shadow).
+
+Applied on both pages: the framed shell and page frame in send_a_smack, the
+switcher tabs, the completed-step rows (silver now plays the "opposite accent"
+role gold did), and the travelling light.
+
+THREE AMBERS DELIBERATELY KEPT - the temperature fader's track, its HEAT map,
+and the --gold token feeding them. That gradient means HEAT: red hot, yellow
+cool. Recolouring it silver would turn a thermometer into decoration and lose
+the one thing that makes the control readable without reading labels. So there
+is still yellow on step 3, on purpose.
+
+The red ARMED light and Smacky's name stay red, and against silver they're now
+the only colour on the card - the live state reads harder than it did against
+amber.
+
+## Locked & Loaded: structure brought in line with Smackagram
+- League tabs and quick-team chips REMOVED. This broke the search, because the
+  tabs were the only way to set which league gets queried - searchGames would
+  only ever have hit NFL. Replaced with a sweep that tries leagues in order
+  and STOPS at the first match, so a common team costs one request, not eight.
+  Known cost: a team with no game in 48h runs all eight before saying so.
+- Recipient name moved from step 4 to step 1, asked first, and carried into
+  step 4's heading and phone label ("Andy's phone number"). Step 1 now blocks
+  Next without it. Name is sanitised before insertion since it goes into
+  markup.
+- Step 1 restructured as "Instructions" with four numbered points and numbered
+  field labels, matching the other generator.
+- Step 3 heading matched exactly to the Smackagram intensity step, keeping the
+  one line that ISN'T true of both ("He writes it after the game").
+- Step 4 opening matched, including the field-hint line AND its styling -
+  .field-hint had no rule on this page, so the text would have rendered at
+  full body size.
+- Smackback explainer ported over identically, replacing the shorter
+  hover-only tooltip.
+- ARMED light and text turned red - "armed" is a warning state, and amber was
+  signalling "waiting" for the thing that's about to fire a call.
