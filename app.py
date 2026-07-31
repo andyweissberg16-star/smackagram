@@ -609,11 +609,18 @@ def create_order():
     custom_message = data.get("custom_message", "")
     safety = content_moderation.check_message_safety(custom_message)
     if not safety["safe"]:
-        print(f"[safety] blocked order attempt — reason: {safety['reason']}")
+        print(f"[safety] blocked order attempt - {safety.get('category','?')}: "
+              f"{(safety.get('excerpt') or safety.get('reason') or '')[:90]}")
         return jsonify({
-            "error": _moderation_error_text(safety["reason"]),
-            "reason": safety["reason"],
-        }), 400
+            "error": _moderation_error_text(safety),
+            "reason": safety.get("reason"),
+            "excerpt": safety.get("excerpt", ""),
+            "category": safety.get("category", ""),
+            # 503 not 400 when the CHECK failed - it's our outage, and a
+            # different status lets the front end offer a retry rather than
+            # asking someone to edit text that was never the problem.
+            "retryable": not safety.get("available", True),
+        }), (503 if not safety.get("available", True) else 400)
 
     if not wallet_service.has_sufficient_balance(user, wallet_service.SMACK_COST_CENTS):
         redirect = _store_pending_action(user, "send_smack", data)
@@ -786,18 +793,36 @@ def stripe_webhook():
     return jsonify({"received": True})
 
 
-def _moderation_error_text(reason):
+def _moderation_error_text(verdict):
     """
-    Turns the moderator's reason into a message someone can actually act on.
+    Turns a verdict into a message someone can actually act on.
 
-    Previously every rejection showed the same sentence listing three
-    possible categories, which left people guessing which part of their
-    message was the problem. The classifier already returns a specific
-    reason - it was just being logged and thrown away.
+    Takes the whole verdict rather than just a reason string, because the two
+    failure modes read completely differently:
+
+      CHECK OUTAGE - our problem, nothing to edit. The old version said
+      "please edit that part" here, which sent people into a loop retyping
+      text that was never the issue.
+
+      VIOLATION - quote the offending words back. The classifier now returns
+      the exact excerpt, so instead of "this breaks the rules, guess which
+      bit", people see the phrase and fix it in one go.
     """
-    if not reason:
-        return "This message can't be sent. Please revise it and try again."
-    return f"This message can't be sent: {reason} Please edit that part and try again."
+    if isinstance(verdict, str):          # tolerate the old call shape
+        verdict = {"reason": verdict, "available": True}
+
+    if not verdict.get("available", True):
+        return ("We couldn't run the safety check just now - nothing's wrong with "
+                "your message. Give it a few seconds and try again.")
+
+    excerpt = (verdict.get("excerpt") or "").strip()
+    reason = (verdict.get("reason") or "").strip()
+
+    if excerpt:
+        return f'This part can\'t go out: "{excerpt}"' + (f" - {reason}" if reason else "")
+    if reason:
+        return f"This message can't be sent: {reason}"
+    return "This message can't be sent. Please revise it and try again."
 
 
 @app.route("/api/generate-trash-talk", methods=["POST"])
@@ -856,7 +881,7 @@ def generate_trash_talk():
             break
         # Same reasoning: a moderator that can't reach its API reports unsafe
         # by design. That's right at checkout, wrong here.
-        if verdict.get("reason") == "moderation check unavailable — please try again":
+        if not verdict.get("available", True):
             print("[safety] moderation unreachable during generation, passing through")
             line = candidate
             break
@@ -917,7 +942,7 @@ def smack_lab_respond():
     # different from a custom message elsewhere.
     safety = content_moderation.check_message_safety(user_line)
     if not safety["safe"]:
-        return jsonify({"error": _moderation_error_text(safety["reason"]), "reason": safety["reason"]}), 400
+        return jsonify({"error": _moderation_error_text(safety), "reason": safety.get("reason"), "excerpt": safety.get("excerpt", ""), "category": safety.get("category", ""), "retryable": not safety.get("available", True)}), (503 if not safety.get("available", True) else 400)
 
     result = trash_talk_service.smack_lab_respond(team=team, my_team=my_team, conversation_history=conversation_history, user_line=user_line)
     rate_limiter.record_hit(identifier)
@@ -993,8 +1018,9 @@ def preview_audio():
     # at all, regardless of whether they ever actually complete an order.
     safety = content_moderation.check_message_safety(text)
     if not safety["safe"]:
-        print(f"[safety] blocked preview attempt — reason: {safety['reason']}")
-        return jsonify({"error": _moderation_error_text(safety["reason"]), "reason": safety["reason"]}), 400
+        print(f"[safety] blocked preview - {safety.get('category','?')}: "
+              f"{(safety.get('excerpt') or safety.get('reason') or '')[:90]}")
+        return jsonify({"error": _moderation_error_text(safety), "reason": safety.get("reason"), "excerpt": safety.get("excerpt", ""), "category": safety.get("category", ""), "retryable": not safety.get("available", True)}), (503 if not safety.get("available", True) else 400)
 
     voice_key = request.json.get("voice_key", voice_options.DEFAULT_VOICE_KEY)
     voice_id = voice_options.get_voice_id(voice_key)
@@ -1838,7 +1864,7 @@ def create_chat_post():
     safety = content_moderation.check_message_safety(message)
     if not safety["safe"]:
         print(f"[safety] blocked chat post — reason: {safety['reason']}")
-        return jsonify({"error": _moderation_error_text(safety["reason"]), "reason": safety["reason"]}), 400
+        return jsonify({"error": _moderation_error_text(safety), "reason": safety.get("reason"), "excerpt": safety.get("excerpt", ""), "category": safety.get("category", ""), "retryable": not safety.get("available", True)}), (503 if not safety.get("available", True) else 400)
 
     post = ChatPost(league=league, team=team, display_name=display_name or "Anonymous", message=message)
     db.session.add(post)
@@ -2189,7 +2215,7 @@ def submit_battle_line(challenge_code):
         safety = content_moderation.check_message_safety(message)
         if not safety["safe"]:
             print(f"[safety] blocked battle line — reason: {safety['reason']}")
-            return jsonify({"error": _moderation_error_text(safety["reason"]), "reason": safety["reason"]}), 400
+            return jsonify({"error": _moderation_error_text(safety), "reason": safety.get("reason"), "excerpt": safety.get("excerpt", ""), "category": safety.get("category", ""), "retryable": not safety.get("available", True)}), (503 if not safety.get("available", True) else 400)
 
     db.session.add(BattleLine(battle_id=battle.id, side=side, round_number=battle.round_number, message=message, timed_out=timed_out))
 
@@ -2839,7 +2865,7 @@ def create_reply_order():
     if not safety["safe"]:
         print(f"[safety] blocked reply order attempt — reason: {safety['reason']}")
         return jsonify({
-            "error": _moderation_error_text(safety["reason"]),
+            "error": _moderation_error_text(safety),
             "reason": safety["reason"],
         }), 400
 
@@ -2989,7 +3015,7 @@ def arm_smackagram():
         if not safety["safe"]:
             print(f"[safety] blocked smackagram arm attempt — reason: {safety['reason']}")
             return jsonify({
-            "error": _moderation_error_text(safety["reason"]),
+            "error": _moderation_error_text(safety),
             "reason": safety["reason"],
         }), 400
 

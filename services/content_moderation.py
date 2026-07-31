@@ -42,33 +42,85 @@ Do NOT flag: profanity, crude jokes, sports-related insults, mean-spirited
 but non-threatening trash talk, or dark humor that isn't a genuine threat.
 
 Respond with ONLY a JSON object, nothing else:
-{"unsafe": true or false, "reason": "brief category if unsafe, otherwise null"}
+{"unsafe": true or false,
+ "category": "one of: threat, minors, sexual, hate, doxxing, tragedy — or null",
+ "excerpt": "the exact words from the message that caused this, copied verbatim — or null",
+ "reason": "one short plain sentence explaining what's wrong — or null"}
+
+The excerpt must be copied EXACTLY from the user's message, word for word, so
+it can be highlighted back to them. Quote only the offending part, not the
+whole message.
 """
 
 
 def check_message_safety(text: str) -> dict:
     """
-    Returns {"safe": bool, "reason": str|None}. Fails safe (blocks) if the
-    classifier call itself errors out — better to occasionally block a
-    legitimate message and require a retry than to silently let a check
-    failure allow something dangerous through.
+    Returns a verdict about a user-typed message.
+
+    Three outcomes, deliberately distinguished, because they need completely
+    different handling and the previous version collapsed two of them:
+
+      {"safe": True}
+          Fine, send it.
+
+      {"safe": False, "available": True, "category", "excerpt", "reason"}
+          A genuine violation. The excerpt is the offending words copied out
+          of their message, so the UI can show them exactly what to change
+          instead of making them guess.
+
+      {"safe": False, "available": False}
+          The CHECK ITSELF failed - a timeout, a rate limit, an outage. There
+          is nothing wrong with their message and nothing for them to edit.
+          Previously this returned the same shape as a violation and told
+          people to "edit that part", which is both wrong and impossible to
+          act on.
     """
     if not text or not text.strip():
-        return {"safe": True, "reason": None}
+        return {"safe": True, "available": True}
 
     try:
         message = _get_client().messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=100,
+            max_tokens=300,
             system=_MODERATION_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": text}],
         )
         raw = message.content[0].text.strip()
-        # strip potential markdown code fences before parsing
         raw = raw.replace("```json", "").replace("```", "").strip()
         result = json.loads(raw)
-        unsafe = bool(result.get("unsafe"))
-        return {"safe": not unsafe, "reason": result.get("reason") if unsafe else None}
+
+        if not bool(result.get("unsafe")):
+            return {"safe": True, "available": True}
+
+        category = (result.get("category") or "").strip().lower()
+        excerpt = (result.get("excerpt") or "").strip()
+
+        # Only trust an excerpt that genuinely appears in the message. A
+        # paraphrase would highlight nothing and look broken.
+        if excerpt and excerpt.lower() not in text.lower():
+            excerpt = ""
+
+        # For child-safety categories we name the problem but do NOT quote the
+        # text back or coach a fix. Telling someone precisely which words
+        # tripped this is a map for getting the next attempt through, and that
+        # is not a trade worth making for a smoother error message.
+        if category == "minors":
+            return {
+                "safe": False, "available": True, "category": category,
+                "excerpt": "",
+                "reason": "This can't be sent.",
+            }
+
+        return {
+            "safe": False, "available": True,
+            "category": category or "policy",
+            "excerpt": excerpt,
+            "reason": (result.get("reason") or "").strip() or "This breaks our content rules.",
+        }
+
     except Exception as e:
+        # Still fails closed - an unchecked message must not go out. But it is
+        # reported honestly as OUR failure rather than the user's.
         print(f"[content_moderation] check failed, blocking as a precaution: {e}")
-        return {"safe": False, "reason": "moderation check unavailable — please try again"}
+        return {"safe": False, "available": False,
+                "reason": "We couldn't run the safety check just now."}

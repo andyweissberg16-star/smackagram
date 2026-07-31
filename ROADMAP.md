@@ -6629,3 +6629,40 @@ before it goes.
 
 The landing page CTA already existed - "Send one of your own", with the price
 and the anonymity promise underneath.
+
+## Moderation errors: say WHAT, and stop blaming the user for our outages
+Reported: "This message can't be sent: moderation check unavailable - please
+edit that part and try again."
+
+TWO SEPARATE PROBLEMS, and the first was a bug.
+
+1. THAT MESSAGE WAS NOT A VIOLATION. The classifier call itself errored -
+   timeout, rate limit, outage - and the code fails closed, correctly. But it
+   returned the same shape as a real violation, so the UI told someone to
+   "edit that part" when there was no part to edit and nothing wrong with
+   their text. You could retype forever.
+
+   Now distinguished: {"available": False} means OUR failure. Different
+   wording ("nothing's wrong with your message"), different status (503 not
+   400), and a retryable flag so the front end can offer a retry instead of
+   an edit.
+
+2. VIOLATIONS NOW QUOTE THE OFFENDING WORDS. The classifier returns the exact
+   excerpt copied from the message, verified to actually appear in it (a
+   paraphrase would highlight nothing and look broken). So instead of "this
+   breaks the rules, guess which bit", people see the phrase and fix it once.
+
+ONE DELIBERATE EXCEPTION: for child-safety flags the category is named but
+the text is NOT quoted back and no fix is coached. Telling someone precisely
+which words tripped that filter is a map for getting the next attempt
+through, and a smoother error message isn't worth that trade. Every other
+category gets the full excerpt.
+
+Every block is logged with category and excerpt - both to catch the filter
+being wrong and to see if someone is probing it.
+
+ALSO FIXED: a caller compared against the old error STRING to detect an
+outage. Changing the message would have silently broken it. Now checks the
+flag.
+
+Consolidated to one helper rather than the two that briefly existed.
