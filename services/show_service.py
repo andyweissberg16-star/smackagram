@@ -15,6 +15,7 @@ No safety screen is needed here, which is the other reason this beats the
 news feed. A run differential cannot be a tragedy.
 """
 
+import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -628,6 +629,31 @@ def write_script(material: dict) -> dict:
     return script
 
 
+def _elapsed_logger():
+    """
+    Timestamped, flushed progress logging for a show run.
+
+    Two reasons this exists. First, the [show] lines carried no time of their
+    own - only Gunicorn's HTTP access lines were timestamped - so the only way
+    to judge duration was to eyeball where a print landed relative to an
+    unrelated request, which is guesswork. Second, print() buffers: a line can
+    surface long after the work it describes actually finished, so even that
+    guess was unreliable. flush=True fixes the second, elapsed time fixes the
+    first.
+
+    It also closes a real blind spot: between the ESPN pull and the finished
+    mix, several minutes pass with NO output at all, and every other [show]
+    line is a failure path. Silence therefore meant either "working" or "the
+    thread died" with no way to tell them apart.
+    """
+    t0 = time.monotonic()
+
+    def log(msg: str):
+        print(f"[show +{time.monotonic() - t0:6.1f}s] {msg}", flush=True)
+
+    return log, (lambda: time.monotonic() - t0)
+
+
 def produce_daily_show(days_back: int = 1) -> dict:
     """
     The whole job, end to end: pull the night, decide the runtime, write it,
@@ -638,8 +664,12 @@ def produce_daily_show(days_back: int = 1) -> dict:
     """
     from services.smackcast_service import assemble_recap_audio, sanitize_for_speech
 
+    log, elapsed = _elapsed_logger()
+    log("started - fetching results")
+
     material = get_show_material(days_back=days_back)
     plan = material["plan"]
+    log(f"results in: {material['game_count']} games, planning {plan['minutes']:g} min")
 
     if not plan["publish"]:
         # Deliberately does NOT publish something thin. Yesterday's show stays
@@ -648,7 +678,9 @@ def produce_daily_show(days_back: int = 1) -> dict:
         return {"published": False, "reason": plan["reason"],
                 "game_count": material["game_count"]}
 
+    log("writing script (Claude)")
     script = write_script(material)
+    log("script written")
     if not script.get("publish"):
         return {"published": False, "reason": script.get("reason", "no script")}
 
@@ -693,8 +725,11 @@ def produce_daily_show(days_back: int = 1) -> dict:
               f"{[list(x.keys()) if isinstance(x, dict) else type(x).__name__ for x in script.get('segments', [])][:3]}")
         return {"published": False, "reason": "script returned no usable segments"}
 
-    audio_url = _assemble_with_music(intro, segments, outro)
-    print(f"[show] published {plan['minutes']:g} min from {material['game_count']} games")
+    log(f"generating speech for {len(segments)} segments + intro/outro (slowest step)")
+    audio_url = _assemble_with_music(intro, segments, outro, log=log)
+    total = elapsed()
+    log(f"PUBLISHED {plan['minutes']:g} min from {material['game_count']} games "
+        f"- total {int(total // 60)}m {total % 60:04.1f}s")
 
     return {
         "published": True,
@@ -763,7 +798,7 @@ assert MUSIC_SOLO_MS + DUCK_RAMP_MS + FADE_OUT_MS <= MUSIC_BED_MS, (
 # would be tempting to reuse.
 
 
-def _assemble_with_music(intro: str, segments: list, outro: str) -> str:
+def _assemble_with_music(intro: str, segments: list, outro: str, log=None) -> str:
     """
     Builds the episode, then lays the intro bed under the front of it.
 
@@ -780,7 +815,11 @@ def _assemble_with_music(intro: str, segments: list, outro: str) -> str:
     import os, uuid, subprocess, tempfile, boto3, requests
     from services import smackcast_service
 
+    if log is None:
+        log = lambda m: print(f"[show] {m}", flush=True)
+
     url = smackcast_service.assemble_recap_audio(intro, segments, outro)
+    log("speech generated and stitched")
 
     if not os.path.exists(INTRO_MUSIC_PATH):
         return url
@@ -901,7 +940,8 @@ def _assemble_with_music(intro: str, segments: list, outro: str) -> str:
             boto3.client("s3", region_name=region).put_object(
                 Bucket=bucket, Key=key, Body=f, ContentType="audio/mpeg")
 
-        print(f"[show] intro bed mixed via ffmpeg, voice in at {MUSIC_SOLO_MS}ms")
+        log(f"mix complete - intro bed, voice in at {MUSIC_SOLO_MS}ms"
+            + (", outro bed" if use_outro else ", no outro (speech too short)"))
         return f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
 
     except subprocess.CalledProcessError as e:
