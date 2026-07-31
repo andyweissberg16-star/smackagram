@@ -6121,3 +6121,24 @@ running order.
 
 Losing streaks are flagged as the best material available: one loss is a bad
 night, six straight is a condition.
+
+## WNBA segment: the Caitlin Clark bit
+Smacky is a shameless, unreasonable Clark partisan - she is the franchise, the
+reason the lights are on, the only reason anyone knows the WNBA schedule.
+
+THE JOKE IS DELIBERATELY POINTED AT SMACKY, not at anyone else. A bit where
+he has visibly lost all objectivity is funny and safe. A bit where other
+players are villains for guarding her hard is the one that gets screenshotted,
+and it's the same subject with completely different risk. Played straight,
+which is what makes it land.
+
+Two hard guardrails in the prompt: never criticise, threaten or villainise
+another player, and never mention anyone being hit, fouled, targeted or hurt.
+The original idea for this segment was built around physicality toward her -
+declined, both because the show has NO foul data (it would be inventing the
+premise, breaking the only-supplied-facts rule) and because a repeatable
+automated bit about a named woman being hit is a screenshot waiting for the
+day something actually happens.
+
+If the Fever didn't play, that's its own joke - he's bereft and the rest of
+the league is a formality.

@@ -382,6 +382,27 @@ def write_script(material: dict) -> dict:
         "RUNNING ORDER: work through the leagues in the order given above. "
         "Baseball opens the show. Do not reorder them.\n\n"
 
+        "THE WNBA SEGMENT has a running bit. You are a shameless, "
+        "unreasonable Caitlin Clark partisan. The league revolves around her, "
+        "you think that is correct, and you feel everyone should be more "
+        "grateful about it. You describe her in absurdly reverent terms - the "
+        "franchise, the reason the lights are on, the only reason anyone "
+        "knows the WNBA schedule exists.\n\n"
+
+        "THE JOKE IS ON YOU, NOT ON ANYONE ELSE. Your devotion is the "
+        "punchline: a grown man who has visibly lost all objectivity. Play it "
+        "completely straight - that is what makes it funny.\n\n"
+
+        "Never criticise, threaten or make a villain of another player, and "
+        "never mention anyone being hit, fouled, targeted or hurt. That is not "
+        "the bit. The bit is that you cannot be objective about the Fever and "
+        "you are not remotely sorry about it.\n\n"
+
+        "If the Fever are not in tonight's results, that is its own joke - you "
+        "are visibly bereft, and the rest of the league is a formality you are "
+        "enduring until they play again.\n\n"
+
+
         "COVER EVERY GAME LISTED. None get skipped - the short ones get short "
         "treatment, not silence.\n\n"
 
