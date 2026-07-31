@@ -5476,3 +5476,38 @@ reply checkbox, explaining that the target can send exactly one Smackagram
 back and that the number is used only for that. Opens on hover AND on
 keyboard focus - hover alone is unreachable by keyboard and completely
 unusable on a phone, where a good share of the traffic will be.
+
+## Generator switcher across both generators
+A two-tab switcher above each generator: Smackagram in red on the left,
+Locked & Loaded in amber on the right, split by a divider, sitting slightly
+wider than the generator so it frames it rather than sitting inside its
+width. The active tab fills with its own colour, the other stays dark and
+tints toward its colour on hover.
+
+Headline: "Talk now. Or let the scoreboard talk for you." Chosen over "pick
+your weapon" and the victim-framed options - it stays in sports language and
+describes what Locked & Loaded literally does: waits for the result and
+roasts off the real outcome. Kicker labels ("Send it now" / "Arm it for
+later") sit above each brand name, because without them the tabs are two
+names and nothing tells a first-time visitor what the difference is.
+
+BUILT AS LINKS, NOT A MERGE - a deliberate call worth recording. Clicking a
+tab loads the other page rather than swapping in place. The full merge would
+mean running both generators' scripts on one page, and they collide on names
+(selectedSensitivity, voiceSelect, .card, .step-label and more) plus two
+accordion controllers, game polling and two pay flows. That's a large change
+to two complex pages with real hidden-bug risk, and it wouldn't alter how any
+of this LOOKS - so the design can be judged and adjusted first, and the merge
+only paid for if the reload actually proves annoying.
+
+Consequence: switching loses anything typed. The copy deliberately does NOT
+claim "nothing you've filled in disappears" - that only becomes true with the
+merge.
+
+Also removed the three how-it-works boxes from send_a_smack. They described a
+single-generator flow; with a switcher above the page they'd be explaining
+only half of what's there.
+
+REPAIRED MID-BUILD: my first cut of those boxes took the wrapper and item 1
+but left items 2 and 3 orphaned and closed .intro early - caught by the div
+balance check, not by eye.

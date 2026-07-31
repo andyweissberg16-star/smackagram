@@ -89,24 +89,25 @@
   /* COLLAPSED STEP SUMMARY */
   /* The whole collapsed card is the target - it reads as a row you press,
      and the padding around the text is no longer dead space. */
-  .card.collapsed{cursor:pointer;}
+  /* The whole collapsed card carries the red, not just the summary row -
+     otherwise the card's black background frames it and it reads as a black
+     box with a red box inside. */
+  #lnlConsole .card.collapsed{cursor:pointer; background:#2A1214;}
   /* Hide the prompt copy once a step is answered - the summary row below it
      already carries the choice, and repeating "Pick a game" above "Yankees at
      White Sox" is noise. The step number stays. */
-  .card.collapsed h3,
-  .card.collapsed .card-sub{display:none;}
-  .card.collapsed:hover{background:rgba(224,27,36,0.05);}
+  #lnlConsole .card.collapsed h3,
+  #lnlConsole .card.collapsed .card-sub{display:none;}
+  #lnlConsole .card.collapsed:hover{background:#3A1A1D;}
   /* Completed steps in red, opposite this page's amber - a finished step
      reads as a different zone from the one you're in. */
   .step-summary{
     display:flex; justify-content:space-between; align-items:center;
-    cursor:pointer; padding:13px 14px; margin:0 -14px;
-    background:#2A1214;
+    cursor:pointer; padding:0;
+    background:transparent;
     /* Same treatment as the Smackagram generator, in this page's amber. The
        rule under each collapsed row makes the stack read as separate boxes. */
-    border-bottom:2px solid #E01B24;
   }
-  .step-summary:hover{background:#3A1A1D;}
   .step-summary-text{font-size:14px; color:#F5D8DB; font-weight:600;}
   .step-summary-change{
     font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--chalk-dim); text-decoration:underline;
@@ -318,6 +319,45 @@
   }
   #lnlConsole .step-label{color:var(--amber) !important;}
 
+  .gen-switch{text-align:center; padding:8px 0 0;}
+  .gen-eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;
+    letter-spacing:3px; text-transform:uppercase; color:var(--amber); margin:0 0 8px;
+  }
+  .gen-headline{
+    font-family:'Anton',sans-serif; font-size:clamp(22px,5vw,30px);
+    text-transform:uppercase; line-height:1.05; margin:0 0 8px;
+  }
+  .gen-headline em{color:var(--amber); font-style:normal;}
+  .gen-sub{
+    font-size:13.5px; color:var(--muted); line-height:1.55;
+    max-width:460px; margin:0 auto 18px;
+  }
+  .gen-tabs{
+    display:flex; margin:0 -8px 16px;
+    border:2px solid var(--amber-hairline); border-radius:12px;
+    overflow:hidden; background:var(--ink);
+  }
+  .gen-tab{
+    flex:1; padding:16px 12px; text-align:center; text-decoration:none;
+    display:block; transition:background .15s ease;
+  }
+  .gen-tab + .gen-tab{border-left:2px solid var(--amber-hairline);}
+  .gen-tab-kicker{
+    display:block; font-family:'JetBrains Mono',monospace; font-size:9px;
+    letter-spacing:2px; text-transform:uppercase; color:var(--muted-2); margin-bottom:4px;
+  }
+  .gen-tab-name{
+    display:block; font-size:16px; font-weight:600; letter-spacing:.5px;
+    text-transform:uppercase; color:var(--muted-2);
+  }
+  .gen-tab.is-active{background:var(--amber);}
+  .gen-tab.is-active .gen-tab-kicker{color:rgba(13,13,13,0.65);}
+  .gen-tab.is-active .gen-tab-name{color:#0D0D0D;}
+  .gen-tab-alt:hover{background:rgba(224,27,36,0.12);}
+  .gen-tab-alt:hover .gen-tab-name,
+  .gen-tab-alt:hover .gen-tab-kicker{color:#E01B24;}
+
   .btn-center{display:flex; justify-content:center;}
   /* Same issue here: the Next button was touching the section rule beneath
      it. Lift it off the edge. */
@@ -374,6 +414,23 @@
 
   <div id="errorBox" class="error-box" role="alert"></div>
 
+
+  <div class="gen-switch">
+    <p class="gen-eyebrow">Two ways to do it</p>
+    <h2 class="gen-headline">Talk now. Or let the <em>scoreboard</em> talk for you.</h2>
+    <p class="gen-sub">Send one today, or set one that stays quiet until their team loses &mdash; then goes off on its own.</p>
+
+    <div class="gen-tabs">
+      <a class="gen-tab gen-tab-alt" href="/send-a-smack">
+        <span class="gen-tab-kicker">Send it now</span>
+        <span class="gen-tab-name">Smackagram</span>
+      </a>
+      <span class="gen-tab is-active">
+        <span class="gen-tab-kicker">Arm it for later</span>
+        <span class="gen-tab-name">Locked &amp; Loaded</span>
+      </span>
+    </div>
+  </div>
 
   <div id="lnlConsole">
     <div class="lnl-bar">
@@ -487,7 +544,7 @@
     <h3>Who's receiving this</h3>
 
     <label for="recipientNameLL">Recipient's name</label>
-    <input id="recipientNameLL" type="text" placeholder="ex. Mike">
+    <input id="recipientNameLL" type="text" placeholder="ex - Mike Sullivan">
 
     <label for="recipientPhoneLL">Recipient's phone number</label>
     <input id="recipientPhoneLL" type="tel" placeholder="+1 555 555 5555">
