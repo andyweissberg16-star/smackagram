@@ -270,14 +270,36 @@
   /* Must match #wizardCard exactly - .card alone gives a 2px border, so the
      framed generator was thinner than the one it replaces. */
   #lockedShell{
+    position:relative;
     border:5px solid #FFB800;
     border-radius:var(--radius);
     box-shadow:0 0 22px rgba(255,184,0,0.28);
     background:var(--surface);
   }
-  #lockedShell::before{display:none;}
+  /* Same travelling light as the red card, same 9s lap - only the colour of
+     the arc differs. Identical geometry means switching generators changes
+     nothing but the hue. */
+  #lockedShell::before{
+    content:''; position:absolute; inset:-5px; border-radius:inherit;
+    padding:5px; pointer-events:none; z-index:2;
+    background:conic-gradient(from var(--led-angle),
+      transparent 0deg, transparent 300deg,
+      rgba(255,214,120,0.35) 320deg,
+      rgba(255,214,120,0.7) 340deg,
+      #FFD45A 350deg, #FFFFFF 355deg, #FFDE7A 358deg,
+      rgba(255,214,120,0.4) 360deg);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+            mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask-composite:exclude;
+    animation:ledOrbit 9s linear infinite;
+  }
+  @media(prefers-reduced-motion:reduce){ #lockedShell::before{animation:none; opacity:0;} }
 
-  #wizardCard .progress-bar{margin:18px 24px 4px;}
+
+  #wizardCard .progress-bar{margin:0;}
+  #wizardCard .progress-step{width:22px; height:22px; font-size:11px; border-width:1.5px;}
+  #wizardCard .progress-line{width:14px;}
 
   /* Page frame repainted for whichever generator is showing. The frame
      itself lives in smackagram.css and is red by default; this overrides it
@@ -424,6 +446,11 @@
      full card width, and any padding on the step would inset them by however
      much it happened to be. The open body carries its own instead. */
   .wizard-step{padding:0 0 22px;}
+  /* A collapsed step is just a summary row - it doesn't need the bottom
+     padding that exists to lift a Next button off the card edge. Left in, it
+     stacks with the next step's top padding and opens a gap that grows with
+     every completed step. */
+  .wizard-step:has(> .sas-body[style*="none"]){padding-bottom:0;}
   .wizard-nav{padding:18px 24px 22px !important; margin-top:22px;}
 
   .step-dots{display:flex; justify-content:center; gap:10px; margin-bottom:20px;}
@@ -580,30 +607,23 @@
   </div>
 
   <div class="card" id="wizardCard">
+    <!-- Circles live in the console strip itself. The status text and the
+         step position belong together, and the numbered counter was saying
+         the same thing as the circles beside it - so it goes. The segmented
+         track went too, for the same reason: three indicators of one thing. -->
     <div class="console-bar">
       <span class="console-led" aria-hidden="true"></span>
       <span class="console-status" id="consoleStatus">Line open</span>
       <span class="console-spacer"></span>
-      <span class="console-count" id="stepCounter">01 / 04</span>
-    </div>
-    <div class="console-track" id="consoleTrack" role="progressbar" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1">
-      <span class="track-seg on"></span>
-      <span class="track-seg"></span>
-      <span class="track-seg"></span>
-      <span class="track-seg"></span>
-    </div>
-
-    <!-- Inside the border, matching Locked & Loaded. Sits under the console
-         header so the card reads as one instrument rather than a strip of
-         circles floating above it. -->
-    <div class="progress-bar" id="progressBar">
-      <div class="progress-step active" data-step="1"><span>1</span></div>
-      <div class="progress-line"></div>
-      <div class="progress-step" data-step="2"><span>2</span></div>
-      <div class="progress-line"></div>
-      <div class="progress-step" data-step="3"><span>3</span></div>
-      <div class="progress-line"></div>
-      <div class="progress-step" data-step="4"><span>4</span></div>
+      <div class="progress-bar" id="progressBar" role="progressbar" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1">
+        <div class="progress-step active" data-step="1"><span>1</span></div>
+        <div class="progress-line"></div>
+        <div class="progress-step" data-step="2"><span>2</span></div>
+        <div class="progress-line"></div>
+        <div class="progress-step" data-step="3"><span>3</span></div>
+        <div class="progress-line"></div>
+        <div class="progress-step" data-step="4"><span>4</span></div>
+      </div>
     </div>
     <p class="console-field" id="consoleField">Target</p>
 
@@ -679,14 +699,7 @@
     </div>
     <div class="sas-body" id="sasBody3">
     <p class="step-label">Step 3</p>
-    <p class="card-sub">Generate it, pick a voice, hear it, send it.</p>
-
-    <div class="btn-center">
-      <button id="generateBtn" class="btn btn-flare btn-narrow">Generate smack talk</button>
-    </div>
-
-    <p class="field-group-label" style="border-top:none; background-image:none; padding-top:0; margin-top:22px;">What Smacky will say</p>
-    <textarea id="trashTalkOutput" placeholder="Smacky’s line lands here"></textarea>
+    <p class="card-sub">Pick a voice, generate it, hear it, send it.</p>
 
     <div style="display:flex; gap:8px; align-items:stretch; justify-content:center; margin-bottom:14px; flex-wrap:wrap;">
       <select id="voiceSelect" style="margin-bottom:0; flex:0 0 auto; width:125px; min-width:0; font-size:13px;">
@@ -698,6 +711,13 @@
               style="flex:0 0 auto; width:auto; white-space:nowrap; margin:0; padding:10px 16px; font-size:12.5px;">Preview</button>
     </div>
     <audio id="voiceSampleAudio" style="display:none;"></audio>
+
+    <div class="btn-center">
+      <button id="generateBtn" class="btn btn-flare btn-narrow">Generate smack talk</button>
+    </div>
+
+    <p class="field-group-label" style="border-top:none; background-image:none; padding-top:0; margin-top:22px;">What Smacky will say</p>
+    <textarea id="trashTalkOutput" placeholder="Smacky’s line lands here"></textarea>
 
     <div class="btn-center">
       <button id="previewBtn" class="btn btn-outline btn-narrow no-spinner" disabled>Listen to your Smackagram</button>
@@ -960,10 +980,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (collapsed) summarise(n);
       }
     });
-    segs.forEach((seg, n) => seg.classList.toggle('on', n <= current));
+    segs.forEach((seg, n) => seg.classList.toggle('on', n <= current)); // no-op now; track removed
     if (statusEl) statusEl.textContent = STATUS[current] || STATUS[0];
     if (fieldEl) fieldEl.textContent = FIELDS[current] || FIELDS[0];
-    if (track) track.setAttribute('aria-valuenow', String(current + 1));
+    var pbar = document.getElementById('progressBar');
+    if (pbar) pbar.setAttribute('aria-valuenow', String(current + 1));
 
     // Numbered circles above the console. Same states as Locked & Loaded:
     // filled for where you are, outlined for steps already done.
@@ -977,7 +998,7 @@ document.addEventListener('DOMContentLoaded', () => {
       el.classList.toggle('completed', (i + 1) < current + 1);
     });
     // Zero-padded, which reads as instrumentation rather than pagination.
-    counter.textContent = `${String(current + 1).padStart(2, '0')} / ${String(steps.length).padStart(2, '0')}`;
+    if (counter) counter.textContent = `${String(current + 1).padStart(2, '0')} / ${String(steps.length).padStart(2, '0')}`;
 
     // Back is hidden rather than disabled on the first step - a disabled
     // button would pick up the site-wide spinner, which reads as loading.

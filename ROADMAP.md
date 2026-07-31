@@ -5691,3 +5691,35 @@ balance can't cover the send.
   restyling the label - they're both step headings, so they should BE the same
   thing and stay in sync if the style ever changes. Question mark added.
 - Voice dropdown reads "Smacky" rather than "Smacky (Classic)".
+
+## Both generators made structurally identical
+INTENSITY FADER ported to Locked & Loaded, replacing the checkbox rows. CSS
+lifted verbatim from the Smackagram generator so the two are the same control
+rather than two that resemble each other - they can't drift apart now.
+selectedSensitivityLL stays the source of truth, so arming and pricing are
+untouched.
+  The track stays RED-TO-YELLOW on both pages, deliberately. The gradient
+  means heat - red hot, yellow cool - and that reading is what makes the
+  control legible without labels. Recolouring it amber here would turn a
+  thermometer into decoration.
+
+STEP CIRCLES MOVED INTO THE STATUS STRIP on both. Removed alongside them:
+"01 / 04" and the segmented track on Smackagram, "Standing by" on Locked &
+Loaded. All were restating what the circles now show, inches away. The status
+word ("Line open" / "Armed") stays - that's state, not position.
+
+VOICE ROW ABOVE GENERATE on the Smackagram generator. You pick who's speaking
+before generating what they say; previously you'd generate, then find the
+voice control underneath and possibly want to regenerate.
+
+AMBER LED ON THE FRAMED GENERATOR, same 9s lap as the red. Two things blocked
+it, both mine: a stale "#lockedShell::before{display:none}" from when the
+shell deliberately had no light, and an overflow:hidden that clipped a
+pseudo-element sitting at inset:-5px. Verified rotating, 134deg -> 195deg
+across a sample, at the same duration as the red card.
+
+STEP SPACING: every .wizard-step carried 22px bottom padding to lift its Next
+button off the card edge. A COLLAPSED step has no button, so that padding
+stacked with the next step's top padding - a gap that grew with every
+completed step (20px above step 2, 64px above step 3). Collapsed steps now
+drop it. Both measured at 20px after.
