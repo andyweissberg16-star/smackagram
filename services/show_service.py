@@ -176,41 +176,63 @@ def _score_game(game: dict) -> int:
 # assumed for read-aloud copy. Smacky talks slower than that.
 SPOKEN_WORDS_PER_MINUTE = 115
 
-# Runtime bands by how much actually happened. Four minutes is the ceiling,
-# reached when a full slate of leagues is in season. Same approach as
-# smackcast_service, and for the same reason: a fixed runtime forces padding
-# on quiet nights, and padding is far more noticeable than a shorter show.
-RUNTIME_BANDS = [
-    (15, 4.0),   # 15+ games - in season, multiple leagues
-    (8, 3.0),    # 8-14
-    (4, 2.0),    # 4-7 - one league, quiet night
-]
+# Runtime floor and ceiling. Every game that finished gets airtime - nothing
+# is filtered out - so the length is driven by how many there were, held
+# between these two.
+MIN_MINUTES = 5.0
+MAX_MINUTES = 6.0
 MIN_GAMES = 4    # below this, keep yesterday's show rather than publish thin
+
+# League running order. Baseball opens because it carries the slate; WNBA
+# closes. Anything unlisted lands in the middle.
+LEAGUE_ORDER = ["MLB", "NFL", "NBA", "NHL", "WNBA"]
 
 
 def plan_runtime(game_count: int) -> dict:
     """
-    Decides how long this episode should be, and how many games to cover.
+    Decides the runtime and how the word budget is split across the slate.
 
-    Returns publish=False when there isn't enough to work with - the caller
-    is expected to leave the previous show up rather than air something thin.
+    EVERY game is covered - none are dropped. But they don't get equal time:
+    a 12-2 humiliation earns a setup and a punchline, a one-run game earns a
+    sentence. Roughly:
+
+      HEADLINE  - the three worst beatings, ~55 words each
+      EVERY OTHER GAME - one line, the remaining budget split evenly
+
+    Capped at 55 words for a single game deliberately. Ninety seconds on one
+    result is too long even when it's funny; the show should keep moving.
     """
     if game_count < MIN_GAMES:
-        return {"publish": False, "minutes": 0, "word_budget": 0, "cover": 0,
+        return {"publish": False, "minutes": 0, "word_budget": 0,
+                "headline": 0, "rest": 0, "words_per_rest": 0,
                 "reason": f"only {game_count} finished games - keeping the previous show"}
 
-    minutes = 2.0
-    for threshold, mins in RUNTIME_BANDS:
-        if game_count >= threshold:
-            minutes = mins
-            break
+    # Enough words to give every game a line, then held inside the bounds.
+    wanted = 60 + (3 * 55) + (max(0, game_count - 3) * 26)
+    words = max(int(MIN_MINUTES * SPOKEN_WORDS_PER_MINUTE),
+                min(int(MAX_MINUTES * SPOKEN_WORDS_PER_MINUTE), wanted))
+    minutes = round(words / SPOKEN_WORDS_PER_MINUTE, 1)
 
-    words = int(minutes * SPOKEN_WORDS_PER_MINUTE)
-    # Roughly 55 words per game once the intro and outro are allowed for -
-    # enough for a setup and a punchline without turning into a list.
-    cover = max(3, min(game_count, int((words - 60) / 55)))
-    return {"publish": True, "minutes": minutes, "word_budget": words,
-            "cover": cover, "reason": f"{game_count} games -> {minutes:g} minutes"}
+    headline = min(3, game_count)
+    rest = game_count - headline
+    body_left = words - 60 - (headline * 55)
+    per_rest = int(body_left / rest) if rest else 0
+
+    # Bounded at both ends. Uncapped, four games gave 350 words to a single
+    # result and forty gave twelve - one is a monologue, the other isn't a
+    # joke. Below 14 words a game is just a score being read out.
+    per_rest = max(14, min(45, per_rest))
+
+    # If the cap means the slate genuinely can't fill the floor, the show is
+    # shorter. Padding is more noticeable than brevity.
+    actual = 60 + (headline * 55) + (rest * per_rest)
+    minutes = round(actual / SPOKEN_WORDS_PER_MINUTE, 1)
+
+    return {"publish": True, "minutes": minutes, "word_budget": actual,
+            "headline": headline, "rest": rest, "words_per_rest": per_rest,
+            "cover": game_count,
+            "reason": f"{game_count} games -> {minutes:g} min, all covered "
+                      f"({headline} in depth, {rest} at ~{per_rest} words each)"}
 
 
 def get_show_material(leagues=None, days_back: int = 1, want: int = None) -> dict:
@@ -227,9 +249,23 @@ def get_show_material(leagues=None, days_back: int = 1, want: int = None) -> dic
     for lg in leagues:
         games.extend(fetch_results(lg, days_back=days_back))
 
+    # Rank by roastability to decide WHICH get depth...
     games.sort(key=_score_game, reverse=True)
     plan = plan_runtime(len(games))
-    top = games[:(want or plan["cover"])]
+    h = plan.get("headline", 0)
+    for idx, g in enumerate(games):
+        g["tier"] = "headline" if idx < h else "quick"
+
+    # ...then re-sort into broadcast order: baseball opens, WNBA closes, and
+    # within each league the best material leads. Nothing is dropped.
+    def running_order(g):
+        try:
+            lg = LEAGUE_ORDER.index(g["league"])
+        except ValueError:
+            lg = len(LEAGUE_ORDER) - 1
+        return (lg, 0 if g["tier"] == "headline" else 1, -_score_game(g))
+
+    top = sorted(games, key=running_order)
 
     return {
         "date": (datetime.utcnow() - timedelta(days=days_back)).strftime("%A, %B %-d"),
@@ -292,35 +328,74 @@ def write_script(material: dict) -> dict:
     if not plan["publish"]:
         return {"publish": False, "reason": plan["reason"]}
 
-    lines = []
+    # Group by league so the running order survives into the prompt, and tag
+    # each game with the depth it earned.
+    by_league = {}
     for g in material["games"]:
-        lines.append(f"- [{g['league']}] " + "; ".join(g["facts"]))
-    for s in material.get("streaks", []):
-        lines.append(f"- [{s['league']}] {s['team']} have lost {s['losses']} in a row")
+        by_league.setdefault(g["league"], []).append(g)
+
+    blocks = []
+    for lg in LEAGUE_ORDER:
+        if lg not in by_league:
+            continue
+        rows = []
+        for g in by_league[lg]:
+            mark = "BIG" if g.get("tier") == "headline" else "quick"
+            rows.append(f"  [{mark}] " + "; ".join(g["facts"]))
+        blocks.append(f"{lg}:\n" + "\n".join(rows))
+
+    streaks = "\n".join(
+        f"  {s['team']} have lost {s['losses']} straight ({s['league']})"
+        for s in material.get("streaks", [])
+    )
 
     system = smackology.render(level=4, context="recap")
 
     user = (
-        f"You are Smacky, hosting THE SMACKY REPORT — a daily sports radio "
-        f"segment about what happened last night ({material['date']}).\n\n"
-        f"FACTS. These are real and verified. You may ONLY reference what is "
-        f"listed here. Do not invent injuries, reasons, quotes, player names "
-        f"or anything about why a result happened — you were given scores, not "
-        f"explanations. Making something up is worse than being short.\n\n"
-        + "\n".join(lines) + "\n\n"
-        f"LENGTH: about {plan['word_budget']} words total. That is a hard "
-        f"target — this is a timed radio segment.\n\n"
-        "SHAPE:\n"
-        "1. Open with the branded greeting, then the date.\n"
-        "2. Work through the results, worst beating first. Every one gets a "
-        "setup and a punchline. Name both teams.\n"
-        "3. Losing streaks are your best material — a single loss is a night, "
-        "six straight is a condition.\n"
-        "4. Close by telling them to come back tomorrow.\n\n"
+        f"You are Smacky, hosting THE SMACKY REPORT - a daily sports radio "
+        f"segment about last night ({material['date']}).\n\n"
+
+        f"FACTS. Real and verified. You may ONLY reference what is listed "
+        f"here. Do not invent injuries, reasons, quotes, player names, or any "
+        f"explanation for WHY something happened - you were handed scores, not "
+        f"stories. Making something up is worse than being short.\n\n"
+        + "\n\n".join(blocks) + "\n\n"
+        + (f"LOSING STREAKS:\n{streaks}\n\n" if streaks else "")
+
+        + "HOW TO CALL IT, like a real host would:\n\n"
+
+        "The [BIG] games are the beatings. Go after them. Set it up, land the "
+        "punchline, twist the knife. These are the ones people tuned in for - "
+        f"about {plan['headline'] and 55} words each, and make them count.\n\n"
+
+        "The [quick] games are NOT beatings, so don't pretend they were. A "
+        "one-run game isn't humiliating, it's just baseball. Give it a line - "
+        f"about {plan['words_per_rest']} words - land something clever if the "
+        "detail gives you an angle, and move on. Sometimes the funniest thing "
+        "is refusing to care: 'Toronto beat Boston by one. Riveting.' A host "
+        "who tries to make every game hilarious is exhausting; one who saves "
+        "it for the carnage is funny.\n\n"
+
+        "LOSING STREAKS are your best material. One loss is a bad night. Six "
+        "straight is a condition, and you should treat it like a diagnosis.\n\n"
+
+        "RUNNING ORDER: work through the leagues in the order given above. "
+        "Baseball opens the show. Do not reorder them.\n\n"
+
+        "COVER EVERY GAME LISTED. None get skipped - the short ones get short "
+        "treatment, not silence.\n\n"
+
+        f"TOTAL LENGTH: about {plan['word_budget']} words. This is a timed "
+        "segment, so that's a target, not a suggestion.\n\n"
+
+        "SHAPE: branded greeting and the date, then the leagues in order, then "
+        "tell them to come back tomorrow.\n\n"
+
         "Reply with JSON only:\n"
         '{"intro": "...", "segments": [{"text": "...", "reaction": "burn"}], '
         '"outro": "...", "best_line": "..."}\n'
-        "No other text. reaction is one of: burn, laugh, shock, groan."
+        "Group segments sensibly - a [BIG] game is its own segment, several "
+        "[quick] ones can share. reaction is one of: burn, laugh, shock, groan."
     )
 
     resp = _get_client().messages.create(

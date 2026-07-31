@@ -6095,3 +6095,29 @@ rolled back and there's a record of what aired on any date. is_live doubles as
 the kill switch agreed earlier - a single boolean, no deploy needed.
 
 /api/show/current is what the home page player will read. Player still to build.
+
+## The Smacky Report: depth follows the beating
+Runtime 5-6 minutes, EVERY finished game covered, none filtered out.
+
+Games do not get equal time - that's a scoreboard read, not a show. Real
+sports radio gives the humiliation a minute and the one-run game a sentence:
+  - The 3 worst beatings get ~55 words each: setup, punchline, knife.
+  - Every other game gets a line, budget split evenly, bounded 14-45 words.
+Uncapped, four games gave 350 words to a single result and forty gave twelve -
+one is a monologue, the other isn't a joke.
+
+If the caps mean a thin slate can't fill five minutes, the show is SHORTER.
+Padding is more noticeable than brevity.
+
+THE PROMPT SAYS THIS EXPLICITLY, because the failure mode is a host who tries
+to make every game hilarious: "A one-run game isn't humiliating, it's just
+baseball... Sometimes the funniest thing is refusing to care." A host who
+saves it for the carnage is funnier than one who's relentless.
+
+RUNNING ORDER: baseball opens, WNBA closes, set by LEAGUE_ORDER. Games are
+ranked by roastability to decide WHICH get depth, then re-sorted into
+broadcast order - so the best material leads each league without breaking the
+running order.
+
+Losing streaks are flagged as the best material available: one loss is a bad
+night, six straight is a condition.
