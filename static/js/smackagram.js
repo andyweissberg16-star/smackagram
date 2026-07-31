@@ -248,7 +248,7 @@
     d = d.slice(0, 10);
     if (!d) return '';
     var out = '1 (' + d.slice(0, 3);
-    if (d.length >= 3) out += ')';
+    if (d.length > 3) out += ')';
     if (d.length > 3) out += ' ' + d.slice(3, 6);
     if (d.length > 6) out += '-' + d.slice(6, 10);
     return out;
@@ -282,6 +282,32 @@
     if (el.value && el.value.replace(/\D/g, '').length >= 10) {
       el.value = formatPhone(el.value);
     }
+
+    // Backspace onto a separator deletes the digit before it instead. The
+    // separators are generated, so deleting one on its own is meaningless -
+    // it just reappears on the next reformat, which reads as the key not
+    // working at all.
+    el.addEventListener('keydown', function (e) {
+      if (e.key !== 'Backspace') return;
+      var pos = el.selectionStart;
+      if (pos !== el.selectionEnd || pos === 0) return;   // let a real selection delete normally
+      if (/\d/.test(el.value.charAt(pos - 1))) return;    // deleting a digit is already fine
+
+      e.preventDefault();
+      // Walk back over any run of separators to the last actual digit.
+      var i = pos - 1;
+      while (i >= 0 && !/\d/.test(el.value.charAt(i))) i--;
+      if (i < 0) return;
+      var digits = el.value.slice(0, i).replace(/\D/g, '') + el.value.slice(i + 1).replace(/\D/g, '');
+      el.value = formatPhone(digits);
+      // Put the caret after the last digit that survived.
+      var keep = el.value.slice(0, i).replace(/\D/g, '').length;
+      var seen = 0, caret = el.value.length;
+      for (var j = 0; j < el.value.length; j++) {
+        if (/\d/.test(el.value.charAt(j))) { seen++; if (seen > keep) { caret = j; break; } }
+      }
+      try { el.setSelectionRange(caret, caret); } catch (err) {}
+    });
 
     el.addEventListener('input', function () {
       var atEnd = el.selectionStart === el.value.length;

@@ -5784,3 +5784,44 @@ Step 2 heading is now "Choose how hard Smacky goes" with a small italic aside:
 "(He votes Savage. He always votes Savage.)" Written as Smacky lobbying for
 himself rather than a neutral note, which is more in character and does the
 same job of nudging toward the default.
+
+## Phone backspace trap - real bug, shared JS
+Reported: backspace wouldn't cross the closing bracket of the area code; you
+had to click past it by hand.
+
+CAUSE was a loop, not a blocked key. Backspace deleted the ")", the input
+handler immediately reformatted and put it straight back, so the keystroke
+netted to nothing and the caret never moved - which reads as the key being
+ignored. Two changes:
+  - The bracket no longer closes at exactly three digits (it appears on the
+    fourth), so completing an area code doesn't lock a bracket behind you.
+  - Backspace onto ANY separator now deletes the digit before it. Separators
+    are generated, so deleting one alone is meaningless.
+Verified by pressing Backspace ten times: 1 (555) 123-4567 -> 1 (555) 12 ->
+1 (5 -> empty, crossing every separator.
+
+This lives in static/js/smackagram.js, which auto-attaches to every
+input[type="tel"] - so the fix covers Locked & Loaded, the reply row and the
+profile too, not just the field it was reported on.
+
+NOTE: send_a_smack.html still contains an EMPTY attachPhoneFormatting() and
+its own formatPhone(). Dead code - the shared file is what actually runs.
+Left in place rather than removed blind, but worth deleting.
+
+## Smackback explainer on step 4
+A click-to-open explanation under the reply checkbox: "Don't know what a
+Smackback is?" with an info icon. Click rather than hover - this needs real
+reading, and hover doesn't exist on a phone. The link text flips to "What a
+Smackback is" when open, so it describes what the next click does.
+
+Content was checked against the code rather than assumed:
+  - The one-reply cap is real (record.replied flips and blocks further tries).
+  - The replier genuinely pays for their own.
+  - The sender's number is NEVER exposed - the reply page receives only a
+    token, and sender_phone is read server-side when placing the call.
+That last point is the one people actually worry about, so it's the bolded
+line: allowing a reply doesn't reveal who sent the original.
+
+## Step 4 heading
+"Last thing - where do we reach Andy?" converted from a grey card-sub to the
+same h3 as every other step heading.

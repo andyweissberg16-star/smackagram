@@ -519,6 +519,28 @@
   .fld-num{color:var(--punch); font-weight:700;}
   /* Small aside under a heading - deliberately quieter than the body copy so
      it reads as a parenthetical remark rather than an instruction. */
+  .explain-link{
+    display:inline-flex; align-items:center; gap:7px;
+    background:none; border:none; padding:4px 0 0; margin:0 0 4px;
+    font-family:'Inter',sans-serif; font-size:12px; color:var(--muted-2);
+    cursor:pointer; text-decoration:underline; text-underline-offset:3px;
+  }
+  .explain-link:hover{color:var(--punch);}
+  .explain-icon{
+    width:15px; height:15px; border-radius:50%;
+    border:1px solid currentColor; color:inherit;
+    font-family:'JetBrains Mono',monospace; font-size:9.5px; font-weight:700;
+    display:inline-grid; place-items:center; line-height:1;
+  }
+  .explain-box{
+    background:var(--surface-2); border:1px solid var(--punch);
+    border-radius:8px; padding:13px 15px; margin:6px 0 14px;
+  }
+  .explain-box[hidden]{display:none;}
+  .explain-box p{font-size:12.5px; color:var(--muted); line-height:1.55; margin:0 0 9px;}
+  .explain-box p:last-child{margin-bottom:0;}
+  .explain-box strong{color:var(--chalk);}
+
   .heading-aside{
     font-size:12.5px; color:var(--muted-2); font-style:italic;
     margin:-2px 0 16px;
@@ -789,7 +811,7 @@
   <div class="wizard-step" data-step="4">
     <div class="sas-body" id="sasBody4">
     <p class="step-label">Step 4</p>
-    <p class="card-sub" id="callingSub">Last thing &mdash; where do we reach them?</p>
+    <h3 id="callingSub">Last thing &mdash; where do we reach them?</h3>
 
     <label for="orderRecipientPhone" id="phoneLabel">Their phone number</label>
     <input id="orderRecipientPhone" type="tel" inputmode="tel" placeholder="1 (555) 555-5555" maxlength="17">
@@ -798,8 +820,25 @@
     <div style="border-top:1px solid var(--hairline); padding-top:16px; margin-top:6px;">
       <label class="consent-row" for="orderReplyOptIn">
         <input type="checkbox" id="orderReplyOptIn">
-        <span>Let them smack me back &mdash; I’m okay with a reply.</span>
+        <span>Let them smack me back &mdash; I&rsquo;m okay with a reply.</span>
       </label>
+      <!-- Click rather than hover: this needs real explaining, and hover
+           doesn't exist on a phone. Sits under the checkbox so it reads as a
+           footnote to it, not another option. -->
+      <button type="button" class="explain-link" id="smackbackLink"
+              aria-expanded="false" aria-controls="smackbackBox">
+        Don&rsquo;t know what a Smackback is? <span class="explain-icon" aria-hidden="true">i</span>
+      </button>
+      <div class="explain-box" id="smackbackBox" hidden role="region" aria-label="What a Smackback is">
+        <p><strong>A Smackback is their one shot at revenge.</strong></p>
+        <p>Tick this and the person you smacked gets a link to fire <strong>one</strong>
+        Smackagram back at you. Just one &mdash; after that the door&rsquo;s closed.</p>
+        <p><strong>They never see your number.</strong> It stays on our side &mdash; the
+        call comes from us, not from you, so ticking this doesn&rsquo;t hand over your
+        digits or give away who sent the original. You stay anonymous either way.</p>
+        <p>They pay for their own reply, same as you did. Leave this unticked and they
+        never get the chance.</p>
+      </div>
       <div id="orderReplyPhoneRow" style="display:none; margin:8px 0 14px;">
         <label for="orderSenderPhone">Your number (only used if they reply)</label>
         <input id="orderSenderPhone" type="tel" inputmode="tel" placeholder="1 (555) 555-5555" maxlength="17">
@@ -1618,6 +1657,22 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
   });
 
   if (new URLSearchParams(location.search).get('gen') === 'locked') show('locked');
+})();
+</script>
+<script>
+(function () {
+  var link = document.getElementById('smackbackLink');
+  var box = document.getElementById('smackbackBox');
+  if (!link || !box) return;
+  link.addEventListener('click', function () {
+    var open = box.hidden;
+    box.hidden = !open;
+    link.setAttribute('aria-expanded', String(open));
+    // Wording flips so the control says what the next click will do.
+    link.childNodes[0].nodeValue = open
+      ? 'What a Smackback is '
+      : 'Don\u2019t know what a Smackback is? ';
+  });
 })();
 </script>
 </body>
