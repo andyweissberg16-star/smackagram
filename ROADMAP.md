@@ -6253,3 +6253,29 @@ PERFORMANCE: the streak lookup made 35 calls - seven days across five leagues
 - when three of those leagues are out of season and guaranteed empty. Now
 checks which leagues actually played last night first, then only looks back
 through those. Cuts it to 14 calls in the current season.
+
+## ON AIR player on the home page
+Sits between the hero copy and the two generator cards. High on purpose: it's
+the only asset on the page that DEMONSTRATES rather than describes. A stranger
+can't judge "AI trash talk" from a sentence, but ninety seconds of Smacky
+destroying a real result settles it either way.
+
+HIDDEN ENTIRELY when no episode is live, so a failed morning shows nothing
+rather than a player with no audio behind it.
+
+The dot blinks and the waveform moves ONLY while playing - a light flashing on
+a paused player is a lie the eye notices. The waveform is decorative rather
+than analysed from the signal; reading the real audio needs an AudioContext
+and buys almost nothing, since what matters is that it moves when there's
+sound and stops when there isn't.
+
+Waveform hidden below 720px, where there isn't room for it.
+
+## Punctuation names widened (again)
+"dot" was spoken aloud in the first episode. The pattern only covered comma,
+semicolon and ellipsis - the names that had been caught in the wild - which
+meant every new one cost a broken episode to discover. Now covers the full set
+of punctuation names an engine might verbalise.
+
+Trade-off worth knowing: it strips these as WORDS anywhere, so a team or
+player name genuinely containing one would be eaten. No real-world case known.

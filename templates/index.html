@@ -302,6 +302,52 @@
     .nav-links{display:none;}
     .hero-split{grid-template-columns:1fr !important;}
   }
+
+  /* ---- The Smacky Report player ---- */
+  #onAirBar{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    background:var(--ink-2); border:2px solid var(--flare);
+    border-radius:10px; padding:12px 16px;
+    box-shadow:0 0 26px rgba(232,20,44,0.28);
+  }
+  #onAirBar[hidden]{display:none;}
+  .oa-left{display:flex; align-items:center; gap:11px;}
+  .oa-btn{
+    width:42px; height:42px; border-radius:50%; flex-shrink:0;
+    background:var(--flare); border:none; color:#fff; cursor:pointer;
+    font-size:15px; line-height:1; display:grid; place-items:center;
+    box-shadow:0 0 16px rgba(232,20,44,0.5);
+  }
+  .oa-btn:hover{transform:scale(1.05);}
+  .oa-badge{
+    display:inline-flex; align-items:center; gap:7px;
+    background:var(--flare); padding:5px 11px; border-radius:999px;
+    font-family:'JetBrains Mono',monospace; font-size:10px;
+    font-weight:800; letter-spacing:2px; color:#fff; white-space:nowrap;
+  }
+  .oa-dot{width:7px; height:7px; border-radius:50%; background:#fff;}
+  /* Blinks only while playing - a light that flashes on a paused player is
+     a lie the eye notices. */
+  .oa-dot.live{animation:oaBlink 1.1s steps(1) infinite;}
+  @keyframes oaBlink{0%,49%{opacity:1}50%,100%{opacity:.15}}
+
+  .oa-mid{display:flex; flex-direction:column; min-width:190px;}
+  .oa-kicker{
+    font-family:'JetBrains Mono',monospace; font-size:9px;
+    letter-spacing:2px; color:var(--chalk-dim); text-transform:uppercase;
+  }
+  .oa-title{font-size:16px; font-weight:600; color:var(--chalk); line-height:1.2;}
+
+  .oa-wave{flex:1; min-width:120px; height:34px;}
+  .oa-time{
+    font-family:'JetBrains Mono',monospace; font-size:11px;
+    color:var(--chalk-dim); white-space:nowrap;
+  }
+  @media(max-width:720px){
+    .oa-wave{display:none;}
+    .oa-mid{min-width:0; flex:1;}
+  }
+  @media(prefers-reduced-motion:reduce){ .oa-dot.live{animation:none;} }
 </style>
 </head>
 <body>
@@ -348,6 +394,46 @@
       <p class="sub" style="max-width:900px; margin-left:auto; margin-right:auto; text-align:center;">Smackagram turns real game results into custom trash talk. Pick a team, and Smacky — our AI roaster — writes a savage, personalized line based on what actually happened, then calls your friend and reads it out loud himself, completely anonymous. Send it right now, or arm it ahead of time so it only fires if their team actually loses. Either way, the whole thing takes under a minute.</p>
     </div>
   </section>
+</div>
+
+<!-- THE SMACKY REPORT. Placed high on purpose: it's the only asset on the
+     page that DEMONSTRATES rather than describes. A stranger can't judge
+     "AI trash talk" from a sentence, but ninety seconds of Smacky destroying
+     a real result settles it either way. Hidden entirely when no episode is
+     live, so a failed morning shows nothing rather than a broken player. -->
+<div style="max-width:1100px; margin:0 auto 20px; padding:0 24px;">
+  <div id="onAirBar" hidden>
+    <div class="oa-left">
+      <button id="oaPlay" class="oa-btn" type="button" aria-label="Play today's show">
+        <span id="oaIcon">&#9654;</span>
+      </button>
+      <span class="oa-badge">
+        <span class="oa-dot" id="oaDot"></span>
+        <span>ON AIR</span>
+      </span>
+    </div>
+
+    <div class="oa-mid">
+      <span class="oa-kicker">The Smacky Report &middot; <span id="oaDate"></span></span>
+      <span class="oa-title">Last night&rsquo;s scores. Roasted.</span>
+    </div>
+
+    <svg class="oa-wave" id="oaWave" viewBox="0 0 600 40" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="oaFade" x1="0" x2="1">
+          <stop offset="0" stop-color="#E01B24" stop-opacity="0"/>
+          <stop offset="0.1" stop-color="#E01B24" stop-opacity="1"/>
+          <stop offset="0.9" stop-color="#E01B24" stop-opacity="1"/>
+          <stop offset="1" stop-color="#E01B24" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path id="oaPath" stroke="url(#oaFade)" stroke-width="2" fill="none" stroke-linecap="round"
+            d="M0,20 Q15,20 30,20 T60,20 T90,20 T120,20 T150,20 T180,20 T210,20 T240,20 T270,20 T300,20 T330,20 T360,20 T390,20 T420,20 T450,20 T480,20 T510,20 T540,20 T570,20 T600,20"/>
+    </svg>
+
+    <span class="oa-time" id="oaTime">&mdash;</span>
+    <audio id="oaAudio" preload="none"></audio>
+  </div>
 </div>
 
 <div style="max-width:1100px; margin:0 auto; padding:0 24px;">
@@ -490,6 +576,77 @@ document.getElementById('heroLockedTeamInput').addEventListener('keydown', (e) =
     btn.setAttribute('aria-pressed', String(nowPaused));
     btn.setAttribute('aria-label', nowPaused ? 'Resume the ticker' : 'Pause the ticker');
   });
+})();
+</script>
+
+<script>
+(function () {
+  var bar = document.getElementById('onAirBar');
+  if (!bar) return;
+  var audio = document.getElementById('oaAudio');
+  var btn   = document.getElementById('oaPlay');
+  var icon  = document.getElementById('oaIcon');
+  var dot   = document.getElementById('oaDot');
+  var path  = document.getElementById('oaPath');
+  var time  = document.getElementById('oaTime');
+
+  // Hidden until we know there IS an episode. A failed morning should show
+  // nothing at all rather than a player with no audio behind it.
+  fetch('/api/show/current')
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.live || !d.audio_url) return;
+      audio.src = d.audio_url;
+      document.getElementById('oaDate').textContent = d.date_label || '';
+      bar.hidden = false;
+    })
+    .catch(function () { /* leave it hidden */ });
+
+  function fmt(s) {
+    if (!isFinite(s)) return '—';
+    var m = Math.floor(s / 60), r = Math.floor(s % 60);
+    return m + ':' + (r < 10 ? '0' : '') + r;
+  }
+
+  btn.addEventListener('click', function () {
+    if (audio.paused) { audio.play(); } else { audio.pause(); }
+  });
+
+  audio.addEventListener('play', function () {
+    icon.innerHTML = '&#10074;&#10074;';
+    dot.classList.add('live');
+    startWave();
+  });
+  ['pause', 'ended'].forEach(function (e) {
+    audio.addEventListener(e, function () {
+      icon.innerHTML = '&#9654;';
+      dot.classList.remove('live');
+      stopWave();
+    });
+  });
+  audio.addEventListener('timeupdate', function () {
+    time.textContent = fmt(audio.currentTime) + ' / ' + fmt(audio.duration);
+  });
+
+  // The waveform is decorative, not analysed from the audio. Reading the real
+  // signal needs an AudioContext and buys almost nothing here - what matters
+  // is that it only moves while sound is actually playing.
+  var raf = null, t = 0;
+  function frame() {
+    t += 0.09;
+    var d = 'M0,20';
+    for (var x = 0; x <= 600; x += 20) {
+      var amp = 13 * Math.sin(x * 0.045 + t) * Math.sin(x * 0.013 + t * 0.7);
+      d += ' L' + x + ',' + (20 + amp).toFixed(1);
+    }
+    path.setAttribute('d', d);
+    raf = requestAnimationFrame(frame);
+  }
+  function startWave() { if (!raf) frame(); }
+  function stopWave() {
+    if (raf) { cancelAnimationFrame(raf); raf = null; }
+    path.setAttribute('d', 'M0,20 L600,20');
+  }
 })();
 </script>
 </body>

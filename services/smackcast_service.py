@@ -604,7 +604,14 @@ _PUNCT_NAME_RE = re.compile(
     # match at the very start of a segment, since there was nothing before
     # it to look behind at. Now anchored on word boundaries and allowed to
     # be followed by any punctuation.
-    r"(?:^|(?<=[\s,.!?;:]))\s*(comma|semicolon|ellipsis)\b[\s]*",
+    # Widened AGAIN after "dot" was spoken aloud in the first daily show.
+    # The list was only ever the names that had been caught in the wild, which
+    # meant every new one cost a broken episode to discover. This is now the
+    # full set of punctuation names an engine might verbalise.
+    r"(?:^|(?<=[\s,.!?;:]))\s*(comma|semicolon|colon|ellipsis|dot|period|"
+    r"full stop|exclamation mark|exclamation point|question mark|"
+    r"apostrophe|quote|quotation mark|hyphen|dash|underscore|asterisk|"
+    r"ampersand|slash|backslash|parenthesis|bracket|tilde)\b[\s]*",
     re.IGNORECASE | re.MULTILINE,
 )
 
