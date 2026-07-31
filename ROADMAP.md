@@ -5955,3 +5955,41 @@ The inactive tab is now pure BLACK rather than a dimmed panel, and targets
 specific tab, so it couldn't follow the state when you switched. Hover still
 brightens with a hint of that tab's own colour, so "off" doesn't read as
 "disabled".
+
+## The Smacky Report - news pull and safety screen (foundation)
+Building toward a daily on-air audio show on the home page. This commit is the
+INPUT side only: pulling headlines and deciding which are safe to joke about.
+No audio, no player yet.
+
+SOURCE: SportsDataIO's NewsByDate endpoint - the same key and subscription the
+scores already use, confirmed working on the current tier. No new vendor, no
+new cost. Returns Title, Content, Source, Updated and team/player references.
+
+THE POINT OF THIS MODULE IS REFUSING NEWS, NOT FETCHING IT. Sports headlines
+routinely carry deaths, serious injuries, cancer, arrests, domestic violence,
+overdoses and CTE. Since the show is meant to publish unreviewed, the
+safeguard can't be checking output after the fact - it has to refuse the input
+before anything is written.
+
+TWO SCREENS:
+  1. Keyword pass - free, instant, catches the obvious. Checks the BODY as
+     well as the headline, because a harmless title often sits on an article
+     about an arrest.
+  2. Model pass - catches what wording misses: "non-football injury list",
+     "away from the team for personal reasons", "stepping away to focus on
+     family". FAILS CLOSED - if the call errors, every story is dropped rather
+     than waved through, since nobody reviews the output.
+
+Stories are then ranked by "roastability" (blowouts, chokes, benchings,
+feuds, bad officiating) - ranking only, never rejection.
+
+ADMIN VIEW at /admin/news shows the FULL pipeline, including both rejection
+lists and WHICH banned term caught each story. That's deliberate: the thing
+that needs reviewing here is the filter, not the output, and a list of
+accepted stories tells you nothing about whether the screen works.
+
+STILL TO BUILD: the writer (Smacky's script from the selected stories), the
+ElevenLabs render, the daily cron, the home page player, and the two
+safeguards agreed - a fallback to yesterday's show when fewer than three
+stories survive, and an admin kill switch that pulls the player without a
+deploy.

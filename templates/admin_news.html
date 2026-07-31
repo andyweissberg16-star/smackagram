@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>News Screen — Smackagram Admin</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
+<style>
+  :root{
+    --ink:#000; --surface:#141414; --surface-2:#1C1C1C; --line:#2A2A2A;
+    --punch:#E01B24; --go:#2FBF6B; --warn:#FFB800; --muted:#B5B0B0; --muted-2:#7A7575;
+  }
+  *{box-sizing:border-box;}
+  body{background:var(--ink); color:#fff; font-family:'Inter',sans-serif;}
+  .wrap{max-width:1000px; margin:0 auto; padding:28px 20px 60px;}
+  h1{font-family:'Anton',sans-serif; font-size:34px; text-transform:uppercase; margin:0 0 6px;}
+  .lede{color:var(--muted); font-size:14px; line-height:1.6; margin:0 0 22px; max-width:640px;}
+
+  .controls{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:22px;}
+  .controls select, .controls button{
+    background:var(--surface); border:1px solid var(--line); color:#fff;
+    padding:10px 14px; border-radius:8px; font-family:'Inter',sans-serif; font-size:13px;
+  }
+  .controls button{background:var(--punch); border-color:var(--punch); font-weight:700; cursor:pointer;}
+  .controls button:disabled{opacity:.5; cursor:not-allowed;}
+
+  .counts{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:24px;}
+  .count{
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+    padding:12px 16px; min-width:110px;
+  }
+  .count .n{display:block; font-family:'Anton',sans-serif; font-size:26px; line-height:1;}
+  .count .l{display:block; font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted-2); margin-top:5px;}
+  .count.go .n{color:var(--go);}
+  .count.warn .n{color:var(--warn);}
+  .count.stop .n{color:var(--punch);}
+
+  h2{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:2.5px;
+    text-transform:uppercase; margin:26px 0 10px; color:var(--muted-2);
+  }
+  h2 .tag{padding:2px 8px; border-radius:4px; margin-right:8px; font-size:10px;}
+  .tag-go{background:rgba(47,191,107,.16); color:var(--go);}
+  .tag-warn{background:rgba(255,184,0,.16); color:var(--warn);}
+  .tag-stop{background:rgba(224,27,36,.16); color:var(--punch);}
+
+  .row{
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+    padding:13px 15px; margin-bottom:8px;
+  }
+  .row.picked{border-color:var(--go);}
+  .row.cut{opacity:.72;}
+  .row-top{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;}
+  .sport{
+    font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.5px;
+    padding:2px 7px; border-radius:3px; background:#2A2A2A; color:var(--muted);
+  }
+  .title{font-size:14px; font-weight:600; flex:1; min-width:220px;}
+  .meta{font-size:11px; color:var(--muted-2); margin-left:auto;}
+  .why{
+    display:inline-block; margin-top:7px; font-family:'JetBrains Mono',monospace;
+    font-size:10px; padding:3px 8px; border-radius:4px;
+    background:rgba(224,27,36,.14); color:var(--punch);
+  }
+  .why.model{background:rgba(255,184,0,.14); color:var(--warn);}
+  .juice{
+    font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--go);
+    margin-left:8px;
+  }
+  .snippet{font-size:12px; color:var(--muted); line-height:1.5; margin:7px 0 0;}
+  .empty{color:var(--muted-2); font-size:13px; padding:10px 0;}
+  .note{
+    background:var(--surface-2); border-left:3px solid var(--punch);
+    padding:12px 14px; border-radius:0 8px 8px 0; margin:22px 0;
+    font-size:12.5px; color:var(--muted); line-height:1.6;
+  }
+</style>
+</head>
+<body>
+
+{% include '_nav.html' %}
+
+<div class="wrap">
+  <h1>News Screen</h1>
+  <p class="lede">Everything the show pulled, and everything it threw away. The
+  filter is what needs reviewing here &mdash; a list of accepted stories tells
+  you nothing about whether the screen is working.</p>
+
+  <div class="controls">
+    <select id="daysBack">
+      <option value="1" selected>Yesterday</option>
+      <option value="0">Today</option>
+      <option value="2">2 days ago</option>
+      <option value="3">3 days ago</option>
+    </select>
+    <select id="sports">
+      <option value="nfl,nba,mlb,nhl" selected>All leagues</option>
+      <option value="nfl">NFL only</option>
+      <option value="nba">NBA only</option>
+      <option value="mlb">MLB only</option>
+      <option value="nhl">NHL only</option>
+    </select>
+    <button id="runBtn" type="button">Run the screen</button>
+  </div>
+
+  <div class="counts" id="counts" hidden>
+    <div class="count"><span class="n" id="cFetched">0</span><span class="l">Pulled</span></div>
+    <div class="count go"><span class="n" id="cSelected">0</span><span class="l">In the show</span></div>
+    <div class="count go"><span class="n" id="cSpare">0</span><span class="l">Spare</span></div>
+    <div class="count warn"><span class="n" id="cModel">0</span><span class="l">Cut by model</span></div>
+    <div class="count stop"><span class="n" id="cKeyword">0</span><span class="l">Cut by keyword</span></div>
+  </div>
+
+  <div id="out"><p class="empty">Press &ldquo;Run the screen&rdquo; to see what today&rsquo;s show would be built from.</p></div>
+
+  <div class="note">
+    <strong>Reading this:</strong> stories cut by keyword were rejected on a word
+    match &mdash; the term is shown. Stories cut by the model passed the word
+    check but were judged unsafe anyway, which is where the neutral-sounding
+    ones get caught. If something in the rejected lists looks like it should
+    have been fine, that&rsquo;s worth telling me &mdash; the screen is tuned to
+    over-reject, and the terms can be adjusted.
+  </div>
+</div>
+
+<script>
+(function () {
+  var btn = document.getElementById('runBtn');
+  var out = document.getElementById('out');
+  var counts = document.getElementById('counts');
+
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function row(item, opts) {
+    opts = opts || {};
+    var why = '';
+    if (opts.keyword) why = '<span class="why">matched &ldquo;' + esc(item.rejected_by) + '&rdquo;</span>';
+    else if (opts.model) why = '<span class="why model">model judged unsafe</span>';
+    var juice = (item.juice != null && !opts.keyword && !opts.model)
+      ? '<span class="juice">roastability ' + item.juice + '</span>' : '';
+    return '<div class="row ' + (opts.picked ? 'picked' : '') + (opts.keyword||opts.model ? ' cut' : '') + '">' +
+      '<div class="row-top">' +
+        '<span class="sport">' + esc((item.sport||'').toUpperCase()) + '</span>' +
+        '<span class="title">' + esc(item.title) + juice + '</span>' +
+        '<span class="meta">' + esc(item.source || '') + '</span>' +
+      '</div>' + why +
+      (item.content ? '<p class="snippet">' + esc(item.content.slice(0, 190)) + '&hellip;</p>' : '') +
+    '</div>';
+  }
+
+  function section(label, tagClass, items, opts) {
+    if (!items.length) return '';
+    return '<h2><span class="tag ' + tagClass + '">' + items.length + '</span>' + label + '</h2>' +
+      items.map(function (i) { return row(i, opts); }).join('');
+  }
+
+  btn.addEventListener('click', function () {
+    btn.disabled = true;
+    btn.textContent = 'Pulling…';
+    out.innerHTML = '<p class="empty">Fetching headlines and running both screens…</p>';
+
+    var days = document.getElementById('daysBack').value;
+    var sports = document.getElementById('sports').value;
+
+    fetch('/api/admin/news-preview?days_back=' + days + '&sports=' + sports)
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.error) { out.innerHTML = '<p class="empty">' + esc(d.error) + '</p>'; return; }
+        counts.hidden = false;
+        document.getElementById('cFetched').textContent  = d.after_dedupe;
+        document.getElementById('cSelected').textContent = d.selected.length;
+        document.getElementById('cSpare').textContent    = d.also_passed.length;
+        document.getElementById('cModel').textContent    = d.rejected_by_model.length;
+        document.getElementById('cKeyword').textContent  = d.rejected_by_keyword.length;
+
+        out.innerHTML =
+          section('Would be in the show', 'tag-go', d.selected, {picked: true}) +
+          section('Passed, not used', 'tag-go', d.also_passed, {}) +
+          section('Cut by the model', 'tag-warn', d.rejected_by_model, {model: true}) +
+          section('Cut by keyword', 'tag-stop', d.rejected_by_keyword, {keyword: true}) ||
+          '<p class="empty">Nothing came back for that day.</p>';
+      })
+      .catch(function () {
+        out.innerHTML = '<p class="empty">Couldn&rsquo;t run the screen. Check the logs.</p>';
+      })
+      .finally(function () {
+        btn.disabled = false;
+        btn.textContent = 'Run the screen';
+      });
+  });
+})();
+</script>
+
+</body>
+</html>

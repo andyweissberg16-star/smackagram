@@ -11,6 +11,7 @@ import requests
 from dotenv import load_dotenv
 
 from models import db, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
+from services import news_service
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
 
@@ -1282,6 +1283,74 @@ def locker_download(kind, item_id):
         mimetype="audio/mpeg",
         headers={"Content-Disposition": f'attachment; filename="smackagram-{who}-{when}.mp3"'},
     )
+
+
+@app.route("/admin/news")
+@login_required
+def admin_news_page():
+    user = get_current_user()
+    if not user.is_admin:
+        return "Not authorized.", 403
+    return render_template("admin_news.html")
+
+
+@app.route("/api/admin/news-preview")
+@login_required
+def admin_news_preview():
+    """
+    Shows the FULL pipeline, not just the survivors.
+
+    The daily show publishes unreviewed, so the thing that needs reviewing is
+    the FILTER, not the output. That means seeing what was rejected and why -
+    a list of accepted stories tells you nothing about whether the screen is
+    working.
+    """
+    user = get_current_user()
+    if not user.is_admin:
+        return jsonify({"error": "Not authorized."}), 403
+
+    days_back = int(request.args.get("days_back", 1))
+    sports = request.args.get("sports", "nfl,nba,mlb,nhl").split(",")
+
+    raw = []
+    for sport in sports:
+        raw.extend(news_service.fetch_headlines(sport.strip(), days_back=days_back))
+
+    seen, deduped = set(), []
+    for item in raw:
+        key = item["title"].lower()[:70]
+        if key not in seen:
+            seen.add(key)
+            deduped.append(item)
+
+    # Keyword pass, keeping the reason for each rejection.
+    kw_passed, kw_rejected = [], []
+    for item in deduped:
+        hit = news_service.keyword_hit(item)
+        if hit:
+            kw_rejected.append({**item, "rejected_by": hit})
+        else:
+            kw_passed.append(item)
+
+    # Model pass over whatever survived.
+    model_passed = news_service.model_safe(kw_passed)
+    passed_titles = {i["title"] for i in model_passed}
+    model_rejected = [i for i in kw_passed if i["title"] not in passed_titles]
+
+    ranked = sorted(model_passed, key=news_service._juice_score, reverse=True)
+
+    return jsonify({
+        "fetched": len(raw),
+        "after_dedupe": len(deduped),
+        "selected": [
+            {**i, "juice": news_service._juice_score(i)} for i in ranked[:6]
+        ],
+        "also_passed": [
+            {**i, "juice": news_service._juice_score(i)} for i in ranked[6:]
+        ],
+        "rejected_by_model": model_rejected,
+        "rejected_by_keyword": kw_rejected,
+    })
 
 
 @app.route("/api/admin/grant-credit", methods=["POST"])
