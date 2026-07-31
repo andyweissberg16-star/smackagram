@@ -5913,3 +5913,14 @@ desktop bar and the mobile drawer. Smackcast Library moved WITH it in the
 drawer - it sat directly beneath Smackcast, and moving only the parent would
 have stranded the library between Smack Battle and Did You Get Smacked.
 Side effect worth noting: the three paid products now sit together at the top.
+
+## Tab states and order
+TAB ORDER now leads with the generator you're on: Locked & Loaded first on
+/locked-n-loaded, Smackagram first on /send-a-smack. The tabs do NOT reshuffle
+when you switch - positions stay stable so you aren't chasing a button that
+moved. Consequence: the active tab isn't always the left one.
+
+INACTIVE TAB DIMMED to 55% opacity with a near-black panel and desaturated
+text, so it reads as OFF rather than merely unhighlighted. It brightens to
+full opacity with a hint of its own colour on hover - without that it would
+look disabled, and people don't click things that look disabled.

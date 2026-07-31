@@ -356,6 +356,16 @@
   .gen-tab.is-active{background:linear-gradient(180deg,#F4F6F9,#C3CAD3 45%,#98A0AA 55%,#E4E9EE);}
   .gen-tab.is-active .gen-tab-kicker{color:rgba(13,13,13,0.65);}
   .gen-tab.is-active .gen-tab-name{color:#0D0D0D;}
+  /* The inactive tab reads as OFF, not just unhighlighted - dimmed panel and
+     desaturated text, so which generator is live is obvious at a glance. It
+     keeps a colour hint on hover so it still looks clickable rather than
+     disabled. */
+  .gen-tab-alt{background:#0A0A0A; opacity:0.55;}
+  .gen-tab-alt .gen-tab-name{color:#6E7278;}
+  .gen-tab-alt .gen-tab-kicker{color:#54585E;}
+  .gen-tab-alt:hover{opacity:1; background:rgba(224,27,36,0.14);}
+  .gen-tab-alt:hover .gen-tab-name,
+  .gen-tab-alt:hover .gen-tab-kicker{color:#E01B24;}
   .gen-tab-alt:hover{background:rgba(224,27,36,0.12);}
   .gen-tab-alt:hover .gen-tab-name,
   .gen-tab-alt:hover .gen-tab-kicker{color:#E01B24;}
@@ -541,13 +551,13 @@
     <p class="gen-sub">Send one today, or set one that stays quiet until their team loses &mdash; then goes off on its own.</p>
 
     <div class="gen-tabs">
-      <button type="button" class="gen-tab gen-tab-alt" id="tabSmackLL">
-        <span class="gen-tab-kicker">Send it now</span>
-        <span class="gen-tab-name">Smackagram</span>
-      </button>
       <button type="button" class="gen-tab is-active" id="tabLockedLL">
         <span class="gen-tab-kicker">Arm it for later</span>
         <span class="gen-tab-name">Locked &amp; Loaded</span>
+      </button>
+      <button type="button" class="gen-tab gen-tab-alt" id="tabSmackLL">
+        <span class="gen-tab-kicker">Send it now</span>
+        <span class="gen-tab-name">Smackagram</span>
       </button>
     </div>
   </div>

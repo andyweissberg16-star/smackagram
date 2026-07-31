@@ -261,6 +261,16 @@
   .gen-tab.is-active{background:var(--punch);}
   .gen-tab.is-active .gen-tab-kicker{color:rgba(255,255,255,0.75);}
   .gen-tab.is-active .gen-tab-name{color:#fff;}
+  /* The inactive tab reads as OFF, not just unhighlighted - dimmed panel and
+     desaturated text, so which generator is live is obvious at a glance. It
+     keeps a colour hint on hover so it still looks clickable rather than
+     disabled. */
+  .gen-tab-alt{background:#0A0A0A; opacity:0.55;}
+  .gen-tab-alt .gen-tab-name{color:#6E7278;}
+  .gen-tab-alt .gen-tab-kicker{color:#54585E;}
+  .gen-tab-alt:hover{opacity:1; background:rgba(200,210,222,0.14);}
+  .gen-tab-alt:hover .gen-tab-name,
+  .gen-tab-alt:hover .gen-tab-kicker{color:#C3CAD3;}
   .gen-tab-alt:hover{background:rgba(200,210,222,0.1);}
   .gen-tab-alt:hover .gen-tab-name,
   .gen-tab-alt:hover .gen-tab-kicker{color:#C3CAD3;}
