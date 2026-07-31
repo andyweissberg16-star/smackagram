@@ -24,6 +24,8 @@ import os
 import json
 import anthropic
 import requests
+
+from services import sports_service
 from datetime import datetime, timedelta
 
 _client = None
@@ -86,10 +88,14 @@ JUICY_TERMS = [
 
 
 def _api_key() -> str:
-    key = os.environ.get("SPORTSDATAIO_API_KEY")
-    if not key:
-        raise RuntimeError("SPORTSDATAIO_API_KEY is not set")
-    return key
+    """
+    Deliberately delegates to sports_service rather than reading the
+    environment directly. The variable is SPORTSDATA_API_KEY (no "IO"), and
+    duplicating that string here is exactly how this module shipped broken -
+    it read SPORTSDATAIO_API_KEY and every fetch failed. One accessor, one
+    name, one place to get it wrong.
+    """
+    return sports_service._api_key()
 
 
 def fetch_headlines(sport: str, days_back: int = 1) -> list[dict]:

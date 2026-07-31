@@ -6010,3 +6010,15 @@ different causes - an empty feed, an HTTP error on one league, or every story
 being filtered out - and they need completely different fixes. The admin view
 now reports per-league counts and says which case it is. Per-league counts are
 logged server-side too.
+
+## News fetch failed on every league - wrong env var name
+Render logs: "SPORTSDATAIO_API_KEY is not set" on all four leagues.
+
+MY ERROR. The working sports service reads SPORTSDATA_API_KEY; I wrote
+SPORTSDATAIO_API_KEY with an extra "IO". The key was set correctly the whole
+time under the name the scores already used.
+
+Fixed by DELEGATING to sports_service._api_key() rather than reading the
+environment again. Two modules reading the same key by different names is
+exactly how this broke - now there's one accessor and one name to get wrong.
+Verified there's no circular import.
