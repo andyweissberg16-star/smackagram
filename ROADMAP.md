@@ -6744,3 +6744,30 @@ Dropdowns are click-only. A hover layer was built and removed — hover opened
 the menu and the subsequent click read it as already-open and closed it. A
 pinning scheme to reconcile them didn't behave predictably under test. Click-only
 is unambiguous across mouse, touch and keyboard, and is what could be verified.
+
+## Daily Smack: play button produced no audio
+The page had crossorigin="anonymous" on the <audio> element, added so the real
+waveform analyser could read the samples. But S3 CORS was never configured, and
+with that attribute set the browser refuses to load the file at all. Silent
+failure, no console error on the element itself — it just looks like a dead
+play button.
+
+The obvious fix (drop the attribute) would have made it WORSE. initAnalyser()
+calls createMediaElementSource(), which on a cross-origin element without CORS
+does not throw — it succeeds, takes over the element's output, and emits
+silence. You'd get a moving progress bar, no error, and no sound. Strictly
+harder to diagnose than the original symptom, and the existing try/catch never
+fires for this case because nothing throws.
+
+So both halves were needed: drop the attribute so the media loads, AND check
+the origin before touching Web Audio at all. Same-origin audio still gets the
+real waveform; cross-origin gets the simulated trace and, more importantly,
+actual sound.
+
+Self-correcting: once S3 CORS is configured the origin check still routes S3 to
+the simulated waveform, so restoring the real one there means putting the
+attribute back deliberately — not having it silently reappear.
+
+Unrelated second candidate ruled out by symptom: if no episode existed,
+/api/show/current returns live:false and the player never renders at all, so
+there'd be no play button to press.

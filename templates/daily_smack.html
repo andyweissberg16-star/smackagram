@@ -171,7 +171,11 @@
         &#8599;&nbsp; Share today&rsquo;s show
       </button>
     </div>
-    <audio id="oaAudio" preload="none" crossorigin="anonymous"></audio>
+    <!-- No crossorigin attribute. With it set, the browser refuses to load
+         the file at all unless the audio host sends CORS headers - which is
+         a silent failure that looks like a broken play button. The real
+         waveform wants it, but working playback beats a prettier trace. -->
+    <audio id="oaAudio" preload="none"></audio>
   </div>
 
   <div id="noShow" hidden>
@@ -288,11 +292,29 @@
   }
   window.addEventListener('resize', function () { sizeCanvas(); if (audio.paused) drawFlat(); });
 
-  // Real analyser. Needs CORS on the audio host; falls back to a simulated
-  // trace rather than a dead line if the browser blocks it.
+  // Real analyser, but ONLY for same-origin audio.
+  //
+  // The trap: createMediaElementSource() doesn't merely fail on a
+  // cross-origin element without CORS headers - it succeeds, takes over
+  // the element's output, and then emits silence. Playback appears to
+  // work (progress bar moves, no console error) and produces no sound,
+  // which is far harder to diagnose than an obvious failure. So the
+  // origin is checked BEFORE touching Web Audio at all, rather than
+  // relying on the try/catch below, which this case never triggers.
   var actx = null, analyser = null, data = null, useReal = false;
+
+  function isCrossOrigin(url) {
+    if (!url) return true;
+    try {
+      return new URL(url, location.href).origin !== location.origin;
+    } catch (e) {
+      return true;   // unparseable - assume the worst and keep sound working
+    }
+  }
+
   function initAnalyser() {
     if (actx) return;
+    if (isCrossOrigin(audio.currentSrc || audio.src)) { useReal = false; return; }
     try {
       var AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return;
