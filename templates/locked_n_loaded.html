@@ -76,7 +76,7 @@
   .card-sub{color:var(--chalk-dim); font-size:13px; margin-bottom:18px;}
 
   /* PROGRESS INDICATOR */
-  .progress-bar{display:flex; align-items:center; justify-content:center; margin-bottom:28px;}
+  .progress-bar{display:flex; align-items:center; justify-content:center; margin:18px 22px 4px;}
   .progress-step{
     width:32px; height:32px; border-radius:50%; border:2px solid var(--line-strong);
     display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace;
@@ -426,15 +426,7 @@
 
 <div class="wrap" style="padding-top:32px;">
 
-  <div class="progress-bar" id="progressBar">
-    <div class="progress-step active" data-step="1"><span>1</span></div>
-    <div class="progress-line"></div>
-    <div class="progress-step" data-step="2"><span>2</span></div>
-    <div class="progress-line"></div>
-    <div class="progress-step" data-step="3"><span>3</span></div>
-    <div class="progress-line"></div>
-    <div class="progress-step" data-step="4"><span>4</span></div>
-  </div>
+
 
   <div id="errorBox" class="error-box" role="alert"></div>
 
@@ -464,6 +456,18 @@
       <span class="lnl-led" aria-hidden="true"></span>
       <span class="lnl-status" id="lnlStatus">Armed</span>
       <span class="lnl-count" id="lnlCount">Standing by</span>
+    </div>
+
+    <!-- Inside the console, below the status bar - same order as the
+         Smackagram generator so the two read identically. -->
+  <div class="progress-bar" id="progressBar">
+      <div class="progress-step active" data-step="1"><span>1</span></div>
+      <div class="progress-line"></div>
+      <div class="progress-step" data-step="2"><span>2</span></div>
+      <div class="progress-line"></div>
+      <div class="progress-step" data-step="3"><span>3</span></div>
+      <div class="progress-line"></div>
+      <div class="progress-step" data-step="4"><span>4</span></div>
     </div>
 
   <div class="card" id="gameCard">

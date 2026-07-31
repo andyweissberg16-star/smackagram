@@ -5657,3 +5657,37 @@ voice row is centred to match the other generator.
 OPEN, UNVERIFIABLE FROM HERE: a real Stripe purchase through the newly
 frame-breaking checkout, and the framed generator's height sync at phone
 width. Both need a real device and a real card.
+
+## Page-wide travelling light removed
+The orbiting LED applied to the whole viewport read as a laser circling the
+page rather than a detail on a card. Removed the animation, the conic arc, the
+@property and the reduced-motion rule that no longer had anything to act on.
+The solid 5px frame stays - that's a real border, not part of the light - and
+the generator CARD keeps its own smaller orbiting LED, which is where the
+effect worked in the first place.
+
+Worth recording the lesson: the identical effect at ten times the size stops
+being a detail and becomes the main event.
+
+## Send it did nothing but scroll - stale step index
+On step 3, Send it called __wizardGo(2). Index 2 IS step 3 - the step the
+button sits on - so it navigated to itself and only scrolled. Correct when
+there were three steps; stale the moment step 1 was split in two. Now goes to
+index 3 (step 4, phone and consents). Verified 3 -> 4 in a browser.
+
+Note on the flow, since this was reported as "should go to checkout": Send it
+goes to step 4, which collects the phone number and both consents - those have
+to be captured before any charge. The price tiers only appear if the wallet
+balance can't cover the send.
+
+## Matching the two generators
+- Locked & Loaded's step circles moved INSIDE the console, below the ARMED
+  bar, matching the Smackagram card's order (status, circles, step).
+- #lockedShell was inheriting .card's 2px border while #wizardCard uses 5px,
+  so the framed generator was visibly thinner. Now explicitly 5px / 14px
+  radius. Measured: both 672px wide, same border, same radius.
+- "How hard should Smacky go" was a small red mono label while step 1's
+  heading is a 22px Anton h3. Converted to the same h3 element rather than
+  restyling the label - they're both step headings, so they should BE the same
+  thing and stay in sync if the style ever changes. Question mark added.
+- Voice dropdown reads "Smacky" rather than "Smacky (Classic)".

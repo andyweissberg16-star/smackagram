@@ -267,7 +267,14 @@
   /* The framed generator's shell matches the Smackagram card exactly, in
      amber - same border width, radius and shadow, so switching changes only
      the colour and nothing shifts. */
-  #lockedShell{border-color:#FFB800; box-shadow:0 0 22px rgba(255,184,0,0.28);}
+  /* Must match #wizardCard exactly - .card alone gives a 2px border, so the
+     framed generator was thinner than the one it replaces. */
+  #lockedShell{
+    border:5px solid #FFB800;
+    border-radius:var(--radius);
+    box-shadow:0 0 22px rgba(255,184,0,0.28);
+    background:var(--surface);
+  }
   #lockedShell::before{display:none;}
 
   #wizardCard .progress-bar{margin:18px 24px 4px;}
@@ -280,9 +287,8 @@
   body.gen-locked .gen-headline em{color:#FFB800;}
   body.gen-locked .gen-tabs{border-color:#3A2A08;}
   body.gen-locked .gen-tab + .gen-tab{border-left-color:#3A2A08;}
-  /* The travelling light is a red conic gradient - hide it rather than
-     recolour it, so a red streak never crosses an amber frame. */
-  body.gen-locked::before{opacity:0;}
+  /* (The page-wide travelling light was removed entirely - nothing to hide
+     here any more.) */
 
   /* INTENSITY FADER - a physical control instead of tickboxes. */
   .fader{padding:4px 0 0;}
@@ -643,7 +649,7 @@
     </div>
     <div class="sas-body" id="sasBody2">
     <p class="step-label">Step 2</p>
-    <p class="field-group-label" style="border-top:none; background-image:none; padding-top:0; margin-top:0;">How hard should Smacky go</p>
+    <h3>How hard should Smacky go?</h3>
     <div id="sensitivitySelector">
       <p style="color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
     </div>
@@ -1373,7 +1379,10 @@ document.getElementById('voiceSampleBtn').addEventListener('click', async () => 
 // 'Send it' advances to the final step instead of opening a modal - the
 // page already has a step pattern, and a modal on top of it was a second
 // competing idiom that also re-asked things already answered.
-document.getElementById('sendIt').addEventListener('click', () => { if (window.__wizardGo) window.__wizardGo(2); });
+// Index 3 = step 4 (phone and consents). This said 2 - which IS step 3, the
+// step the button sits on - so Send it navigated to itself and only scrolled.
+// A leftover from when there were three steps, before step 1 was split.
+document.getElementById('sendIt').addEventListener('click', () => { if (window.__wizardGo) window.__wizardGo(3); });
 
 
 

@@ -324,7 +324,6 @@ html body input[type=checkbox][aria-invalid="true"]{
    divs across a dozen files.
    ============================================================ */
 
-@property --site-led{ syntax:'<angle>'; initial-value:0deg; inherits:false; }
 
 html body{
   /* Literal, not var(--flare): send_a_smack redefines --flare in its own
@@ -337,33 +336,15 @@ html body{
   box-shadow:0 0 26px rgba(224,27,36,0.3);
 }
 
-/* The travelling light. A narrow bright arc in a rotating conic gradient,
-   masked so it paints only the border band and not the page behind it - which
-   is also why it follows the rounded corners exactly. @property is what makes
-   the angle animatable; a plain custom property would jump between keyframes
-   instead of sweeping. */
-html body::before{
-  content:''; position:absolute; inset:-5px; border-radius:inherit;
-  padding:5px; pointer-events:none; z-index:9999;
-  background:conic-gradient(from var(--site-led),
-    transparent 0deg, transparent 300deg,
-    rgba(255,120,128,0.35) 320deg, rgba(255,120,128,0.7) 340deg,
-    #FF5A64 350deg, #FFFFFF 355deg, #FF7A82 358deg,
-    rgba(255,120,128,0.4) 360deg);
-  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite:xor;
-          mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-          mask-composite:exclude;
-  animation:siteLedOrbit 9s linear infinite;
-}
-@keyframes siteLedOrbit{ to{ --site-led:360deg; } }
+/* The page-wide travelling light was removed - at full screen width it read
+   as a laser circling the whole page rather than a detail on a card. The
+   solid frame below is a real border, so it is unaffected. The generator
+   card keeps its own smaller orbiting LED. */
 
 /* The solid border underneath is a REAL border, not part of the gradient, so
    a browser without @property or mask-composite still shows the red frame -
    just without the travelling light. */
-@media(prefers-reduced-motion:reduce){
-  html body::before{animation:none; opacity:0;}
-}
+
 
 /* Hero banding. Targeted by CLASS rather than document position: every page
    nests its hero differently - some wrap it in a styled div, some sit
