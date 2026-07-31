@@ -79,7 +79,12 @@ PROFANE = {
     "intensifiers": ["fucking", "goddamn", "absolutely fucking",
                      "unbelievably fucking"],
     "nouns": ["bullshit", "absolute bullshit", "shitshow", "dumpster fire",
-              "clown show", "a fucking disaster", "horseshit"],
+              "clown show", "a fucking disaster", "horseshit",
+              # Smacky-brand variants. These read as HIS words rather than
+              # generic swearing, which is the point - anyone can say
+              # bullshit, only he says smackcrap.
+              "smackcrap", "horsecrap", "grade-A smackcrap",
+              "hot steaming smackcrap"],
     "reactions": ["what the fuck was that", "what the hell happened there",
                   "are you fucking kidding me", "what the fuck",
                   "what in the hell", "you have got to be shitting me"],

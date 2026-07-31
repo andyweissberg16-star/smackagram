@@ -8,7 +8,12 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Smackagram">
 <meta property="og:title" content="The Daily Smack — last night's scores, roasted">
-<meta property="og:description" content="Every score from last night, and every team that deserved what it got. New every morning at 6am.">
+<meta property="og:description" content="Every score from last night, and every team that deserved what it got. New every morning at 6am. Explicit language, 18+.">
+<!-- Machine-readable rating. Some crawlers, link previews and parental
+     filters read these; the visible notice on the page is for humans and
+     this is for everything else. Costs nothing and means the warning
+     travels with a shared link rather than only living on the page. -->
+<meta name="rating" content="adult">
 <meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -88,6 +93,18 @@
     border-top:1px solid rgba(255,255,255,0.07);
   }
 
+  .explicit-note{
+    display:flex; align-items:center; gap:9px; flex-wrap:wrap;
+    margin:14px 0 0; font-size:12.5px; color:var(--chalk-dim); line-height:1.4;
+  }
+  .explicit-tag{
+    flex:0 0 auto; font-family:'JetBrains Mono',monospace; font-size:10px;
+    font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
+    color:var(--chalk); background:var(--ink-2);
+    border:1px solid var(--line-strong); border-radius:4px; padding:3px 7px;
+  }
+  @media(max-width:420px){ .explicit-note{font-size:11.5px; gap:7px;} }
+
   #noShow{
     border:1px dashed var(--line); border-radius:12px; padding:36px 24px;
     text-align:center; color:var(--muted-2); font-size:14px;
@@ -130,6 +147,13 @@
     <h1>The Daily<br><span>Smack</span></h1>
     <p class="lede">Every score from last night, and every team that deserved
     what it got. Five minutes with Smacky, new every morning at 6am.</p>
+    <!-- Advisory, not a gate - the podcast "Explicit" tag model. Deliberate:
+         a hard age wall on the show would break the top-of-funnel, and a
+         self-attested one stops nobody anyway. -->
+    <p class="explicit-note">
+      <span class="explicit-tag">Explicit</span>
+      Strong language throughout. Intended for listeners 18+.
+    </p>
   </div>
 
   <div id="onAirBar" hidden>

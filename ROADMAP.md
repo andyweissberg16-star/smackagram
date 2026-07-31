@@ -6771,3 +6771,45 @@ attribute back deliberately — not having it silently reappear.
 Unrelated second candidate ruled out by symptom: if no episode existed,
 /api/show/current returns live:false and the player never renders at all, so
 there'd be no play button to press.
+
+## Show audio was clipping, and Smacky wasn't swearing
+Two unrelated problems in the same episode, found the same day.
+
+**The clipping.** amix divides each input by the number of ACTIVE inputs, and
+the volume=2.0 after it existed to undo that halving. But the intro bed is only
+a few seconds long — the moment it ended, amix dropped to one active input and
+stopped halving while the x2 kept doubling, handing the voice a clean +6 dB for
+the rest of the episode. Measured at +4.56 dBFS (voice normalized to -1.5 dBTP,
+plus 6), clipping continuously. That is why the intro sounded fine and Smacky
+sounded crushed all the way through.
+
+Fixed with normalize=0 on amix, the x2 removed, and alimiter as a ceiling for
+the ~2.6s where ducked bed and voice overlap. Now -1.00 dBFS peak, and
+voice-only stretches sit at -1.46 with the limiter never engaging, so no
+pumping. NOTE: level=disabled on alimiter is load-bearing — it auto-levels back
+to 0 dB by default, which silently undoes the ceiling. With it enabled, every
+limit value measured exactly 0.0 dBFS regardless of setting.
+
+Worth knowing: the show will now sound QUIETER, because it was previously
+slammed 4.5 dB into the ceiling. That is the fix working, not a regression. If
+it needs more level, raise the loudnorm target — do not restore the gain.
+
+**The clean mouth.** The profanity settings were already maxed (level 4,
+"curse constantly, not optional"). The problem was the prompt describing the
+show as "a daily sports radio segment" written "like a real host would" —
+radio implies FCC — while every concrete example was clean: all eight
+greetings, the sponsor read. Concrete examples beat abstract rules, so the
+clean models won.
+
+Reframed as an uncensored 18+ podcast with an explicit "this is not broadcast
+radio" line, dirtied the greeting examples, and moved the profanity mandate
+into the user prompt where it sits next to the examples rather than losing to
+them. Added Smacky-brand profanity (smackcrap, horsecrap), stat-line roasting,
+rationed puns, and live-delivery direction.
+
+Puns are capped at one or two per episode and must work BY EAR — this is TTS,
+so anything depending on spelling is dead on delivery. Self-interruptions
+likewise capped, or spontaneity reads as a tic.
+
+Explicit advisory added to the page plus meta rating, so the warning travels
+with a shared link. Advisory not a gate, deliberately.
