@@ -260,9 +260,19 @@ def find_streaks(leagues, days_back: int = 1, lookback: int = 7, minimum: int = 
     than tallying total losses over the window - "lost 5 of 7" is a
     statistic, "lost 5 straight" is a humiliation.
     """
+    # Only look back through leagues that actually played last night. The
+    # first run made 35 calls - seven days across five leagues - and three of
+    # those leagues are out of season, so 21 of them were guaranteed empty.
+    active = []
+    for lg in leagues:
+        if fetch_results(lg, days_back=days_back):
+            active.append(lg)
+    if not active:
+        return []
+
     results = {}
     for offset in range(days_back, days_back + lookback):
-        for lg in leagues:
+        for lg in active:
             for g in fetch_results(lg, days_back=offset):
                 for team, won in ((g["winner"], True), (g["loser"], False)):
                     results.setdefault(team, []).append((offset, won, g["league"]))
@@ -403,7 +413,11 @@ def write_script(material: dict) -> dict:
     text = text.replace("```json", "").replace("```", "").strip()
 
     import json as _json
-    script = _json.loads(text)
+    try:
+        script = _json.loads(text)
+    except Exception as e:
+        print(f"[show] script JSON failed to parse: {e}. First 400 chars: {text[:400]!r}")
+        raise
     script["publish"] = True
     return script
 
@@ -434,12 +448,30 @@ def produce_daily_show(days_back: int = 1) -> dict:
 
     # Same speech sanitiser the Smackcast uses - strips punctuation names,
     # em dashes and emoji that TTS would otherwise read aloud.
-    intro = sanitize_for_speech(script["intro"])
-    outro = sanitize_for_speech(script["outro"])
-    segments = [
-        {"text": sanitize_for_speech(s["text"]), "reaction": s.get("reaction", "burn")}
-        for s in script["segments"]
-    ]
+    intro = sanitize_for_speech(script.get("intro") or script.get("opening") or "")
+    outro = sanitize_for_speech(script.get("outro") or script.get("closing") or "")
+    # The model doesn't always use the key it was asked for - "text" came back
+    # as something else and the whole run died on a KeyError. Accept the
+    # obvious variants and skip anything genuinely empty rather than losing a
+    # finished script to one wrong field name.
+    segments = []
+    for seg in script.get("segments", []):
+        if isinstance(seg, str):
+            body = seg
+            reaction = "burn"
+        else:
+            body = (seg.get("text") or seg.get("line") or seg.get("content")
+                    or seg.get("body") or seg.get("script") or "")
+            reaction = seg.get("reaction", "burn")
+        body = (body or "").strip()
+        if not body:
+            continue
+        segments.append({"text": sanitize_for_speech(body), "reaction": reaction})
+
+    if not segments:
+        print(f"[show] script had no usable segments. Keys returned: "
+              f"{[list(x.keys()) if isinstance(x, dict) else type(x).__name__ for x in script.get('segments', [])][:3]}")
+        return {"published": False, "reason": "script returned no usable segments"}
 
     audio_url = assemble_recap_audio(intro, segments, outro)
     print(f"[show] published {plan['minutes']:g} min from {material['game_count']} games")

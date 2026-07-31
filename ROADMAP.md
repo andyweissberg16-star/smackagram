@@ -6236,3 +6236,20 @@ pattern already used for battle recaps and smackcast generation.
 
 /api/admin/show-status lists recent episodes so "did it work" is a page rather
 than a log grep.
+
+## First real run: ESPN works, script parsing didn't
+Logs confirmed ESPN delivering real data - 10 MLB and 3 WNBA finals for
+2026-07-30, and correctly 0 for NFL/NBA/NHL which are out of season.
+
+FAILURE was "KeyError: 'text'". The model returned segments without the key
+it was asked for, and the code accessed seg["text"] directly, so one wrong
+field name killed an otherwise finished script. Now accepts text / line /
+content / body / script, handles a bare string, skips empty segments, and
+LOGS THE KEYS IT ACTUALLY GOT so the next failure names itself rather than
+needing another round trip. Same tolerance applied to intro and outro, and
+raw output is logged when the JSON won't parse.
+
+PERFORMANCE: the streak lookup made 35 calls - seven days across five leagues
+- when three of those leagues are out of season and guaranteed empty. Now
+checks which leagues actually played last night first, then only looks back
+through those. Cuts it to 14 calls in the current season.
