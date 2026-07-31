@@ -727,7 +727,33 @@ INTRO_MUSIC_PATH = "static/audio/daily-smack-intro.wav"
 # underneath him instead of stopping dead.
 MUSIC_SOLO_MS = 5800      # let the riser build, voice in near the peak
 DUCK_DB = -11             # bed drops once he's speaking, still audible
-FADE_OUT_MS = 2600        # fades out under the first line
+
+# The bed file is 8.000s exactly. FADE_OUT_MS was 2600, so the fade started
+# at 5800 and wanted to end at 8400 - 400ms PAST the end of the audio. It
+# never finished: the file simply stopped while the fade was still around
+# 15% volume, which is the abrupt cutoff that was audible. Anything here
+# must satisfy MUSIC_SOLO_MS + DUCK_RAMP_MS + FADE_OUT_MS <= 8000, and is
+# asserted below so this can't silently regress if the timings are retuned.
+MUSIC_BED_MS = 8000       # true length of daily-smack-intro.wav
+DUCK_RAMP_MS = 300        # ramp INTO the duck instead of stepping to it
+FADE_OUT_MS = 1700        # 6100 + 1700 = 7800, finishing 200ms early
+
+# Outro. Same bed file, brought in under his closing words so the show
+# resolves instead of stopping dead.
+OUTRO_OVERLAP_MS = 3500   # music starts this far before the voice ends
+OUTRO_DUCK_DB = -13       # sits under the final words, quieter than the intro duck
+OUTRO_RISE_MS = 700       # comes up once he's finished talking
+OUTRO_FADE_MS = 3200      # long tail out, ending inside the file
+# The outro needs the same treatment as the intro for the same reason. With
+# the fade finishing exactly ON the file boundary it measured -22.6 dB in the
+# final 400ms - still plainly audible right up to the last sample, which is
+# the abrupt ending this was meant to remove. Landing it early leaves real
+# silence at the end so the show resolves instead of stopping.
+OUTRO_TAIL_PAD_MS = 300
+
+assert MUSIC_SOLO_MS + DUCK_RAMP_MS + FADE_OUT_MS <= MUSIC_BED_MS, (
+    "intro fade would run past the end of the bed file and cut off hard"
+)
 
 
 # NOTE: an earlier version mixed the bed with pydub, which decoded the whole
@@ -772,9 +798,33 @@ def _assemble_with_music(intro: str, segments: list, outro: str) -> str:
                     f.write(chunk)
 
         solo = MUSIC_SOLO_MS / 1000.0
-        fade_start = solo
+        ramp = DUCK_RAMP_MS / 1000.0
+        fade_start = solo + ramp           # fade begins AFTER the duck settles
         fade_dur = FADE_OUT_MS / 1000.0
         duck = 10 ** (DUCK_DB / 20.0)      # dB to linear gain
+
+        # How long the speech actually runs - needed to place the outro bed
+        # under his closing words. Probed rather than estimated, since
+        # episode length varies with the slate.
+        try:
+            probe = subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                 "-of", "default=noprint_wrappers=1:nokey=1", speech],
+                capture_output=True, text=True, timeout=30,
+            )
+            speech_dur = float(probe.stdout.strip())
+        except (subprocess.SubprocessError, ValueError) as e:
+            print(f"[show] could not probe speech duration ({e}); intro bed only")
+            speech_dur = 0.0
+
+        # Voice is delayed by the solo, so it ENDS at solo + its own length.
+        voice_end = solo + speech_dur
+        outro_start = voice_end - (OUTRO_OVERLAP_MS / 1000.0)
+        outro_duck = 10 ** (OUTRO_DUCK_DB / 20.0)
+        outro_rise_at = OUTRO_OVERLAP_MS / 1000.0            # relative to bed start
+        outro_rise_end = outro_rise_at + (OUTRO_RISE_MS / 1000.0)
+        outro_fade_at = (MUSIC_BED_MS - OUTRO_FADE_MS - OUTRO_TAIL_PAD_MS) / 1000.0
+        use_outro = speech_dur > 0 and outro_start > fade_start + fade_dur
 
         # The bed: full level until the voice arrives, then ducked and faded.
         # The speech is delayed by the solo period so it starts on the peak.
@@ -798,17 +848,48 @@ def _assemble_with_music(intro: str, segments: list, outro: str) -> str:
         # limit value measured 0.0 dBFS regardless of setting).
         # Measured result: -1.00 dBFS peak, and voice-only stretches sit at
         # -1.46 untouched, so the limiter never works hard enough to pump.
-        filters = (
-            f"[0:a]volume=enable='gte(t,{fade_start})':volume={duck:.4f},"
-            f"afade=t=out:st={fade_start}:d={fade_dur}[bed];"
-            f"[1:a]adelay={MUSIC_SOLO_MS}|{MUSIC_SOLO_MS}[voice];"
-            f"[bed][voice]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0,"
+        # The duck is a RAMP, not a step. volume=enable= switches instantly,
+        # which is audible as a lurch exactly where the voice arrives. This
+        # interpolates from full to ducked across DUCK_RAMP_MS instead.
+        intro_gain = (
+            f"if(lt(t,{solo}),1,"
+            f"if(lt(t,{solo + ramp}),1-(1-{duck:.4f})*(t-{solo})/{ramp},{duck:.4f}))"
+        )
+        chain = [
+            f"[0:a]volume='{intro_gain}':eval=frame,"
+            f"afade=t=out:st={fade_start}:d={fade_dur}[bed]",
+            f"[1:a]adelay={MUSIC_SOLO_MS}|{MUSIC_SOLO_MS}[voice]",
+        ]
+
+        if use_outro:
+            # Outro bed: enters under his last words at OUTRO_DUCK_DB, rises
+            # once he stops, then a long fade that finishes INSIDE the file
+            # rather than being truncated by its end.
+            outro_gain = (
+                f"if(lt(t,{outro_rise_at}),{outro_duck:.4f},"
+                f"if(lt(t,{outro_rise_end}),"
+                f"{outro_duck:.4f}+(1-{outro_duck:.4f})*(t-{outro_rise_at})/{OUTRO_RISE_MS / 1000.0},1))"
+            )
+            chain.append(
+                f"[2:a]volume='{outro_gain}':eval=frame,"
+                f"afade=t=out:st={outro_fade_at}:d={OUTRO_FADE_MS / 1000.0},"
+                f"adelay={int(outro_start * 1000)}|{int(outro_start * 1000)}[tail]"
+            )
+            mix_inputs, labels = 3, "[bed][voice][tail]"
+        else:
+            mix_inputs, labels = 2, "[bed][voice]"
+
+        chain.append(
+            f"{labels}amix=inputs={mix_inputs}:duration=longest:"
+            f"dropout_transition=0:normalize=0,"
             f"alimiter=level_in=1:level_out=1:limit=0.891:attack=1:release=60:level=disabled[out]"
         )
+        filters = ";".join(chain)
 
         subprocess.run(
-            ["ffmpeg", "-y", "-i", INTRO_MUSIC_PATH, "-i", speech,
-             "-filter_complex", filters, "-map", "[out]",
+            ["ffmpeg", "-y", "-i", INTRO_MUSIC_PATH, "-i", speech]
+            + (["-i", INTRO_MUSIC_PATH] if use_outro else [])
+            + ["-filter_complex", filters, "-map", "[out]",
              "-c:a", "libmp3lame", "-b:a", "192k", out],
             check=True, capture_output=True, timeout=300,
         )

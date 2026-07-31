@@ -6813,3 +6813,42 @@ likewise capped, or spontaneity reads as a tic.
 
 Explicit advisory added to the page plus meta rating, so the warning travels
 with a shared link. Advisory not a gate, deliberately.
+
+## Intro music cutoff, outro bed, and WNBA pronunciation
+
+**The intro cutoff was arithmetic, not taste.** daily-smack-intro.wav is exactly
+8.000s. The fade started at MUSIC_SOLO_MS (5800) and ran FADE_OUT_MS (2600),
+so it wanted to finish at 8400 — 400ms past the end of the audio. It never
+completed: measured at -29.0 dB in the final 150ms, i.e. plainly audible when
+the file simply stopped. FADE_OUT_MS is now 1700, finishing at 7800 with 200ms
+of real silence. Same window now measures -91.0 dB.
+
+An assertion guards it: MUSIC_SOLO_MS + DUCK_RAMP_MS + FADE_OUT_MS <=
+MUSIC_BED_MS fails at import rather than shipping a chopped fade if anyone
+retunes the timings.
+
+**The duck was a step, not a ramp.** volume=enable='gte(t,X)' switches
+instantly — a hard -11 dB jump exactly where the voice enters, audible as a
+lurch. Replaced with an interpolated volume expression over DUCK_RAMP_MS.
+
+**Outro bed added.** Same file, delayed to OUTRO_OVERLAP_MS before the voice
+ends, sitting at OUTRO_DUCK_DB under his closing words, rising to full over
+OUTRO_RISE_MS once he stops, then fading out. Speech length is probed with
+ffprobe since episode duration varies; if the probe fails it logs and falls
+back to intro-only rather than breaking the mix.
+
+The outro needed the same padding lesson: with the fade landing exactly on the
+file boundary it measured -22.6 dB in the final 400ms. OUTRO_TAIL_PAD_MS lands
+it 300ms early instead. Now -91.0 dB. Peak across the whole mix: -1.00 dBFS.
+
+**WNBA pronunciation.** The engine gargled the leading W and then said "NBA"
+cleanly — it treats the W as part of a pronounceable token and tries to make a
+syllable of it. sanitize_for_speech now carries SPEECH_PRONUNCIATIONS, applied
+word-bounded and case-sensitively so a lowercase "era" is never rewritten.
+"double you N B A" rather than "W-N-B-A" because a hyphen reads as a PAUSE in
+this engine, which would fix the mangling but break the fluency.
+
+KNOWN BUG, pre-existing, not yet fixed: sanitize_for_speech strips punctuation
+NAMES unconditionally, so "They're done. Period." loses the word and leaves a
+doubled full stop, and NHL segments lose "period" as a unit of play. It should
+only strip a name when it is genuinely stray.

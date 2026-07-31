@@ -639,6 +639,26 @@ _EMOJI_RE = re.compile(
 )
 
 
+# Acronyms this TTS engine mispronounces, mapped to spellings that force the
+# letter names. Confirmed in real output: "WNBA" came out with a gargled,
+# slurred W followed by a clean "NBA" - the engine treats the leading W as
+# part of a pronounceable token and tries to make a syllable of it, then
+# recovers for the remaining three letters.
+#
+# "double you" rather than "W" because a lone W is exactly what it already
+# fails on. NOT "W-N-B-A": a hyphen is read as a PAUSE by this engine (the
+# same reason coinages avoid them), which would fix the mangling but destroy
+# the fluency - four separated letters instead of one natural run.
+#
+# Case-sensitive and word-bounded deliberately. A lowercase "era" is an
+# ordinary English word and must never be rewritten; only an uppercase
+# acronym would be. Add entries here as more surface - this is the single
+# place pronunciation is corrected for every spoken product.
+SPEECH_PRONUNCIATIONS = {
+    "WNBA": "double you N B A",
+}
+
+
 def sanitize_for_speech(text: str) -> str:
     """
     Cleans script text before it goes to text-to-speech.
@@ -712,6 +732,14 @@ def sanitize_for_speech(text: str) -> str:
     text = re.sub(r",\s*([.!?;:])", r"\1", text)
     text = re.sub(r"^[\s,;:]+", "", text, flags=re.MULTILINE)
     text = re.sub(r"\s+([,.!?])", r"\1", text)
+
+    # Pronunciation corrections. Applied AFTER the cleanup above so that
+    # nothing upstream has split an acronym apart before it can be matched,
+    # but BEFORE the final whitespace collapse so any spacing this
+    # introduces gets tidied by it.
+    for acronym, spoken in SPEECH_PRONUNCIATIONS.items():
+        text = re.sub(rf"\b{re.escape(acronym)}\b", spoken, text)
+
     text = re.sub(r"\s{2,}", " ", text)
     return text.strip()
 
