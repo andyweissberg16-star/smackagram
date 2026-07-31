@@ -5617,3 +5617,43 @@ different sites rather than one product. Verified afterwards that /reload,
 The public share page got the same treatment deliberately - it's the first
 thing a shared visitor sees, and a bare audio player would undersell
 everything else.
+
+## Generator switching: one frame, matching sizes, working checkout
+Four fixes from testing the switcher on the live page.
+
+STEP CIRCLES MOVED INSIDE THE CARD. They sat above the switcher tabs, floating
+loose at the top of the page. Now inside the card border, below the console
+header - matching how Locked & Loaded carries its circles inside its own
+border. Being inside also means they hide with the card, so no separate toggle
+to keep in sync.
+
+ONE BORDER, NOT TWO. The site-wide page frame is red. With the amber generator
+showing, that left an amber console inside a red frame. Now:
+  - the page frame repaints amber via a body class while Locked & Loaded is up
+  - the framed generator drops its OWN border entirely (the parent supplies it)
+  - the iframe is wrapped in a card shell matching the Smackagram card exactly
+Measured both at 672px - nothing shifts on switch, only the colour changes.
+The frame's travelling red light is hidden rather than recoloured in amber
+mode; a red streak crossing an amber frame would read as a bug.
+
+CHECKOUT WAS TRAPPED IN THE FRAME. Clicking through to the price tiers from
+the embedded generator rendered the checkout INSIDE a box sized for a
+generator - clipped, with no way to scroll it. Fixed at both levels, because
+they are different mechanisms:
+  - <base target="_top"> when embedded, covering every <a> on the page
+  - smkNavigate() for the JS redirects, which ignore base target entirely
+The insufficient-balance redirect to /reload is a JS navigation, so the base
+tag alone would have left exactly that path broken.
+
+THE NAV WASN'T MISSING - IT WAS SCROLLED PAST. Reported as gone from every
+page. It was present and visible, but both generators called scrollIntoView on
+FIRST paint, putting the nav at top:-940px before anyone touched anything.
+Scrolling now only fires once the user actually moves between steps. Verified
+across five pages: nav at top:15 on all, and advancing still scrolls.
+
+Also: the voice dropdown read "Smacky (Classic)" - now just "Smacky" - and the
+voice row is centred to match the other generator.
+
+OPEN, UNVERIFIABLE FROM HERE: a real Stripe purchase through the newly
+frame-breaking checkout, and the framed generator's height sync at phone
+width. Both need a real device and a real card.

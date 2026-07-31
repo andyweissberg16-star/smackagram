@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+{% if embed %}<base target="_top">{% endif %}
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Locked & Loaded — Smackagram</title>
 <meta name="description" content="Authorize a roast on your rival's next game. If their team loses, Smacky makes the call automatically. If they win, you pay nothing.">
@@ -381,11 +382,32 @@
   input::-moz-placeholder, textarea::-moz-placeholder{
     color:rgba(245,245,243,0.26); opacity:1; font-style:italic;
   }
+
+  /* EMBEDDED. The parent page supplies the frame, so drop ours - otherwise
+     an amber console sits inside the page frame and reads as a box in a box.
+     Width and padding are left alone so the generator measures the same as
+     the Smackagram one it is replacing. */
+  {% if embed %}
+  html body{border:none !important; margin:0 !important; box-shadow:none !important; border-radius:0 !important;}
+  html body::before{display:none !important;}
+  #lnlConsole{
+    border:none !important; box-shadow:none !important;
+    border-radius:0 !important; margin:0 !important;
+  }
+  #lnlConsole::before{display:none !important;}
+  .wrap{padding-top:0 !important; padding-left:0 !important; padding-right:0 !important;}
+  {% endif %}
 </style>
 </head>
 <body>
 
-{% if not embed %}{% include '_nav.html' %}{% endif %}
+{% if not embed %}
+  {% include '_nav.html' %}
+{% else %}
+  {# Framed: no nav, but the shared JS lives inside _nav.html and the page
+     still needs it - phone formatting and smkInvalid both come from there. #}
+  <script src="{{ url_for('static', filename='js/smackagram.js') }}"></script>
+{% endif %}
 
 <img id="sideMascot" src="{{ url_for('static', filename='img/mascot-sidebar-800.webp') }}" alt="Smacky" class="side-mascot" width="800" height="584">
 
@@ -665,6 +687,18 @@ function hideError() {
 }
 
 let searchDebounceTimer = null;
+// Breaks out of the frame when embedded. Checkout, success pages and
+// anything else full-page must replace the WHOLE window, not the generator
+// slot - otherwise the page renders inside a box sized for a generator and
+// gets clipped with no way to scroll it.
+function smkNavigate(url) {
+  if (window.top !== window.self) {
+    window.top.location.href = url;
+  } else {
+    window.location.href = url;
+  }
+}
+
 let liveRefreshTimer = null;
 
 function renderGameOption(g) {
@@ -1014,11 +1048,11 @@ document.getElementById('armBtn').addEventListener('click', async () => {
     });
     const data = await resp.json();
     if (data.error === 'insufficient_balance') {
-      window.location.href = data.redirect || '/reload';
+      smkNavigate(data.redirect || '/reload');
       return;
     }
     if (data.redirect) {
-      window.location.href = data.redirect;
+      smkNavigate(data.redirect);
     } else {
       showError(data.error || 'Something went wrong — try again.');
       btn.textContent = 'Lock it in — $1';
@@ -1145,13 +1179,20 @@ loadVoices();
       }
     });
     if (typeof updateProgress === 'function') updateProgress(n + 1);
+    // Same reasoning as the other generator: never scroll on first paint,
+    // or the nav ends up above the viewport before anyone has touched
+    // anything.
     var target = el(STEPS[n].card);
-    if (target) setTimeout(function(){ target.scrollIntoView({block:'start'}); }, 40);
+    if (window.lnlHasMoved && target) {
+      setTimeout(function(){ target.scrollIntoView({block:'start'}); }, 40);
+    }
   };
 
   window.lnlFurthest = 0;
+  window.lnlHasMoved = false;
 
   function advance(from) {
+    window.lnlHasMoved = true;
     window.lnlFurthest = Math.max(window.lnlFurthest, from + 1);
     window.lnlOpenStep(from + 1);
   }
@@ -1178,6 +1219,7 @@ loadVoices();
         // otherwise have its own click reopen it on the way up.
         if (e.target.closest('button, input, select, textarea, a')) return;
         e.preventDefault();
+        window.lnlHasMoved = true;
         window.lnlOpenStep(i);
       });
     }

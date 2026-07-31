@@ -264,6 +264,26 @@
   .gen-tab-alt:hover .gen-tab-name,
   .gen-tab-alt:hover .gen-tab-kicker{color:#FFB800;}
 
+  /* The framed generator's shell matches the Smackagram card exactly, in
+     amber - same border width, radius and shadow, so switching changes only
+     the colour and nothing shifts. */
+  #lockedShell{border-color:#FFB800; box-shadow:0 0 22px rgba(255,184,0,0.28);}
+  #lockedShell::before{display:none;}
+
+  #wizardCard .progress-bar{margin:18px 24px 4px;}
+
+  /* Page frame repainted for whichever generator is showing. The frame
+     itself lives in smackagram.css and is red by default; this overrides it
+     while Locked & Loaded is active so the two never stack. */
+  body.gen-locked{border-color:#FFB800 !important; box-shadow:0 0 26px rgba(255,184,0,0.3) !important;}
+  body.gen-locked .gen-eyebrow{color:#FFB800;}
+  body.gen-locked .gen-headline em{color:#FFB800;}
+  body.gen-locked .gen-tabs{border-color:#3A2A08;}
+  body.gen-locked .gen-tab + .gen-tab{border-left-color:#3A2A08;}
+  /* The travelling light is a red conic gradient - hide it rather than
+     recolour it, so a red streak never crosses an amber frame. */
+  body.gen-locked::before{opacity:0;}
+
   /* INTENSITY FADER - a physical control instead of tickboxes. */
   .fader{padding:4px 0 0;}
   .fader-scale{display:flex; justify-content:space-between; margin-bottom:10px;}
@@ -505,7 +525,11 @@
 </head>
 <body>
 
-{% include '_nav.html' %}
+{% if not embed %}
+  {% include '_nav.html' %}
+{% else %}
+  <script src="{{ url_for('static', filename='js/smackagram.js') }}"></script>
+{% endif %}
 
 <picture class="hero-band">
   <source type="image/webp" sizes="100vw"
@@ -525,16 +549,6 @@
 
   </div>
 
-  <div class="progress-bar" id="progressBar">
-    <div class="progress-step active" data-step="1"><span>1</span></div>
-    <div class="progress-line"></div>
-    <div class="progress-step" data-step="2"><span>2</span></div>
-    <div class="progress-line"></div>
-    <div class="progress-step" data-step="3"><span>3</span></div>
-    <div class="progress-line"></div>
-    <div class="progress-step" data-step="4"><span>4</span></div>
-  </div>
-
   <div class="gen-switch">
     <p class="gen-eyebrow">Two ways to do it</p>
     <h2 class="gen-headline">Talk now. Or let the <em>scoreboard</em> talk for you.</h2>
@@ -552,8 +566,12 @@
     </div>
   </div>
 
-  <iframe id="lockedFrame" title="Locked &amp; Loaded generator"
-          style="display:none; width:100%; border:0; overflow:hidden;" scrolling="no"></iframe>
+  <!-- Wrapped in the same card shell as the Smackagram generator, so both
+       measure identically and only the border colour differs on switch. -->
+  <div class="card" id="lockedShell" style="display:none; padding:0; overflow:hidden;">
+    <iframe id="lockedFrame" title="Locked &amp; Loaded generator"
+            style="width:100%; border:0; display:block;" scrolling="no"></iframe>
+  </div>
 
   <div class="card" id="wizardCard">
     <div class="console-bar">
@@ -567,6 +585,19 @@
       <span class="track-seg"></span>
       <span class="track-seg"></span>
       <span class="track-seg"></span>
+    </div>
+
+    <!-- Inside the border, matching Locked & Loaded. Sits under the console
+         header so the card reads as one instrument rather than a strip of
+         circles floating above it. -->
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-step active" data-step="1"><span>1</span></div>
+      <div class="progress-line"></div>
+      <div class="progress-step" data-step="2"><span>2</span></div>
+      <div class="progress-line"></div>
+      <div class="progress-step" data-step="3"><span>3</span></div>
+      <div class="progress-line"></div>
+      <div class="progress-step" data-step="4"><span>4</span></div>
     </div>
     <p class="console-field" id="consoleField">Target</p>
 
@@ -651,7 +682,7 @@
     <p class="field-group-label" style="border-top:none; background-image:none; padding-top:0; margin-top:22px;">What Smacky will say</p>
     <textarea id="trashTalkOutput" placeholder="Smacky’s line lands here"></textarea>
 
-    <div style="display:flex; gap:8px; align-items:stretch; margin-bottom:14px; flex-wrap:wrap;">
+    <div style="display:flex; gap:8px; align-items:stretch; justify-content:center; margin-bottom:14px; flex-wrap:wrap;">
       <select id="voiceSelect" style="margin-bottom:0; flex:0 0 auto; width:125px; min-width:0; font-size:13px;">
         <option value="default">Loading voices...</option>
       </select>
@@ -755,48 +786,10 @@ function formatPhone(value) {
   return '1 (' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
 }
 
-function attachPhoneFormatting(el) {
-  if (!el) return;
-
-  // The leading 1 is filled in for them. Done on focus rather than on page
-  // load so the field still LOOKS empty until it's used - a box that arrives
-  // pre-filled reads as already answered, and "is this field empty" stays a
-  // simple check everywhere else.
-  el.addEventListener('focus', function () {
-    if (!el.value.trim()) {
-      el.value = '1 (';
-      el.setSelectionRange(el.value.length, el.value.length);
-    }
-  });
-
-  // If they tab away without typing a number, clear the scaffolding back out
-  // rather than leaving "1 (" sitting there looking like a half-entry.
-  el.addEventListener('blur', function () {
-    if (el.value.replace(/\D/g, '').length <= 1) el.value = '';
-  });
-
-  el.addEventListener('input', function () {
-    var atEnd = el.selectionStart === el.value.length;
-    var formatted = formatPhone(el.value);
-    if (formatted === el.value) return;
-    el.value = formatted;
-    // Only force the caret to the end when it was already there. Otherwise
-    // someone correcting a digit mid-number gets thrown to the end on every
-    // keystroke, which is worse than no formatting at all.
-    if (atEnd) el.setSelectionRange(el.value.length, el.value.length);
-  });
-  // Backspacing into a separator should remove the digit before it rather
-  // than stalling on the punctuation.
-  el.addEventListener('keydown', function (e) {
-    if (e.key !== 'Backspace') return;
-    var v = el.value;
-    if (el.selectionStart !== v.length || el.selectionStart !== el.selectionEnd) return;
-    if (/[\s()\-]$/.test(v)) {
-      e.preventDefault();
-      el.value = formatPhone(v.replace(/[\s()\-]*\d?[\s()\-]*$/, ''));
-    }
-  });
-}
+// Phone formatting now lives in the shared JS and attaches to every
+// input[type="tel"] site-wide - removed from here so it can't double-attach
+// and format twice.
+function attachPhoneFormatting() {}
 
 document.addEventListener('DOMContentLoaded', function () {
   attachPhoneFormatting(document.getElementById('orderRecipientPhone'));
@@ -932,6 +925,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el) el.textContent = val || '\u2014';
   }
 
+  // Set once the user actually moves. The FIRST render must not scroll -
+  // doing so pushes the nav off the top of the page on load, which reads as
+  // the navigation having disappeared.
+  var hasMoved = false;
+
   function show(i) {
     current = Math.max(0, Math.min(i, steps.length - 1));
     furthest = Math.max(furthest, current);
@@ -984,7 +982,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Scroll the frame back to the top - without this, moving from a long
     // step to a short one leaves you halfway down a page of whitespace.
-    if (card) card.scrollIntoView({block: 'start'});
+    if (hasMoved && card) card.scrollIntoView({block: 'start'});
 
     // Carry the recipient's name from step 1 into step 3, so it's obvious
     // WHOSE number is being asked for. Falls back to neutral wording when the
@@ -1030,12 +1028,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e) e.scrollIntoView({behavior:'smooth', block:'center'});
         return;
       }
+      hasMoved = true;
       show(pair[1] + 1);
     });
   });
   [1, 2, 3, 4].forEach(function (n) {
     var summ = document.getElementById('sasSummary' + n);
-    if (summ) summ.addEventListener('click', function () { show(n - 1); });
+    if (summ) summ.addEventListener('click', function () { hasMoved = true; show(n - 1); });
   });
 
   if (nextBtn) nextBtn.addEventListener('click', () => {
@@ -1501,12 +1500,17 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
 
   function show(which) {
     var locked = which === 'locked';
+    // The site-wide page frame is red. Repaint it amber for Locked & Loaded
+    // so there is ONE border that changes colour, not a red one wrapping an
+    // amber one.
+    document.body.classList.toggle('gen-locked', locked);
+    // The step bar lives inside the card now, so it hides along with it.
     // Lazy: don't pay for a second generator until it's actually asked for.
     if (locked && !loaded) {
       frame.src = '/locked-n-loaded?embed=1';
       loaded = true;
     }
-    frame.style.display = locked ? 'block' : 'none';
+    document.getElementById('lockedShell').style.display = locked ? 'block' : 'none';
     card.style.display  = locked ? 'none'  : '';
     tabL.classList.toggle('is-active', locked);
     tabS.classList.toggle('is-active', !locked);

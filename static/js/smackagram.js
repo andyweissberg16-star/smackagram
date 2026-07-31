@@ -225,3 +225,87 @@
     init();
   }
 })();
+
+
+/* ------------------------------------------------------------------
+   PHONE FORMATTING, site-wide.
+
+   Attaches to every input[type="tel"] automatically, so a new phone field
+   anywhere inherits this without being wired up individually. There are
+   eleven of them across seven templates; doing this per-page guaranteed one
+   would eventually be missed.
+
+   Formats as 1 (555) 555-5555 while typing. Safe to do for display only
+   because twilio_service._to_e164() strips parentheses, spaces and hyphens
+   before the number ever reaches Twilio - checked before building this,
+   since formatting a field whose value is sent raw would have broken calls.
+   ------------------------------------------------------------------ */
+(function () {
+  function formatPhone(digits) {
+    // A leading 1 is the country code, not part of the area code.
+    var d = digits.replace(/\D/g, '');
+    if (d.charAt(0) === '1') d = d.slice(1);
+    d = d.slice(0, 10);
+    if (!d) return '';
+    var out = '1 (' + d.slice(0, 3);
+    if (d.length >= 3) out += ')';
+    if (d.length > 3) out += ' ' + d.slice(3, 6);
+    if (d.length > 6) out += '-' + d.slice(6, 10);
+    return out;
+  }
+
+  function attach(el) {
+    if (el.dataset.smkPhone) return;   // never attach twice
+    el.dataset.smkPhone = '1';
+    el.setAttribute('inputmode', 'tel');
+    if (!el.placeholder || /^\+?1?[\s\-()0-9]*$/.test(el.placeholder)) {
+      el.placeholder = '1 (555) 555-5555';
+    }
+
+    // Fill the country code on focus rather than on load: a field that
+    // arrives pre-filled reads as already answered.
+    el.addEventListener('focus', function () {
+      if (!el.value.trim()) {
+        el.value = '1 (';
+        try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {}
+      }
+    });
+
+    // Clear the scaffolding again if they leave without entering anything.
+    el.addEventListener('blur', function () {
+      if (el.value.replace(/\D/g, '').length <= 1) el.value = '';
+    });
+
+    // Format anything already in the field. Pages like the profile load a
+    // saved number, and formatting only on input would leave that one raw
+    // while every freshly typed number looked different.
+    if (el.value && el.value.replace(/\D/g, '').length >= 10) {
+      el.value = formatPhone(el.value);
+    }
+
+    el.addEventListener('input', function () {
+      var atEnd = el.selectionStart === el.value.length;
+      el.value = formatPhone(el.value);
+      // Only jump the caret to the end if it was already there, so correcting
+      // a digit mid-number doesn't fling the cursor on every keystroke.
+      if (atEnd) {
+        try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {}
+      }
+    });
+  }
+
+  function attachAll() {
+    document.querySelectorAll('input[type="tel"]').forEach(attach);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attachAll);
+  } else {
+    attachAll();
+  }
+  // Some phone fields are revealed or built after load (the reply row on
+  // Locked & Loaded, for one), so catch those too.
+  new MutationObserver(attachAll).observe(document.documentElement, {childList: true, subtree: true});
+
+  window.smkFormatPhone = formatPhone;
+})();
