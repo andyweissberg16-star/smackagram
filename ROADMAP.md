@@ -5766,3 +5766,21 @@ shrinking as well as growing.
 Also: collapsed steps no longer carry the 22px bottom padding meant for a
 Next button, which had been stacking into a gap that grew with every completed
 step (20px above step 2 vs 64px above step 3; both 20px now).
+
+## Step 1 and 2 copy polish
+Field labels numbered 1/2/3 in red, matching the instruction markers above so
+the list and the form read as one sequence rather than two coincidentally
+numbered ones.
+
+Instruction body text set to white. Consequence worth noting: the bold phrases
+now stand out only by weight, not colour, so the lines read more evenly but
+scan less sharply than before.
+
+Instruction 3 trimmed to end at "Optional." - the hint under that field
+already says Smacky will find his own material, so the tail was repeating
+itself a few lines apart.
+
+Step 2 heading is now "Choose how hard Smacky goes" with a small italic aside:
+"(He votes Savage. He always votes Savage.)" Written as Smacky lobbying for
+himself rather than a neutral note, which is more in character and does the
+same job of nudging toward the default.
