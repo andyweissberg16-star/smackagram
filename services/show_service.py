@@ -16,8 +16,18 @@ news feed. A run differential cannot be a tragedy.
 """
 
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from services import sports_service
+
+# Everything here runs on Florida time. The show airs at 6am Eastern, which is
+# already 10 or 11am UTC - using utcnow() would ask for the wrong night
+# whenever a game finished after midnight UTC, which is most of them.
+EASTERN = ZoneInfo("America/New_York")
+
+
+def _now_eastern():
+    return datetime.now(EASTERN)
 
 # Only leagues whose GamesByDate shape is known good. Expandable, but each
 # addition needs its score fields checked - they differ per sport.
@@ -162,6 +172,38 @@ MIN_GAMES = 4    # below this, keep yesterday's show rather than publish thin
 LEAGUE_ORDER = ["MLB", "NFL", "NBA", "NHL", "WNBA"]
 
 
+def _date_context(days_back: int = 1) -> dict:
+    """
+    Both halves of the date, so the show can sound like it's happening now.
+
+    A host doesn't recite "Thursday, July the thirtieth, two thousand and
+    twenty six" - he says "last night" or "Tuesday's games". But he DOES know
+    what day it is today, and that's where the personality lives: Monday is a
+    funeral, Friday is a celebration. So the prompt gets both dates and the
+    relationship between them, and picks its own phrasing.
+    """
+    now = _now_eastern()
+    games_day = now - timedelta(days=days_back)
+
+    if days_back == 1:
+        natural = "last night"
+    elif days_back == 0:
+        natural = "today"
+    else:
+        natural = f"{games_day.strftime('%A')} night"
+
+    return {
+        "today_name": now.strftime("%A"),
+        "today_full": now.strftime("%A, %B %-d"),
+        "games_day_name": games_day.strftime("%A"),
+        "games_day_full": games_day.strftime("%A, %B %-d"),
+        "natural": natural,
+        "is_monday": now.weekday() == 0,
+        "is_friday": now.weekday() == 4,
+        "is_weekend": now.weekday() >= 5,
+    }
+
+
 def plan_runtime(game_count: int) -> dict:
     """
     Decides the runtime and how the word budget is split across the slate.
@@ -242,7 +284,7 @@ def get_show_material(leagues=None, days_back: int = 1, want: int = None) -> dic
     top = sorted(games, key=running_order)
 
     return {
-        "date": (datetime.utcnow() - timedelta(days=days_back)).strftime("%A, %B %-d"),
+        "date": _date_context(days_back),
         "game_count": len(games),
         "leagues_played": sorted({g["league"] for g in games}),
         "plan": plan,
@@ -333,11 +375,14 @@ def write_script(material: dict) -> dict:
         for s in material.get("streaks", [])
     )
 
+    d = material["date"] if isinstance(material.get("date"), dict) else _date_context(1)
+
     system = smackology.render(level=4, context="recap")
 
     user = (
-        f"You are Smacky, hosting THE SMACKY REPORT - a daily sports radio "
-        f"segment about last night ({material['date']}).\n\n"
+        f"You are Smacky, hosting THE SMACK REPORT - a daily sports radio "
+        f"segment. It is {d['today_full']} in Florida right now, and you are "
+        f"talking about the games played on {d['games_day_full']}.\n\n"
 
         f"FACTS. Real and verified. You may ONLY reference what is listed "
         f"here. Do not invent injuries, reasons, quotes, player names, or any "
@@ -393,8 +438,85 @@ def write_script(material: dict) -> dict:
         f"TOTAL LENGTH: about {plan['word_budget']} words. This is a timed "
         "segment, so that's a target, not a suggestion.\n\n"
 
-        "SHAPE: branded greeting and the date, then the leagues in order, then "
-        "tell them to come back tomorrow.\n\n"
+        "THE OPENING - three beats, in this order, before a single result.\n\n"
+
+        "  1. A GREETING that varies day to day. Rotate or coin your own in "
+        "the same register: What's up, degenerates. / Rise and shine, losers. "
+        "/ Well, well, well. Look who crawled back. / Smackalicious, "
+        "everybody. / Morning, you beautiful disasters. / Top of the morning, "
+        "bottom of the standings. / Oh good, you're all still here. "
+        "Unfortunate. It just can't be the same one every day.\n\n"
+
+        "  2. Then this, WORD FOR WORD, never reworded, never shortened, "
+        "never improvised on:\n"
+        '     \"Welcome to today\'s brand new episode of the Smack Report, '
+        'brought to you by Smackagram! I\'m your host, Smacky. The grill\'s '
+        'hot, the smoke\'s rising, the flames are burning, and somebody\'s '
+        'about to get roasted!\"\n'
+        "     This is a sponsor read and a signature line. It only works as "
+        "branding if it is identical every single day, so treat it as fixed "
+        "text rather than something to rewrite in your own voice.\n\n"
+
+        f"  3. Then place it in time. Do NOT recite a formal date - no "
+        f"'Thursday, July the thirtieth, two thousand twenty six'. A real host "
+        f"says '{d['natural']}' or '{d['games_day_name']} night' or 'the "
+        f"{d['games_day_name']} slate'. Pick one naturally and name which "
+        f"leagues were in action.\n\n"
+
+        f"     AND SOUND LIKE IT'S HAPPENING NOW. Today is "
+        f"{d['today_name']} in Florida - work that in the way a live host "
+        f"would. "
+        + ("Monday, so everybody's miserable and back at work and you "
+           "have no sympathy. " if d["is_monday"] else "")
+        + ("Friday, so there's a weekend coming and you're in an "
+           "unreasonably good mood about other people's suffering. "
+           if d["is_friday"] else "")
+        + ("The weekend, so nobody has an excuse not to be watching. "
+           if d["is_weekend"] else "")
+        + "One line, woven in - not a weather report.\n\n"
+
+        "After those three beats go straight into the games. Do not restate "
+        "the sponsor or the tagline later, and do not close with them - they "
+        "open the show, that's all.\n\n"
+
+        "THE CLOSE - the last thing you say, WORD FOR WORD, never reworded, "
+        "never shortened. Say something of your own first if you want, then "
+        "land on exactly this:\n"
+        '     \"That\'s the Smack Report. The grill\'s cooling down, but it '
+        'never goes out. Same time tomorrow - somebody else is getting '
+        'roasted. I\'m Smacky, and you\'ve been smacked.\"\n'
+        "     Same rule as the opening: it only works as branding if it is "
+        "identical every single day.\n\n"
+
+        "HOW HARD TO GO: all the way. This is a late-night sports radio show "
+        "for adults who came here to hear teams get destroyed. Curse freely "
+        "and naturally - not one token swear per segment, but the way someone "
+        "actually talks when a team has embarrassed itself. Crude is fine. "
+        "Mean is the point.\n\n"
+
+        "BUT PROFANITY IS NOT THE JOKE. It's seasoning. The funniest line in "
+        "the first episode was: 'Colorado has lost four straight. That's not "
+        "a cold streak, that's a goddamn lifestyle choice - automatic, "
+        "recurring, and nobody can figure out how to cancel it.' That lands "
+        "because of the SUBSCRIPTION metaphor, not the word 'goddamn'. Do "
+        "more of that.\n\n"
+
+        "WHAT ACTUALLY MAKES THESE LAND:\n"
+        "- SPECIFICITY. Not 'they were bad' but the exact number, and what "
+        "that number would look like if a person did it in real life.\n"
+        "- UNEXPECTED COMPARISON. Take the stat somewhere it doesn't belong - "
+        "a medical diagnosis, a subscription, a crime scene, a divorce.\n"
+        "- ESCALATION. Start at annoyed, end somewhere unhinged. Don't open "
+        "at maximum, you've got nowhere to go.\n"
+        "- COMMIT TO THE BIT. A half-joke is worse than no joke. If you start "
+        "a comparison, ride it to the end of the sentence.\n"
+        "- Never explain the joke. Land it and move on.\n\n"
+
+        "THIS IS SPOKEN ALOUD. Never write the NAME of a punctuation mark - "
+        "no 'dot', 'comma', 'period', 'dash'. Use the actual mark. Writing "
+        "'Colorado lost dot Again' makes the voice say the word 'dot' out "
+        "loud, which happened in a real episode. Write normal sentences with "
+        "normal punctuation.\n\n"
 
         "Reply with JSON only:\n"
         '{"intro": "...", "segments": [{"text": "...", "reaction": "burn"}], '
@@ -483,5 +605,5 @@ def produce_daily_show(days_back: int = 1) -> dict:
         "game_count": material["game_count"],
         "leagues": material["leagues_played"],
         "best_line": script.get("best_line", ""),
-        "date_label": material["date"],
+        "date_label": material["date"]["games_day_full"],
     }

@@ -684,7 +684,13 @@ def sanitize_for_speech(text: str) -> str:
     text = re.sub(r"[_~^|`]+", " ", text)
 
     # A spoken punctuation name is always a mistake here.
-    text = _PUNCT_NAME_RE.sub("", text)
+    text = _PUNCT_NAME_RE.sub(" ", text)
+    # Removing a punctuation NAME leaves the punctuation around it butted
+    # together - "lost.Again", "bad,really" - which TTS runs straight through
+    # with no pause, and a stranded leading period at the start of a segment.
+    # Cheap to repair here, jarring to hear.
+    text = re.sub(r"([.,!?;:])(?=[A-Za-z])", r"\1 ", text)
+    text = re.sub(r"^[\s.,;:]+", "", text)
 
     # Emoji and pictographs. Fantasy team names are full of them, and engines
     # either skip them or read the character's DESCRIPTION out loud

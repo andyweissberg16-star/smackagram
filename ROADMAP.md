@@ -6279,3 +6279,70 @@ of punctuation names an engine might verbalise.
 
 Trade-off worth knowing: it strips these as WORDS anywhere, so a team or
 player name genuinely containing one would be eaten. No real-world case known.
+
+## "dot" spoken aloud - fixed at both ends
+Confirmed multiple times in episode #1.
+
+DOWNSTREAM: the punctuation-name stripper now covers the full set of names,
+and repairs what stripping leaves behind - "lost.Again" and "bad,really" with
+no space (which TTS runs straight through with no pause) and stranded leading
+punctuation.
+
+UPSTREAM: the prompt now explicitly forbids writing punctuation NAMES, with
+the real failure quoted back at it. Cleaning up after the model is a fallback;
+not producing it is the fix.
+
+## Turned up: profanity and comedy craft
+Smackology is already at level 4 (its maximum), so the increase is
+show-specific direction rather than a tier change: curse freely and naturally,
+not one token swear per segment.
+
+BUT the prompt now says plainly that profanity ISN'T the joke, and cites the
+best line from episode #1 as evidence:
+
+  "Colorado has lost four straight. That's not a cold streak, that's a goddamn
+   lifestyle choice - automatic, recurring, and nobody can figure out how to
+   cancel it."
+
+That lands because of the SUBSCRIPTION metaphor, not the word "goddamn".
+Feeding a real example of what worked back into the prompt is more useful than
+any amount of abstract instruction.
+
+Four craft rules added: specificity (the exact number, and what it would look
+like if a person did it), unexpected comparison (take the stat somewhere it
+doesn't belong), escalation (start annoyed, end unhinged - don't open at
+maximum), and commit to the bit (a half-joke is worse than none).
+
+## Branded opening and close for The Smack Report
+Three-beat opening, mirroring the Smackcast structure so the two products
+sound like the same show franchise:
+  1. A greeting that VARIES daily, same register as the Smackcast rotation.
+  2. The branded line WORD FOR WORD - the Smackcast tagline with the show name
+     swapped: "Welcome to today's brand new episode of the Smack Report,
+     brought to you by Smackagram! I'm your host, Smacky. The grill's hot, the
+     smoke's rising, the flames are burning, and somebody's about to get
+     roasted!"
+  3. Place it in time (see below).
+
+And a fixed CLOSE, new: "That's the Smack Report. The grill's cooling down,
+but it never goes out. Same time tomorrow - somebody else is getting roasted.
+I'm Smacky, and you've been smacked." Reuses the grill imagery so the open and
+close bookend each other. Marked as fixed text under the same rule as the
+opening - it only works as branding if it's identical every day.
+
+## Real timezone bug: the show was running on UTC
+datetime.utcnow() at 6am in Florida is already 10 or 11am UTC, so any game
+finishing after 8pm Eastern lands on the NEXT UTC day - the show would have
+asked for the wrong night. Now runs on America/New_York, reusing the Eastern
+helper sports_service already had.
+
+## Dates spoken like a host, not recited
+No formal date recitation. He says "last night", "Thursday night", or "the
+Thursday slate" - _date_context supplies both the games' day and TODAY's day,
+plus the relationship between them, and the prompt picks its own phrasing.
+
+Day-of-week personality is computed live and injected: Monday means everyone's
+miserable and back at work and he has no sympathy; Friday means a weekend's
+coming and he's in an unreasonably good mood about other people's suffering.
+One line woven in, not a weather report. This is what should make it feel live
+rather than generated.
