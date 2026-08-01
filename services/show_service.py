@@ -972,20 +972,30 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
             log(f"WARNING: leagues played but NOT covered in the script: "
                 f"{', '.join(sorted(missing))} - the model ran out of room")
 
+        # The break goes after the LEAD league's block, whichever league that
+        # is - not after MLB specifically. Hardcoding baseball fell apart the
+        # moment the show was pointed at a football Sunday: no MLB meant the
+        # midpoint fallback, which split the NBA in half.
+        lead_league = None
+        for seg in segments:
+            if seg.get("league"):
+                lead_league = seg["league"]
+                break
+
         last_mlb = -1
         first_non_mlb = -1
         tagged = False
         for i, seg in enumerate(segments):
             if seg.get("league"):
                 tagged = True
-                is_mlb = seg["league"] == "MLB"
+                is_lead = seg["league"] == lead_league
             else:
                 verdict = _looks_mlb(seg.get("text"))
                 if verdict is None:
-                    continue         # unclassifiable - skip, don't count either way
-                is_mlb = verdict
+                    continue
+                is_lead = verdict
 
-            if is_mlb:
+            if is_lead:
                 last_mlb = i
             elif first_non_mlb == -1:
                 first_non_mlb = i
