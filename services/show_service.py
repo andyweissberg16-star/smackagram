@@ -699,8 +699,22 @@ def write_script(material: dict, only_league: str = None,
     try:
         script = _json.loads(text)
     except Exception as e:
-        print(f"[show] script JSON failed to parse: {e}. First 400 chars: {text[:400]!r}")
-        raise
+        # "Extra data" means the JSON itself was fine and the model appended
+        # something after the closing brace - a sign-off, a note, whatever.
+        # Rejecting the whole response over trailing chatter loses a good
+        # script and silently leaves yesterday's episode published, which is
+        # exactly what happened on 1 Aug. raw_decode reads the first complete
+        # object and ignores whatever follows it.
+        try:
+            script, end = _json.JSONDecoder().raw_decode(text)
+            trailing = text[end:].strip()
+            if trailing:
+                print(f"[show] ignored {len(trailing)} chars of trailing text "
+                      f"after the JSON: {trailing[:120]!r}", flush=True)
+        except Exception:
+            print(f"[show] script JSON failed to parse: {e}. "
+                  f"First 400 chars: {text[:400]!r}", flush=True)
+            raise
     script["publish"] = True
     return script
 
