@@ -105,12 +105,73 @@
   @keyframes waitingBlink{ 0%,100%{opacity:1;} 50%{opacity:0.25;} }
 
   .led-row{display:flex; justify-content:center; gap:12px; margin-top:16px;}
-  .momentum-bar{
-    display:flex; width:100%; max-width:320px; height:8px; margin:14px auto 0; border-radius:4px;
-    overflow:hidden; background:var(--ink-2);
+  .jt{border:1px solid var(--silver-hairline, #3A3D42); border-radius:10px;
+    overflow:hidden; margin-bottom:20px; background:#050506;}
+  .jt-ticker{background:var(--flare); padding:5px 0; overflow:hidden;
+    white-space:nowrap;}
+  .jt-ticker span{font-family:'JetBrains Mono',monospace; font-size:10px;
+    font-weight:700; letter-spacing:1.4px; color:#fff; padding-left:20px;
+    display:inline-block; animation:jtScroll 22s linear infinite;}
+  @keyframes jtScroll{0%{transform:translateX(0);}100%{transform:translateX(-50%);}}
+  @media (prefers-reduced-motion:reduce){ .jt-ticker span{animation:none;} }
+  .jt-body{position:relative; padding:20px 22px 16px; background:#0A0A0C;}
+  .jt-wash{position:absolute; top:0; bottom:0; width:48%; pointer-events:none;}
+  .jt-inner{position:relative; display:flex; align-items:center;
+    justify-content:space-between; gap:16px; margin-bottom:14px;}
+  .jt-side{flex:1; min-width:0;}
+  .jt-side-right{text-align:right;}
+  .jt-team{font-family:'Anton',sans-serif; font-size:30px; line-height:0.95;
+    color:#F4F6F9; margin:0; text-transform:uppercase; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap;}
+  .jt-who{font-family:'JetBrains Mono',monospace; font-size:9px;
+    letter-spacing:1.4px; color:#9AA3AB; margin:4px 0 0; text-transform:uppercase;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .jt-score{flex:0 0 auto; text-align:center;}
+  .jt-nums{font-family:'Anton',sans-serif; font-size:46px; line-height:0.9;
+    color:#F4F6F9; margin:0;}
+  .jt-nums span{color:#3A3D42; font-size:21px; padding:0 3px;}
+  .jt-round{font-family:'JetBrains Mono',monospace; font-size:9px;
+    letter-spacing:1.8px; color:#7A7575; margin:3px 0 0;}
+  .momentum-wrap{position:relative;}
+  .momentum-labels{display:flex; justify-content:space-between; margin-bottom:5px;}
+  .momentum-labels span{font-family:'JetBrains Mono',monospace; font-size:8.5px;
+    letter-spacing:1.5px; color:#5A5E64;}
+  .momentum-bar{position:relative; display:flex; height:6px; background:#1A1C1F;
+    border-radius:3px; overflow:hidden;}
+  .momentum-fill-a{background:var(--flare); transition:width 0.5s ease;}
+  .momentum-fill-b{background:#8A9199; transition:width 0.5s ease;}
+  .momentum-centre{position:absolute; left:50%; top:-2px; bottom:-2px; width:1px;
+    background:rgba(245,245,243,0.22);}
+  .jt-meta{display:flex; align-items:center; justify-content:space-between;
+    padding:9px 22px; background:#0A0A0C; border-top:1px solid #1A1C1F;}
+  .jt-meta span{font-family:'JetBrains Mono',monospace; font-size:9.5px;
+    letter-spacing:1.3px; color:#7A7575; text-transform:uppercase;}
+  .jt-intensity{color:#98A0AA !important;}
+  .jt-tape{display:flex; gap:4px; padding:11px 22px 13px; background:#08080A;
+    border-top:1px solid #1A1C1F;}
+  .tape{flex:1; min-width:0; background:#111113; border-radius:4px;
+    padding:7px 3px; text-align:center;}
+  .tape.won-a{border-bottom:2px solid var(--flare);}
+  .tape.won-b{border-bottom:2px solid #8A9199;}
+  .tape.tied{border-bottom:2px solid #3A3D42;}
+  .tape.live{background:#161618; border:1px solid var(--flare);}
+  .tape-n{display:block; font-family:'JetBrains Mono',monospace; font-size:8px;
+    color:#4A4E54; letter-spacing:0.5px;}
+  .tape.live .tape-n{color:var(--flare);}
+  .tape-s{display:block; font-family:'Anton',sans-serif; font-size:13px;
+    color:#F4F6F9; margin-top:2px;}
+  .tape.live .tape-s{font-family:'JetBrains Mono',monospace; font-size:8.5px;
+    letter-spacing:0.8px;}
+  .tape:not(.won-a):not(.won-b):not(.tied):not(.live) .tape-s{color:#2E3237;}
+  @media (max-width:640px){
+    .jt-team{font-size:19px;}
+    .jt-nums{font-size:34px;}
+    .jt-body{padding:15px 14px 12px;}
+    .jt-tape{padding:9px 12px 11px; gap:3px;}
+    .tape-s{font-size:11px;}
+    .jt-meta{padding:8px 14px;}
   }
-  .momentum-fill-a{background:var(--gold); box-shadow:0 0 8px rgba(255,212,0,0.5); transition:width 0.6s ease-out;}
-  .momentum-fill-b{background:var(--flare); box-shadow:0 0 8px rgba(232,20,44,0.5); transition:width 0.6s ease-out;}
+
   .confetti-piece{
     position:absolute; top:-20px; width:8px; height:8px; opacity:0.9;
     animation:confettiFall linear forwards;
@@ -1336,13 +1397,63 @@ function buildMomentumBar(battle) {
   // Ties don't push the bar either direction — split the remainder
   // evenly down the middle so the bar still reflects "how many rounds
   // are actually decided" without pretending a tie favors someone.
-  const pctA = total > 0 ? (winsA / total) * 100 : 50;
+  // Rounds-won only moves in whole steps and reads identically at 2-1
+  // whether you edged it or buried them. Total points shows how
+  // comfortable the lead actually is, which is what momentum should mean.
+  let ptsA = 0, ptsB = 0;
+  results.forEach(r => { ptsA += (r.score_a || 0); ptsB += (r.score_b || 0); });
+  const ptsTotal = ptsA + ptsB;
+  const pctA = ptsTotal > 0 ? (ptsA / ptsTotal) * 100 : 50;
   return `
-    <div class="momentum-bar">
-      <div class="momentum-fill-a" style="width:${pctA}%;"></div>
-      <div class="momentum-fill-b" style="width:${100 - pctA}%;"></div>
+    <div class="momentum-wrap">
+      <div class="momentum-labels">
+        <span>MOMENTUM</span>
+        <span>${ptsA} &middot; ${ptsB} PTS</span>
+      </div>
+      <div class="momentum-bar">
+        <div class="momentum-fill-a" style="width:${pctA}%;"></div>
+        <div class="momentum-fill-b" style="width:${100 - pctA}%;"></div>
+        <div class="momentum-centre"></div>
+      </div>
     </div>
   `;
+}
+
+function buildTickerText(battle, winsA, winsB) {
+  if (battle.status === 'complete') {
+    return `BATTLE OVER \u26A1 FINAL ${winsA}\u2013${winsB} \u26A1 BATTLE OVER`;
+  }
+  const lead = winsA === winsB
+    ? 'ALL SQUARE'
+    : (winsA > winsB
+        ? `${(battle.team_a || '').toUpperCase()} LEAD ${winsA}\u2013${winsB}`
+        : `${(battle.team_b || '').toUpperCase()} LEAD ${winsB}\u2013${winsA}`);
+  return `ROUND ${battle.round_number} LIVE \u26A1 ${lead} \u26A1 ROUND ${battle.round_number} LIVE`;
+}
+
+function buildTapeRow(battle) {
+  // Every round shown, up to ten. No slider - the point of this strip is
+  // the shape of the fight at a glance, and hiding rounds behind an
+  // interaction defeats that. The chips shrink instead.
+  const byRound = {};
+  (battle.round_results || []).forEach(r => { byRound[r.round] = r; });
+  const max = battle.max_rounds || 5;
+  let out = '';
+  for (let n = 1; n <= max; n++) {
+    const r = byRound[n];
+    if (r) {
+      const cls = r.winner === 'a' ? 'won-a' : (r.winner === 'b' ? 'won-b' : 'tied');
+      out += `<div class="tape ${cls}"><span class="tape-n">${n}</span>` +
+             `<span class="tape-s">${r.score_a ?? '-'}&ndash;${r.score_b ?? '-'}</span></div>`;
+    } else if (n === battle.round_number && battle.status === 'active') {
+      out += `<div class="tape live"><span class="tape-n">${n}</span>` +
+             `<span class="tape-s">LIVE</span></div>`;
+    } else {
+      out += `<div class="tape"><span class="tape-n">${n}</span>` +
+             `<span class="tape-s">&ndash;</span></div>`;
+    }
+  }
+  return out;
 }
 
 function buildLedRow(battle) {
@@ -1556,13 +1667,44 @@ function render(battle) {
   }
   lastLineCount = battle.lines.length;
 
+  // Each side washed in that team's real brand colour fading to black at
+  // the centre seam. Team NAMES stay white - several brand colours are
+  // near-black or very pale, so colouring the text breaks on a real chunk
+  // of teams; the wash carries the identity instead.
+  const wa = battle.team_a_color || '#E8142C';
+  const wb = battle.team_b_color || '#C3CAD3';
+  const rw = (battle.round_results || []);
+  const winsA = rw.filter(r => r.winner === 'a').length;
+  const winsB = rw.filter(r => r.winner === 'b').length;
+
   header.innerHTML = `
-    <p class="matchup-teams"><span class="side-a" style="color:${readableColor(battle.team_a_color, 'var(--gold)')};">${escapeHtml(battle.team_a)}</span><span class="vs">vs</span><span class="side-b" style="color:${readableColor(battle.team_b_color, 'var(--flare)')};">${escapeHtml(battle.team_b)}</span></p>
-    <p class="round-indicator">${battle.status === 'complete' ? 'Battle complete' : `Round ${battle.round_number} of ${battle.max_rounds}`}</p>
-    <p class="viewer-count">👁 ${battle.viewer_count} watching</p>
-    <div class="intensity-badge-wrap"><p class="intensity-badge">Intensity: <span>${escapeHtml(INTENSITY_LABELS[battle.intensity] || 'Savage')}</span></p></div>
-    ${buildMomentumBar(battle)}
-    <div class="led-row">${buildLedRow(battle)}</div>
+    <div class="jt">
+      <div class="jt-ticker"><span>${escapeHtml(buildTickerText(battle, winsA, winsB))}</span></div>
+      <div class="jt-body">
+        <div class="jt-wash" style="left:0; background:linear-gradient(90deg, ${wa} 0%, ${wa}59 45%, transparent 100%);"></div>
+        <div class="jt-wash" style="right:0; background:linear-gradient(270deg, ${wb} 0%, ${wb}59 45%, transparent 100%);"></div>
+        <div class="jt-inner">
+          <div class="jt-side">
+            <p class="jt-team">${escapeHtml(battle.team_a)}</p>
+            <p class="jt-who">${escapeHtml(battle.display_name_a || '')}</p>
+          </div>
+          <div class="jt-score">
+            <p class="jt-nums">${winsA}<span>&ndash;</span>${winsB}</p>
+            <p class="jt-round">${battle.status === 'complete' ? 'FINAL' : `ROUND ${battle.round_number} / ${battle.max_rounds}`}</p>
+          </div>
+          <div class="jt-side jt-side-right">
+            <p class="jt-team">${escapeHtml(battle.team_b || '')}</p>
+            <p class="jt-who">${escapeHtml(battle.display_name_b || '')}</p>
+          </div>
+        </div>
+        ${buildMomentumBar(battle)}
+      </div>
+      <div class="jt-meta">
+        <span class="jt-intensity">${escapeHtml(INTENSITY_LABELS[battle.intensity] || 'Savage')}</span>
+        <span class="jt-viewers">&#128065; ${battle.viewer_count} watching</span>
+      </div>
+      <div class="jt-tape">${buildTapeRow(battle)}</div>
+    </div>
   `;
 
   // Only this round's lines are shown while the battle is active — the
