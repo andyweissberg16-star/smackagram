@@ -683,6 +683,57 @@ of a person.
 """
 
 
+def generate_battle_angles(their_team: str, my_team: str = "",
+                           already_said: list = None, intensity: int = 4) -> list:
+    """
+    Three angles of attack on the opponent's team, for the help button.
+
+    Deliberately ANGLES, not finished lines. Handing someone a ready-made
+    smack makes the battle Smacky arguing with himself; handing them "their
+    playoff record" gives them somewhere to start and leaves the joke theirs.
+    """
+    already_said = already_said or []
+    voice = smackology.render(intensity, context="battle")
+
+    prior = ""
+    if already_said:
+        prior = ("\n\nAlready used this battle - do NOT repeat these angles:\n"
+                 + "\n".join(f"  - {t}" for t in already_said[-8:]))
+
+    system = (
+        f"You are Smacky, helping someone find material on {their_team}.\n\n"
+        + voice +
+        "\n\nGive THREE angles of attack. An angle is a direction, not a "
+        "finished joke - name the sore spot and let them write the line. "
+        "Six to twelve words each. Concrete: a drought, a collapse, a "
+        "contract, a specific player, a stadium, a fanbase habit. "
+        "No generic 'they're bad'.\n\n"
+        "Reply with ONLY a JSON array of three strings. No preamble, no "
+        "markdown, no keys."
+    )
+
+    user = f"Angles on {their_team}."
+    if my_team:
+        user += f" I rep {my_team}, so nothing that cuts back at me."
+    user += prior
+
+    try:
+        resp = _get_client().messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=400,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+        raw = "".join(b.text for b in resp.content if b.type == "text").strip()
+        raw = raw.replace("```json", "").replace("```", "").strip()
+        angles = json.loads(raw)
+        if isinstance(angles, list):
+            return [str(a).strip() for a in angles if str(a).strip()][:3]
+    except Exception as e:
+        print(f"[battle] angle generation failed: {e}", flush=True)
+    return []
+
+
 def generate_smacky_battle_line(
     my_team: str, their_team: str, round_number: int,
     their_name: str = "", previous_lines: list = None,

@@ -67,21 +67,21 @@
     color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;
   }
   .wrap{
-    max-width:620px; margin:0 auto; padding:0 24px; display:flex; flex-direction:column;
+    max-width:960px; margin:0 auto; padding:0 24px; display:flex; flex-direction:column;
     min-height:calc(100dvh - var(--nav-h));
   }
   /* The roast-history card now owns its own fixed height and internal
      scrolling (see .chat-history-card), so this wrapper no longer needs
      to flex-grow or scroll - doing both caused a nested double-scroll
      and left the card unable to hold a stable size. */
-  #lineHistory{flex:none; min-height:0; padding:4px 0;}
+  #lineHistory{flex:none; min-height:0; padding:0;}
   body.waiting-room #lineHistory{flex:none;}
   body.awaiting-round #lineHistory{flex:none;}
   #actionArea{flex-shrink:0; padding-bottom:16px;}
   nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
   nav a.back-link:hover{color:var(--flare);}
 
-  .matchup{text-align:center; padding:28px 0 16px;}
+  .matchup{text-align:center; padding:18px 0 0;}
   .matchup-teams{font-family:'Anton',sans-serif; font-size:24px; text-transform:uppercase; line-height:1.2;}
   .matchup-teams .vs{color:var(--chalk-dim); font-size:16px; margin:0 8px;}
   .matchup-teams .side-a{color:var(--gold);}
@@ -105,8 +105,34 @@
   @keyframes waitingBlink{ 0%,100%{opacity:1;} 50%{opacity:0.25;} }
 
   .led-row{display:flex; justify-content:center; gap:12px; margin-top:16px;}
-  .jt{border:1px solid var(--silver-hairline, #3A3D42); border-radius:10px;
-    overflow:hidden; margin-bottom:20px; background:#050506;}
+  .jt{border:1px solid #3A3D42; border-bottom:none; border-radius:10px 10px 0 0;
+    overflow:hidden; margin-bottom:0; background:#050506;}
+  #lineHistory .card.chat-history-card{border-radius:0; margin-bottom:0;
+    border-top:none; border-bottom:none;}
+  #actionArea .card{border-radius:0 0 10px 10px; margin-bottom:20px;
+    border-top:1px solid #3A3D42;}
+  .compose-row{display:flex; gap:9px; align-items:stretch;}
+  .compose-row .btn{margin:0;}
+  .compose-row .btn-flare{flex:1;}
+  .btn-angle{background:transparent; border:1px solid var(--silver, #C3CAD3);
+    color:var(--silver, #C3CAD3); white-space:nowrap; flex:0 0 auto;}
+  .btn-angle:hover{background:rgba(195,202,211,0.1);}
+  .angle-panel{display:none; margin:10px 0 0; padding:12px 14px;
+    background:#0A0A0C; border:1px solid #2A2D32; border-radius:7px;}
+  .angle-head{font-family:'JetBrains Mono',monospace; font-size:9px;
+    letter-spacing:1.4px; color:var(--silver-deep, #98A0AA); margin:0 0 9px;
+    text-transform:uppercase;}
+  .angle-pick{display:block; width:100%; text-align:left; background:#141416;
+    border:1px solid #2A2D32; border-radius:6px; padding:10px 12px;
+    margin-bottom:7px; color:#E4E4E2; font-size:13.5px; cursor:pointer;
+    font-family:'Inter',sans-serif; transition:border-color 0.14s;}
+  .angle-pick:hover{border-color:var(--flare);}
+  .angle-pick:last-child{margin-bottom:0;}
+  .angle-empty{color:var(--silver-deep, #98A0AA); font-size:13px; margin:0;}
+  @media(max-width:620px){
+    .compose-row{flex-direction:column;}
+    .btn-angle{width:100%;}
+  }
   .jt-ticker{background:var(--flare); padding:5px 0; overflow:hidden;
     white-space:nowrap;}
   .jt-ticker span{font-family:'JetBrains Mono',monospace; font-size:10px;
@@ -231,7 +257,7 @@
        it holds a stable size from the first line onward and scrolls
        internally instead. Roughly matches the background image's own
        proportions against the 620px-max container. */
-    height:400px;
+    height:460px;
     overflow-y:auto;
     /* 'scroll' pins the background to the element's own box so it stays
        put as the roasts scroll past it. ('local' would do the opposite -
@@ -335,8 +361,10 @@
   .fighter-avatar.side-a{background:rgba(255,212,0,0.15); border:2px solid var(--gold); color:var(--gold); box-shadow:0 0 10px rgba(255,212,0,0.35);}
   .fighter-avatar.side-b{background:rgba(232,20,44,0.15); border:2px solid var(--flare); color:var(--flare); box-shadow:0 0 10px rgba(232,20,44,0.35);}
   .line{padding:12px 16px; border-radius:8px; max-width:78%;}
-  .line.side-a{background-color:rgba(26,26,26,0.92); background-image:linear-gradient(rgba(255,212,0,0.16), rgba(255,212,0,0.16)); border:1px solid rgba(255,212,0,0.45); border-left:3px solid var(--gold); animation:borderBlinkGold 1.2s ease-out 2;}
-  .line.side-b{background-color:rgba(26,26,26,0.92); background-image:linear-gradient(rgba(232,20,44,0.16), rgba(232,20,44,0.16)); border:1px solid rgba(232,20,44,0.45); border-right:3px solid var(--flare); text-align:right; animation:borderBlinkRed 1.2s ease-out 2;}
+  .line.side-a{background:#141416; border:1px solid #2A2D32;
+    border-left:3px solid var(--flare); border-radius:0 8px 8px 0;}
+  .line.side-b{background:#141416; border:1px solid #2A2D32;
+    border-right:3px solid #8A9199; border-radius:8px 0 0 8px; text-align:right;}
   @keyframes borderBlinkGold{
     0%, 100%{border-color:rgba(255,212,0,0.3);}
     50%{border-color:var(--gold); box-shadow:0 0 12px rgba(255,212,0,0.5);}
@@ -1474,6 +1502,48 @@ function buildLedRow(battle) {
   return leds;
 }
 
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('#angleBtn');
+  if (!btn) return;
+  const panel = document.getElementById('anglePanel');
+  btn.disabled = true;
+  btn.textContent = 'Thinking...';
+  try {
+    const resp = await fetch(`/api/battles/${challengeCode}/angles`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({side: getMySide()})
+    });
+    const data = await resp.json();
+    if (data.error) {
+      panel.innerHTML = `<p class="angle-empty">${escapeHtml(data.error)}</p>`;
+    } else {
+      panel.innerHTML = '<p class="angle-head">Try one of these</p>' +
+        data.angles.map(a =>
+          `<button type="button" class="angle-pick">${escapeHtml(a)}</button>`
+        ).join('');
+    }
+    panel.style.display = 'block';
+  } catch (err) {
+    panel.innerHTML = '<p class="angle-empty">Could not reach Smacky. Try again.</p>';
+    panel.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Give me an angle';
+  }
+});
+
+document.addEventListener('click', (e) => {
+  const pick = e.target.closest('.angle-pick');
+  if (!pick) return;
+  const box = document.getElementById('lineInput');
+  if (!box) return;
+  box.value = (box.value ? box.value.trim() + ' ' : '') + pick.textContent + ' ';
+  box.focus();
+  const panel = document.getElementById('anglePanel');
+  if (panel) panel.style.display = 'none';
+});
+
 function render(battle) {
   const header = document.getElementById('matchupHeader');
   const content = document.getElementById('content');
@@ -1895,8 +1965,12 @@ function render(battle) {
             <p class="waiting-note" style="margin-bottom:10px;">Your turn — round ${battle.round_number}</p>
             ${battle.opponent_type === 'smacky' ? '' : '<p class="turn-timer" id="turnTimer">2:00</p>'}
             <textarea id="lineInput" placeholder="Say what you came to say..." maxlength="500"></textarea>
+            <div id="anglePanel" class="angle-panel"></div>
             <div id="actionError" role="alert"></div>
-            <button id="submitLineBtn" class="btn btn-flare">Send it</button>
+            <div class="compose-row">
+              <button id="submitLineBtn" class="btn btn-flare">Send it</button>
+              <button id="angleBtn" type="button" class="btn btn-angle">Give me an angle</button>
+            </div>
           </div>
         `;
       }

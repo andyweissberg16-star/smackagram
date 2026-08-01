@@ -2716,6 +2716,35 @@ def battles_live():
     })
 
 
+@app.route("/api/battles/<challenge_code>/angles", methods=["POST"])
+def battle_angles(challenge_code):
+    """
+    Three angles for whoever is stuck. Participants only - a spectator has
+    nothing to write, and this costs a model call.
+    """
+    battle = Battle.query.filter_by(challenge_code=challenge_code).first()
+    if not battle:
+        return jsonify({"error": "Battle not found."}), 404
+
+    side = (request.json or {}).get("side")
+    if side not in ("a", "b"):
+        return jsonify({"error": "Not in this battle."}), 403
+
+    mine = battle.team_a if side == "a" else battle.team_b
+    theirs = battle.team_b if side == "a" else battle.team_a
+
+    used = [ln.message for ln in BattleLine.query.filter_by(
+        battle_id=battle.id, side=side).order_by(BattleLine.created_at.asc()).all()]
+
+    angles = trash_talk_service.generate_battle_angles(
+        their_team=theirs or "", my_team=mine or "",
+        already_said=used, intensity=battle.intensity)
+
+    if not angles:
+        return jsonify({"error": "Nothing came to me. Try again."}), 503
+    return jsonify({"angles": angles})
+
+
 @app.route("/api/battles/<challenge_code>/react", methods=["POST"])
 def battle_react(challenge_code):
     """
