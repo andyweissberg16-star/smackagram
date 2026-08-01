@@ -340,7 +340,7 @@ def find_streaks(leagues, days_back: int = 1, lookback: int = 7, minimum: int = 
 # The writer and the daily job
 # ---------------------------------------------------------------------------
 
-def write_script(material: dict) -> dict:
+def write_script(material: dict, only_league: str = None) -> dict:
     """
     Turns a night's facts into Smacky's on-air script.
 
@@ -362,6 +362,9 @@ def write_script(material: dict) -> dict:
     for g in material["games"]:
         by_league.setdefault(g["league"], []).append(g)
 
+    if only_league:
+        by_league = {k: v for k, v in by_league.items() if k == only_league}
+
     blocks = []
     for lg in LEAGUE_ORDER:
         if lg not in by_league:
@@ -371,6 +374,13 @@ def write_script(material: dict) -> dict:
             mark = "BIG" if g.get("tier") == "headline" else "quick"
             rows.append(f"  [{mark}] " + "; ".join(g["facts"]))
         blocks.append(f"{lg}:\n" + "\n".join(rows))
+
+    total_games = max(1, len(material["games"]))
+    if only_league:
+        mine = sum(1 for g in material["games"] if g["league"] == only_league)
+        league_budget = max(60, int(plan["word_budget"] * mine / total_games))
+    else:
+        league_budget = plan["word_budget"]
 
     streaks = "\n".join(
         f"  {s['team']} have lost {s['losses']} straight ({s['league']})"
@@ -536,7 +546,7 @@ def write_script(material: dict) -> dict:
         "quick games - several one-run games belong in ONE segment, not one "
         "apiece. Only a genuine beating earns its own.\n\n"
 
-        f"TOTAL LENGTH: about {plan['word_budget']} words. This is a timed "
+        f"TOTAL LENGTH: about {league_budget} words. This is a timed "
         "segment, so that's a target, not a suggestion.\n\n"
 
         "THE OPENING - three beats, in this order, before a single result.\n\n"
@@ -710,6 +720,66 @@ def _elapsed_logger():
     return log, (lambda: time.monotonic() - t0)
 
 
+def write_script_per_league(material: dict, log=None) -> dict:
+    """
+    One Claude call per league, run in parallel, stitched in broadcast order.
+
+    A single call covering every league failed in BOTH directions: one run
+    returned twelve baseball segments and no WNBA, the next six WNBA
+    segments and no baseball with ten MLB games ignored. A call cannot
+    overspend a budget it never sees, so each is shown one league and given
+    that league's share of the runtime.
+
+    Stitched in LEAGUE_ORDER regardless of completion order, so the running
+    order is structural rather than requested.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    if log is None:
+        log = lambda m: print(f"[show] {m}", flush=True)
+
+    plan = material["plan"]
+    if not plan["publish"]:
+        return {"publish": False, "reason": plan["reason"]}
+
+    present = []
+    for lg in LEAGUE_ORDER:
+        if any(g["league"] == lg for g in material["games"]):
+            present.append(lg)
+
+    if len(present) <= 1:
+        return write_script(material)
+
+    log(f"writing {len(present)} league scripts in parallel: {', '.join(present)}")
+
+    with ThreadPoolExecutor(max_workers=min(4, len(present))) as pool:
+        results = list(pool.map(
+            lambda lg: (lg, write_script(material, only_league=lg)), present))
+
+    by_lg = dict(results)
+    frame = by_lg.get(present[0]) or {}
+
+    segments = []
+    for lg in present:
+        got = (by_lg.get(lg) or {}).get("segments") or []
+        if not got:
+            log(f"WARNING: {lg} call returned no segments")
+        for seg in got:
+            if isinstance(seg, dict):
+                seg.setdefault("league", lg)
+            segments.append(seg)
+        log(f"  {lg}: {len(got)} segment(s)")
+
+    return {
+        "intro": frame.get("intro") or frame.get("opening") or "",
+        "outro": frame.get("outro") or frame.get("closing") or "",
+        "break_in": frame.get("break_in") or "",
+        "break_out": frame.get("break_out") or "",
+        "best_line": frame.get("best_line") or "",
+        "segments": segments,
+    }
+
+
 def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
     """
     The whole job, end to end: pull the night, decide the runtime, write it,
@@ -735,7 +805,7 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
                 "game_count": material["game_count"]}
 
     log("writing script (Claude)")
-    script = write_script(material)
+    script = write_script_per_league(material, log=log)
     log("script written")
     if not script.get("publish"):
         return {"published": False, "reason": script.get("reason", "no script")}
