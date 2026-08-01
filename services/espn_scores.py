@@ -225,6 +225,34 @@ def probe_summary(league: str, event_id: str) -> dict:
         return v
 
     out = {"url": url, "top_level_keys": sorted(d.keys())}
+
+    # Deeper look at the two sections the roast material actually comes from.
+    try:
+        pl = (d.get("boxscore") or {}).get("players") or []
+        if pl:
+            grp = (pl[0].get("statistics") or [])
+            out["_player_stats_sample"] = {
+                "groups": [g.get("name") or g.get("type") for g in grp],
+                "first_group_labels": (grp[0].get("labels") if grp else None),
+                "first_athlete": ((grp[0].get("athletes") or [{}])[0]
+                                  if grp else None),
+            }
+    except Exception as ex:
+        out["_player_stats_sample"] = f"failed: {ex}"
+
+    try:
+        wp = d.get("winprobability") or []
+        homes = [p.get("homeWinPercentage") for p in wp
+                 if p.get("homeWinPercentage") is not None]
+        out["_winprob_sample"] = {
+            "points": len(wp),
+            "peak_home": max(homes) if homes else None,
+            "low_home": min(homes) if homes else None,
+            "final_home": homes[-1] if homes else None,
+        }
+    except Exception as ex:
+        out["_winprob_sample"] = f"failed: {ex}"
+
     for key in ("boxscore", "leaders", "scoringPlays", "header",
                 "plays", "winprobability", "gameInfo", "standings"):
         if key in d:
