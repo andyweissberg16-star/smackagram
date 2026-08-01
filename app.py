@@ -2074,7 +2074,8 @@ def create_battle():
     if (data.get("opponent") or "human").lower() == "smacky":
         battle.opponent_type = "smacky"
         battle.display_name_b = "Smacky"
-        battle.team_b = trash_talk_service.pick_smacky_battle_team(league, team_a)
+        chosen = (data.get("team_b") or "").strip()
+        battle.team_b = chosen or trash_talk_service.pick_smacky_battle_team(league, team_a)
         battle.status = "active"
         battle.current_turn = "a"
 

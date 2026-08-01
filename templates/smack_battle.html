@@ -317,9 +317,23 @@ const LEAGUE_TEAM_KEYS = {
   ncaaf: 'ncaaf', ncaab: 'ncaab',
   soccer: 'mls,epl,laliga,bundesliga,seriea'
 };
+document.querySelectorAll('.round-toggle').forEach(function (group) {
+  group.addEventListener('click', function (e) {
+    const btn = e.target.closest('.round-opt');
+    if (!btn) return;
+    group.querySelectorAll('.round-opt').forEach(function (b) { b.classList.remove('is-on'); });
+    btn.classList.add('is-on');
+  });
+});
+
+function roundsFrom(groupId) {
+  const on = document.querySelector('#' + groupId + ' .round-opt.is-on');
+  return on ? parseInt(on.dataset.rounds, 10) : 5;
+}
+
 document.getElementById('leagueSelect').addEventListener('change', () => {
   const league = document.getElementById('leagueSelect').value;
-  ['teamInput', 'soloTeam'].forEach(function (id) {
+  ['teamInput', 'soloTeam', 'soloOpponent'].forEach(function (id) {
     const el = document.getElementById(id);
     if (!el) return;
     el.setAttribute('data-team-league', LEAGUE_TEAM_KEYS[league] || '');
@@ -333,7 +347,7 @@ async function createBattle() {
   const team = document.getElementById('teamInput').value.trim();
   const name = document.getElementById('nameInput').value.trim();
   const intensity = parseInt(document.getElementById('intensitySelect').value, 10);
-  const maxRounds = parseInt(document.getElementById('roundsSelect').value, 10);
+  const maxRounds = roundsFrom('rivalRounds');
   const errorEl = document.getElementById('createError');
   const btn = document.getElementById('createBtn');
 
@@ -421,11 +435,13 @@ document.getElementById('soloBtn').addEventListener('click', async () => {
 
   const league = document.getElementById('leagueSelect').value;
   const team = document.getElementById('soloTeam').value.trim();
+  const opponent = document.getElementById('soloOpponent').value.trim();
   const name = document.getElementById('soloName').value.trim();
   const intensity = parseInt(document.getElementById('intensitySelect').value, 10);
-  const maxRounds = parseInt(document.getElementById('roundsSelect').value, 10);
+  const maxRounds = roundsFrom('soloRounds');
 
   if (!team) { errorEl.textContent = 'Pick your team first.'; errorEl.style.display = 'block'; return; }
+  if (!opponent) { errorEl.textContent = 'Pick the team you want to roast.'; errorEl.style.display = 'block'; return; }
   if (!name) { errorEl.textContent = 'Put a name in so Smacky knows who he is talking to.'; errorEl.style.display = 'block'; return; }
 
   const ageGate = document.getElementById('ageGateSolo');
@@ -445,7 +461,7 @@ document.getElementById('soloBtn').addEventListener('click', async () => {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({league: league, team_a: team, display_name_a: name,
                             intensity: intensity, max_rounds: maxRounds,
-                            opponent: 'smacky'})
+                            opponent: 'smacky', team_b: opponent})
     });
     const data = await resp.json();
     if (data.error) {
