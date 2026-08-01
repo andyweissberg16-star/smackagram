@@ -105,6 +105,49 @@
   @keyframes waitingBlink{ 0%,100%{opacity:1;} 50%{opacity:0.25;} }
 
   .led-row{display:flex; justify-content:center; gap:12px; margin-top:16px;}
+  .sd-card{background:#08080A; border:1px solid #3A3D42; border-radius:10px;
+    overflow:hidden; margin-bottom:20px;}
+  .sd-split{display:flex; min-height:200px;}
+  .sd-half{position:relative; padding:22px; display:flex; flex-direction:column;
+    justify-content:flex-end;}
+  .sd-win{flex:1.35;}
+  .sd-lose{flex:1; align-items:flex-end; text-align:right;}
+  .sd-stamp{position:absolute; top:16px; left:22px; background:var(--flare);
+    color:#fff; font-family:'Anton',sans-serif; font-size:12px; letter-spacing:2px;
+    padding:4px 12px; border-radius:3px;}
+  .sd-team{font-family:'Anton',sans-serif; font-size:40px; line-height:0.92;
+    margin:0; text-transform:uppercase;}
+  .sd-lose .sd-team{font-size:26px;}
+  .sd-who{font-family:'JetBrains Mono',monospace; font-size:9px;
+    letter-spacing:1.4px; margin:6px 0 0; text-transform:uppercase;}
+  .sd-num{font-family:'Anton',sans-serif; font-size:52px; line-height:1;
+    margin:10px 0 0;}
+  .sd-lose .sd-num{font-size:38px;}
+  .sd-strip{display:flex; align-items:center; justify-content:space-between;
+    padding:11px 22px; background:#0A0A0C; border-top:1px solid #1E2023;}
+  .sd-pips{display:flex; gap:5px;}
+  .sd-pip{width:26px; height:6px; border-radius:2px; background:#1A1C1F;
+    display:inline-block;}
+  .sd-pip.a{background:var(--flare);}
+  .sd-pip.b{background:#8A9199;}
+  .sd-pip.tie{background:#3A3D42;}
+  .sd-pts{font-family:'JetBrains Mono',monospace; font-size:9px;
+    letter-spacing:1.5px; color:#5A5E64;}
+  .sd-card .jsc-verdict{padding:16px 22px 0; border-top:1px solid #1E2023;}
+  .sd-card .jsc-recap{padding:0 22px 4px; color:#C3CAD3; font-size:14px;
+    line-height:1.55;}
+  .sd-actions{display:flex; gap:9px; padding:14px 22px 18px;}
+  .sd-btn{flex:1; margin:0; text-align:center; text-decoration:none;}
+  .sd-btn-ghost{background:transparent; border:1px solid var(--silver, #C3CAD3);
+    color:var(--silver, #C3CAD3);}
+  @media(max-width:620px){
+    .sd-split{flex-direction:column; min-height:0;}
+    .sd-lose{align-items:flex-start; text-align:left;}
+    .sd-team{font-size:32px;}
+    .sd-lose .sd-team{font-size:24px;}
+    .sd-num{font-size:40px;}
+    .sd-actions{flex-direction:column;}
+  }
   .jt{border:1px solid #3A3D42; border-bottom:none; border-radius:10px 10px 0 0;
     overflow:hidden; margin-bottom:0; background:#050506;}
   #lineHistory .card.chat-history-card{border-radius:0; margin-bottom:0;
@@ -1326,23 +1369,6 @@ function buildFinalScorecard(battle, mySide) {
   // Those scores already existed in the data and were being thrown away -
   // the old chips only showed "R1", "R2". Honours max_rounds too, so a
   // 10-round battle shows all ten instead of silently stopping at five.
-  const totalRounds = battle.max_rounds || 5;
-  let headCells = '<div class="jsc-cell jsc-corner"></div>';
-  let rowACells = '';
-  let rowBCells = '';
-  for (let round = 1; round <= totalRounds; round++) {
-    const r = results.find(x => x.round === round);
-    headCells += `<div class="jsc-cell jsc-head">R${round}</div>`;
-    const wonA = r && r.winner === 'a';
-    const wonB = r && r.winner === 'b';
-    const sa = r && r.score_a !== null && r.score_a !== undefined ? r.score_a : '&ndash;';
-    const sb = r && r.score_b !== null && r.score_b !== undefined ? r.score_b : '&ndash;';
-    rowACells += `<div class="jsc-cell jsc-score${wonA ? ' won-a' : ''}">${sa}</div>`;
-    rowBCells += `<div class="jsc-cell jsc-score${wonB ? ' won-b' : ''}">${sb}</div>`;
-  }
-  // Columns: fighter label, one per round, then the average.
-  const gridCols = `minmax(58px,auto) repeat(${totalRounds}, minmax(30px,50px)) minmax(46px,auto)`;
-
   const isWinner = battle.overall_winner && battle.overall_winner !== 'tie' && mySide === battle.overall_winner;
   if (isWinner) triggerConfetti();
   const isLoser = battle.overall_winner && battle.overall_winner !== 'tie' && mySide !== battle.overall_winner;
@@ -1376,41 +1402,58 @@ function buildFinalScorecard(battle, mySide) {
   const colorA = readableColor(battle.team_a_color, 'var(--gold)');
   const colorB = readableColor(battle.team_b_color, 'var(--flare)');
 
+  // Split decision. The winner's half is wider and lit in their own team
+  // colour; the loser's is narrow and dark. The layout itself says who won
+  // before a single word is read.
+  const sumA = scoresA.reduce((t, n) => t + n, 0);
+  const sumB = scoresB.reduce((t, n) => t + n, 0);
+
+  const aWon = battle.overall_winner === 'a';
+  const bWon = battle.overall_winner === 'b';
+  const drawn = battle.overall_winner === 'tie';
+
+  const rawA = battle.team_a_color || '#E8142C';
+  const rawB = battle.team_b_color || '#8A9199';
+
+  function half(team, who, wins, colour, isWinner) {
+    const bg = isWinner
+      ? `linear-gradient(135deg, ${colour} 0%, #0A0A0C 115%)`
+      : '#0E1015';
+    const nameCol = isWinner ? '#FFFFFF' : '#6B7178';
+    const subCol = isWinner ? 'rgba(255,255,255,0.68)' : '#4A4E54';
+    return `
+      <div class="sd-half ${isWinner ? 'sd-win' : 'sd-lose'}" style="background:${bg};">
+        ${isWinner && !drawn ? '<span class="sd-stamp">WINNER</span>' : ''}
+        <p class="sd-team" style="color:${nameCol};">${escapeHtml(team || '')}</p>
+        <p class="sd-who" style="color:${subCol};">${escapeHtml(who || '')}</p>
+        <p class="sd-num" style="color:${isWinner ? '#FFFFFF' : '#4A4E54'};">${wins}</p>
+      </div>`;
+  }
+
+  const pips = [];
+  for (let n = 1; n <= (battle.max_rounds || 5); n++) {
+    const r = (battle.round_results || []).find(x => x.round === n);
+    const cls = !r ? 'none' : (r.winner === 'a' ? 'a' : (r.winner === 'b' ? 'b' : 'tie'));
+    pips.push(`<span class="sd-pip ${cls}"></span>`);
+  }
+
   return `
-    <div class="card final-scorecard">
-      <div class="jsc-header">
-        <span class="jsc-eyebrow">Official scorecard</span>
-        <span class="jsc-bout">Bout ${escapeHtml(battle.challenge_code)}</span>
+    <div class="sd-card">
+      <div class="sd-split">
+        ${half(battle.team_a, battle.display_name_a, winsA, rawA, aWon || drawn)}
+        ${half(battle.team_b, battle.display_name_b, winsB, rawB, bWon)}
       </div>
 
-      <div class="jsc-bout-line">
-        <div class="jsc-fighter">
-          <p class="jsc-fighter-name side-a">${escapeHtml(battle.display_name_a)}</p>
-          <p class="jsc-fighter-team" style="color:${colorA};">${escapeHtml(battle.team_a)}</p>
-        </div>
-        <div class="jsc-tally">
-          <span class="side-a">${winsA}</span><span class="jsc-tally-dash">–</span><span class="side-b">${winsB}</span>
-          <p class="jsc-tally-label">Rounds</p>
-        </div>
-        <div class="jsc-fighter jsc-fighter-right">
-          <p class="jsc-fighter-name side-b">${escapeHtml(battle.display_name_b)}</p>
-          <p class="jsc-fighter-team" style="color:${colorB};">${escapeHtml(battle.team_b)}</p>
-        </div>
+      <div class="sd-strip">
+        <div class="sd-pips">${pips.join('')}</div>
+        <span class="sd-pts">${sumA} &ndash; ${sumB} PTS</span>
       </div>
-
-      <div class="jsc-grid-scroll">
-        <div class="jsc-grid" style="grid-template-columns:${gridCols};">
-          ${headCells}<div class="jsc-cell jsc-head jsc-head-avg">Avg</div>
-          <div class="jsc-cell jsc-rowlabel side-a">${escapeHtml(battle.display_name_a)}</div>
-          ${rowACells}<div class="jsc-cell jsc-avg side-a">${avgA !== null ? avgA : '&ndash;'}</div>
-          <div class="jsc-cell jsc-rowlabel side-b">${escapeHtml(battle.display_name_b)}</div>
-          ${rowBCells}<div class="jsc-cell jsc-avg side-b">${avgB !== null ? avgB : '&ndash;'}</div>
-        </div>
-      </div>
-      <p class="jsc-legend">Highlighted cell takes the round</p>
 
       ${recapBlock}
-      <a href="/battle/${encodeURIComponent(battle.challenge_code)}/card" target="_blank" rel="noopener" class="jsc-share">Get shareable card &rarr;</a>
+      <div class="sd-actions">
+        <a href="/battle/${encodeURIComponent(battle.challenge_code)}/card" target="_blank" rel="noopener" class="btn btn-flare sd-btn">Share this</a>
+        <a href="/smack-battle" class="btn sd-btn sd-btn-ghost">Run it back</a>
+      </div>
       ${smackLabBlock}
     </div>
   `;
