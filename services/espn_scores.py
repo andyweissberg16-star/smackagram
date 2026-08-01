@@ -20,6 +20,9 @@ carries on. That's a better trade than confidently reporting invented scores.
 
 import requests
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+EASTERN = ZoneInfo("America/New_York")
 
 BASE = "https://site.api.espn.com/apis/site/v2/sports"
 
@@ -55,7 +58,7 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
         return []
     sport_path, league_path, label, unit = cfg
 
-    day = datetime.utcnow() - timedelta(days=days_back)
+    day = datetime.now(EASTERN) - timedelta(days=days_back)
     date_str = day.strftime("%Y%m%d")
     url = f"{BASE}/{sport_path}/{league_path}/scoreboard"
 
