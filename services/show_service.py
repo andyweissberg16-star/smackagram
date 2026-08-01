@@ -525,8 +525,16 @@ def write_script(material: dict) -> dict:
         "enduring until they play again.\n\n"
 
 
-        "COVER EVERY GAME LISTED. None get skipped - the short ones get short "
-        "treatment, not silence.\n\n"
+        "COVER EVERY LEAGUE LISTED, AND EVERY GAME IN IT. Not just the "
+        "biggest league - EVERY league above gets its own segment or "
+        "segments. A script covering only baseball when other leagues "
+        "played is incomplete.\n\n"
+
+        "  BUDGET YOUR ROOM SO YOU REACH THE END. The most common failure "
+        "is writing a separate segment for every baseball game, spending "
+        "the whole budget, and stopping before the other leagues. GROUP the "
+        "quick games - several one-run games belong in ONE segment, not one "
+        "apiece. Only a genuine beating earns its own.\n\n"
 
         f"TOTAL LENGTH: about {plan['word_budget']} words. This is a timed "
         "segment, so that's a target, not a suggestion.\n\n"
@@ -825,7 +833,7 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
             for g in material.get("games", []):
                 if (g.get("league") or "").upper() != league_name:
                     continue
-                for key in ("home_nick", "away_nick", "home_city", "away_city"):
+                for key in ("home_nick", "away_nick"):
                     nm = (g.get(key) or "").strip().lower()
                     if len(nm) >= 4:
                         out.add(nm)
@@ -854,6 +862,21 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
             if mlb_hits == other_hits:
                 return None          # a transition mentioning both - ambiguous
             return mlb_hits > other_hits
+
+        leagues_played = {(g.get("league") or "").upper()
+                          for g in material.get("games", []) if g.get("league")}
+        covered = set()
+        for seg in segments:
+            body = (seg.get("text") or "").lower()
+            for lg in leagues_played:
+                names = _teams_for(lg)
+                if names and any(re.search(r"\b" + re.escape(t) + r"\b", body)
+                                 for t in names):
+                    covered.add(lg)
+        missing = leagues_played - covered
+        if missing:
+            log(f"WARNING: leagues played but NOT covered in the script: "
+                f"{', '.join(sorted(missing))} - the model ran out of room")
 
         last_mlb = -1
         first_non_mlb = -1
