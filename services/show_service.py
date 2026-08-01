@@ -569,11 +569,16 @@ def write_script(material: dict) -> dict:
         "land on exactly this:\n"
         '     \"That\'s The Daily Smack. The grill\'s cooling down, but it '
         'never goes out. Same time tomorrow - somebody else is getting '
-        'roasted. I\'m Smacky, and you\'ve been smacked.\"\n'
+        'roasted.\"\n'
         "     Same rule as the opening: it only works as branding if it is "
         "identical every single day.\n\n"
 
-        "HOW HARD TO GO: all the way. This is a late-night sports radio show "
+        "STOP THERE. Do not sign your name, do not name the website, do not "
+        "add a farewell after it. The actual sign-off is appended "
+        "automatically after your close and is identical in every episode - "
+        "anything you write past this point duplicates it.\n\n"
+
+        "HOW HARD TO GO: all the way. This is an uncensored late-night podcast "
         "for adults who came here to hear teams get destroyed. Curse freely "
         "and naturally - not one token swear per segment, but the way someone "
         "actually talks when a team has embarrassed itself. Crude is fine. "
@@ -603,8 +608,30 @@ def write_script(material: dict) -> dict:
         "loud, which happened in a real episode. Write normal sentences with "
         "normal punctuation.\n\n"
 
+        "THE COMMERCIAL BREAK. The show goes to an ad once, straight after "
+        "baseball. You resent this. Write two short lines for it:\n\n"
+
+        "  \"break_in\" - you announcing the break, bitterly. The joke is "
+        "NOT that ads are annoying, it is that YOU have obligations: a "
+        "mortgage, a contract, a boss, a thing you signed without reading. "
+        "A man complaining is tedious; a man who is trapped is funny. "
+        "Vary it daily - this is a running bit and the same gripe every day "
+        "dies fast. Around 25 words. Curse if you want, you normally do.\n\n"
+
+        "  \"break_out\" - coming back. Short, relieved it is over, and it "
+        "must name what is coming next so the show does not stall on the "
+        "other side of the ad. Around 15 words.\n\n"
+
+        "  Do NOT write the advert itself. It is fixed copy, read after your "
+        "break_in line, and it is not yours to touch.\n\n"
+
+        "TAG EVERY SEGMENT with the league it covers - \"MLB\", \"WNBA\", "
+        "\"NFL\", \"NBA\", \"NHL\". This is how the break gets placed after "
+        "the baseball, so it has to be accurate.\n\n"
+
         "Reply with JSON only:\n"
-        '{"intro": "...", "segments": [{"text": "...", "reaction": "burn"}], '
+        '{"intro": "...", "segments": [{"text": "...", "reaction": "burn", '
+        '"league": "MLB"}], "break_in": "...", "break_out": "...", '
         '"outro": "...", "best_line": "..."}\n'
         "Group segments sensibly - a [BIG] game is its own segment, several "
         "[quick] ones can share. reaction is one of: burn, laugh, shock, groan."
@@ -700,8 +727,12 @@ def produce_daily_show(days_back: int = 1) -> dict:
     # Appended to the outro TEXT rather than mixed in as a second audio file:
     # it goes through the same voice and the same loudness normalisation, so
     # it sounds like him finishing his sentence instead of a tacked-on stinger.
-    if outro and "smackagram" not in outro.lower():
-        outro = outro.rstrip() + " Smackagram dot com."
+    # Always appended, never conditional. The previous version skipped it if
+    # the model had mentioned the site anywhere in its own close, which meant
+    # the signature line silently vanished on exactly the episodes where the
+    # model got chatty - the opposite of a fixed sign-off. The prompt now
+    # tells it to stop before signing off, and this appends regardless.
+    outro = (outro.rstrip() + " " + SIGN_OFF_HIT).strip() if outro else SIGN_OFF_HIT
     # The model doesn't always use the key it was asked for - "text" came back
     # as something else and the whole run died on a KeyError. Accept the
     # obvious variants and skip anything genuinely empty rather than losing a
@@ -718,12 +749,46 @@ def produce_daily_show(days_back: int = 1) -> dict:
         body = (body or "").strip()
         if not body:
             continue
-        segments.append({"text": sanitize_for_speech(body), "reaction": reaction})
+        league = (seg.get("league") or "").strip().upper() if isinstance(seg, dict) else ""
+        segments.append({"text": sanitize_for_speech(body), "reaction": reaction,
+                         "league": league})
 
     if not segments:
         print(f"[show] script had no usable segments. Keys returned: "
               f"{[list(x.keys()) if isinstance(x, dict) else type(x).__name__ for x in script.get('segments', [])][:3]}")
         return {"published": False, "reason": "script returned no usable segments"}
+
+    # Insert the commercial break after the LAST baseball segment, found by
+    # the league tags rather than a fixed index - the number of MLB segments
+    # changes nightly with the slate, so any hardcoded position would land
+    # mid-baseball the first time the schedule was light.
+    break_in = sanitize_for_speech((script.get("break_in") or "").strip())
+    break_out = sanitize_for_speech((script.get("break_out") or "").strip())
+
+    if break_in:
+        last_mlb = -1
+        for i, seg in enumerate(segments):
+            if seg.get("league") == "MLB":
+                last_mlb = i
+        if last_mlb == -1:
+            # No baseball tonight. Fall back to the middle of the show rather
+            # than dropping the break entirely or jamming it at the front.
+            last_mlb = max(0, len(segments) // 2 - 1)
+            log("no MLB segments tagged; placing break at the midpoint")
+
+        # Only worth breaking if there is show left on the other side of it.
+        if last_mlb < len(segments) - 1:
+            brk = [{"text": break_in, "reaction": "none", "league": "BREAK"},
+                   {"text": AD_COPY, "reaction": "none", "league": "BREAK",
+                    "music_bed": AD_MUSIC_PATH,
+                    "music_gain_db": AD_MUSIC_GAIN_DB,
+                    "music_fade_ms": AD_MUSIC_FADE_MS}]
+            if break_out:
+                brk.append({"text": break_out, "reaction": "none", "league": "BREAK"})
+            segments[last_mlb + 1: last_mlb + 1] = brk
+            log(f"commercial break placed after segment {last_mlb + 1} (last MLB)")
+        else:
+            log("break skipped - baseball was the last segment, nothing to come back to")
 
     log(f"generating speech for {len(segments)} segments + intro/outro (slowest step)")
     audio_url = _assemble_with_music(intro, segments, outro, log=log)
@@ -769,6 +834,65 @@ DUCK_DB = -11             # bed drops once he's speaking, still audible
 # 15% volume, which is the abrupt cutoff that was audible. Anything here
 # must satisfy MUSIC_SOLO_MS + DUCK_RAMP_MS + FADE_OUT_MS <= 8000, and is
 # asserted below so this can't silently regress if the timings are retuned.
+# The sign-off. Fixed text appended in code rather than asked of the model,
+# because a signature line is only branding if it is IDENTICAL every episode -
+# and a prompt instruction to repeat something verbatim is a request, not a
+# guarantee. The opening sponsor read has the same requirement but still lives
+# in the prompt; this one is enforced.
+#
+# "dot com" is spoken deliberately. It also relies on sanitize_for_speech NOT
+# stripping the word "dot" - it used to, which turned this into "Smackagram
+# com" and was audible in a real episode. There is a guard for that now.
+# The commercial break. Fixed copy, read straight, every episode.
+#
+# Deliberately CLEAN in a show that swears constantly - the gear change is
+# the joke, and it means this clip doubles as an advert that could run
+# somewhere real without re-recording. Smacky's complaint going in and his
+# line coming back out are written fresh by the model each day; only the ad
+# itself is fixed, which is what makes it read as an ad rather than a bit.
+AD_COPY = (
+    "Smackagram. The world leader in sports trash talk. Any sport. Any team. "
+    "You write the smack. We make the call. A real phone, ringing in their "
+    "pocket, saying everything you could never say to their face. And they "
+    "never find out it was you. "
+    "You watch the games. We talk the talk. One dollar a call. "
+    "Smackagram dot com. Ring. Roast. Repeat."
+)
+
+# Music bed under the ad. Drop the file at this path; if it is missing the
+# ad still runs dry rather than failing the episode.
+AD_MUSIC_PATH = "static/audio/TRKTRN_IRSPBDR_157_Drum_Loop_Full_Post_Punk_Chorus.wav"
+# Under the read, but a drum loop can sit higher than a melodic bed without
+# hurting intelligibility - kick is below the voice and snare/hats are short
+# transients, so neither masks speech the way sustained guitar would. -20 was
+# over-cautious for percussion; -16 keeps the energy. Raise or lower here if
+# it fights the read.
+AD_MUSIC_GAIN_DB = -16.0
+AD_MUSIC_FADE_MS = 600     # eases in and out rather than clicking on
+
+# Split in two so the slap can be placed exactly. The first half ENDS on
+# "you", which means the end of that audio clip is the end of the word - no
+# guessing at an offset, and no drift between episodes as TTS timing shifts.
+SIGN_OFF_HIT = "And I'm Smacky. And I just smacked you."
+SIGN_OFF_TAIL = (
+    "My schedule's wide open, so get over to Smackagram dot com "
+    "and let me absolutely fucking unload on somebody you love."
+)
+SIGN_OFF = SIGN_OFF_HIT + " " + SIGN_OFF_TAIL   # transcript/display
+
+# Drop the file at this path in the repo. If it is missing the show still
+# builds and simply has no slap, rather than failing the run.
+SMACK_SFX_PATH = "static/audio/FF_CF_foley_slap_violet.wav"
+
+# How far BEFORE the end of "you" the slap starts, so it lands over the tail
+# of the word rather than after it.
+SMACK_LEAD_MS = 120
+# Beat after the hit before "My schedule's wide open" - lets it land.
+SMACK_BEAT_MS = 350
+# Slightly hot: it is a punchline, not ambience. Drop to 0 for a realistic
+# slap, raise for more cartoon.
+SMACK_GAIN_DB = 2.0
+
 MUSIC_BED_MS = 8000       # true length of daily-smack-intro.wav
 DUCK_RAMP_MS = 300        # ramp INTO the duck instead of stepping to it
 FADE_OUT_MS = 1700        # 6100 + 1700 = 7800, finishing 200ms early
@@ -818,7 +942,14 @@ def _assemble_with_music(intro: str, segments: list, outro: str, log=None) -> st
     if log is None:
         log = lambda m: print(f"[show] {m}", flush=True)
 
-    url = smackcast_service.assemble_recap_audio(intro, segments, outro)
+    url = smackcast_service.assemble_recap_audio(
+        intro, segments, outro,
+        outro_tail=SIGN_OFF_TAIL,
+        hit_sfx_path=SMACK_SFX_PATH,
+        hit_lead_ms=SMACK_LEAD_MS,
+        hit_beat_ms=SMACK_BEAT_MS,
+        hit_gain_db=SMACK_GAIN_DB,
+    )
     log("speech generated and stitched")
 
     if not os.path.exists(INTRO_MUSIC_PATH):

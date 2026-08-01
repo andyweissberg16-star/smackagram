@@ -608,7 +608,26 @@ _PUNCT_NAME_RE = re.compile(
     # The list was only ever the names that had been caught in the wild, which
     # meant every new one cost a broken episode to discover. This is now the
     # full set of punctuation names an engine might verbalise.
-    r"(?:^|(?<=[\s,.!?;:]))\s*(comma|semicolon|colon|ellipsis|dot|period|"
+    # Two names were removed or guarded because they are ordinary English
+    # words as well as punctuation names, and stripping them unconditionally
+    # broke real output:
+    #
+    #   "dot"    - the sign-off "Smackagram dot com" became "Smackagram com",
+    #              which the engine reads as one blurred word. Heard in a
+    #              real episode. Now protected before a TLD.
+    #   "period" - dropped from the list entirely. "They're done. Period."
+    #              lost the word and left a doubled full stop, and NHL
+    #              segments would lose it as a unit of play ("second
+    #              period"). It was speculative anyway: the list started as
+    #              names caught in the wild and was later widened to every
+    #              name an engine MIGHT verbalise, which is how both of
+    #              these got in. Hearing a stray "period" once is a far
+    #              smaller failure than silently deleting a real word.
+    #
+    # The rest have no ordinary use in a sports recap and stay unconditional.
+    r"(?:^|(?<=[\s,.!?;:]))\s*("
+    r"comma|semicolon|colon|ellipsis|"
+    r"dot(?!\s+(?:com|net|org|io|co|tv|gg)\b)|"
     r"full stop|exclamation mark|exclamation point|question mark|"
     r"apostrophe|quote|quotation mark|hyphen|dash|underscore|asterisk|"
     r"ampersand|slash|backslash|parenthesis|bracket|tilde)\b[\s]*",
@@ -744,7 +763,37 @@ def sanitize_for_speech(text: str) -> str:
     return text.strip()
 
 
-def assemble_recap_audio(intro: str, segments: list, outro: str) -> str:
+# A music bed shorter than the read gets looped - but only if the gap is
+# large enough that a loop sounds intentional. Anything smaller and the
+# restart reads as a glitch, so the bed is padded with silence and faded out
+# instead. 4s is roughly the shortest repeat that still sounds like music
+# rather than a mistake.
+MUSIC_LOOP_MIN_GAP_MS = 4000
+
+
+def _trim_trailing_silence(seg, silence_thresh_db: float = -45.0, chunk_ms: int = 10):
+    """
+    Removes the silence a TTS clip leaves on its end.
+
+    This matters for anchoring a sound effect. The whole point of splitting
+    the sign-off so a clip ENDS on the word "you" is that the clip's end is
+    then exactly where the word finishes - but only if the trailing silence
+    is gone. Left in, it can be a few hundred ms, and the effect lands late
+    on empty air rather than over the tail of the word.
+    """
+    trim = 0
+    while trim < len(seg):
+        window = seg[len(seg) - trim - chunk_ms: len(seg) - trim]
+        if len(window) == 0 or window.dBFS > silence_thresh_db:
+            break
+        trim += chunk_ms
+    return seg[: len(seg) - trim] if trim else seg
+
+
+def assemble_recap_audio(intro: str, segments: list, outro: str,
+                         outro_tail: str = None, hit_sfx_path: str = None,
+                         hit_lead_ms: int = 120, hit_beat_ms: int = 350,
+                         hit_gain_db: float = 0.0) -> str:
     """
     Generates speech for the intro, each segment, and the outro
     separately, splicing in a randomly-chosen sound effect after each
@@ -818,6 +867,11 @@ def assemble_recap_audio(intro: str, segments: list, outro: str) -> str:
     texts = [sanitize_for_speech(intro)] + [sanitize_for_speech(seg["text"]) for seg in segments]
     if outro:
         texts.append(sanitize_for_speech(outro))
+    # The tail is synthesised SEPARATELY, not because it sounds different,
+    # but because splitting here is what makes the sound effect placeable:
+    # the clip before it ends on the exact word the effect has to land on.
+    if outro and outro_tail:
+        texts.append(sanitize_for_speech(outro_tail))
 
     with ThreadPoolExecutor(max_workers=4) as pool:
         # .map preserves input order, which is what keeps the recap from
@@ -841,7 +895,42 @@ def assemble_recap_audio(intro: str, segments: list, outro: str) -> str:
         # and already has the intro's own trailing pause.
         if i > 0:
             combined += AudioSegment.silent(duration=450)
-        combined += _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[1 + i])))
+
+        spoken = _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[1 + i])))
+
+        # A segment can carry a music bed - used for the commercial break,
+        # where the ad is read over ambience rather than dry. The bed is
+        # looped to cover the read (a short loop would otherwise stop dead
+        # halfway through) and faded at both ends so it doesn't click in.
+        bed_path = seg.get("music_bed")
+        if bed_path and os.path.exists(bed_path):
+            try:
+                bed = _standardize(AudioSegment.from_file(bed_path))
+                shortfall = len(spoken) - len(bed)
+
+                if shortfall > 0:
+                    # Only loop when the gap is big enough to be worth it. A
+                    # bed a second or two shorter than the read would
+                    # otherwise restart for that last second - a very audible
+                    # jump right at the end of the ad, and worse than simply
+                    # running out. Below the threshold the bed is padded with
+                    # silence instead and the fade carries it out.
+                    if shortfall >= MUSIC_LOOP_MIN_GAP_MS:
+                        loops = (len(spoken) // max(1, len(bed))) + 1
+                        bed = bed * loops
+                    else:
+                        bed = bed + AudioSegment.silent(duration=shortfall)
+
+                bed = bed[: len(spoken)]
+                fade = int(seg.get("music_fade_ms", 600))
+                bed = bed.fade_in(fade).fade_out(fade) + float(seg.get("music_gain_db", -20.0))
+                spoken = spoken.overlay(bed)
+            except Exception as e:
+                print(f"[audio] music bed failed ({e}); running the read dry", flush=True)
+        elif bed_path:
+            print(f"[audio] music bed not found at {bed_path}; running the read dry", flush=True)
+
+        combined += spoken
 
         sfx = _pick_random_sfx(seg.get("reaction", "none"))
         if sfx is not None:
@@ -850,7 +939,30 @@ def assemble_recap_audio(intro: str, segments: list, outro: str) -> str:
             combined += AudioSegment.silent(duration=200)
             combined += _standardize(sfx) + SFX_VOLUME_REDUCTION_DB
 
-    if outro:
+    if outro and outro_tail:
+        # speech_bytes[-2] ends on the word the hit lands on; [-1] is the tail.
+        hit_clip = _trim_trailing_silence(
+            _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[-2]))))
+        combined += hit_clip
+        hit_point = len(combined)          # exact end of the word
+
+        combined += AudioSegment.silent(duration=hit_beat_ms)
+        combined += _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[-1])))
+
+        # Overlaid AFTER the tail is appended, deliberately. pydub's overlay
+        # does not extend the track it is laid onto, so doing this earlier
+        # would clip the effect's decay at whatever the end happened to be.
+        # With the tail already in place the effect is free to ring out over
+        # it, which is also how it would sound if a person did it live.
+        if hit_sfx_path and os.path.exists(hit_sfx_path):
+            try:
+                smack = _standardize(AudioSegment.from_file(hit_sfx_path))
+                if hit_gain_db:
+                    smack = smack + hit_gain_db
+                combined = combined.overlay(smack, position=max(0, hit_point - hit_lead_ms))
+            except Exception as e:
+                print(f"[audio] smack sfx failed to load ({e}); continuing without it", flush=True)
+    elif outro:
         combined += _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[-1])))
 
     # Compressed source blobs are no longer needed, and the export plus the

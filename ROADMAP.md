@@ -6852,3 +6852,71 @@ KNOWN BUG, pre-existing, not yet fixed: sanitize_for_speech strips punctuation
 NAMES unconditionally, so "They're done. Period." loses the word and leaves a
 doubled full stop, and NHL segments lose "period" as a unit of play. It should
 only strip a name when it is genuinely stray.
+
+## Sign-off made fixed text, and two words that were being deleted
+
+**"Smackagram dot com" was coming out as "Smackagram com."** sanitize_for_speech
+stripped the word "dot" as a punctuation name. The attribution is appended
+AFTER the first sanitize pass, but assemble_recap_audio sanitizes again, and
+the second pass ate it. TTS then read "Smackagram com" as one blurred word.
+
+Root cause is worth recording: the punctuation-name list began as names
+actually caught being spoken aloud, then was widened preemptively to "the full
+set of names an engine might verbalise". That is how "dot" and "period" got in
+— speculatively, neither having caused a problem. Both are ordinary English
+words, so both silently deleted real content.
+
+"dot" is now guarded before a TLD. "period" was removed outright: it is a
+hockey term and an emphasis word ("They're done. Period."), and hearing a
+stray "period" once is a far smaller failure than deleting a real word every
+time.
+
+**The sign-off is now code-enforced.** SIGN_OFF is fixed text appended in
+show_service rather than requested of the model, because a signature line is
+only branding if it is identical every episode, and asking a model to repeat
+something verbatim is a request rather than a guarantee.
+
+It is also unconditional now. The old version skipped the attribution if the
+model had mentioned the site anywhere in its own close — so the signature
+vanished on exactly the episodes where the model got chatty. The prompt now
+tells it to stop before signing off, and the append happens regardless.
+
+**Leftover "radio" framing removed.** "This is a late-night sports radio show"
+survived the earlier reframing and contradicted it — radio implies FCC, which
+is what was pulling the language clean in the first place.
+
+## The commercial break
+A mid-show ad break, placed after baseball. Three parts, and only the middle
+one is fixed.
+
+**break_in / break_out** are written fresh by the model daily. The prompt
+pushes the joke toward Smacky being TRAPPED rather than annoyed — a mortgage,
+a contract, something he signed without reading. A man complaining is tedious;
+a man with obligations is funny. break_out must name what is coming next so
+the show does not stall on the far side of the ad.
+
+**AD_COPY is fixed.** Deliberately clean in a show that swears constantly —
+the gear change is the joke, and it means the clip doubles as an advert that
+could run somewhere real without re-recording.
+
+**Placement is derived from league tags, not an index.** Segments now carry a
+"league" field and the break goes after the LAST MLB one. The number of
+baseball segments changes nightly with the slate, so any hardcoded position
+would eventually land mid-baseball. Falls back to the show's midpoint if no
+MLB is tagged, and skips the break entirely if baseball was the last segment —
+there would be nothing to come back to.
+
+**Music bed** rides under the read via a new per-segment music_bed option.
+The bed is looped only when the shortfall is at least MUSIC_LOOP_MIN_GAP_MS
+(4s): a bed a second short of the read would otherwise restart for that last
+second, which is very audible right at the end of the ad. Below the threshold
+it is padded with silence and the fade carries it out.
+
+Gain is -16 dB rather than -20. A drum loop can sit higher than a melodic bed
+without hurting intelligibility — kick is below the voice and snare/hats are
+short transients, so neither masks speech the way sustained guitar would.
+
+Length was the real design constraint. The first draft ran 42s, and with both
+Smacky lines the break was 59s — 20% of a five-minute episode, against a
+broadcast norm of 10-12%. Cutting to 62 words puts the ad at ~24s and the
+break at ~13%.
