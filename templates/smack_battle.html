@@ -39,7 +39,7 @@
     --line-strong:rgba(245,245,243,0.24);
   }
   body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
-  .wrap{max-width:600px; margin:0 auto; padding:0 24px 60px;}
+  .wrap{max-width:1180px; margin:0 auto; padding:0 32px 60px;}
   nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
   nav a.back-link:hover{color:var(--flare);}
 
@@ -54,46 +54,59 @@
     content:''; position:absolute; top:0; left:0; right:0; height:3px;
     background:linear-gradient(90deg, var(--flare), var(--gold), var(--flare));
   }
-  .door-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px;
-    max-width:760px; margin:0 auto 14px;}
+  .door-grid{display:grid; grid-template-columns:1fr 1fr; gap:32px;
+    max-width:1180px; margin:0 auto 18px;}
   .door{background:var(--ink-2); border:1px solid var(--silver-hairline);
-    border-radius:10px; padding:22px; display:flex; flex-direction:column;}
+    border-radius:12px; padding:38px 36px; display:flex; flex-direction:column;}
   .door-solo{border:2px solid var(--flare);}
-  .door-head{display:flex; align-items:center; gap:11px; margin-bottom:13px;}
-  .door-badge{width:40px; height:40px; border-radius:50%; flex-shrink:0;
+  .door-head{display:flex; align-items:center; gap:15px; margin-bottom:18px;}
+  .door-badge{width:56px; height:56px; border-radius:50%; flex-shrink:0;
     display:flex; align-items:center; justify-content:center;
-    font-family:'Anton',sans-serif; font-size:17px;}
+    font-family:'Anton',sans-serif; font-size:24px;}
   .door-badge-red{background:var(--flare); color:#fff;}
   .door-badge-silver{background:var(--silver-hairline); color:var(--silver); font-size:14px;}
-  .door-kicker{font-family:'JetBrains Mono',monospace; font-size:10px;
-    font-weight:700; letter-spacing:1.1px; color:var(--silver-deep);
-    text-transform:uppercase; margin:0 0 2px;}
+  .door-kicker{font-family:'JetBrains Mono',monospace; font-size:11.5px;
+    font-weight:700; letter-spacing:1.3px; color:var(--silver-deep);
+    text-transform:uppercase; margin:0 0 4px;}
   .door-kicker-red{color:var(--flare);}
-  .door-title{font-family:'Anton',sans-serif; font-size:23px; line-height:1.05;
+  .door-title{font-family:'Anton',sans-serif; font-size:34px; line-height:1.02;
     color:var(--silver-hot); margin:0;}
-  .door-copy{color:var(--chalk-dim); font-size:13px; line-height:1.5;
-    margin:0 0 16px; flex:1;}
-  .door .btn.door-btn{width:100%; margin:4px 0 0;}
+  .door-copy{color:var(--chalk-dim); font-size:15px; line-height:1.55;
+    margin:0 0 22px; flex:1;}
+  .door .btn.door-btn{width:100%; margin:6px 0 0; padding:20px 24px;
+    font-size:17px; letter-spacing:0.4px;}
+  .door input{padding:15px 16px; font-size:15px;}
+  .door label{font-size:13px;}
   .door-btn-silver{background:var(--silver); color:var(--ink); border:none;}
   .door-btn-silver:hover{background:var(--silver-hot);}
-  .door-foot{text-align:center; color:var(--silver-deep); font-size:11.5px;
-    margin:9px 0 0;}
+  .door-foot{text-align:center; color:var(--silver-deep); font-size:12.5px;
+    margin:12px 0 0;}
   .door-age{margin:2px 0 12px; display:none;}
   .door-age-label{display:flex; align-items:center; gap:9px; cursor:pointer;
     font-size:12.5px; color:var(--chalk-dim); margin:0;}
   .door-age-label input{width:20px; height:20px; flex-shrink:0; cursor:pointer;
     accent-color:var(--flare); margin:0;}
-  .door-advanced{max-width:760px; margin:0 auto 30px; border-top:1px solid var(--silver-hairline);
+  #resultCard{max-width:600px; margin-left:auto; margin-right:auto;}
+  .door-advanced{max-width:1180px; margin:0 auto 30px; border-top:1px solid var(--silver-hairline);
     padding-top:14px;}
   .door-advanced summary{cursor:pointer; color:var(--silver-deep); font-size:12.5px;
     text-align:center; list-style:none; padding:4px 0;}
   .door-advanced summary::-webkit-details-marker{display:none;}
   .door-advanced summary:hover{color:var(--silver);}
   .door-advanced-body{padding-top:14px;}
+  @media (max-width:900px){
+    .door-grid{gap:20px;}
+    .door{padding:26px 22px;}
+    .door-title{font-size:27px;}
+    .door-badge{width:46px; height:46px; font-size:19px;}
+  }
   @media (max-width:720px){
-    .door-grid{grid-template-columns:1fr; gap:14px;}
-    .door{padding:18px;}
-    .door-title{font-size:20px;}
+    .wrap{padding:0 18px 60px;}
+    .door-grid{grid-template-columns:1fr; gap:16px;}
+    .door{padding:22px 20px;}
+    .door-title{font-size:25px;}
+    .door-copy{font-size:14px; margin-bottom:18px;}
+    .door .btn.door-btn{padding:17px 20px; font-size:16px;}
   }
   .fight-card-label{
     font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--chalk-dim); text-transform:uppercase;
@@ -158,7 +171,7 @@
 
 <div class="wrap">
   <div class="hero">
-    <p class="sub">Challenge someone to a battle. Send them the link. The crowd decides who wins.</p>
+    <p class="sub" style="max-width:600px; margin-left:auto; margin-right:auto;">Step in against Smacky right now, or call out a rival and settle it. Five rounds. He scores every one and tells you exactly why you lost it.</p>
   </div>
 
   <div class="door-grid">
@@ -211,7 +224,7 @@
 
   </div>
 
-  <div id="createError" role="alert" style="max-width:760px; margin:0 auto;"></div>
+  <div id="createError" role="alert" style="max-width:1180px; margin:0 auto;"></div>
 
   <details class="door-advanced">
     <summary>League, intensity and rounds &mdash; change the defaults</summary>
