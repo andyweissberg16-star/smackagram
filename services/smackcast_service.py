@@ -834,8 +834,8 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
         """
         if segment.frame_rate != 44100:
             segment = segment.set_frame_rate(44100)
-        if segment.channels != 2:
-            segment = segment.set_channels(2)
+        if segment.channels != 1:
+            segment = segment.set_channels(1)
         return segment
 
     # Sound effects were coming through louder than the speech — the
