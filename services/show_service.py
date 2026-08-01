@@ -340,7 +340,8 @@ def find_streaks(leagues, days_back: int = 1, lookback: int = 7, minimum: int = 
 # The writer and the daily job
 # ---------------------------------------------------------------------------
 
-def write_script(material: dict, only_league: str = None) -> dict:
+def write_script(material: dict, only_league: str = None,
+                 leagues_after: list = None) -> dict:
     """
     Turns a night's facts into Smacky's on-air script.
 
@@ -652,6 +653,15 @@ def write_script(material: dict, only_league: str = None) -> dict:
         "must name what is coming next so the show does not stall on the "
         "other side of the ad. Around 15 words.\n\n"
 
+        + (f"  WHAT COMES AFTER THE BREAK: {', '.join(leagues_after)}. Those "
+           f"segments are being written separately and you do not see those "
+           f"games - but they ARE in tonight's show, so hand off to them. Do "
+           f"NOT say there are none: a real episode said \"no WNBA games "
+           f"Thursday\" immediately before three WNBA segments played.\n\n"
+           if leagues_after else
+           "  Nothing follows the break but your own remaining segments.\n\n")
+        +
+
         "  Do NOT write the advert itself. It is fixed copy, read after your "
         "break_in line, and it is not yours to touch.\n\n"
 
@@ -753,8 +763,11 @@ def write_script_per_league(material: dict, log=None) -> dict:
     log(f"writing {len(present)} league scripts in parallel: {', '.join(present)}")
 
     with ThreadPoolExecutor(max_workers=min(4, len(present))) as pool:
-        results = list(pool.map(
-            lambda lg: (lg, write_script(material, only_league=lg)), present))
+        def _one(lg):
+            after = present[present.index(lg) + 1:] if lg == present[0] else None
+            return (lg, write_script(material, only_league=lg, leagues_after=after))
+
+        results = list(pool.map(_one, present))
 
     by_lg = dict(results)
     frame = by_lg.get(present[0]) or {}
