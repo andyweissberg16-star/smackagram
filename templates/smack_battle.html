@@ -79,6 +79,19 @@
   .door label{font-size:13px;}
   .door-btn-silver{background:var(--silver); color:var(--ink); border:none;}
   .door-btn-silver:hover{background:var(--silver-hot);}
+  .door-hint{color:var(--silver-deep); font-size:12px; line-height:1.4;
+    margin:-8px 0 14px;}
+  .door-rounds-label{font-family:'Inter',sans-serif; font-size:13px;
+    color:var(--chalk-dim); margin:4px 0 8px;}
+  .round-toggle{display:grid; grid-template-columns:1fr 1fr; gap:9px;
+    margin-bottom:14px;}
+  .round-opt{background:transparent; border:1px solid var(--silver-hairline);
+    color:var(--silver-deep); border-radius:6px; padding:13px 10px;
+    font-family:'Inter',sans-serif; font-weight:700; font-size:14px;
+    cursor:pointer; transition:all 0.15s;}
+  .round-opt:hover{border-color:var(--silver); color:var(--silver);}
+  .door-solo .round-opt.is-on{background:var(--flare); border-color:var(--flare); color:#fff;}
+  .door-rival .round-opt.is-on{background:var(--silver); border-color:var(--silver); color:var(--ink);}
   .door-foot{text-align:center; color:var(--silver-deep); font-size:12.5px;
     margin:12px 0 0;}
   .door-age{margin:2px 0 12px; display:none;}
@@ -187,8 +200,19 @@
       <p class="door-copy">No link, no friend required. He picks your biggest rival and he goes first.</p>
       <label for="soloTeam">Your team</label>
       <input id="soloTeam" type="text" placeholder="ex. Cowboys" data-team-search data-team-league="nfl">
+      <label for="soloOpponent">Team you want to roast</label>
+      <input id="soloOpponent" type="text" placeholder="ex. Eagles" data-team-search data-team-league="nfl">
+      <p class="door-hint">Smacky defends this one. Pick whoever you actually can't stand.</p>
+
       <label for="soloName">Your name</label>
       <input id="soloName" type="text" placeholder="ex. CowboysHater88" maxlength="40">
+
+      <p class="door-rounds-label">Rounds</p>
+      <div class="round-toggle" id="soloRounds">
+        <button type="button" class="round-opt is-on" data-rounds="5">5 rounds</button>
+        <button type="button" class="round-opt" data-rounds="10">10 rounds</button>
+      </div>
+
       <div class="door-age" id="ageGateSolo">
         <label class="door-age-label">
           <input type="checkbox" id="ageConfirmSolo">
@@ -212,6 +236,13 @@
       <input id="teamInput" type="text" placeholder="ex. Cowboys" data-team-search data-team-league="nfl">
       <label for="nameInput">Your name</label>
       <input id="nameInput" type="text" placeholder="ex. CowboysHater88" maxlength="40">
+
+      <p class="door-rounds-label">Rounds</p>
+      <div class="round-toggle" id="rivalRounds">
+        <button type="button" class="round-opt is-on" data-rounds="5">5 rounds</button>
+        <button type="button" class="round-opt" data-rounds="10">10 rounds</button>
+      </div>
+
       <div class="door-age" id="ageGate">
         <label class="door-age-label">
           <input type="checkbox" id="ageConfirmCheck">
@@ -247,12 +278,6 @@
     </select>
     <p style="font-size:12px; color:var(--chalk-dim); margin:-6px 0 14px;">Sets the tone for the whole battle — whoever you challenge will see this before they join.</p>
 
-    <label for="roundsSelect">Rounds</label>
-    <select id="roundsSelect">
-      <option value="5" selected>5 rounds</option>
-      <option value="10">10 rounds</option>
-    </select>
-    <p style="font-size:12px; color:var(--chalk-dim); margin:-6px 0 4px;">How many rounds this battle goes.</p>
     </div>
   </details>
 
