@@ -95,8 +95,26 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
         if hs is None or as_ is None or hs == as_:
             continue
 
-        h_name = (home.get("team") or {}).get("abbreviation") or ""
-        a_name = (away.get("team") or {}).get("abbreviation") or ""
+        h_team = home.get("team") or {}
+        a_team = away.get("team") or {}
+        h_name = h_team.get("abbreviation") or ""
+        a_name = a_team.get("abbreviation") or ""
+
+        # Nickname and city kept ALONGSIDE the abbreviation, not instead of
+        # it - the prompt and fact lines already use the abbreviations and
+        # changing them would change what the show says.
+        #
+        # These exist because the abbreviations are useless for working out
+        # what a segment is ABOUT. Matching three-letter codes against prose
+        # is a disaster: BAL matches "ball", PIT matches "pitcher", SEA
+        # matches "season", COL matches "Colorado" and "collapse", MIN
+        # matches "minutes". Every segment contains one of those, so every
+        # segment looked like baseball. "Orioles" and "Baltimore" do not
+        # have that problem.
+        h_nick = h_team.get("shortDisplayName") or h_team.get("name") or ""
+        a_nick = a_team.get("shortDisplayName") or a_team.get("name") or ""
+        h_city = h_team.get("location") or ""
+        a_city = a_team.get("location") or ''
         winner, loser = (h_name, a_name) if hs > as_ else (a_name, h_name)
 
         # Records come through as "58-49" - the loser's gives the show a way
@@ -112,6 +130,8 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
             "league": label,
             "unit": unit,
             "home": h_name, "away": a_name,
+            "home_nick": h_nick, "away_nick": a_nick,
+            "home_city": h_city, "away_city": a_city,
             "home_score": hs, "away_score": as_,
             "winner": winner, "loser": loser,
             "margin": abs(hs - as_),

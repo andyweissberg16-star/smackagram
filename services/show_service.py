@@ -15,6 +15,7 @@ No safety screen is needed here, which is the other reason this beats the
 news feed. A run differential cannot be a tragedy.
 """
 
+import re
 import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -701,7 +702,7 @@ def _elapsed_logger():
     return log, (lambda: time.monotonic() - t0)
 
 
-def produce_daily_show(days_back: int = 1) -> dict:
+def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
     """
     The whole job, end to end: pull the night, decide the runtime, write it,
     render it, store it.
@@ -792,25 +793,80 @@ def produce_daily_show(days_back: int = 1) -> dict:
         # So the tags are used when present and otherwise the segment text
         # is matched against the teams we ALREADY fetched, which needs
         # nothing from the model and cannot be forgotten.
-        mlb_teams = set()
-        for g in material.get("games", []):
-            if (g.get("league") or "").upper() == "MLB":
-                for side in ("home", "away", "winner", "loser"):
-                    name = (g.get(side) or "").strip()
-                    if name:
-                        mlb_teams.add(name.lower())
+        # Team-name classification. Asking the model to tag every segment
+        # works until it doesn't - the first live run returned no league
+        # field at all. So tags are used when present, and otherwise the
+        # segment text is matched against teams we ALREADY fetched.
+        #
+        # COMPARES rather than just detects. The first version asked "does
+        # this mention an MLB team", which flagged a WNBA segment opening
+        # on a transition like "that's your baseball, now to the Fever" -
+        # every segment came back MLB and the break was skipped entirely.
+        # Counting mentions per league and taking the larger fixes that: a
+        # passing reference loses to a segment actually about those teams.
+        def _teams_for(league_name):
+            """
+            Recognisable names for a league's teams - nicknames and cities,
+            never abbreviations.
+
+            The abbreviations are what ESPN returns first and they are
+            actively harmful here: matched against prose, BAL hits "ball",
+            PIT hits "pitcher", SEA hits "season", COL hits "Colorado" and
+            "collapse", MIN hits "minutes". Every segment contains one of
+            those, so every segment looked like baseball, the running-order
+            warning never fired, and the break was skipped as "baseball was
+            last". Only names a human would actually say are used.
+
+            Anything under four characters is dropped regardless - short
+            tokens are exactly what caused the problem and no real nickname
+            needs them.
+            """
+            out = set()
+            for g in material.get("games", []):
+                if (g.get("league") or "").upper() != league_name:
+                    continue
+                for key in ("home_nick", "away_nick", "home_city", "away_city"):
+                    nm = (g.get(key) or "").strip().lower()
+                    if len(nm) >= 4:
+                        out.add(nm)
+            return out
+
+        mlb_teams = _teams_for("MLB")
+        other_teams = set()
+        for lg in ("WNBA", "NFL", "NBA", "NHL"):
+            other_teams |= _teams_for(lg)
+
+        def _count(names, body):
+            # Word-boundary matched, so a name can never fire inside a
+            # longer word. Multi-word names ("red sox") work unchanged.
+            n = 0
+            for t in names:
+                if re.search(r"\b" + re.escape(t) + r"\b", body):
+                    n += 1
+            return n
+
+        def _looks_mlb(text):
+            body = (text or "").lower()
+            mlb_hits = _count(mlb_teams, body)
+            other_hits = _count(other_teams, body)
+            if mlb_hits == 0 and other_hits == 0:
+                return None          # nothing recognisable - do not guess
+            if mlb_hits == other_hits:
+                return None          # a transition mentioning both - ambiguous
+            return mlb_hits > other_hits
 
         last_mlb = -1
         first_non_mlb = -1
         tagged = False
         for i, seg in enumerate(segments):
-            is_mlb = False
             if seg.get("league"):
                 tagged = True
                 is_mlb = seg["league"] == "MLB"
-            elif mlb_teams:
-                body = (seg.get("text") or "").lower()
-                is_mlb = any(t in body for t in mlb_teams)
+            else:
+                verdict = _looks_mlb(seg.get("text"))
+                if verdict is None:
+                    continue         # unclassifiable - skip, don't count either way
+                is_mlb = verdict
 
             if is_mlb:
                 last_mlb = i
@@ -855,6 +911,27 @@ def produce_daily_show(days_back: int = 1) -> dict:
                 f"{last_mlb + 1}, via {how})")
         else:
             log("break skipped - baseball was the last segment, nothing to come back to")
+
+    if dry_run:
+        # Everything above is cheap - one Claude call. Everything below is
+        # ~13 ElevenLabs calls per run, which is what makes debugging
+        # placement expensive. This stops here and reports what it WOULD
+        # have built, so the running order and break position can be checked
+        # for the price of the script alone.
+        order = []
+        for i, seg in enumerate(segments):
+            tag = seg.get("league") or "?"
+            order.append(f"{i}:{tag}")
+        log("DRY RUN - stopping before audio")
+        log("  segment order: " + " ".join(order))
+        for i, seg in enumerate(segments):
+            log(f"  [{i}] {(seg.get('text') or '')[:70]}")
+        return {"published": False, "dry_run": True,
+                "segment_count": len(segments),
+                "segments": [{"league": sg.get("league"),
+                              "preview": (sg.get("text") or "")[:120]}
+                             for sg in segments],
+                "game_count": material["game_count"]}
 
     log(f"generating speech for {len(segments)} segments + intro/outro (slowest step)")
     audio_url = _assemble_with_music(intro, segments, outro, log=log)

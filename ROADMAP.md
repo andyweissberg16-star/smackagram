@@ -6962,3 +6962,33 @@ visible rather than silent.
 If it keeps happening the real fix is validating the script and regenerating
 when the order is wrong - one extra Claude call, only on failed validation -
 rather than rearranging prose written for a different sequence.
+
+## Segment classification was matching three-letter abbreviations against prose
+The break kept landing wrong, and the cause was that ESPN returns team
+ABBREVIATIONS - h_name is team.abbreviation - and those were being substring
+matched against Smacky's script:
+
+  BAL matches "ball" and "ballpark"
+  PIT matches "pitcher" and "pitching"
+  SEA matches "season"
+  COL matches "Colorado" and "collapse"
+  MIN matches "minutes"
+
+Every segment contains one of those words, so EVERY segment classified as
+MLB. That is why no running-order warning ever fired despite the WNBA opening
+the show, and why the break was skipped as "baseball was the last segment" -
+by that logic it always is.
+
+Fixed by capturing shortDisplayName and location alongside the abbreviation
+(not instead of it - the prompt and fact lines use the abbreviations and
+changing those would change what the show says), matching on word boundaries,
+and dropping any name under four characters. Verified against the exact prose
+that broke it, including a transition sentence naming both leagues, which now
+returns ambiguous rather than guessing.
+
+## Dry run
+Debugging placement cost a full render every attempt: ~13 ElevenLabs calls.
+/api/cron/daily-show?key=...&dry=1 writes the script, reports the running
+order and where the break would land, and stops before any audio. One Claude
+call instead of thirteen TTS calls, so ordering and placement can be checked
+for a fraction of the cost.

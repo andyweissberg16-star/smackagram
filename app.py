@@ -3622,7 +3622,7 @@ def _generate_smackcasts_async():
             print(f"[smackcast cron] weekly run FAILED: {e}")
 
 
-def _produce_daily_show_async(app_obj):
+def _produce_daily_show_async(app_obj, dry_run: bool = False):
     """
     The actual work, off the request thread.
 
@@ -3632,11 +3632,16 @@ def _produce_daily_show_async(app_obj):
     """
     with app_obj.app_context():
         try:
-            result = show_service.produce_daily_show(days_back=1)
+            result = show_service.produce_daily_show(days_back=1, dry_run=dry_run)
         except Exception as e:
             # Swallowed on purpose. Yesterday's episode keeps playing and the
             # error is in the logs, rather than the home page losing its player.
             print(f"[show] production failed, keeping previous episode: {e}")
+            return
+
+        if result.get("dry_run"):
+            print(f"[show] dry run complete - {result.get('segment_count')} segments, "
+                  f"no audio generated, nothing published", flush=True)
             return
 
         if not result.get("published"):
@@ -3671,13 +3676,23 @@ def cron_daily_show():
     if request.args.get("key") != os.environ.get("CRON_SECRET"):
         return "Nope.", 403
 
+    # ?dry=1 writes the script and reports the running order and where the
+    # commercial break would land, then stops WITHOUT generating audio.
+    # A full run is ~13 ElevenLabs calls; the dry run is one Claude call, so
+    # placement and ordering can be debugged without paying for a render
+    # every attempt.
+    dry = request.args.get("dry") in ("1", "true", "yes")
+
     threading.Thread(
-        target=_produce_daily_show_async, args=(app,), daemon=True
+        target=_produce_daily_show_async, args=(app,), kwargs={"dry_run": dry}, daemon=True
     ).start()
     return jsonify({
         "started": True,
-        "note": "Producing in the background. Check /api/show/current in a few minutes, "
-                "or the logs for [show] lines."
+        "dry_run": dry,
+        "note": ("DRY RUN - writing the script and reporting placement only, no audio. "
+                 "Watch the logs for [show] lines.") if dry else
+                ("Producing in the background. Check /api/show/current in a few minutes, "
+                 "or the logs for [show] lines.")
     }), 202
 
 
