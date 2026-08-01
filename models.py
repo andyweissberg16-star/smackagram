@@ -239,6 +239,7 @@ class Battle(db.Model):
 
     status = db.Column(db.String(20), default="waiting")  # waiting, active, complete
     opponent_type = db.Column(db.String(10), default="human", nullable=False)  # human, smacky
+    is_public = db.Column(db.Boolean, default=False, nullable=False)
     current_turn = db.Column(db.String(1), default="a")   # "a" or "b" — whose turn it is
     round_number = db.Column(db.Integer, default=1)        # 1-5
 
@@ -341,6 +342,25 @@ class BattleVote(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint("battle_id", "voter_id", name="one_vote_per_voter_per_battle"),)
+
+
+class BattleLineReaction(db.Model):
+    """
+    Fire or ice on a single line. Attached to the LINE, not the battle, so
+    counts say which smack landed. Deliberately does not feed scoring.
+    """
+    __tablename__ = "battle_line_reactions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    line_id = db.Column(db.Integer, db.ForeignKey("battle_lines.id"), nullable=False)
+    battle_id = db.Column(db.Integer, db.ForeignKey("battles.id"), nullable=False)
+    reactor_id = db.Column(db.String(64), nullable=False)
+    reaction = db.Column(db.String(4), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint("line_id", "reactor_id", name="uq_line_reactor"),
+    )
 
 
 class BattleViewer(db.Model):

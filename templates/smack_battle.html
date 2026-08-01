@@ -116,6 +116,31 @@
   .door label{font-size:13px;}
   .door-btn-silver{background:var(--silver); color:var(--ink); border:none;}
   .door-btn-silver:hover{background:var(--silver-hot);}
+  .door-watch{display:flex; align-items:center; gap:9px; cursor:pointer;
+    font-size:12.5px; color:var(--chalk-dim); margin:2px 0 12px;}
+  .door-watch input{width:18px; height:18px; flex-shrink:0; cursor:pointer;
+    accent-color:var(--silver); margin:0;}
+  .live-wrap{max-width:1180px; margin:0 auto 30px;}
+  .live-head{font-family:'JetBrains Mono',monospace; font-size:11px;
+    font-weight:700; letter-spacing:1.8px; color:var(--silver-deep);
+    text-transform:uppercase; margin:0 0 12px; display:flex;
+    align-items:center; gap:8px;}
+  .live-dot-sm{width:7px; height:7px; border-radius:50%; background:var(--flare);
+    display:inline-block;}
+  .live-list{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .live-card{background:var(--ink-2); border:1px solid var(--silver-hairline);
+    border-radius:8px; padding:14px 16px; display:flex; align-items:center;
+    justify-content:space-between; gap:12px;}
+  .live-card-main{min-width:0;}
+  .live-names{color:var(--silver-hot); font-size:13.5px; font-weight:700;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .live-meta{color:var(--silver-deep); font-size:11.5px; margin-top:3px;}
+  .live-btn{background:var(--flare); color:#fff; border:none; border-radius:5px;
+    padding:9px 18px; font-weight:800; font-size:12px; cursor:pointer;
+    text-decoration:none; flex-shrink:0; font-family:'Inter',sans-serif;}
+  .live-btn.replay{background:transparent; border:1px solid var(--silver);
+    color:var(--silver);}
+  @media (max-width:720px){ .live-list{grid-template-columns:1fr;} }
   .door-hint{color:var(--silver-deep); font-size:12px; line-height:1.4;
     margin:-8px 0 14px;}
   .door-rounds-label{font-family:'Inter',sans-serif; font-size:13px;
@@ -300,6 +325,11 @@
         <button type="button" class="round-opt" data-rounds="10">10</button>
       </div>
 
+      <label class="door-watch">
+        <input type="checkbox" id="publicCheck">
+        <span>List this so anyone can watch</span>
+      </label>
+
       <div class="door-age" id="ageGate">
         <label class="door-age-label">
           <input type="checkbox" id="ageConfirmCheck">
@@ -313,6 +343,11 @@
   </div>
 
   <div id="createError" role="alert" style="max-width:1180px; margin:0 auto;"></div>
+
+  <div id="liveBattles" class="live-wrap" style="display:none;">
+    <p class="live-head"><span class="live-dot-sm"></span> <span id="liveHeadText">Happening right now</span></p>
+    <div id="liveList" class="live-list"></div>
+  </div>
 
   <details class="door-advanced">
     <summary>League, intensity and rounds &mdash; change the defaults</summary>
@@ -399,6 +434,36 @@ const LEAGUE_TEAM_KEYS = {
   ncaaf: 'ncaaf', ncaab: 'ncaab',
   soccer: 'mls,epl,laliga,bundesliga,seriea'
 };
+(async function loadLive() {
+  try {
+    const resp = await fetch('/api/battles/live');
+    const data = await resp.json();
+    const rows = (data.live || []).concat(data.replays || []);
+    if (!rows.length) return;
+
+    document.getElementById('liveHeadText').textContent =
+      (data.live || []).length ? 'Happening right now' : 'Recently settled';
+
+    document.getElementById('liveList').innerHTML = rows.map(function (b) {
+      const score = b.wins_a + '\u2013' + b.wins_b;
+      const meta = b.live
+        ? `Round ${b.round} of ${b.max_rounds} \u00B7 ${b.viewers} watching \u00B7 ${score}`
+        : `Final \u00B7 ${score}`;
+      const label = b.live ? 'WATCH' : 'REPLAY';
+      const cls = b.live ? 'live-btn' : 'live-btn replay';
+      const names = (b.name_a + ' (' + b.team_a + ') vs ' + b.name_b +
+                     (b.team_b ? ' (' + b.team_b + ')' : '')).replace(/[<>&]/g, '');
+      return '<div class="live-card"><div class="live-card-main">' +
+             '<div class="live-names">' + names + '</div>' +
+             '<div class="live-meta">' + meta + '</div></div>' +
+             '<a class="' + cls + '" href="/battle/' + b.challenge_code + '">' + label + '</a></div>';
+    }).join('');
+
+    document.getElementById('liveBattles').style.display = 'block';
+  } catch (e) {
+  }
+})();
+
 document.querySelectorAll('.round-toggle').forEach(function (group) {
   group.addEventListener('click', function (e) {
     const btn = e.target.closest('.round-opt');
@@ -465,7 +530,7 @@ async function createBattle() {
     const resp = await fetch('/api/battles', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({league: league, team_a: team, display_name_a: name, intensity: intensity, max_rounds: maxRounds})
+      body: JSON.stringify({league: league, team_a: team, display_name_a: name, intensity: intensity, max_rounds: maxRounds, is_public: document.getElementById('publicCheck').checked})
     });
     const data = await resp.json();
     if (data.error) {

@@ -11,7 +11,7 @@ from sqlalchemy import func
 import requests
 from dotenv import load_dotenv
 
-from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
+from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
 from services import news_service, show_service, admin_service, settings_service, show_service
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service, revenge_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
@@ -1977,6 +1977,19 @@ def _lookup_team_color(league, team_name):
 
 def _battle_state_json(battle):
     lines = BattleLine.query.filter_by(battle_id=battle.id).order_by(BattleLine.created_at.asc()).all()
+
+    reaction_counts = {}
+    for line_id, reaction, n in (
+        db.session.query(
+            BattleLineReaction.line_id,
+            BattleLineReaction.reaction,
+            db.func.count(BattleLineReaction.id),
+        )
+        .filter(BattleLineReaction.battle_id == battle.id)
+        .group_by(BattleLineReaction.line_id, BattleLineReaction.reaction)
+        .all()
+    ):
+        reaction_counts.setdefault(line_id, {})[reaction] = n
     round_results = BattleRoundResult.query.filter_by(battle_id=battle.id).order_by(BattleRoundResult.round_number.asc()).all()
     # Computed server-side (comparing against utcnow() here, not on the
     # client) specifically to avoid any client/server clock skew — a
@@ -2025,7 +2038,11 @@ def _battle_state_json(battle):
         "display_name_b": battle.display_name_b,
         "opponent_type": battle.opponent_type,
         "team_b": battle.team_b,
-        "lines": [{"side": l.side, "round": l.round_number, "message": l.message, "created_at": l.created_at.isoformat(), "timed_out": l.timed_out} for l in lines],
+        "lines": [{"id": l.id, "side": l.side, "round": l.round_number,
+                    "message": l.message, "created_at": l.created_at.isoformat(),
+                    "timed_out": l.timed_out,
+                    "fire": reaction_counts.get(l.id, {}).get("fire", 0),
+                    "ice": reaction_counts.get(l.id, {}).get("ice", 0)} for l in lines],
         "round_results": [{"round": r.round_number, "winner": r.winner, "critique_a": r.critique_a, "critique_b": r.critique_b, "score_a": r.score_a, "score_b": r.score_b, "coach_message_a": r.coach_message_a, "coach_message_b": r.coach_message_b} for r in round_results],
         "awaiting_next_round": battle.awaiting_next_round,
         "ready_a": battle.ready_a,
@@ -2072,6 +2089,8 @@ def create_battle():
     # and open ACTIVE with side B already filled in. Everything downstream -
     # the intro, the countdown, the bell, the phase machine - then works
     # unchanged, because as far as the room is concerned both sides joined.
+    battle.is_public = bool(data.get("is_public"))
+
     if (data.get("opponent") or "human").lower() == "smacky":
         battle.opponent_type = "smacky"
         battle.display_name_b = "Smacky"
@@ -2648,6 +2667,99 @@ def battle_share_card(challenge_code):
         # portrait degrades to a text-only card instead of a broken image.
         smacky_image_exists=os.path.exists(os.path.join(app.root_path, "static", "img", "smacky-hero.png")),
     )
+
+
+@app.route("/api/battles/live")
+def battles_live():
+    """
+    Public battles worth watching. Falls back to recently finished ones when
+    nothing is running - an empty "live now" panel reads as a dead site.
+    """
+    now = datetime.utcnow()
+    stale = now - timedelta(minutes=30)
+
+    live = (Battle.query
+            .filter(Battle.is_public.is_(True),
+                    Battle.status == "active",
+                    Battle.created_at >= stale)
+            .order_by(Battle.created_at.desc())
+            .limit(8).all())
+
+    recent = []
+    if len(live) < 4:
+        recent = (Battle.query
+                  .filter(Battle.is_public.is_(True),
+                          Battle.status == "complete")
+                  .order_by(Battle.created_at.desc())
+                  .limit(6 - len(live)).all())
+
+    viewer_cutoff = now - timedelta(seconds=20)
+
+    def row(b, is_live):
+        wins_a = BattleRoundResult.query.filter_by(battle_id=b.id, winner="a").count()
+        wins_b = BattleRoundResult.query.filter_by(battle_id=b.id, winner="b").count()
+        viewers = BattleViewer.query.filter(
+            BattleViewer.battle_id == b.id,
+            BattleViewer.last_seen >= viewer_cutoff).count() if is_live else 0
+        return {
+            "challenge_code": b.challenge_code,
+            "name_a": b.display_name_a, "team_a": b.team_a,
+            "name_b": b.display_name_b or "waiting", "team_b": b.team_b,
+            "round": b.round_number, "max_rounds": b.max_rounds,
+            "wins_a": wins_a, "wins_b": wins_b,
+            "viewers": viewers, "live": is_live, "league": b.league,
+        }
+
+    return jsonify({
+        "live": [row(b, True) for b in live],
+        "replays": [row(b, False) for b in recent],
+    })
+
+
+@app.route("/api/battles/<challenge_code>/react", methods=["POST"])
+def battle_react(challenge_code):
+    """
+    Fire or ice on one line. Open to spectators, no account needed.
+    Judged rounds only - reacting before Smacky rules would let a pile-on
+    land before the verdict.
+    """
+    battle = Battle.query.filter_by(challenge_code=challenge_code).first()
+    if not battle:
+        return jsonify({"error": "Battle not found."}), 404
+
+    data = request.json or {}
+    line_id = data.get("line_id")
+    reaction = (data.get("reaction") or "").lower()
+    reactor_id = (data.get("reactor_id") or "").strip()[:64]
+
+    if reaction not in ("fire", "ice"):
+        return jsonify({"error": "Unknown reaction."}), 400
+    if not reactor_id:
+        return jsonify({"error": "Missing reactor id."}), 400
+
+    line = BattleLine.query.filter_by(id=line_id, battle_id=battle.id).first()
+    if not line:
+        return jsonify({"error": "Line not found."}), 404
+
+    judged = BattleRoundResult.query.filter_by(
+        battle_id=battle.id, round_number=line.round_number).first()
+    if not judged:
+        return jsonify({"error": "That round has not been scored yet."}), 400
+
+    existing = BattleLineReaction.query.filter_by(
+        line_id=line.id, reactor_id=reactor_id).first()
+    if existing:
+        if existing.reaction == reaction:
+            db.session.delete(existing)
+        else:
+            existing.reaction = reaction
+    else:
+        db.session.add(BattleLineReaction(
+            line_id=line.id, battle_id=battle.id,
+            reactor_id=reactor_id, reaction=reaction))
+    db.session.commit()
+
+    return jsonify(_battle_state_json(battle))
 
 
 @app.route("/api/battles/<challenge_code>/viewer-ping", methods=["POST"])
@@ -4034,6 +4146,17 @@ with app.app_context():
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS intensity INTEGER DEFAULT 4 NOT NULL"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS turn_started_at TIMESTAMP"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS opponent_type VARCHAR(10) DEFAULT 'human' NOT NULL"))
+            conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE NOT NULL"))
+            conn.execute(db.text("""
+                CREATE TABLE IF NOT EXISTS battle_line_reactions (
+                    id SERIAL PRIMARY KEY,
+                    line_id INTEGER NOT NULL REFERENCES battle_lines(id),
+                    battle_id INTEGER NOT NULL REFERENCES battles(id),
+                    reactor_id VARCHAR(64) NOT NULL,
+                    reaction VARCHAR(4) NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    CONSTRAINT uq_line_reactor UNIQUE (line_id, reactor_id)
+                )"""))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS max_rounds INTEGER DEFAULT 5 NOT NULL"))
             conn.execute(db.text("ALTER TABLE battle_lines ADD COLUMN IF NOT EXISTS timed_out BOOLEAN DEFAULT FALSE NOT NULL"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS answered_by VARCHAR(30)"))
