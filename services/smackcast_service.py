@@ -943,11 +943,10 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
         # speech_bytes[-2] ends on the word the hit lands on; [-1] is the tail.
         hit_clip = _trim_trailing_silence(
             _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[-2]))))
-        combined += hit_clip
-        hit_point = len(combined)          # exact end of the word
+        tail_clip = _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[-1])))
 
-        combined += AudioSegment.silent(duration=hit_beat_ms)
-        combined += _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[-1])))
+        signoff = hit_clip + AudioSegment.silent(duration=hit_beat_ms) + tail_clip
+        hit_point = len(hit_clip)
 
         # Overlaid AFTER the tail is appended, deliberately. pydub's overlay
         # does not extend the track it is laid onto, so doing this earlier
@@ -959,9 +958,13 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
                 smack = _standardize(AudioSegment.from_file(hit_sfx_path))
                 if hit_gain_db:
                     smack = smack + hit_gain_db
-                combined = combined.overlay(smack, position=max(0, hit_point - hit_lead_ms))
+                signoff = signoff.overlay(smack, position=max(0, hit_point - hit_lead_ms))
+                del smack
             except Exception as e:
                 print(f"[audio] smack sfx failed to load ({e}); continuing without it", flush=True)
+
+        combined += signoff
+        del hit_clip, tail_clip, signoff
     elif outro:
         combined += _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[-1])))
 
