@@ -2062,8 +2062,8 @@ def create_battle():
         return jsonify({"error": "League and your team are required"}), 400
     if intensity not in trash_talk_service.SENSITIVITY_LEVELS:
         return jsonify({"error": "Invalid intensity level"}), 400
-    if max_rounds not in (5, 10):
-        return jsonify({"error": "Rounds must be 5 or 10"}), 400
+    if max_rounds not in (3, 5, 10):
+        return jsonify({"error": "Rounds must be 3, 5 or 10"}), 400
 
     challenge_code = secrets.token_urlsafe(6).replace("_", "").replace("-", "")[:8]
     battle = Battle(challenge_code=challenge_code, league=league, team_a=team_a, display_name_a=display_name_a or "Anonymous", intensity=intensity, max_rounds=max_rounds)

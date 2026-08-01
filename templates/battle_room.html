@@ -1751,7 +1751,7 @@ function render(battle) {
         actionHtml = `
           <div class="card">
             <p class="waiting-note" style="margin-bottom:10px;">Your turn — round ${battle.round_number}</p>
-            <p class="turn-timer" id="turnTimer">60</p>
+            ${battle.opponent_type === 'smacky' ? '' : '<p class="turn-timer" id="turnTimer">2:00</p>'}
             <textarea id="lineInput" placeholder="Say what you came to say..." maxlength="500"></textarea>
             <div id="actionError" role="alert"></div>
             <button id="submitLineBtn" class="btn btn-flare">Send it</button>
@@ -2058,9 +2058,12 @@ function render(battle) {
       if (!battle.turn_started_at) return;
       const startedAt = new Date(battle.turn_started_at + 'Z').getTime();
       const elapsed = (Date.now() - startedAt) / 1000;
-      const remaining = Math.max(0, Math.ceil(60 - elapsed));
+      if (battle.opponent_type === 'smacky') return;
+      const remaining = Math.max(0, Math.ceil(120 - elapsed));
       if (timerEl) {
-        timerEl.textContent = remaining;
+        timerEl.textContent = remaining >= 60
+          ? Math.floor(remaining / 60) + ':' + String(remaining % 60).padStart(2, '0')
+          : remaining;
         timerEl.classList.toggle('urgent', remaining <= 10);
       }
       if (remaining <= 0) {

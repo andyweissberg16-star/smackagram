@@ -54,7 +54,7 @@
     content:''; position:absolute; top:0; left:0; right:0; height:3px;
     background:linear-gradient(90deg, var(--flare), var(--gold), var(--flare));
   }
-  .battle-header{text-align:center; max-width:1180px; margin:0 auto 30px;}
+  .battle-header{text-align:center; max-width:1180px; margin:44px auto 30px;}
   .bh-leagues{font-family:'JetBrains Mono',monospace; font-size:11px;
     font-weight:700; letter-spacing:2.4px; color:var(--silver);
     text-transform:uppercase; margin:0 0 18px;}
@@ -82,6 +82,7 @@
     .bh-title{font-size:42px;}
   }
   @media (max-width:720px){
+    .battle-header{margin-top:28px;}
     .bh-title{font-size:31px;}
     .bh-leagues{font-size:9.5px; letter-spacing:1.6px;}
     .bh-judge{font-size:10.5px; letter-spacing:1.6px;}
@@ -119,7 +120,7 @@
     margin:-8px 0 14px;}
   .door-rounds-label{font-family:'Inter',sans-serif; font-size:13px;
     color:var(--chalk-dim); margin:4px 0 8px;}
-  .round-toggle{display:grid; grid-template-columns:1fr 1fr; gap:9px;
+  .round-toggle{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;
     margin-bottom:14px;}
   .round-opt{background:transparent; border:1px solid var(--silver-hairline);
     color:var(--silver-deep); border-radius:6px; padding:13px 10px;
@@ -223,7 +224,7 @@
     <p class="bh-leagues">NFL &middot; NBA &middot; MLB &middot; NHL &middot; WNBA &middot; COLLEGE</p>
     <h1 class="bh-title">Round for round.<br><span>Best smack talk wins.</span></h1>
     <p class="bh-judge">Smacky judges every round</p>
-    <p class="bh-sub">The oldest rivalries in sports, settled one round at a time. Go head to head with Smacky right now &mdash; name any team and he'll defend it &mdash; or send a link and call out a real rival. He'll tell you exactly why the weak ones were weak.</p>
+    <p class="bh-sub">The oldest rivalries in sports get settled here. Take Smacky head to head right now, or send a link and drag the group chat into it while the game's still on. Three rounds for a commercial break, ten to go the distance &mdash; Smacky scores every line and tells you exactly why the weak ones were weak.</p>
   </div>
 
   <div class="bh-beats">
@@ -235,7 +236,7 @@
     <div class="bh-beat">
       <p class="bh-num">02</p>
       <p class="bh-beat-title">Trade shots</p>
-      <p class="bh-beat-copy">One smack each, every round</p>
+      <p class="bh-beat-copy">Three rounds or ten, your call</p>
     </div>
     <div class="bh-beat">
       <p class="bh-num">03</p>
@@ -263,8 +264,9 @@
 
       <p class="door-rounds-label">Rounds</p>
       <div class="round-toggle" id="soloRounds">
-        <button type="button" class="round-opt is-on" data-rounds="5">5 rounds</button>
-        <button type="button" class="round-opt" data-rounds="10">10 rounds</button>
+        <button type="button" class="round-opt" data-rounds="3">3</button>
+        <button type="button" class="round-opt is-on" data-rounds="5">5</button>
+        <button type="button" class="round-opt" data-rounds="10">10</button>
       </div>
 
       <div class="door-age" id="ageGateSolo">
@@ -293,8 +295,9 @@
 
       <p class="door-rounds-label">Rounds</p>
       <div class="round-toggle" id="rivalRounds">
-        <button type="button" class="round-opt is-on" data-rounds="5">5 rounds</button>
-        <button type="button" class="round-opt" data-rounds="10">10 rounds</button>
+        <button type="button" class="round-opt" data-rounds="3">3</button>
+        <button type="button" class="round-opt is-on" data-rounds="5">5</button>
+        <button type="button" class="round-opt" data-rounds="10">10</button>
       </div>
 
       <div class="door-age" id="ageGate">
