@@ -129,6 +129,7 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
         games.append({
             "league": label,
             "unit": unit,
+            "espn_id": ev.get("id"),
             "home": h_name, "away": a_name,
             "home_nick": h_nick, "away_nick": a_nick,
             "home_city": h_city, "away_city": a_city,
@@ -187,4 +188,45 @@ def fetch_news(league: str, limit: int = 12) -> list[dict]:
         })
 
     print(f"[espn] {league}: {len(out)} headlines")
+    return out
+
+
+def probe_summary(league: str, event_id: str) -> dict:
+    """
+    One-off diagnostic. Fetches a finished game's summary and reports the
+    SHAPE of what comes back, so the roast extraction can be written against
+    the real payload instead of an assumption about it.
+    """
+    import json as _json
+    from urllib.request import Request, urlopen
+
+    path = LEAGUE_PATHS.get((league or "").lower())
+    if not path:
+        return {"error": f"unknown league {league}"}
+    sport, slug = path[0], path[1]
+
+    url = (f"{BASE}/{sport}/{slug}/summary?event={event_id}")
+    req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    try:
+        with urlopen(req, timeout=20) as r:
+            d = _json.load(r)
+    except Exception as e:
+        return {"error": f"{type(e).__name__}: {e}", "url": url}
+
+    def shape(v, depth=0):
+        if depth > 2:
+            return type(v).__name__
+        if isinstance(v, dict):
+            return {k: shape(val, depth + 1) for k, val in list(v.items())[:12]}
+        if isinstance(v, list):
+            return [shape(v[0], depth + 1)] if v else []
+        if isinstance(v, str):
+            return v[:60]
+        return v
+
+    out = {"url": url, "top_level_keys": sorted(d.keys())}
+    for key in ("boxscore", "leaders", "scoringPlays", "header",
+                "plays", "winprobability", "gameInfo", "standings"):
+        if key in d:
+            out[key] = shape(d[key])
     return out

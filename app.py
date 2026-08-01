@@ -2669,6 +2669,29 @@ def battle_share_card(challenge_code):
     )
 
 
+@app.route("/api/admin/espn-probe")
+def espn_probe():
+    """Diagnostic only. Delete once the roast extraction is built."""
+    if request.args.get("key") != os.environ.get("CRON_SECRET"):
+        return jsonify({"error": "nope"}), 403
+
+    from services import espn_scores
+
+    league = (request.args.get("league") or "mlb").lower()
+    event_id = request.args.get("event")
+
+    if not event_id:
+        finals = espn_scores.fetch_finals(league, days_back=1)
+        if not finals:
+            return jsonify({"error": f"no {league} finals yesterday"}), 404
+        sample = finals[0]
+        event_id = sample.get("espn_id")
+        if not event_id:
+            return jsonify({"error": "no espn_id captured", "sample_game": sample}), 500
+
+    return jsonify(espn_scores.probe_summary(league, event_id))
+
+
 @app.route("/api/battles/live")
 def battles_live():
     """
