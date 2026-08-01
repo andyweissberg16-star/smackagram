@@ -2023,6 +2023,7 @@ def _battle_state_json(battle):
         "display_name_a": battle.display_name_a,
         "team_a": battle.team_a,
         "display_name_b": battle.display_name_b,
+        "opponent_type": battle.opponent_type,
         "team_b": battle.team_b,
         "lines": [{"side": l.side, "round": l.round_number, "message": l.message, "created_at": l.created_at.isoformat(), "timed_out": l.timed_out} for l in lines],
         "round_results": [{"round": r.round_number, "winner": r.winner, "critique_a": r.critique_a, "critique_b": r.critique_b, "score_a": r.score_a, "score_b": r.score_b, "coach_message_a": r.coach_message_a, "coach_message_b": r.coach_message_b} for r in round_results],

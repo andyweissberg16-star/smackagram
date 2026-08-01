@@ -469,37 +469,86 @@
     margin-bottom:22px; line-height:1.15;
   }
 
+  #introOverlay{
+    position:fixed; inset:0; background:#08080A; z-index:200;
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    overflow:hidden;
+  }
+  .intro-wash{position:absolute; top:0; bottom:0; width:52%; pointer-events:none;}
+  .intro-wash-a{left:0;}
+  .intro-wash-b{right:0;}
+  .intro-seam{position:absolute; top:0; bottom:0; left:50%; width:1px;
+    background:rgba(245,245,243,0.13);}
+  .intro-meta{
+    position:absolute; top:22px; left:0; right:0; text-align:center;
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:3px;
+    color:#7D838B; margin:0; z-index:4;
+  }
+  .intro-cards{
+    position:relative; z-index:2; display:flex; align-items:center;
+    justify-content:center; width:100%; padding:0 30px; box-sizing:border-box;
+    gap:22px; max-width:1000px;
+  }
+  .intro-side{flex:1; min-width:0;}
+  .intro-side-a{text-align:right; opacity:0; animation:introInA 0.5s ease-out forwards;}
+  .intro-side-b{text-align:left; opacity:0; animation:introInB 0.5s ease-out 0.15s forwards;}
+  .intro-role{
+    font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:2px;
+    color:#9AA3AB; margin:0 0 7px;
+  }
   .intro-team{
-    font-family:'Anton',sans-serif; font-size:44px; text-transform:uppercase; text-align:center;
-    opacity:0; transform:scale(0.6);
+    font-family:'Anton',sans-serif; font-size:44px; line-height:0.95;
+    text-transform:uppercase; color:#FFFFFF; margin:0;
   }
-  .intro-team.side-a{color:var(--gold); text-shadow:0 0 30px rgba(255,212,0,0.6); animation:introSlideLeft 0.6s ease-out forwards;}
-  .intro-team.side-b{color:var(--flare); text-shadow:0 0 30px rgba(232,20,44,0.6); animation:introSlideRight 0.6s ease-out 0.15s forwards;}
+  .intro-who{color:#9AA3AB; font-size:12px; margin:6px 0 0;}
+  .intro-rule{display:block; height:4px; width:76px; margin-top:13px;
+    background:var(--silver, #C3CAD3);}
+  .intro-side-a .intro-rule{margin-left:auto;}
   .intro-vs{
-    font-family:'Anton',sans-serif; font-size:28px; color:var(--chalk-dim); margin:16px 0;
-    opacity:0; animation:introFlash 0.4s ease-out 0.5s forwards;
+    font-family:'Anton',sans-serif; font-size:19px; color:#6B7178;
+    letter-spacing:2px; margin:0; flex:0 0 auto; opacity:0;
+    animation:introFlash 0.4s ease-out 0.35s forwards;
   }
-  @keyframes introSlideLeft{
-    0%{opacity:0; transform:translateX(-60px) scale(0.6);}
-    100%{opacity:1; transform:translateX(0) scale(1);}
-  }
-  @keyframes introSlideRight{
-    0%{opacity:0; transform:translateX(60px) scale(0.6);}
-    100%{opacity:1; transform:translateX(0) scale(1);}
-  }
-  @keyframes introFlash{
-    0%{opacity:0; transform:scale(1.8);}
-    100%{opacity:1; transform:scale(1);}
+  .intro-stage{
+    position:relative; z-index:3; height:150px; display:flex;
+    align-items:center; justify-content:center; width:100%;
   }
   .intro-countdown{
-    font-family:'Anton',sans-serif; font-size:80px; color:var(--flare); margin-top:24px;
-    text-shadow:0 0 40px rgba(232,20,44,0.7); opacity:0;
+    font-family:'Anton',sans-serif; font-size:132px; line-height:1;
+    color:#F4F6F9; margin:0; opacity:0;
   }
-  .intro-countdown.pulse{animation:countdownPulse 0.9s ease-out;}
-  @keyframes countdownPulse{
-    0%{opacity:0; transform:scale(2);}
-    30%{opacity:1; transform:scale(1);}
-    100%{opacity:0; transform:scale(0.9);}
+  .intro-countdown.smack{font-size:82px; color:var(--flare); letter-spacing:3px;}
+  .intro-countdown.pulse{animation:countdownPop 0.85s ease-out;}
+  .intro-progress{
+    position:absolute; bottom:0; left:0; right:0; height:2px;
+    background:rgba(245,245,243,0.08); z-index:4;
+  }
+  .intro-progress-fill{height:100%; width:0; background:var(--flare);}
+  @keyframes introInA{
+    0%{opacity:0; transform:translateX(-40px);}
+    100%{opacity:1; transform:none;}
+  }
+  @keyframes introInB{
+    0%{opacity:0; transform:translateX(40px);}
+    100%{opacity:1; transform:none;}
+  }
+  @keyframes introFlash{
+    0%{opacity:0; transform:scale(1.6);}
+    100%{opacity:1; transform:scale(1);}
+  }
+  @keyframes countdownPop{
+    0%{opacity:0; transform:scale(1.45);}
+    18%{opacity:1; transform:scale(1);}
+    86%{opacity:1; transform:scale(1);}
+    100%{opacity:0; transform:scale(0.97);}
+  }
+  @media (max-width:720px){
+    .intro-cards{gap:12px; padding:0 16px;}
+    .intro-team{font-size:27px;}
+    .intro-countdown{font-size:88px;}
+    .intro-countdown.smack{font-size:52px;}
+    .intro-role{font-size:9px; letter-spacing:1.4px;}
+    .intro-rule{width:52px; height:3px;}
   }
 
   footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim); border-top:1px solid var(--line); margin-top:20px;}
@@ -552,11 +601,34 @@ function readableColor(hex, fallback){
   </div>
 </div>
 
-<div id="introOverlay" style="display:none; position:fixed; inset:0; background:#000; z-index:200; align-items:center; justify-content:center; flex-direction:column;">
-  <p id="introTeamA" class="intro-team side-a"></p>
-  <p class="intro-vs">VS</p>
-  <p id="introTeamB" class="intro-team side-b"></p>
-  <p id="introCountdown" class="intro-countdown"></p>
+<div id="introOverlay" style="display:none;">
+  <div class="intro-wash intro-wash-a" id="introWashA"></div>
+  <div class="intro-wash intro-wash-b" id="introWashB"></div>
+  <div class="intro-seam"></div>
+
+  <p class="intro-meta" id="introMeta"></p>
+
+  <div class="intro-cards" id="introCards">
+    <div class="intro-side intro-side-a">
+      <p class="intro-role" id="introRoleA">CHALLENGER</p>
+      <p id="introTeamA" class="intro-team"></p>
+      <p class="intro-who" id="introWhoA"></p>
+      <span class="intro-rule" id="introRuleA"></span>
+    </div>
+    <p class="intro-vs">VS</p>
+    <div class="intro-side intro-side-b">
+      <p class="intro-role" id="introRoleB">DEFENDING</p>
+      <p id="introTeamB" class="intro-team"></p>
+      <p class="intro-who" id="introWhoB"></p>
+      <span class="intro-rule" id="introRuleB"></span>
+    </div>
+  </div>
+
+  <div class="intro-stage">
+    <p id="introCountdown" class="intro-countdown"></p>
+  </div>
+
+  <div class="intro-progress"><div class="intro-progress-fill" id="introProgress"></div></div>
 </div>
 
 <audio id="crowdLoopAudio" loop style="display:none;"></audio>
@@ -932,15 +1004,29 @@ function ringBell() {
   }
 }
 
-function playIntro(teamA, teamB, teamAColor, teamBColor) {
+function playIntro(teamA, teamB, teamAColor, teamBColor, battle) {
   const overlay = document.getElementById('introOverlay');
   const countdownEl = document.getElementById('introCountdown');
   const introTeamAEl = document.getElementById('introTeamA');
   const introTeamBEl = document.getElementById('introTeamB');
   introTeamAEl.textContent = teamA;
   introTeamBEl.textContent = teamB;
-  introTeamAEl.style.color = readableColor(teamAColor, '');
-  introTeamBEl.style.color = readableColor(teamBColor, '');
+  const washA = teamAColor || '#E8142C';
+  const washB = teamBColor || '#C3CAD3';
+  document.getElementById('introWashA').style.background =
+    `linear-gradient(90deg, ${washA} 0%, ${washA}73 42%, transparent 100%)`;
+  document.getElementById('introWashB').style.background =
+    `linear-gradient(270deg, ${washB} 0%, ${washB}73 42%, transparent 100%)`;
+  document.getElementById('introRuleA').style.background = washA;
+  document.getElementById('introRuleB').style.background = washB;
+
+  const st = battle || {};
+  document.getElementById('introWhoA').textContent = st.display_name_a || '';
+  document.getElementById('introWhoB').textContent = st.display_name_b || '';
+  document.getElementById('introRoleB').textContent =
+    st.opponent_type === 'smacky' ? 'SMACKY DEFENDS' : 'DEFENDING';
+  document.getElementById('introMeta').textContent =
+    `SMACK BATTLE \u00B7 ${st.max_rounds || 5} ROUNDS`;
   countdownEl.textContent = '';
   countdownEl.className = 'intro-countdown';
   overlay.style.display = 'flex';
@@ -957,8 +1043,23 @@ function playIntro(teamA, teamB, teamAColor, teamBColor) {
   // tail end.
   const holdMs = 3200;
   const stepMs = 900;
+
+  const cards = document.getElementById('introCards');
+  cards.style.transition = 'opacity 0.35s ease-out';
+  cards.style.opacity = '1';
+  setTimeout(() => { cards.style.opacity = '0.18'; }, holdMs - 200);
+
+  const bar = document.getElementById('introProgress');
+  bar.style.transition = 'none';
+  bar.style.width = '0';
+  setTimeout(() => {
+    bar.style.transition = `width ${(stepMs * 3) + 500}ms linear`;
+    bar.style.width = '100%';
+  }, holdMs - 100);
+
   [3, 2, 1].forEach((n, i) => {
     setTimeout(() => {
+      countdownEl.classList.remove('smack');
       countdownEl.textContent = n;
       // Removing then re-adding the class in the next frame restarts the
       // CSS animation each time — just re-setting the same class name
@@ -973,7 +1074,17 @@ function playIntro(teamA, teamB, teamAColor, teamBColor) {
   });
 
   setTimeout(() => {
+    countdownEl.classList.remove('pulse');
+    void countdownEl.offsetWidth;
+    countdownEl.textContent = 'SMACK';
+    countdownEl.classList.add('smack');
+    countdownEl.classList.add('pulse');
+  }, holdMs + 3 * stepMs);
+
+  setTimeout(() => {
     overlay.style.display = 'none';
+    cards.style.opacity = '1';
+    countdownEl.classList.remove('smack');
     if (soundEnabled && sfxUrls && sfxUrls.bell_url) {
       playAudioElement('bellAudio');
     }
@@ -1400,7 +1511,7 @@ function render(battle) {
     // in-memory flag that resets on every fresh page load. For any
     // later round, skip straight to showing the current state.
     if (battle.round_number === 1) {
-      playIntro(battle.team_a, battle.team_b, battle.team_a_color, battle.team_b_color);
+      playIntro(battle.team_a, battle.team_b, battle.team_a_color, battle.team_b_color, battle);
     }
   }
 
