@@ -3,6 +3,7 @@ import json
 import functools
 import secrets
 import threading
+import time
 from datetime import datetime, timedelta, timezone, date
 
 from flask import Flask, render_template, request, jsonify, Response, url_for, session, redirect
@@ -2000,7 +2001,15 @@ def _battle_state_json(battle):
     # rather than treated as "left from the start."
     presence_cutoff = now - timedelta(seconds=30)
     side_a_left = bool(battle.status == "active" and battle.last_seen_a and battle.last_seen_a < presence_cutoff)
-    side_b_left = bool(battle.status == "active" and battle.last_seen_b and battle.last_seen_b < presence_cutoff)
+    # Smacky never "leaves" - he has no browser sending presence pings, so
+    # without this exception a solo battle would tell the player their
+    # opponent walked out moments after the first round.
+    side_b_left = bool(
+        battle.opponent_type != "smacky"
+        and battle.status == "active"
+        and battle.last_seen_b
+        and battle.last_seen_b < presence_cutoff
+    )
 
     return {
         "challenge_code": battle.challenge_code,
@@ -2057,10 +2066,23 @@ def create_battle():
 
     challenge_code = secrets.token_urlsafe(6).replace("_", "").replace("-", "")[:8]
     battle = Battle(challenge_code=challenge_code, league=league, team_a=team_a, display_name_a=display_name_a or "Anonymous", intensity=intensity, max_rounds=max_rounds)
+
+    # Solo battles have nobody to wait for, so they skip "waiting" entirely
+    # and open ACTIVE with side B already filled in. Everything downstream -
+    # the intro, the countdown, the bell, the phase machine - then works
+    # unchanged, because as far as the room is concerned both sides joined.
+    if (data.get("opponent") or "human").lower() == "smacky":
+        battle.opponent_type = "smacky"
+        battle.display_name_b = "Smacky"
+        battle.team_b = trash_talk_service.pick_smacky_battle_team(league, team_a)
+        battle.status = "active"
+        battle.current_turn = "a"
+
     db.session.add(battle)
     db.session.commit()
 
-    return jsonify({"challenge_code": challenge_code})
+    return jsonify({"challenge_code": challenge_code,
+                    "opponent_type": battle.opponent_type})
 
 
 @app.route("/api/battles/<challenge_code>")
@@ -2108,6 +2130,82 @@ def join_battle(challenge_code):
     db.session.commit()
 
     return jsonify(_battle_state_json(battle))
+
+
+def _smacky_turn_async(app_obj, battle_id, round_number):
+    """
+    Smacky's reply in a solo battle.
+
+    Runs on its own thread with a deliberate delay: an instant answer is
+    uncanny, and the typing indicator only reads as real if something is
+    actually taking time. Once his line lands the round has two sides, so
+    this hands straight off to the SAME judging path a human-vs-human round
+    uses - solo mode adds an opponent, it does not add a second rulebook.
+    """
+    import random
+    with app_obj.app_context():
+        try:
+            battle = Battle.query.get(battle_id)
+            if not battle or battle.round_number != round_number or battle.status != "active":
+                return
+
+            # Show the typing indicator while he "thinks".
+            battle.last_typed_b = datetime.utcnow()
+            db.session.commit()
+
+            prior = BattleLine.query.filter_by(battle_id=battle.id).order_by(BattleLine.created_at.asc()).all()
+            history = [
+                (battle.display_name_a if ln.side == "a" else "Smacky", ln.message)
+                for ln in prior
+            ]
+            their_last = next(
+                (ln.message for ln in reversed(prior)
+                 if ln.side == "a" and ln.round_number == round_number), None
+            )
+
+            line = trash_talk_service.generate_smacky_battle_line(
+                my_team=battle.team_b or "Smacky",
+                their_team=battle.team_a,
+                their_name=battle.display_name_a,
+                round_number=round_number,
+                previous_lines=history,
+                intensity=battle.intensity,
+                their_last_line=their_last,
+            )
+
+            # Human-plausible pause. Generation already burned a few seconds,
+            # so this tops it up rather than adding a full delay on top.
+            time.sleep(random.uniform(1.5, 4.0))
+
+            battle = Battle.query.get(battle_id)
+            if not battle or battle.round_number != round_number or battle.status != "active":
+                return
+
+            db.session.add(BattleLine(
+                battle_id=battle.id, side="b", round_number=round_number,
+                message=line, timed_out=False,
+            ))
+            battle.awaiting_next_round = True
+            battle.ready_a = False
+            battle.ready_b = False
+            battle.last_typed_b = None
+            db.session.commit()
+
+            line_a = BattleLine.query.filter_by(
+                battle_id=battle.id, round_number=round_number, side="a").first()
+            # Its own thread: _judge_round_async opens an app context of its
+            # own, and nesting one inside this function's context would
+            # leave the session in a confusing state.
+            threading.Thread(
+                target=_judge_round_async,
+                args=(battle.id, round_number, battle.team_a,
+                      line_a.message if line_a else "", battle.team_b, line),
+                daemon=True,
+            ).start()
+        except Exception as e:
+            print(f"[battle] Smacky turn failed for battle {battle_id}: {e}", flush=True)
+            import traceback
+            traceback.print_exc()
 
 
 def _judge_round_async(battle_id, round_number, team_a, line_a_message, team_b, line_b_message):
@@ -2246,6 +2344,14 @@ def submit_battle_line(challenge_code):
         # or show the response box + timer.
         battle.turn_started_at = None
         db.session.commit()
+
+        # Solo: Smacky answers on his own thread. Nothing to wait for.
+        if battle.opponent_type == "smacky":
+            threading.Thread(
+                target=_smacky_turn_async,
+                args=(app, battle.id, battle.round_number),
+                daemon=True,
+            ).start()
     else:
         # Round complete — pause immediately (no timer, no auto-advance;
         # the round only actually moves forward once both sides hit
@@ -2365,6 +2471,12 @@ def ready_for_next_round(challenge_code):
     if side == "a":
         battle.ready_a = True
     else:
+        battle.ready_b = True
+
+    # Smacky is always ready. Without this a solo battle freezes after the
+    # first round: the gate below waits for both sides to confirm, and he
+    # has no browser to confirm from.
+    if battle.opponent_type == "smacky":
         battle.ready_b = True
 
     if not (battle.ready_a and battle.ready_b):
@@ -3919,6 +4031,7 @@ with app.app_context():
             conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_orders_user_id ON orders (user_id)"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS intensity INTEGER DEFAULT 4 NOT NULL"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS turn_started_at TIMESTAMP"))
+            conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS opponent_type VARCHAR(10) DEFAULT 'human' NOT NULL"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS max_rounds INTEGER DEFAULT 5 NOT NULL"))
             conn.execute(db.text("ALTER TABLE battle_lines ADD COLUMN IF NOT EXISTS timed_out BOOLEAN DEFAULT FALSE NOT NULL"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS answered_by VARCHAR(30)"))

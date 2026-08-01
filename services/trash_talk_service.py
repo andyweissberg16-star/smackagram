@@ -583,6 +583,164 @@ def _build_battle_judge_system_prompt(intensity: int) -> str:
     )
 
 
+def pick_smacky_battle_team(league: str, player_team: str) -> str:
+    """
+    Which team Smacky reps in a solo battle.
+
+    A rival makes the battle write itself - the grievances already exist and
+    both sides have material. Falls back to any other team in the league,
+    and only to a generic label if the league is unknown, because Smacky
+    repping nothing gives him nothing to defend.
+    """
+    try:
+        from services import chat_team_lists
+        # CHAT_LEAGUES maps league -> {abbreviation: nickname}; the
+        # nicknames are what gets shown and what the rivalry table uses.
+        teams = list((chat_team_lists.CHAT_LEAGUES.get((league or "").lower()) or {}).values())
+    except Exception:
+        teams = []
+
+    player_l = (player_team or "").strip().lower()
+    rivals = RIVALS.get(player_l, [])
+    for r in rivals:
+        for t in teams:
+            if t.strip().lower() == r:
+                return t
+
+    import random
+    others = [t for t in teams if t.strip().lower() != player_l]
+    return random.choice(others) if others else "The Rest Of The League"
+
+
+RIVALS = {
+    "cowboys": ["eagles", "commanders", "giants"],
+    "eagles": ["cowboys", "giants", "commanders"],
+    "giants": ["eagles", "cowboys"],
+    "commanders": ["cowboys", "eagles"],
+    "packers": ["bears", "vikings"],
+    "bears": ["packers", "vikings"],
+    "vikings": ["packers", "bears"],
+    "steelers": ["ravens", "browns", "bengals"],
+    "ravens": ["steelers", "browns"],
+    "browns": ["steelers", "ravens"],
+    "bengals": ["steelers", "ravens"],
+    "patriots": ["jets", "bills", "dolphins"],
+    "jets": ["patriots", "bills"],
+    "bills": ["patriots", "dolphins"],
+    "dolphins": ["bills", "patriots"],
+    "chiefs": ["raiders", "broncos", "chargers"],
+    "raiders": ["chiefs", "broncos"],
+    "broncos": ["raiders", "chiefs"],
+    "49ers": ["seahawks", "rams"],
+    "seahawks": ["49ers", "rams"],
+    "rams": ["49ers", "seahawks"],
+    "yankees": ["red sox", "mets"],
+    "red sox": ["yankees"],
+    "mets": ["yankees", "phillies", "braves"],
+    "dodgers": ["giants", "padres"],
+    "cubs": ["cardinals", "brewers"],
+    "cardinals": ["cubs", "brewers"],
+    "lakers": ["celtics", "clippers"],
+    "celtics": ["lakers", "76ers", "knicks"],
+    "knicks": ["nets", "celtics"],
+    "warriors": ["cavaliers", "lakers"],
+    "heat": ["celtics", "knicks"],
+}
+
+
+SMACKY_OPPONENT_RULES = """
+THE ONE RULE THAT MATTERS
+
+This is a battle between RIVAL TEAMS, not between people. The person across
+from you is a fan. Their TEAM is the target. That framing decides everything
+else.
+
+GO AS HARD AS YOU LIKE AT:
+the team, the franchise, its history, its record, its stadium, its owner,
+its quarterback, its coach, its fanbase as a group. Profanity is fine at
+this intensity. Second person is fine and natural - "you back a genuinely
+shit football team" is exactly right, because the insult lands on the TEAM
+and they just happen to be holding it.
+
+LIGHT JABS ALLOWED AT:
+the line they just wrote. Lazy, recycled, too safe, heard it before. That is
+commentary on the writing, not the writer.
+
+NEVER, AT ANY INTENSITY:
+any claim about the PERSON - their intelligence, character, appearance,
+worth, family, job, relationships, or wellbeing. Not "you're an idiot", not
+"you're pathetic", not "no wonder nobody calls you".
+
+THE TEST: if the sentence asserts something about the human being rather
+than the team they support, cut it.
+
+Never infer their age, gender, or anything else from their name and use it.
+Use their name to address them, not as a target - "nice try, Dave" is fine;
+making the joke about Dave is not.
+
+Losing a round means their TEAM got outclassed. It never means they are less
+of a person.
+"""
+
+
+def generate_smacky_battle_line(
+    my_team: str, their_team: str, their_name: str,
+    round_number: int, previous_lines: list = None,
+    intensity: int = 4, their_last_line: str = None,
+    team_facts: str = None,
+) -> str:
+    """
+    Smacky's own smack in a solo battle, as the opponent rather than judge.
+
+    The constraint block above is the whole point of this being its own
+    function: as judge he critiques writing, but as OPPONENT he is throwing
+    punches, which is exactly where a model drifts into insulting the human
+    instead of the team. The rules are stated as a principle with a test
+    rather than a list of banned phrases, because a list only catches the
+    phrasings someone thought of.
+    """
+    previous_lines = previous_lines or []
+    voice = smackology.render(intensity, context="battle")
+
+    history = ""
+    if previous_lines:
+        history = "\n\nWhat has already been said this battle:\n" + "\n".join(
+            f"  {who}: {text}" for who, text in previous_lines[-6:]
+        )
+
+    facts = f"\n\nReal results you can use about {their_team}:\n{team_facts}" if team_facts else ""
+
+    system = (
+        f"You are Smacky, and you are IN a smack battle - not judging it. "
+        f"You are repping {my_team}. Your opponent is {their_name}, who reps "
+        f"{their_team}.\n\n" + voice + "\n\n" + SMACKY_OPPONENT_RULES +
+        "\n\nWrite ONE smack. Two sentences at most, and shorter hits harder. "
+        "No preamble, no quotation marks, no stage directions - just the line "
+        "itself, the way you would say it out loud."
+    )
+
+    user = f"Round {round_number}. Hit {their_team}."
+    if their_last_line:
+        user += f"\n\n{their_name} just said: \"{their_last_line}\"\n\nAnswer it."
+    user += history + facts
+
+    try:
+        resp = _get_client().messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=300,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+        line = "".join(b.text for b in resp.content if b.type == "text").strip()
+        line = line.strip('"').strip()
+        return line or f"{their_team}. That's it. That's the whole joke."
+    except Exception as e:
+        # A dead API call must not stall a live battle - the round still has
+        # to resolve, so fall back to something in voice rather than raising.
+        print(f"[battle] Smacky line generation failed: {e}", flush=True)
+        return f"You really came in here repping {their_team}. Bold."
+
+
 def judge_battle_round(
     team_a: str, line_a: str, team_b: str, line_b: str,
     round_number: int = 1, wins_a_before: int = 0, wins_b_before: int = 0,

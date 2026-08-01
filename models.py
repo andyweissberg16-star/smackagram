@@ -238,6 +238,7 @@ class Battle(db.Model):
     team_b = db.Column(db.String(80), nullable=True)
 
     status = db.Column(db.String(20), default="waiting")  # waiting, active, complete
+    opponent_type = db.Column(db.String(10), default="human", nullable=False)  # human, smacky
     current_turn = db.Column(db.String(1), default="a")   # "a" or "b" — whose turn it is
     round_number = db.Column(db.Integer, default=1)        # 1-5
 

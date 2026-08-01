@@ -160,7 +160,11 @@
     <input id="nameInput" type="text" placeholder="ex. CowboysHater88" maxlength="40">
 
     <div id="createError" role="alert"></div>
-    <button id="createBtn" class="btn btn-flare">Start a Smack Battle</button>
+
+    <button id="soloBtn" class="btn btn-flare" style="margin-bottom:10px;">Take on Smacky &mdash; starts now</button>
+    <p style="text-align:center; color:var(--chalk-dim); font-size:12px; margin:0 0 12px;">No link, no waiting. He goes first and he won't go easy.</p>
+
+    <button id="createBtn" class="btn" style="background:transparent; border:1px solid var(--silver, #C3CAD3); color:var(--silver, #C3CAD3);">Call out a rival &mdash; get a link</button>
   </div>
 
   <div class="card" id="resultCard">
@@ -308,6 +312,61 @@ document.getElementById('createBtn').addEventListener('click', createBattle);
 
 document.getElementById('enterBtn').addEventListener('click', () => {
   if (createdCode) window.location.href = `/battle/${createdCode}`;
+});
+
+// Solo: no link, no waiting room. The battle is created ACTIVE with
+// Smacky already on side B, so this goes straight into the room and the
+// existing intro/countdown/bell sequence runs unchanged.
+document.getElementById('soloBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('soloBtn');
+  const errorEl = document.getElementById('createError');
+  errorEl.style.display = 'none';
+
+  const league = document.getElementById('leagueSelect').value;
+  const team = document.getElementById('teamInput').value.trim();
+  const name = document.getElementById('nameInput').value.trim();
+  const intensity = parseInt(document.getElementById('intensitySelect').value, 10);
+  const maxRounds = parseInt(document.getElementById('roundsSelect').value, 10);
+
+  if (!team) { errorEl.textContent = 'Pick your team first.'; errorEl.style.display = 'block'; return; }
+  if (!name) { errorEl.textContent = 'Put a name in so Smacky knows who he is talking to.'; errorEl.style.display = 'block'; return; }
+
+  const ageGate = document.getElementById('ageGate');
+  const ageCheck = document.getElementById('ageConfirmCheck');
+  if (ageGate && ageGate.style.display !== 'none' && ageCheck && !ageCheck.checked) {
+    errorEl.textContent = 'Tick the box to confirm you are 18 or older.';
+    errorEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Stepping in...';
+
+  try {
+    const resp = await fetch('/api/battles', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({league: league, team_a: team, display_name_a: name,
+                            intensity: intensity, max_rounds: maxRounds,
+                            opponent: 'smacky'})
+    });
+    const data = await resp.json();
+    if (data.error) {
+      errorEl.textContent = data.error;
+      errorEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Take on Smacky \u2014 starts now';
+    } else {
+      localStorage.setItem(`battle_side_${data.challenge_code}`, 'a');
+      fetch('/api/battle-sfx').catch(() => {});
+      window.location.href = `/battle/${data.challenge_code}`;
+    }
+  } catch (e) {
+    errorEl.textContent = 'Could not start that. Try again.';
+    errorEl.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Take on Smacky \u2014 starts now';
+  }
 });
 
 document.getElementById('copyLinkBtn').addEventListener('click', async () => {
