@@ -770,7 +770,11 @@ def write_script_per_league(material: dict, log=None) -> dict:
             segments.append(seg)
         log(f"  {lg}: {len(got)} segment(s)")
 
+    if not segments:
+        return {"publish": False, "reason": "no segments from any league call"}
+
     return {
+        "publish": True,
         "intro": frame.get("intro") or frame.get("opening") or "",
         "outro": frame.get("outro") or frame.get("closing") or "",
         "break_in": frame.get("break_in") or "",
