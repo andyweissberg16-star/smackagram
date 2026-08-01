@@ -3622,7 +3622,7 @@ def _generate_smackcasts_async():
             print(f"[smackcast cron] weekly run FAILED: {e}")
 
 
-def _produce_daily_show_async(app_obj, dry_run: bool = False):
+def _produce_daily_show_async(app_obj, dry_run: bool = False, days_back: int = 1):
     """
     The actual work, off the request thread.
 
@@ -3632,7 +3632,7 @@ def _produce_daily_show_async(app_obj, dry_run: bool = False):
     """
     with app_obj.app_context():
         try:
-            result = show_service.produce_daily_show(days_back=1, dry_run=dry_run)
+            result = show_service.produce_daily_show(days_back=days_back, dry_run=dry_run)
         except Exception as e:
             # Swallowed on purpose. Yesterday's episode keeps playing and the
             # error is in the logs, rather than the home page losing its player.
@@ -3683,8 +3683,17 @@ def cron_daily_show():
     # every attempt.
     dry = request.args.get("dry") in ("1", "true", "yes")
 
+    # days_back lets the show be pointed at any past date - mainly to hear
+    # how it sounds on a sport that is out of season. Defaults to 1, which
+    # is last night and what the morning cron uses.
+    try:
+        days_back = max(1, int(request.args.get("days_back", 1)))
+    except (TypeError, ValueError):
+        days_back = 1
+
     threading.Thread(
-        target=_produce_daily_show_async, args=(app,), kwargs={"dry_run": dry}, daemon=True
+        target=_produce_daily_show_async, args=(app,),
+        kwargs={"dry_run": dry, "days_back": days_back}, daemon=True
     ).start()
     return jsonify({
         "started": True,
