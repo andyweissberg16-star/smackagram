@@ -724,6 +724,39 @@ def sanitize_for_speech(text: str) -> str:
 
     # A spoken punctuation name is always a mistake here.
     text = _PUNCT_NAME_RE.sub(" ", text)
+
+    # Leading-decimal sports figures: ".500", ".289", ".311". The engine reads
+    # the decimal point aloud - a real episode said "above dot five hundred".
+    # Spelled out in WORDS because "289" would be read "two hundred eighty
+    # nine" when a broadcaster says "two eighty nine".
+    _ONES = ("zero", "one", "two", "three", "four", "five",
+             "six", "seven", "eight", "nine")
+    _TEENS = ("ten", "eleven", "twelve", "thirteen", "fourteen",
+              "fifteen", "sixteen", "seventeen", "eighteen", "nineteen")
+    _TENS = ("", "", "twenty", "thirty", "forty", "fifty",
+             "sixty", "seventy", "eighty", "ninety")
+
+    def _two_digit(n):
+        if n < 10:
+            return "oh " + _ONES[n] if n else "hundred"
+        if n < 20:
+            return _TEENS[n - 10]
+        return _TENS[n // 10] + ("" if n % 10 == 0 else " " + _ONES[n % 10])
+
+    def _lead_dec(m):
+        d = m.group(1)
+        lead, rest = int(d[0]), int(d[1:])
+        return f" {_ONES[lead]} {_two_digit(rest)}"
+
+    text = re.sub(r"(?<![\d.])\.(\d{3})\b", _lead_dec, text)
+    text = re.sub(r"\b(\d+)\.(\d+)\b",
+                  lambda m: f"{m.group(1)} point {' '.join(m.group(2))}", text)
+
+    for abbr, spoken in (
+        ("St. Louis", "Saint Louis"), ("St. John", "Saint John"),
+        ("Ft. ", "Fort "), ("Mt. ", "Mount "),
+    ):
+        text = text.replace(abbr, spoken)
     # Removing a punctuation NAME leaves the punctuation around it butted
     # together - "lost.Again", "bad,really" - which TTS runs straight through
     # with no pause, and a stranded leading period at the start of a segment.
@@ -768,7 +801,10 @@ def sanitize_for_speech(text: str) -> str:
 # restart reads as a glitch, so the bed is padded with silence and faded out
 # instead. 4s is roughly the shortest repeat that still sounds like music
 # rather than a mistake.
+# Kept for reference; the bed now always loops to cover the read.
 MUSIC_LOOP_MIN_GAP_MS = 4000
+MUSIC_LOOP_CROSSFADE_MS = 900
+MUSIC_TAIL_FADE_MS = 2200
 
 
 def _trim_trailing_silence(seg, silence_thresh_db: float = -45.0, chunk_ms: int = 10):
@@ -908,22 +944,23 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
                 bed = _standardize(AudioSegment.from_file(bed_path))
                 shortfall = len(spoken) - len(bed)
 
+                # The bed always covers the whole read. Padding a short bed
+                # with silence left the drums stopping dead partway through
+                # the ad - heard in a real episode, the loop ran out before
+                # "ring, roast, repeat". The seam is hidden with a crossfade
+                # rather than avoided.
                 if shortfall > 0:
-                    # Only loop when the gap is big enough to be worth it. A
-                    # bed a second or two shorter than the read would
-                    # otherwise restart for that last second - a very audible
-                    # jump right at the end of the ad, and worse than simply
-                    # running out. Below the threshold the bed is padded with
-                    # silence instead and the fade carries it out.
-                    if shortfall >= MUSIC_LOOP_MIN_GAP_MS:
-                        loops = (len(spoken) // max(1, len(bed))) + 1
-                        bed = bed * loops
-                    else:
-                        bed = bed + AudioSegment.silent(duration=shortfall)
+                    seam = min(MUSIC_LOOP_CROSSFADE_MS, len(bed) // 3)
+                    looped = bed
+                    while len(looped) < len(spoken):
+                        looped = looped.append(bed, crossfade=seam)
+                    bed = looped
 
                 bed = bed[: len(spoken)]
                 fade = int(seg.get("music_fade_ms", 600))
-                bed = bed.fade_in(fade).fade_out(fade) + float(seg.get("music_gain_db", -20.0))
+                bed = (bed.fade_in(fade)
+                          .fade_out(min(MUSIC_TAIL_FADE_MS, len(bed) // 2))
+                       + float(seg.get("music_gain_db", -20.0)))
                 spoken = spoken.overlay(bed)
             except Exception as e:
                 print(f"[audio] music bed failed ({e}); running the read dry", flush=True)

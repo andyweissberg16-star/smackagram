@@ -654,10 +654,22 @@ def write_script(material: dict, only_league: str = None,
         "other side of the ad. Around 15 words.\n\n"
 
         + (f"  WHAT COMES AFTER THE BREAK: {', '.join(leagues_after)}. Those "
-           f"segments are being written separately and you do not see those "
-           f"games - but they ARE in tonight's show, so hand off to them. Do "
-           f"NOT say there are none: a real episode said \"no WNBA games "
-           f"Thursday\" immediately before three WNBA segments played.\n\n"
+           f"segments are written separately and you do not see those games, "
+           f"but they ARE in tonight's show.\n\n"
+
+           f"  ONLY \"break_out\" MAY MENTION THEM. This is a hard rule, not "
+           f"a preference. Your own segments must never announce, tease or "
+           f"hand off to {', '.join(leagues_after)} - no \"now to the \", no "
+           f"\"coming up\", no \"let's get to\". Your last segment ends on "
+           f"YOUR league and stops there.\n\n"
+
+           f"  Why: your segments run BEFORE the advert and break_out runs "
+           f"AFTER it. A real episode announced the WNBA at the end of a "
+           f"baseball segment, then played more baseball, then the ad, then "
+           f"announced the WNBA again. It sounded broken.\n\n"
+
+           f"  And do NOT say there are none: another episode said \"no WNBA "
+           f"games Thursday\" seconds before three WNBA segments played.\n\n"
            if leagues_after else
            "  Nothing follows the break but your own remaining segments.\n\n")
         +
@@ -990,6 +1002,27 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
         # is - not after MLB specifically. Hardcoding baseball fell apart the
         # moment the show was pointed at a football Sunday: no MLB meant the
         # midpoint fallback, which split the NBA in half.
+        # The lead league's segments must not announce what follows - that is
+        # break_out's job, and break_out runs AFTER the advert. The prompt now
+        # forbids it, but a prompt is a request; this makes the failure
+        # visible in the logs instead of only in the audio.
+        _later = [lg for lg in LEAGUE_ORDER
+                  if any(g["league"] == lg for g in material.get("games", []))]
+        if len(_later) > 1:
+            _lead, _rest = _later[0], _later[1:]
+            _tease = re.compile(
+                r"\b(now|next|coming up|up next|let's get to|over to|moving on to)\b[^.!?]{0,40}\b("
+                + "|".join(re.escape(lg) for lg in _rest) + r")\b",
+                re.IGNORECASE)
+            for i, seg in enumerate(segments):
+                if seg.get("league") != _lead:
+                    continue
+                hit = _tease.search(seg.get("text") or "")
+                if hit:
+                    log(f"WARNING: {_lead} segment {i} hands off to "
+                        f"{'/'.join(_rest)} before the break - that belongs in "
+                        f"break_out. Text: {hit.group(0)[:70]!r}")
+
         lead_league = None
         for seg in segments:
             if seg.get("league"):
