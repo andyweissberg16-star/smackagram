@@ -129,7 +129,7 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
         games.append({
             "league": label,
             "unit": unit,
-            "espn_id": ev.get("id"),
+            "espn_id": e.get("id"),
             "home": h_name, "away": a_name,
             "home_nick": h_nick, "away_nick": a_nick,
             "home_city": h_city, "away_city": a_city,
