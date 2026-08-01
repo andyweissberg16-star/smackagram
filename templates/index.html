@@ -130,12 +130,15 @@
     .league-strip{font-size:10.5px; letter-spacing:1px;}
   }
 
+  @media (min-width:721px){
+    #heroBanner{aspect-ratio:2.6/1; object-fit:cover; object-position:center;}
+  }
   .smackback-frame{
     position:absolute; z-index:5;
-    top:50%; left:83.333%; transform:translate(-50%,-50%);
-    width:25%; min-width:230px; height:33%; min-height:120px;
+    top:50%; left:16.667%; transform:translate(-50%,-50%);
+    width:25%; min-width:230px; height:26%; min-height:96px;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:10px; padding:14px 16px; box-sizing:border-box;
+    gap:8px; padding:11px 14px; box-sizing:border-box;
     background:rgba(13,13,13,0.62);
     backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px);
     border:3px solid var(--flare); border-radius:6px;
