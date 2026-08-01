@@ -31,6 +31,10 @@
     --chalk-dim:#9A9A96;
     --flare:#E8142C;
     --gold:#FFD400;
+    --silver:#C3CAD3;
+    --silver-hot:#F4F6F9;
+    --silver-deep:#98A0AA;
+    --silver-hairline:#3A3D42;
     --line:rgba(245,245,243,0.10);
     --line-strong:rgba(245,245,243,0.24);
   }
@@ -49,6 +53,47 @@
   .card::before{
     content:''; position:absolute; top:0; left:0; right:0; height:3px;
     background:linear-gradient(90deg, var(--flare), var(--gold), var(--flare));
+  }
+  .door-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px;
+    max-width:760px; margin:0 auto 14px;}
+  .door{background:var(--ink-2); border:1px solid var(--silver-hairline);
+    border-radius:10px; padding:22px; display:flex; flex-direction:column;}
+  .door-solo{border:2px solid var(--flare);}
+  .door-head{display:flex; align-items:center; gap:11px; margin-bottom:13px;}
+  .door-badge{width:40px; height:40px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Anton',sans-serif; font-size:17px;}
+  .door-badge-red{background:var(--flare); color:#fff;}
+  .door-badge-silver{background:var(--silver-hairline); color:var(--silver); font-size:14px;}
+  .door-kicker{font-family:'JetBrains Mono',monospace; font-size:10px;
+    font-weight:700; letter-spacing:1.1px; color:var(--silver-deep);
+    text-transform:uppercase; margin:0 0 2px;}
+  .door-kicker-red{color:var(--flare);}
+  .door-title{font-family:'Anton',sans-serif; font-size:23px; line-height:1.05;
+    color:var(--silver-hot); margin:0;}
+  .door-copy{color:var(--chalk-dim); font-size:13px; line-height:1.5;
+    margin:0 0 16px; flex:1;}
+  .door .btn.door-btn{width:100%; margin:4px 0 0;}
+  .door-btn-silver{background:var(--silver); color:var(--ink); border:none;}
+  .door-btn-silver:hover{background:var(--silver-hot);}
+  .door-foot{text-align:center; color:var(--silver-deep); font-size:11.5px;
+    margin:9px 0 0;}
+  .door-age{margin:2px 0 12px; display:none;}
+  .door-age-label{display:flex; align-items:center; gap:9px; cursor:pointer;
+    font-size:12.5px; color:var(--chalk-dim); margin:0;}
+  .door-age-label input{width:20px; height:20px; flex-shrink:0; cursor:pointer;
+    accent-color:var(--flare); margin:0;}
+  .door-advanced{max-width:760px; margin:0 auto 30px; border-top:1px solid var(--silver-hairline);
+    padding-top:14px;}
+  .door-advanced summary{cursor:pointer; color:var(--silver-deep); font-size:12.5px;
+    text-align:center; list-style:none; padding:4px 0;}
+  .door-advanced summary::-webkit-details-marker{display:none;}
+  .door-advanced summary:hover{color:var(--silver);}
+  .door-advanced-body{padding-top:14px;}
+  @media (max-width:720px){
+    .door-grid{grid-template-columns:1fr; gap:14px;}
+    .door{padding:18px;}
+    .door-title{font-size:20px;}
   }
   .fight-card-label{
     font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--chalk-dim); text-transform:uppercase;
@@ -116,9 +161,61 @@
     <p class="sub">Challenge someone to a battle. Send them the link. The crowd decides who wins.</p>
   </div>
 
-  <div class="card" id="createCard">
-    <p class="fight-card-label">Fight Card</p>
+  <div class="door-grid">
 
+    <div class="door door-solo">
+      <div class="door-head">
+        <div class="door-badge door-badge-red">S</div>
+        <div>
+          <p class="door-kicker door-kicker-red">Starts now &middot; no waiting</p>
+          <p class="door-title">Take on Smacky</p>
+        </div>
+      </div>
+      <p class="door-copy">No link, no friend required. He picks your biggest rival and he goes first.</p>
+      <label for="soloTeam">Your team</label>
+      <input id="soloTeam" type="text" placeholder="ex. Cowboys" data-team-search data-team-league="nfl">
+      <label for="soloName">Your name</label>
+      <input id="soloName" type="text" placeholder="ex. CowboysHater88" maxlength="40">
+      <div class="door-age" id="ageGateSolo">
+        <label class="door-age-label">
+          <input type="checkbox" id="ageConfirmSolo">
+          <span>I'm at least 18 or older.</span>
+        </label>
+      </div>
+      <button id="soloBtn" class="btn btn-flare door-btn">Step in the ring</button>
+      <p class="door-foot" id="soloFoot">5 rounds &middot; about 4 minutes</p>
+    </div>
+
+    <div class="door door-rival">
+      <div class="door-head">
+        <div class="door-badge door-badge-silver">VS</div>
+        <div>
+          <p class="door-kicker">Text the link &middot; free</p>
+          <p class="door-title">Call out a rival</p>
+        </div>
+      </div>
+      <p class="door-copy">Drop it in the group chat. First one to open it is in. Everyone else can watch.</p>
+      <label for="teamInput">Your team</label>
+      <input id="teamInput" type="text" placeholder="ex. Cowboys" data-team-search data-team-league="nfl">
+      <label for="nameInput">Your name</label>
+      <input id="nameInput" type="text" placeholder="ex. CowboysHater88" maxlength="40">
+      <div class="door-age" id="ageGate">
+        <label class="door-age-label">
+          <input type="checkbox" id="ageConfirmCheck">
+          <span>I'm at least 18 or older.</span>
+        </label>
+      </div>
+      <button id="createBtn" class="btn door-btn door-btn-silver">Get the link</button>
+      <p class="door-foot">They join whenever they open it</p>
+    </div>
+
+  </div>
+
+  <div id="createError" role="alert" style="max-width:760px; margin:0 auto;"></div>
+
+  <details class="door-advanced">
+    <summary>League, intensity and rounds &mdash; change the defaults</summary>
+    <div class="door-advanced-body">
     <label for="leagueSelect">League</label>
     <select id="leagueSelect">
       <option value="nfl">NFL</option>
@@ -131,41 +228,20 @@
       <option value="soccer">Soccer</option>
     </select>
 
-    <label for="teamInput">Your team</label>
-    <input id="teamInput" type="text" placeholder="ex. Cowboys" data-team-search data-team-league="nfl">
-
     <label for="intensitySelect">Intensity</label>
     <select id="intensitySelect">
       <option value="4">Loading...</option>
     </select>
     <p style="font-size:12px; color:var(--chalk-dim); margin:-6px 0 14px;">Sets the tone for the whole battle — whoever you challenge will see this before they join.</p>
 
-    <div id="ageGate" style="display:none; margin-bottom:14px; padding:12px 14px; background:var(--ink); border:1px solid var(--line-strong); border-radius:6px;">
-      <label style="display:flex; align-items:flex-start; gap:10px; cursor:pointer; font-size:13px; color:var(--chalk); margin-bottom:0;">
-        <input type="checkbox" id="ageConfirmCheck" style="width:24px; height:24px; flex-shrink:0; margin-top:0; cursor:pointer; accent-color:var(--flare);">
-        <span>This intensity level includes profanity. I confirm I am 18 years of age or older.</span>
-      </label>
-    </div>
-
     <label for="roundsSelect">Rounds</label>
     <select id="roundsSelect">
       <option value="5" selected>5 rounds</option>
       <option value="10">10 rounds</option>
     </select>
-    <p style="font-size:12px; color:var(--chalk-dim); margin:-6px 0 14px;">How many rounds this battle goes.</p>
-
-    <div class="vs-divider">VS whoever's next</div>
-
-    <label for="nameInput">Your name</label>
-    <input id="nameInput" type="text" placeholder="ex. CowboysHater88" maxlength="40">
-
-    <div id="createError" role="alert"></div>
-
-    <button id="soloBtn" class="btn btn-flare" style="margin-bottom:10px;">Take on Smacky &mdash; starts now</button>
-    <p style="text-align:center; color:var(--chalk-dim); font-size:12px; margin:0 0 12px;">No link, no waiting. He goes first and he won't go easy.</p>
-
-    <button id="createBtn" class="btn" style="background:transparent; border:1px solid var(--silver, #C3CAD3); color:var(--silver, #C3CAD3);">Call out a rival &mdash; get a link</button>
-  </div>
+    <p style="font-size:12px; color:var(--chalk-dim); margin:-6px 0 4px;">How many rounds this battle goes.</p>
+    </div>
+  </details>
 
   <div class="card" id="resultCard">
     <p class="result-title">Battle created</p>
@@ -206,9 +282,17 @@ let createdCode = null;
 
 function updateAgeGate() {
   const intensity = document.getElementById('intensitySelect').value;
-  const gate = document.getElementById('ageGate');
-  gate.style.display = intensity === '1' ? 'none' : 'block';
-  if (intensity === '1') document.getElementById('ageConfirmCheck').checked = false;
+  const showGate = document.getElementById('intensitySelect').value !== '1';
+  ['ageGate', 'ageGateSolo'].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = showGate ? 'block' : 'none';
+  });
+  if (!showGate) {
+    ['ageConfirmCheck', 'ageConfirmSolo'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.checked = false;
+    });
+  }
 }
 document.getElementById('intensitySelect').addEventListener('change', updateAgeGate);
 
@@ -222,13 +306,13 @@ const LEAGUE_TEAM_KEYS = {
 };
 document.getElementById('leagueSelect').addEventListener('change', () => {
   const league = document.getElementById('leagueSelect').value;
-  const teamInput = document.getElementById('teamInput');
-  teamInput.setAttribute('data-team-league', LEAGUE_TEAM_KEYS[league] || '');
-  // Whatever team was already picked may not belong to the new league,
-  // so clear it (and its "was properly selected" marker) rather than
-  // leaving a now-invalid team sitting in the box.
-  teamInput.value = '';
-  teamInput.dataset.smkSelected = '';
+  ['teamInput', 'soloTeam'].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.setAttribute('data-team-league', LEAGUE_TEAM_KEYS[league] || '');
+    el.value = '';
+    el.dataset.smkSelected = '';
+  });
 });
 
 async function createBattle() {
@@ -323,16 +407,16 @@ document.getElementById('soloBtn').addEventListener('click', async () => {
   errorEl.style.display = 'none';
 
   const league = document.getElementById('leagueSelect').value;
-  const team = document.getElementById('teamInput').value.trim();
-  const name = document.getElementById('nameInput').value.trim();
+  const team = document.getElementById('soloTeam').value.trim();
+  const name = document.getElementById('soloName').value.trim();
   const intensity = parseInt(document.getElementById('intensitySelect').value, 10);
   const maxRounds = parseInt(document.getElementById('roundsSelect').value, 10);
 
   if (!team) { errorEl.textContent = 'Pick your team first.'; errorEl.style.display = 'block'; return; }
   if (!name) { errorEl.textContent = 'Put a name in so Smacky knows who he is talking to.'; errorEl.style.display = 'block'; return; }
 
-  const ageGate = document.getElementById('ageGate');
-  const ageCheck = document.getElementById('ageConfirmCheck');
+  const ageGate = document.getElementById('ageGateSolo');
+  const ageCheck = document.getElementById('ageConfirmSolo');
   if (ageGate && ageGate.style.display !== 'none' && ageCheck && !ageCheck.checked) {
     errorEl.textContent = 'Tick the box to confirm you are 18 or older.';
     errorEl.style.display = 'block';
@@ -355,7 +439,7 @@ document.getElementById('soloBtn').addEventListener('click', async () => {
       errorEl.textContent = data.error;
       errorEl.style.display = 'block';
       btn.disabled = false;
-      btn.textContent = 'Take on Smacky \u2014 starts now';
+      btn.textContent = 'Step in the ring';
     } else {
       localStorage.setItem(`battle_side_${data.challenge_code}`, 'a');
       fetch('/api/battle-sfx').catch(() => {});
@@ -365,7 +449,7 @@ document.getElementById('soloBtn').addEventListener('click', async () => {
     errorEl.textContent = 'Could not start that. Try again.';
     errorEl.style.display = 'block';
     btn.disabled = false;
-    btn.textContent = 'Take on Smacky \u2014 starts now';
+    btn.textContent = 'Step in the ring';
   }
 });
 
