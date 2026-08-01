@@ -766,7 +766,14 @@ def write_script_per_league(material: dict, log=None) -> dict:
             log(f"WARNING: {lg} call returned no segments")
         for seg in got:
             if isinstance(seg, dict):
-                seg.setdefault("league", lg)
+                # OVERWRITE, not setdefault. This call was given exactly
+                # one league's games, so lg is authoritative - but the
+                # model sometimes copies the "league": "MLB" out of the
+                # example in the prompt, and setdefault would not replace
+                # it. That is how a WNBA segment ended up tagged MLB,
+                # which made every segment look like baseball and skipped
+                # the commercial break again.
+                seg["league"] = lg
             segments.append(seg)
         log(f"  {lg}: {len(got)} segment(s)")
 
