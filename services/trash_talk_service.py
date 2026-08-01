@@ -684,8 +684,8 @@ of a person.
 
 
 def generate_smacky_battle_line(
-    my_team: str, their_team: str, their_name: str,
-    round_number: int, previous_lines: list = None,
+    my_team: str, their_team: str, round_number: int,
+    their_name: str = "", previous_lines: list = None,
     intensity: int = 4, their_last_line: str = None,
     team_facts: str = None,
 ) -> str:
@@ -712,8 +712,8 @@ def generate_smacky_battle_line(
 
     system = (
         f"You are Smacky, and you are IN a smack battle - not judging it. "
-        f"You are repping {my_team}. Your opponent is {their_name}, who reps "
-        f"{their_team}.\n\n" + voice + "\n\n" + SMACKY_OPPONENT_RULES +
+        f"You are repping {my_team}. Your opponent reps {their_team}.\n\n"
+        + voice + "\n\n" + SMACKY_OPPONENT_RULES +
         "\n\nWrite ONE smack. Two sentences at most, and shorter hits harder. "
         "No preamble, no quotation marks, no stage directions - just the line "
         "itself, the way you would say it out loud."
@@ -721,7 +721,7 @@ def generate_smacky_battle_line(
 
     user = f"Round {round_number}. Hit {their_team}."
     if their_last_line:
-        user += f"\n\n{their_name} just said: \"{their_last_line}\"\n\nAnswer it."
+        user += f"\n\nThey just said: \"{their_last_line}\"\n\nAnswer it."
     user += history + facts
 
     try:

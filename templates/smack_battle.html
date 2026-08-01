@@ -54,6 +54,41 @@
     content:''; position:absolute; top:0; left:0; right:0; height:3px;
     background:linear-gradient(90deg, var(--flare), var(--gold), var(--flare));
   }
+  .battle-header{text-align:center; max-width:1180px; margin:0 auto 30px;}
+  .bh-leagues{font-family:'JetBrains Mono',monospace; font-size:11px;
+    font-weight:700; letter-spacing:2.4px; color:var(--silver);
+    text-transform:uppercase; margin:0 0 18px;}
+  .bh-title{font-family:'Anton',sans-serif; font-size:56px; line-height:0.92;
+    color:var(--silver-hot); margin:0; text-transform:uppercase;
+    letter-spacing:0.5px;}
+  .bh-title span{color:var(--flare);}
+  .bh-judge{font-family:'JetBrains Mono',monospace; font-size:12px;
+    font-weight:700; letter-spacing:2.2px; color:var(--silver-deep);
+    text-transform:uppercase; margin:16px 0 0;}
+  .bh-sub{color:var(--chalk-dim); font-size:15px; line-height:1.65;
+    max-width:640px; margin:18px auto 0;}
+  .bh-beats{display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
+    background:var(--silver-hairline); max-width:1180px; margin:0 auto 32px;
+    border-top:1px solid var(--silver-hairline);
+    border-bottom:1px solid var(--silver-hairline);}
+  .bh-beat{background:var(--ink); padding:20px 16px; text-align:center;}
+  .bh-num{font-family:'Anton',sans-serif; font-size:25px; color:var(--flare);
+    margin:0 0 6px;}
+  .bh-beat-title{color:var(--silver-hot); font-size:13px; font-weight:700;
+    margin:0 0 4px;}
+  .bh-beat-copy{color:var(--silver-deep); font-size:12px; line-height:1.45;
+    margin:0;}
+  @media (max-width:900px){
+    .bh-title{font-size:42px;}
+  }
+  @media (max-width:720px){
+    .bh-title{font-size:31px;}
+    .bh-leagues{font-size:9.5px; letter-spacing:1.6px;}
+    .bh-judge{font-size:10.5px; letter-spacing:1.6px;}
+    .bh-sub{font-size:14px;}
+    .bh-beats{grid-template-columns:1fr; margin-bottom:24px;}
+    .bh-beat{padding:15px 16px;}
+  }
   .door-grid{display:grid; grid-template-columns:1fr 1fr; gap:32px;
     max-width:1180px; margin:0 auto 18px;}
   .door{background:var(--ink-2); border:1px solid var(--silver-hairline);
@@ -183,8 +218,29 @@
 </picture>
 
 <div class="wrap">
-  <div class="hero">
-    <p class="sub" style="max-width:600px; margin-left:auto; margin-right:auto;">Step in against Smacky right now, or call out a rival and settle it. Five rounds. He scores every one and tells you exactly why you lost it.</p>
+  <div class="battle-header">
+    <p class="bh-leagues">NFL &middot; NBA &middot; MLB &middot; NHL &middot; WNBA &middot; COLLEGE</p>
+    <h1 class="bh-title">Round for round.<br><span>Best smack talk wins.</span></h1>
+    <p class="bh-judge">Smacky judges every round</p>
+    <p class="bh-sub">The oldest rivalries in sports, settled one round at a time. Go head to head with Smacky right now &mdash; name any team and he'll defend it &mdash; or send a link and call out a real rival. He'll tell you exactly why the weak ones were weak.</p>
+  </div>
+
+  <div class="bh-beats">
+    <div class="bh-beat">
+      <p class="bh-num">01</p>
+      <p class="bh-beat-title">Pick your fight</p>
+      <p class="bh-beat-copy">Your team, their team, any league</p>
+    </div>
+    <div class="bh-beat">
+      <p class="bh-num">02</p>
+      <p class="bh-beat-title">Trade shots</p>
+      <p class="bh-beat-copy">One smack each, every round</p>
+    </div>
+    <div class="bh-beat">
+      <p class="bh-num">03</p>
+      <p class="bh-beat-title">Smacky calls it</p>
+      <p class="bh-beat-copy">Scored out of ten, no appeals</p>
+    </div>
   </div>
 
   <div class="door-grid">
@@ -203,9 +259,6 @@
       <label for="soloOpponent">Team you want to roast</label>
       <input id="soloOpponent" type="text" placeholder="ex. Eagles" data-team-search data-team-league="nfl">
       <p class="door-hint">Smacky defends this one. Pick whoever you actually can't stand.</p>
-
-      <label for="soloName">Your name</label>
-      <input id="soloName" type="text" placeholder="ex. CowboysHater88" maxlength="40">
 
       <p class="door-rounds-label">Rounds</p>
       <div class="round-toggle" id="soloRounds">
@@ -461,13 +514,12 @@ document.getElementById('soloBtn').addEventListener('click', async () => {
   const league = document.getElementById('leagueSelect').value;
   const team = document.getElementById('soloTeam').value.trim();
   const opponent = document.getElementById('soloOpponent').value.trim();
-  const name = document.getElementById('soloName').value.trim();
+  const name = 'You';
   const intensity = parseInt(document.getElementById('intensitySelect').value, 10);
   const maxRounds = roundsFrom('soloRounds');
 
   if (!team) { errorEl.textContent = 'Pick your team first.'; errorEl.style.display = 'block'; return; }
   if (!opponent) { errorEl.textContent = 'Pick the team you want to roast.'; errorEl.style.display = 'block'; return; }
-  if (!name) { errorEl.textContent = 'Put a name in so Smacky knows who he is talking to.'; errorEl.style.display = 'block'; return; }
 
   const ageGate = document.getElementById('ageGateSolo');
   const ageCheck = document.getElementById('ageConfirmSolo');
