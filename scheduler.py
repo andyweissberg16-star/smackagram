@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime
 
 from models import db, Smackagram, Scenario, SmackcastSubscription, SmackcastRecap, User
-from services import sports_service, stripe_service, twilio_service, trash_talk_service, call_audio_service, content_moderation, sleeper_service, smackcast_service, elevenlabs_service, espn_service, wallet_service
+from services import sports_service, stripe_service, twilio_service, trash_talk_service, call_audio_service, content_moderation, sleeper_service, smackcast_service, elevenlabs_service, espn_service, wallet_service, espn_scores
 
 
 def _refund_released_smackagram(s):
@@ -78,11 +78,32 @@ def check_armed_smackagrams():
                         # the game that just ended — this is the "set it and
                         # walk away, get a roast grounded in what actually
                         # happened" feature
-                        summary = sports_service.get_game_summary(s.game_id, sport=s.sport)
+                        # ESPN first: real player lines, real records and a
+                        # correct score. SportsDataIO's free tier scrambles
+                        # the numbers - it gets the winner right, which is why
+                        # this worked at all, but every score it reports is
+                        # wrong by roughly a 2.5x multiplier.
+                        facts = []
+                        espn_id = getattr(s, "espn_event_id", None)
+                        if espn_id:
+                            try:
+                                detail = espn_scores.fetch_game_detail(s.sport, espn_id)
+                                facts = espn_scores.roast_facts(detail)
+                            except Exception as e:
+                                print(f"[locked] ESPN detail failed for {s.id}: {e}", flush=True)
+
+                        if not facts:
+                            # Fall back rather than not calling at all - a
+                            # generic roast beats a purchase that silently
+                            # does nothing.
+                            summary = sports_service.get_game_summary(s.game_id, sport=s.sport)
+                            facts = (summary or {}).get("key_facts") or []
+                            print(f"[locked] {s.id} using fallback facts", flush=True)
+
                         s.custom_message = trash_talk_service.generate_game_recap_roast(
                             team=s.target_team,
                             recipient_name=s.recipient_name,
-                            key_facts=summary["key_facts"],
+                            key_facts=facts,
                             sensitivity=s.sensitivity,
                         )
                     # else mode == "custom" — s.custom_message was already

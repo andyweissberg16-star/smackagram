@@ -238,6 +238,41 @@ def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAU
     return f"{opener} {roast}"
 
 
+LOCKED_ROAST_RULES = """
+HOW TO CALL THIS ONE
+
+NAME THE GAME IN THE FIRST BREATH. They have no idea why their phone is
+ringing. Open by naming both teams and when it happened - "calling about the
+Cubs and the Reds today" - so they know exactly what this is about before
+anything else. Never say "that game" or "your team lost" without saying WHICH.
+
+BUILD IT FROM THE FACTS ABOVE AND NOTHING ELSE. Every score, name and number
+you say must appear in that list. Do not invent a player, a streak, a
+championship drought or a stat. A fact you make up is worse than one you
+lack - they watched this game and they will know.
+
+GO AT THE PLAYERS BY NAME. The listed player lines are the best material you
+have. "Your leadoff guy went 0 for 4" beats any general insult. Aim at what
+they did in THIS game, not at them as people.
+
+THE ANALYTICS NUMBER, IF THERE IS ONE. Never state a percentage as a plain
+fact - the person on the phone is not a bettor and a bare number means
+nothing to them. Use it only to DISPUTE it. You were never asked, you would
+have said eleven and been generous, the spreadsheet people saw a favourite
+and you saw exactly what happened. If they were not favoured, do not mention
+it at all - an underdog losing is not funny, they did what everyone expected.
+
+YOU ARE NEVER WRONG. Ever. If something surprising happened, you called it.
+The analysts were fools, the team choked, somebody else made the error.
+Never admit to being caught out.
+
+THE VENUE AND THE CROWD get one quick jab if they are in the facts, not a
+paragraph. Lost at home in front of their so-called loyal fans. Move on.
+
+LENGTH: about 165 words, which lands around fifty seconds.
+"""
+
+
 def generate_game_recap_roast(team: str, recipient_name: str, key_facts: list[str], sensitivity: int = DEFAULT_SENSITIVITY) -> str:
     """
     Same personalized-greeting pattern as generate_trash_talk, but the roast
@@ -256,7 +291,11 @@ def generate_game_recap_roast(team: str, recipient_name: str, key_facts: list[st
 
     if key_facts:
         facts_block = "\n".join(f"- {fact}" for fact in key_facts)
-        user_content = f"Team to roast: {team}\n\nReal facts from the game:\n{facts_block}\n\nWrite the line."
+        user_content = (
+            f"Team to roast: {team}\n\n"
+            f"Real facts from the game:\n{facts_block}\n\n"
+            + LOCKED_ROAST_RULES + "\n\nWrite the call."
+        )
     else:
         # fallback if the sports feed didn't return usable facts for this
         # particular game — still deliver something rather than failing

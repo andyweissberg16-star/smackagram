@@ -161,6 +161,10 @@ class Smackagram(db.Model):
 
     # Game + condition
     game_id = db.Column(db.String(64), nullable=False)       # ID from the sports data API
+    # ESPN's own id for the game being watched, captured at arm-time. Needed
+    # for the summary endpoint, which is where the player lines and the real
+    # score come from - SportsDataIO's game_id will not resolve against it.
+    espn_event_id = db.Column(db.String(32), nullable=True)
     sport = db.Column(db.String(20), nullable=False, default="nfl")  # nfl, nba, mlb, nhl, ncaaf
     home_team = db.Column(db.String(80))
     away_team = db.Column(db.String(80))

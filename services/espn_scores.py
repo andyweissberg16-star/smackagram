@@ -191,70 +191,233 @@ def fetch_news(league: str, limit: int = 12) -> list[dict]:
     return out
 
 
-def probe_summary(league: str, event_id: str) -> dict:
-    """
-    One-off diagnostic. Fetches a finished game's summary and reports the
-    SHAPE of what comes back, so the roast extraction can be written against
-    the real payload instead of an assumption about it.
-    """
+
+LANDMARK_VENUES = {
+    "wrigley field": "Wrigley",
+    "fenway park": "Fenway",
+    "yankee stadium": "Yankee Stadium",
+    "dodger stadium": "Dodger Stadium",
+    "lambeau field": "Lambeau",
+    "soldier field": "Soldier Field",
+    "arrowhead stadium": "Arrowhead",
+    "gillette stadium": "Gillette",
+    "madison square garden": "the Garden",
+    "oracle arena": "Oracle",
+    "td garden": "TD Garden",
+}
+VENUE_LEAGUES = {"mlb", "nfl", "nba"}
+
+
+def _stat_map(labels, values):
+    """Zip labels to values rather than reading fixed positions - hardcoding
+    index 7 for strikeouts works until ESPN reorders the columns, and then it
+    silently reports the wrong number."""
+    return {str(l).strip().upper(): v for l, v in zip(labels or [], values or [])}
+
+
+def _to_num(v):
+    try:
+        return float(str(v).strip())
+    except (TypeError, ValueError):
+        return None
+
+
+def fetch_game_detail(league: str, event_id: str) -> dict:
+    """Everything needed to roast a specific game. Returns {} on failure - a
+    call must still fire with the plain result rather than not firing."""
     import json as _json
     from urllib.request import Request, urlopen
 
-    path = LEAGUE_PATHS.get((league or "").lower())
-    if not path:
-        return {"error": f"unknown league {league}"}
+    lg = (league or "").lower()
+    path = LEAGUE_PATHS.get(lg)
+    if not path or not event_id:
+        return {}
     sport, slug = path[0], path[1]
 
-    url = (f"{BASE}/{sport}/{slug}/summary?event={event_id}")
-    req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    url = f"{BASE}/{sport}/{slug}/summary?event={event_id}"
     try:
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urlopen(req, timeout=20) as r:
             d = _json.load(r)
     except Exception as e:
-        return {"error": f"{type(e).__name__}: {e}", "url": url}
+        print(f"[espn] game detail failed for {league}/{event_id}: {e}", flush=True)
+        return {}
 
-    def shape(v, depth=0):
-        if depth > 2:
-            return type(v).__name__
-        if isinstance(v, dict):
-            return {k: shape(val, depth + 1) for k, val in list(v.items())[:12]}
-        if isinstance(v, list):
-            return [shape(v[0], depth + 1)] if v else []
-        if isinstance(v, str):
-            return v[:60]
-        return v
+    out = {"league": path[2], "event_id": str(event_id)}
 
-    out = {"url": url, "top_level_keys": sorted(d.keys())}
+    gi = d.get("gameInfo") or {}
+    venue_full = ((gi.get("venue") or {}).get("fullName") or "").strip()
+    if lg in VENUE_LEAGUES:
+        out["venue"] = LANDMARK_VENUES.get(venue_full.lower())
+    out["attendance"] = gi.get("attendance")
+    out["duration"] = gi.get("gameDuration")
 
-    # Deeper look at the two sections the roast material actually comes from.
-    try:
-        pl = (d.get("boxscore") or {}).get("players") or []
-        if pl:
-            grp = (pl[0].get("statistics") or [])
-            out["_player_stats_sample"] = {
-                "groups": [g.get("name") or g.get("type") for g in grp],
-                "first_group_labels": (grp[0].get("labels") if grp else None),
-                "first_athlete": ((grp[0].get("athletes") or [{}])[0]
-                                  if grp else None),
-            }
-    except Exception as ex:
-        out["_player_stats_sample"] = f"failed: {ex}"
+    comp = ((d.get("header") or {}).get("competitions") or [{}])[0]
+    for side in (comp.get("competitors") or []):
+        team = side.get("team") or {}
+        nick = team.get("name") or team.get("shortDisplayName") or ""
+        score = _to_num(side.get("score"))
+        rec = ""
+        for r in (side.get("record") or []):
+            if r.get("type") in ("total", "overall") or not rec:
+                rec = r.get("summary") or rec
+        entry = {"team": nick, "score": score, "record": rec,
+                 "home": side.get("homeAway") == "home"}
+        if str(side.get("winner")).lower() == "true" or side.get("winner") is True:
+            out["winner"] = entry
+        else:
+            out["loser"] = entry
 
-    try:
-        wp = d.get("winprobability") or []
-        homes = [p.get("homeWinPercentage") for p in wp
-                 if p.get("homeWinPercentage") is not None]
-        out["_winprob_sample"] = {
-            "points": len(wp),
-            "peak_home": max(homes) if homes else None,
-            "low_home": min(homes) if homes else None,
-            "final_home": homes[-1] if homes else None,
-        }
-    except Exception as ex:
-        out["_winprob_sample"] = f"failed: {ex}"
+    if out.get("winner") and out.get("loser"):
+        w, l = out["winner"].get("score"), out["loser"].get("score")
+        if w is not None and l is not None:
+            out["margin"] = int(abs(w - l))
+            out["one_run"] = out["margin"] <= 1
+    out["lost_at_home"] = bool((out.get("loser") or {}).get("home"))
 
-    for key in ("boxscore", "leaders", "scoringPlays", "header",
-                "plays", "winprobability", "gameInfo", "standings"):
-        if key in d:
-            out[key] = shape(d[key])
+    out["bad_nights"] = _bad_nights(d, (out.get("loser") or {}).get("team"), lg)
+    out.update(_collapse(d, out.get("loser") or {}))
     return out
+
+
+_BAD_NIGHT_RULES = {
+    "mlb":  [("H-AB", "hitless", None, "{n} for {d}"), ("K", ">=", 3, "struck out {v} times")],
+    "nba":  [("TO", ">=", 4, "{v} turnovers"), ("PTS", "<=", 2, "{v} points")],
+    "wnba": [("TO", ">=", 4, "{v} turnovers"), ("PTS", "<=", 2, "{v} points")],
+    "nfl":  [("INT", ">=", 2, "{v} interceptions"), ("FUM", ">=", 2, "{v} fumbles")],
+    "nhl":  [("+/-", "<=", -2, "a minus {v} night")],
+}
+
+
+def _bad_nights(d, losing_team, league):
+    """Named players on the LOSING side who stunk. Only the losing team -
+    roasting the winner's stars is not the product."""
+    rules = _BAD_NIGHT_RULES.get(league) or []
+    if not rules or not losing_team:
+        return []
+
+    found = []
+    for block in ((d.get("boxscore") or {}).get("players") or []):
+        team = (block.get("team") or {})
+        nick = team.get("name") or team.get("shortDisplayName") or ""
+        if nick.lower() != str(losing_team).lower():
+            continue
+        for group in (block.get("statistics") or []):
+            labels = group.get("labels") or []
+            for ath in (group.get("athletes") or []):
+                person = (ath.get("athlete") or {})
+                name = person.get("displayName") or person.get("shortName")
+                if not name:
+                    continue
+                stats = _stat_map(labels, ath.get("stats") or [])
+                for label, op, thresh, phrasing in rules:
+                    raw = stats.get(label)
+                    if raw in (None, "", "-"):
+                        continue
+                    if op == "hitless":
+                        try:
+                            hits, ab = str(raw).split("-")
+                            if int(hits) == 0 and int(ab) >= 3:
+                                found.append({"name": name,
+                                              "line": phrasing.format(n=hits, d=ab),
+                                              "spot": ath.get("batOrder"),
+                                              "position": (ath.get("position") or {}).get("abbreviation")})
+                        except (ValueError, AttributeError):
+                            pass
+                        continue
+                    v = _to_num(raw)
+                    if v is None:
+                        continue
+                    if (v >= thresh) if op == ">=" else (v <= thresh):
+                        found.append({"name": name,
+                                      "line": phrasing.format(v=int(abs(v))),
+                                      "spot": ath.get("batOrder"),
+                                      "position": (ath.get("position") or {}).get("abbreviation")})
+    merged = {}
+    for f in found:
+        m = merged.setdefault(f["name"], {**f, "lines": []})
+        m["lines"].append(f["line"])
+    for m in merged.values():
+        m["line"] = " and ".join(m.pop("lines"))
+    return list(merged.values())[:3]
+
+
+def _collapse(d, loser):
+    """Was it thrown away, and were they favoured? The percentage NEVER
+    reaches the call - it only decides whether there is a joke here."""
+    out = {"was_favoured": False, "blew_it": False, "favoured_pct": None}
+    wp = d.get("winprobability") or []
+    if not wp or not loser:
+        return out
+
+    loser_is_home = bool(loser.get("home"))
+    series = []
+    for pt in wp:
+        home = pt.get("homeWinPercentage")
+        if home is None:
+            continue
+        series.append(home if loser_is_home else 1.0 - home)
+    if not series:
+        return out
+
+    # The loser's line must END near zero. If it finishes high the series has
+    # been read against the wrong side - a caught bug, not a hypothetical.
+    if series[-1] > 0.15:
+        return out
+
+    peak = max(series)
+    if peak >= 0.55:
+        out["was_favoured"] = True
+        out["favoured_pct"] = int(round(peak * 100))
+    if peak >= 0.80:
+        out["blew_it"] = True
+    return out
+
+
+def roast_facts(detail: dict) -> list:
+    """The fact lines Smacky writes from, ordered by what they are worth."""
+    if not detail:
+        return []
+    f = []
+    w = detail.get("winner") or {}
+    l = detail.get("loser") or {}
+
+    if w.get("team") and l.get("team"):
+        ws, ls = w.get("score"), l.get("score")
+        if ws is not None and ls is not None:
+            f.append(f"{w['team']} beat {l['team']} {int(ws)}-{int(ls)}")
+        else:
+            f.append(f"{w['team']} beat {l['team']}")
+    if l.get("record"):
+        f.append(f"{l['team']} are now {l['record']}")
+
+    m = detail.get("margin")
+    if detail.get("one_run"):
+        f.append("lost it by a single run")
+    elif m and m >= 10:
+        f.append(f"lost by {m} - not close at any point")
+
+    for b in (detail.get("bad_nights") or []):
+        spot = f", batting {b['spot']}" if b.get("spot") else ""
+        pos = f" ({b['position']})" if b.get("position") else ""
+        f.append(f"{b['name']}{pos}{spot} went {b['line']}")
+
+    if detail.get("blew_it"):
+        f.append(f"the analytics people had {l.get('team','them')} at "
+                 f"{detail.get('favoured_pct')}% and they still lost - a genuine collapse")
+    elif detail.get("was_favoured"):
+        f.append(f"the analytics people had {l.get('team','them')} favoured at "
+                 f"{detail.get('favoured_pct')}% and they lost anyway")
+
+    if detail.get("lost_at_home"):
+        v, att = detail.get("venue"), detail.get("attendance")
+        if v and att:
+            f.append(f"lost at home at {v} in front of {att:,}")
+        elif att:
+            f.append(f"lost at home in front of {att:,}")
+        else:
+            f.append("lost at home")
+
+    if detail.get("duration"):
+        f.append(f"game took {detail['duration']}")
+    return f

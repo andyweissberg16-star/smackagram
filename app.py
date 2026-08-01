@@ -4199,6 +4199,7 @@ with app.app_context():
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS turn_started_at TIMESTAMP"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS opponent_type VARCHAR(10) DEFAULT 'human' NOT NULL"))
             conn.execute(db.text("ALTER TABLE battles ADD COLUMN IF NOT EXISTS is_public BOOLEAN DEFAULT FALSE NOT NULL"))
+            conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS espn_event_id VARCHAR(32)"))
             conn.execute(db.text("""
                 CREATE TABLE IF NOT EXISTS battle_line_reactions (
                     id SERIAL PRIMARY KEY,
