@@ -489,8 +489,19 @@ def write_script(material: dict) -> dict:
         "for the genuinely absurd. Constant self-interruption reads as a tic "
         "rather than a reaction.\n\n"
 
-        "RUNNING ORDER: work through the leagues in the order given above. "
-        "Baseball opens the show. Do not reorder them.\n\n"
+        "RUNNING ORDER - THIS IS STRUCTURAL, NOT A PREFERENCE. The leagues "
+        "appear above in broadcast order and your segments must follow it "
+        "exactly. BASEBALL OPENS THE SHOW. Every MLB segment comes before "
+        "any segment from another league.\n\n"
+
+        "  The WNBA closes, always. The Caitlin Clark bit only works as a "
+        "sign-off - it is the note the show goes out on, and leading with it "
+        "throws away the whole structure. A script that opens on the WNBA is "
+        "wrong and has to be rewritten.\n\n"
+
+        "  The commercial break is inserted after your last baseball segment. "
+        "If the running order is scrambled the break lands in the wrong "
+        "place, so this has consequences beyond taste.\n\n"
 
         "THE WNBA SEGMENT has a running bit. You are a shameless, "
         "unreasonable Caitlin Clark partisan. The league revolves around her, "
@@ -625,9 +636,18 @@ def write_script(material: dict) -> dict:
         "  Do NOT write the advert itself. It is fixed copy, read after your "
         "break_in line, and it is not yours to touch.\n\n"
 
-        "TAG EVERY SEGMENT with the league it covers - \"MLB\", \"WNBA\", "
-        "\"NFL\", \"NBA\", \"NHL\". This is how the break gets placed after "
-        "the baseball, so it has to be accurate.\n\n"
+        "EVERY SINGLE SEGMENT MUST CARRY A \"league\" FIELD. Not optional, "
+        "not sometimes - every segment object in the array needs it, set to "
+        "exactly one of: \"MLB\", \"WNBA\", \"NFL\", \"NBA\", \"NHL\". Use the "
+        "league of the games that segment actually covers.\n\n"
+
+        "  A segment about the Yankees is \"MLB\". A segment about the Fever "
+        "is \"WNBA\". If one segment sweeps up several short baseball games, "
+        "it is still \"MLB\".\n\n"
+
+        "  This is not cosmetic. The commercial break is inserted after the "
+        "last MLB segment, and with no tags it lands in the wrong place. A "
+        "segment without a league field is a broken response.\n\n"
 
         "Reply with JSON only:\n"
         '{"intro": "...", "segments": [{"text": "...", "reaction": "burn", '
@@ -766,15 +786,54 @@ def produce_daily_show(days_back: int = 1) -> dict:
     break_out = sanitize_for_speech((script.get("break_out") or "").strip())
 
     if break_in:
+        # Team-name fallback. Asking the model to tag every segment works
+        # until it doesn't - the first live run came back with no league
+        # field on any segment at all, and the break landed at the midpoint.
+        # So the tags are used when present and otherwise the segment text
+        # is matched against the teams we ALREADY fetched, which needs
+        # nothing from the model and cannot be forgotten.
+        mlb_teams = set()
+        for g in material.get("games", []):
+            if (g.get("league") or "").upper() == "MLB":
+                for side in ("home", "away", "winner", "loser"):
+                    name = (g.get(side) or "").strip()
+                    if name:
+                        mlb_teams.add(name.lower())
+
         last_mlb = -1
+        first_non_mlb = -1
+        tagged = False
         for i, seg in enumerate(segments):
-            if seg.get("league") == "MLB":
+            is_mlb = False
+            if seg.get("league"):
+                tagged = True
+                is_mlb = seg["league"] == "MLB"
+            elif mlb_teams:
+                body = (seg.get("text") or "").lower()
+                is_mlb = any(t in body for t in mlb_teams)
+
+            if is_mlb:
                 last_mlb = i
+            elif first_non_mlb == -1:
+                first_non_mlb = i
+
+        # Deliberately DETECTED, not corrected. Sorting the segments here
+        # would be easy and would make it worse: the model writes its
+        # transitions for the order it chose ("that's your baseball", "now
+        # to the only league that matters"), so reordering leaves those
+        # pointing at the wrong things - a subtler fault than a wrong order
+        # and harder to hear. Flagged instead so a recurrence is visible.
+        if last_mlb > -1 and first_non_mlb > -1 and first_non_mlb < last_mlb:
+            log(f"WARNING: running order scrambled - a non-MLB segment at "
+                f"{first_non_mlb} precedes MLB at {last_mlb}. Baseball should "
+                f"open. Break placement will be off.")
+        placed_by = "after the last MLB segment"
         if last_mlb == -1:
-            # No baseball tonight. Fall back to the middle of the show rather
+            # No baseball tagged. Fall back to the middle of the show rather
             # than dropping the break entirely or jamming it at the front.
             last_mlb = max(0, len(segments) // 2 - 1)
-            log("no MLB segments tagged; placing break at the midpoint")
+            placed_by = "at the midpoint - no MLB found by tag or team name"
+            log("no MLB segments identified; falling back to the midpoint")
 
         # Only worth breaking if there is show left on the other side of it.
         if last_mlb < len(segments) - 1:
@@ -786,7 +845,14 @@ def produce_daily_show(days_back: int = 1) -> dict:
             if break_out:
                 brk.append({"text": break_out, "reaction": "none", "league": "BREAK"})
             segments[last_mlb + 1: last_mlb + 1] = brk
-            log(f"commercial break placed after segment {last_mlb + 1} (last MLB)")
+            # Reports how it was ACTUALLY placed. The previous version
+            # hardcoded "(last MLB)" into this string, so it claimed the
+            # league tags had worked even on runs that had just logged the
+            # opposite one line earlier - two contradictory lines, and the
+            # confident one was the lie.
+            how = "league tags" if tagged else "team-name matching (no tags returned)"
+            log(f"commercial break placed {placed_by} (after segment "
+                f"{last_mlb + 1}, via {how})")
         else:
             log("break skipped - baseball was the last segment, nothing to come back to")
 

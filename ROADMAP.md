@@ -6920,3 +6920,45 @@ Length was the real design constraint. The first draft ran 42s, and with both
 Smacky lines the break was 59s — 20% of a five-minute episode, against a
 broadcast norm of 10-12%. Cutting to 62 words puts the ad at ~24s and the
 break at ~13%.
+
+## Break placement: a lying log line, and a tag the model ignored
+First live run of the commercial break logged two contradictory lines:
+
+  no MLB segments tagged; placing break at the midpoint
+  commercial break placed after segment 2 (last MLB)
+
+The second was false. "(last MLB)" was hardcoded into the format string, so
+it claimed the league tags had worked on exactly the runs where they hadn't.
+A log that reports a fixed story rather than what happened is worse than no
+log - it actively misleads. It now reports how placement was actually decided.
+
+The underlying problem: the model returned no "league" field on any segment
+despite being asked. The prompt instruction is now much firmer, but a prompt
+is a request, so placement no longer depends on one.
+
+Fallback matches segment text against the teams ALREADY fetched for the show.
+Every game carries home/away/winner/loser names, so any segment mentioning an
+MLB team is MLB - no model cooperation required, and nothing to forget. Tags
+are still used when present since they are cheaper and more precise; the
+fallback only runs when they are missing.
+
+## Running order came back scrambled - WNBA opened the show
+Same root cause as the missing league tags: the model deviating from a
+prompt instruction. Material IS assembled baseball-first via LEAGUE_ORDER
+and the prompt already said "Baseball opens the show. Do not reorder them."
+It opened on the WNBA anyway.
+
+The instruction is now much firmer and explains the consequence - the break
+is inserted after the last MLB segment, so a scrambled order misplaces it.
+
+DELIBERATELY NOT AUTO-CORRECTED. Sorting the segments in code would be a
+two-line change and would make the output worse: the model writes its
+transitions for the order it chose ("that's your baseball", "now to the only
+league that matters"), so reordering leaves those pointing at the wrong
+things. That trades an obvious fault for a subtle one that is harder to hear
+and harder to diagnose. A warning is logged instead, so a recurrence is
+visible rather than silent.
+
+If it keeps happening the real fix is validating the script and regenerating
+when the order is wrong - one extra Claude call, only on failed validation -
+rather than rearranging prose written for a different sequence.
