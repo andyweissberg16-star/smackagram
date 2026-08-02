@@ -46,7 +46,8 @@
     font-weight:700; letter-spacing:1.4px; padding:9px 16px; border-radius:6px;
     cursor:pointer; transition:all 0.14s; white-space:nowrap;}
   .tab:hover{border-color:var(--silver); color:var(--chalk);}
-  .tab.on{background:var(--flare); border-color:var(--flare); color:#fff;}
+  .tab.on{background:var(--flare); border-color:var(--flare); color:#fff;
+    box-shadow:0 0 0 3px rgba(232,20,44,0.15);}
   .tab .dot{display:inline-block; width:5px; height:5px; border-radius:50%;
     background:var(--flare); margin-right:6px; vertical-align:middle;}
   .tab.on .dot{background:#fff;}
@@ -57,11 +58,15 @@
   .meta-row .fresh{color:#5A5E64;}
 
   /* the board */
-  .board{background:#0A0A0C; border:1px solid var(--silver-hairline);
+  /* Red on the frame, silver between the rows. Red dividers would compete
+     with the live dots and the buttons, which are the two things that
+     actually need to catch the eye. */
+  .board{background:#0A0A0C; border:2px solid var(--flare);
     border-radius:10px; overflow:hidden;}
 
   .game{display:flex; align-items:center; padding:15px 18px;
-    border-bottom:1px solid #131518; position:relative; transition:background 0.14s;}
+    border-bottom:1px solid rgba(195,202,211,0.16); position:relative;
+    transition:background 0.14s;}
   .game:last-child{border-bottom:none;}
   .game:hover{background:#141416;}
   .game.is-live{cursor:pointer;}
@@ -89,6 +94,14 @@
   .g-score .up{color:var(--flare);}
 
   /* actions - hidden until the row is hovered, per design 09 */
+  /* Hidden entirely below the threshold. A row reading "0 SMACKS" is
+     worse than no number at all - zero social proof is negative proof -
+     so this only appears once a team is genuinely carrying armed calls. */
+  .g-heat{flex:0 0 74px; text-align:right; font-family:'JetBrains Mono',monospace;
+    font-size:9px; letter-spacing:0.8px; color:var(--flare); white-space:nowrap;}
+  .g-heat.cool{color:#4A4E54;}
+  .g-heat .n{font-family:'Anton',sans-serif; font-size:13px;}
+
   .g-act{flex:0 0 auto; padding-left:16px; display:flex; gap:7px; align-items:center;}
   .g-act .hint{font-family:'JetBrains Mono',monospace; font-size:9px;
     color:#3A3D42; letter-spacing:1px;}
@@ -124,6 +137,9 @@
     .game{flex-wrap:wrap; padding:13px 14px;}
     .g-status{flex:0 0 100%; margin-bottom:8px;}
     .g-teams{flex:1 1 auto;}
+    /* The count moves up beside the status line rather than taking a
+       column of its own, which on a phone would squeeze the team names. */
+    .g-heat{flex:0 0 auto; text-align:left; position:absolute; top:13px; right:14px;}
     .g-act{flex:0 0 100%; padding-left:0; margin-top:11px;}
     .g-act .actions{display:flex; width:100%;}
     .btn-smack, .btn-arm{flex:1; text-align:center;}
@@ -215,6 +231,17 @@ function statusCell(g){
   return `<div class="soon">${esc(g.status || "SCHEDULED")}</div>`;
 }
 
+// Armed calls riding on this game. Shown only once it is a real number -
+// see the note on .g-heat.
+const HEAT_FLOOR = 3;
+
+function heat(g){
+  const n = Math.max(g.home.smacks || 0, g.away.smacks || 0);
+  if (n < HEAT_FLOOR) return `<div class="g-heat"></div>`;
+  const hot = n >= 10 ? "" : " cool";
+  return `<div class="g-heat${hot}"><span class="n">${n}</span> ARMED</div>`;
+}
+
 function actions(g){
   // Nothing to roast before a ball is thrown, so an upcoming game can only
   // be armed. A live or finished one can be either.
@@ -274,6 +301,7 @@ function render(data){
         ${teamRow(g.home, g.losing === "home", g.final)}
       </div>
       ${shown}
+      ${heat(g)}
       <div class="g-act">${actions(g)}</div>
     </div>`;
   }).join("");

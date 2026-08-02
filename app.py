@@ -2744,6 +2744,28 @@ def api_board(league):
         return jsonify({"error": "unknown league", "games": []}), 404
 
     games = espn_scores.fetch_board(lg)
+
+    # How many armed calls each team is carrying today.
+    #
+    # Only Locked & Loaded records a team - a plain send-a-smack order does
+    # not store one - so this counts armed calls rather than all smacks.
+    # Counted by TEAM rather than game id because the two services do not
+    # share ids, and the team is what actually resolves.
+    counts = {}
+    try:
+        from sqlalchemy import func
+        rows = (db.session.query(Smackagram.target_team, func.count(Smackagram.id))
+                .filter(Smackagram.status == "armed")
+                .group_by(Smackagram.target_team).all())
+        counts = {(t or "").lower(): n for t, n in rows}
+    except Exception as e:
+        print(f"[board] smack counts unavailable: {e}", flush=True)
+
+    for g in games:
+        for side in ("home", "away"):
+            nick = (g[side].get("nick") or "").lower()
+            g[side]["smacks"] = counts.get(nick, 0)
+
     return jsonify({
         "league": lg.upper(),
         "count": len(games),
