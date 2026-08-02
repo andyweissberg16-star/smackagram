@@ -383,6 +383,12 @@ def write_script(material: dict, only_league: str = None,
     else:
         league_budget = plan["word_budget"]
 
+    # Leagues that were scanned and had no games - the off-season ones.
+    # Smacky gets a joke out of the silence before handing to whatever did
+    # play.
+    _played = {(g.get("league") or "").upper() for g in material.get("games", [])}
+    _dark = [lg for lg in LEAGUE_ORDER if lg not in _played and lg != "WNBA"]
+
     streaks = "\n".join(
         f"  {s['team']} have lost {s['losses']} straight ({s['league']})"
         for s in material.get("streaks", [])
@@ -391,6 +397,17 @@ def write_script(material: dict, only_league: str = None,
     d = material["date"] if isinstance(material.get("date"), dict) else _date_context(1)
 
     system = smackology.render(level=4, context="recap")
+
+    # The sport's own vocabulary, for whichever league this script covers.
+    # The show writes per-league in parallel, so each call gets exactly the
+    # right words and nothing bleeds across - baseball terms in a basketball
+    # segment is the fastest way to tell a fan nobody here watches the game.
+    #
+    # This is the SHOW version, which is fuller than the one Locked & Loaded
+    # uses. A roast call only ever covers a loss, so it skips the
+    # celebratory material - the dunk words, the home run catchphrases, the
+    # great-player terms. The show covers winners too and wants all of it.
+    system += _show_vocabulary(only_league)
 
     user = (
         f"You are Smacky, hosting THE DAILY SMACK - a daily sports comedy "
@@ -536,6 +553,70 @@ def write_script(material: dict, only_league: str = None,
         "enduring until they play again.\n\n"
 
 
+        + ((f"  DEAD LEAGUES. These scanned and had nothing: "
+            f"{', '.join(_dark)}. Before the WNBA block, note it and get a "
+            f"joke out of it - lean on the NFL and the NBA, they are the ones "
+            f"people miss. One or two lines, not a monologue.\n\n"
+            if _dark else "")
+
+           + "  AND THEN THE HANDOFF. The bit is that SMACKY is out of his "
+           "depth here, not that the league is beneath him. He is "
+           "contractually obligated, he does not follow it closely, he knows "
+           "one name and it is Caitlin Clark, and he is aware that somebody "
+           "listening cares about this far more than he does and is already "
+           "annoyed with him. THAT is the joke - he is the idiot in this "
+           "exchange, not the sport.\n\n"
+           "  Play it as a man doing his job badly and knowing it. Do NOT "
+           "call the league boring, bad, or the worst thing in sports - "
+           "cheap, and much less funny than admitting he cannot name a "
+           "second player.\n\n"
+           "  Vary the angle daily. Some days he is faking expertise, some "
+           "days he is openly reading off a card, some days he is "
+           "apologising to the one person who cares.\n\n"
+
+           if only_league == "WNBA" else "")
+
+        + ("  OPENING THE WNBA BLOCK. Before any WNBA score, open with a "
+           "line about the Caitlin Clark circus - the ratings, the media "
+           "obsession, the fact that a whole league's attention rides on one "
+           "player's schedule. This is the running bit and it opens the "
+           "block every time.\n\n"
+           "  Aim it at the PHENOMENON, not the woman. The league leaning on "
+           "her, the networks, the discourse, the fanbases arguing about her "
+           "- all fair. Her as a person is not: nothing about her looks, her "
+           "character, her personal life, and never invent something she "
+           "said or did. Same rule you follow everywhere else - the target "
+           "is the situation, not the human.\n\n"
+           "  Vary it daily. Same target, new joke.\n\n"
+
+           "  AND KEEP PULLING IT BACK. Once or twice more inside the block, "
+           "drag an unrelated game back to the Fever or the Clark circus. "
+           "Two teams she has nothing to do with lost, and you still find a "
+           "way to make it about the ratings draw. That is the joke - the "
+           "obsession is inescapable, even yours. Do not do it on every "
+           "score or it stops landing.\n\n"
+           if only_league == "WNBA" else "")
+
+        + "VARY THE JOKE SHAPE. The \"that's not a score, that's a war "
+        "crime\" construction - naming a thing, denying it, then replacing it "
+        "with something worse - is a good beat and you lean on it far too "
+        "hard. ONCE per episode, twice at the absolute most. It stops landing "
+        "the third time and the whole show starts to sound like one joke.\n\n"
+
+        "  Reach for something else instead:\n"
+        "  - understatement: state the carnage flatly and move on\n"
+        "  - the direct address: talk to the losing fanbase, not about them\n"
+        "  - the false comfort: sympathise, then withdraw it\n"
+        "  - the specific detail: one absurd stat carries a whole segment\n"
+        "  - the aside: interrupt yourself with something petty\n"
+        "  - the callback: refer to a beating from earlier in the episode\n"
+        "  - the rhetorical question you answer yourself, badly\n"
+        "  - just the number, said twice, with nothing after it\n\n"
+
+        "NAMING PEOPLE. First mention of anyone gets their full name. "
+        "Only after that do you use she, he or they. A real episode opened "
+        "on 'her' with no idea who 'her' was.\n\n"
+
         "COVER EVERY LEAGUE LISTED, AND EVERY GAME IN IT. Not just the "
         "biggest league - EVERY league above gets its own segment or "
         "segments. A script covering only baseball when other leagues "
@@ -552,15 +633,31 @@ def write_script(material: dict, only_league: str = None,
 
         "THE OPENING - three beats, in this order, before a single result.\n\n"
 
-        "  1. A GREETING that varies day to day. Rotate or coin your own in "
-        "the same register - and note the register includes swearing: "
-        "What's up, degenerates. / Rise and shine, losers. / Well, well, "
-        "well. Look who crawled the fuck back. / Smackalicious, everybody. / "
-        "Morning, you beautiful disasters. / Top of the morning, bottom of "
-        "the goddamn standings. / Oh good, you're all still here. "
-        "Unfortunate. / What is up, you magnificent bastards. / Wake up, "
-        "shitheads, somebody lost. It just can't be the same one every "
-        "day.\n\n"
+        "  1. A GREETING, and it must be DIFFERENT EVERY SINGLE DAY.\n\n"
+
+        "  Address the audience by a smack-word name. This is the signature "
+        "move and it ROTATES - a different one every episode, never the same "
+        "two days running.\n\n"
+
+        "  The approved set:\n"
+        "    Smackheads / Smackers / Smackaholics / the Smackerdome /\n"
+        "    Smacknation / the Smack Pack / Smackadelics / Smackerinos /\n"
+        "    the Smack Faithful / Smacktators / Smackateers / Smackaneers /\n"
+        "    the Smack Squad / Smack City / Smackamaniacs / the Smack Mob\n\n"
+
+        "  Work through the set rather than favouring two or three. You may "
+        "also coin a NEW one in the same shape when it fits the day - that is "
+        "encouraged - but it has to sound like it belongs on that list.\n\n"
+
+        "  Tone: affectionate needling, not abuse. He is pleased to see them "
+        "and about to ruin their morning. Mild profanity is fine in the rest "
+        "of the greeting. Do NOT call them shitheads or losers - too blunt, "
+        "and it is not the joke.\n\n"
+
+        "  Shape: \"Good morning, Smacknation.\" / \"Rise and shine, "
+        "Smackademics.\" / \"Welcome back, Smacktators - somebody had a "
+        "rough night and I have the numbers.\" / \"Morning, Smack Faithful. "
+        "I've read the scores and I'm so sorry.\"\n\n"
 
         "  2. Then this, WORD FOR WORD, never reworded, never shortened, "
         "never improvised on:\n"
@@ -582,6 +679,15 @@ def write_script(material: dict, only_league: str = None,
         f"     AND SOUND LIKE IT'S HAPPENING NOW. Today is "
         f"{d['today_name']} in Florida - work that in the way a live host "
         f"would. "
+
+        f"Every time Florida gets named, land a QUICK joke about it - the "
+        f"heat, the humidity, the hurricanes, the lizards, the sinkholes, "
+        f"the drivers, the six-week winter, a Florida Man headline. ONE "
+        f"clause, not a bit. It is a throwaway on the way to the scores, "
+        f"and it must be different every day. "
+        f"Shape: 'six in the morning in Florida, already ninety degrees' / "
+        f"'Saturday in Florida, which is just Tuesday with worse traffic' / "
+        f"'morning in Florida, the air is a liquid'. "
         + ("Monday, so everybody's miserable and back at work and you "
            "have no sympathy. " if d["is_monday"] else "")
         + ("Friday, so there's a weekend coming and you're in an "
@@ -1409,3 +1515,52 @@ def _assemble_with_music(intro: str, segments: list, outro: str, log=None) -> st
             os.rmdir(tmpdir)
         except OSError:
             pass
+
+
+def _show_vocabulary(league: str) -> str:
+    """
+    Smacky's vocabulary for the league being written about.
+
+    Kept separate from the Locked & Loaded blocks in trash_talk_service
+    because the show has different needs: it covers winners as well as
+    losers, so the celebratory half of every list is in play here and is
+    dead weight in a roast call.
+    """
+    from services import trash_talk_service as tt
+
+    lg = (league or "").lower()
+    lookup = {
+        "mlb": tt.MLB_SLANG, "ncaabb": tt.MLB_SLANG,
+        "nfl": tt.NFL_SLANG, "ncaaf": tt.NFL_SLANG,
+        "nba": tt.NBA_SLANG, "ncaab": tt.NBA_SLANG,
+        "wnba": tt.WNBA_SLANG, "ncaaw": tt.WNBA_SLANG,
+    }
+    block = lookup.get(lg)
+    if not block:
+        return ""
+
+    out = "\n\n" + block
+
+    out += (
+        "\n\nAND FOR THE SHOW SPECIFICALLY: you are covering WINNERS as "
+        "well as losers here, unlike a roast call. So the celebratory half "
+        "of that vocabulary is live - the home run words, the dunk words, "
+        "the great-player terms, the catchphrases about somebody going off. "
+        "Use them on the teams who actually did something. A show that only "
+        "insults people is exhausting; the joy is what makes the cruelty "
+        "land.\n\n"
+        "Still ONE OR TWO terms per segment, not per sentence. The words are "
+        "seasoning.\n"
+    )
+
+    # NOT the Clark block from trash_talk_service. The show already carries
+    # its own Clark instruction, tuned to the show's shape - it OPENS the
+    # WNBA segment rather than being dropped in wherever. Two sets of
+    # instructions about the same running joke would fight each other.
+    if lg == "ncaaw":
+        out += "\n" + tt.NCAAW_CLARK
+
+    if lg.startswith("ncaa"):
+        out += "\n" + tt.COLLEGE_ANGLES
+
+    return out
