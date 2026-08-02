@@ -449,3 +449,102 @@ html body img.hero-band{display:block; width:100%; height:auto;}
   padding:10px; border-radius:7px; cursor:pointer; font-size:13px;
 }
 @media(max-width:420px){ .smk-share-btn{width:46px; height:46px;} .smk-share-btn svg{width:20px; height:20px;} }
+
+/* ===========================================================================
+   Site background - stadium floodlights, a bleeding SMACK, and film grain
+   ===========================================================================
+   Applied through body::before and body::after, so it lands on every page
+   without touching a single template.
+
+   Fixed to the VIEWPORT rather than the document. Anchored to the page it
+   would scroll away and leave flat black below the fold, which on something
+   like the Smack Board is most of what anybody actually sees.
+
+   Both layers sit at z-index -1 with pointer-events off. That puts them
+   behind all content automatically, with no need to raise anything else -
+   forcing position:relative onto every child of body would break any
+   layout currently relying on body as its containing block.
+
+   The page colour lives on html rather than body, because a background
+   colour on body would paint over a z-index -1 pseudo-element and hide the
+   whole thing.
+   ========================================================================= */
+
+html{background-color:#0D0D0D;}
+
+/* !important is doing real work here. Most pages set their own
+   body{background:var(--ink)} in an inline <style> that loads AFTER this
+   sheet, and a solid colour on body paints straight over a z-index -1
+   pseudo-element - the whole background would simply not appear on any of
+   them. The page colour moves to html above, so this looks identical. */
+body{position:relative; background-color:transparent !important;}
+
+/* Floodlights from off the top, drifting a few degrees, the red pool they
+   cast, and the grain - all as stacked background layers on one element.
+   Layered here rather than on separate divs so no template needs editing. */
+body::before{
+  content:"";
+  position:fixed;
+  inset:-25%;
+  z-index:-1;
+  pointer-events:none;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse 60% 30% at 50% 0%, rgba(232,20,44,0.10), transparent 70%),
+    conic-gradient(from 202deg at 50% -22%,
+      transparent 0deg,
+      rgba(245,245,243,0.055) 16deg,
+      transparent 34deg,
+      transparent 46deg,
+      rgba(245,245,243,0.040) 62deg,
+      transparent 80deg);
+  background-repeat:repeat, no-repeat, no-repeat;
+}
+
+/* The beams rotate a few degrees over twenty-six seconds - slow enough
+   that nobody consciously notices, fast enough that the page never feels
+   like a static image.
+
+   The layer is oversized rather than inset:0, because rotating a
+   viewport-sized box exposes the corners. -25% on every side covers a
+   four degree swing with room to spare. */
+@keyframes smk-beams{
+  from{transform:rotate(-4deg);}
+  to{transform:rotate(4deg);}
+}
+body::before{
+  animation:smk-beams 26s ease-in-out infinite alternate;
+  transform-origin:50% 0%;
+}
+
+/* The word, low left and mostly off the edge. Outline only - filled at this
+   size it would fight every piece of content on the page. */
+body::after{
+  content:"SMACK";
+  position:fixed;
+  left:-52px;
+  bottom:-56px;
+  z-index:-1;
+  pointer-events:none;
+  font-family:'Anton', Impact, sans-serif;
+  font-size:200px;
+  line-height:1;
+  white-space:nowrap;
+  color:transparent;
+  -webkit-text-stroke:1px rgba(232,20,44,0.15);
+}
+
+/* 200px off a 390px screen is most of the viewport and stops reading as
+   texture. */
+@media(max-width:720px){
+  body::after{font-size:120px; left:-30px; bottom:-32px;}
+}
+
+/* Somebody who has asked their system not to animate things means it. */
+@media (prefers-reduced-motion: reduce){
+  body::before{animation:none;}
+}
+
+/* The admin panel gets none of it - a working tool, not a shopfront. */
+body.smk-plain::before,
+body.smk-plain::after{display:none;}
