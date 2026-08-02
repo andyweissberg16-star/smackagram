@@ -2696,6 +2696,28 @@ def espn_probe():
 
     # Runs the real extraction rather than dumping raw JSON, so this tests
     # the whole path: fetch, parse, and the fact lines Smacky writes from.
+    # ?raw=1 dumps the stat GROUPS and LABELS rather than extracted facts, so
+    # rules for a new sport get written against what ESPN actually returns.
+    if request.args.get("raw"):
+        import json as _j
+        from urllib.request import Request, urlopen
+        _p = espn_scores.LEAGUE_PATHS.get(league)
+        _u = f"{espn_scores.BASE}/{_p[0]}/{_p[1]}/summary?event={event_id}"
+        with urlopen(Request(_u, headers={"User-Agent": "Mozilla/5.0"}), timeout=20) as _r:
+            _raw = _j.load(_r)
+        _groups = []
+        for _blk in ((_raw.get("boxscore") or {}).get("players") or []):
+            for _g in (_blk.get("statistics") or []):
+                _ath = (_g.get("athletes") or [{}])[0]
+                _groups.append({
+                    "team": ((_blk.get("team") or {}).get("name")),
+                    "group": _g.get("name") or _g.get("type"),
+                    "labels": _g.get("labels"),
+                    "sample_player": ((_ath.get("athlete") or {}).get("displayName")),
+                    "sample_stats": _ath.get("stats"),
+                })
+        return jsonify({"event_id": event_id, "stat_groups": _groups})
+
     detail = espn_scores.fetch_game_detail(league, event_id)
     return jsonify({
         "event_id": event_id,
