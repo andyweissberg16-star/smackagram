@@ -944,6 +944,29 @@ def write_script(material: dict, only_league: str = None,
     return script
 
 
+def _rss_mb():
+    """
+    Resident memory in MB, or None if it cannot be read.
+
+    Render gives this service 512 MB and a production run was killed for
+    exceeding it. Without a reading at each stage the only information is
+    "it died", which is not enough to fix anything - three plausible causes
+    were investigated and disproved by guesswork alone.
+    """
+    try:
+        with open("/proc/self/status") as fh:
+            for line in fh:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024
+    except Exception:
+        pass
+    try:
+        import resource
+        return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024
+    except Exception:
+        return None
+
+
 def _elapsed_logger():
     """
     Timestamped, flushed progress logging for a show run.
@@ -964,7 +987,12 @@ def _elapsed_logger():
     t0 = time.monotonic()
 
     def log(msg: str):
-        print(f"[show +{time.monotonic() - t0:6.1f}s] {msg}", flush=True)
+        # Memory on every line. A run was killed for exceeding 512 MB and
+        # there was nothing in the log to say where it happened - this turns
+        # the next one from a guess into an answer.
+        rss = _rss_mb()
+        mem = f" {rss:5.0f}MB" if rss is not None else ""
+        print(f"[show +{time.monotonic() - t0:6.1f}s{mem}] {msg}", flush=True)
 
     return log, (lambda: time.monotonic() - t0)
 

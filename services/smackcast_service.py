@@ -900,6 +900,21 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
     import boto3
     from services import elevenlabs_service
 
+    def _mem():
+        try:
+            with open("/proc/self/status") as fh:
+                for ln in fh:
+                    if ln.startswith("VmRSS:"):
+                        return int(ln.split()[1]) / 1024
+        except Exception:
+            return None
+
+    def _memlog(where):
+        m = _mem()
+        if m is not None:
+            print(f"[audio {m:5.0f}MB] {where}", flush=True)
+
+    _memlog("assembly starting")
     combined = AudioSegment.empty()
 
     def _standardize(segment):
@@ -1041,15 +1056,22 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
             if spoken is not before:
                 _ambient_used = True
 
-        combined += spoken
+        # Every third segment, so a leak shows as a rising number rather
+        # than one reading at the end that cannot be interpreted.
+        if i % 3 == 0:
+            _memlog(f"segment {i} done, show is {len(combined)/1000:.0f}s")
 
         sfx = _pick_random_sfx(seg.get("reaction", "none"))
-        if sfx is not None:
+        if sfx is None:
+            combined += spoken
+        else:
             # _standardize is nested inside this function, so it is passed in
             # rather than reached for - a module-level helper cannot see it,
             # which is exactly how the first version of this failed.
-            combined = _lay_in_sfx(combined, sfx, len(spoken), _standardize)
+            combined += _lay_in_sfx(spoken, sfx, len(spoken), _standardize)
 
+
+    _memlog(f"all segments assembled ({len(combined)/1000:.0f}s)")
     if outro and outro_tail:
         # speech_bytes[-2] ends on the word the hit lands on; [-1] is the tail.
         hit_clip = _trim_trailing_silence(
@@ -1120,7 +1142,7 @@ SFX_FADE_OUT_MS = 600
 SFX_FADE_IN_MS = 40
 
 
-def _lay_in_sfx(combined, sfx, spoken_ms, standardize):
+def _lay_in_sfx(spoken, sfx, spoken_ms, standardize):
     """
     Place a sound effect so it feels played rather than pasted.
 
@@ -1145,17 +1167,22 @@ def _lay_in_sfx(combined, sfx, spoken_ms, standardize):
 
     overlap = min(SFX_OVERLAP_MS, max(0, spoken_ms // 3))
     if overlap <= 0:
-        return combined + AudioSegment.silent(duration=180) + clip
+        return spoken + AudioSegment.silent(duration=180) + clip
 
-    start = max(0, len(combined) - overlap)
+    # Overlay onto THIS SEGMENT, not the whole show assembled so far.
+    #
+    # The first version took the accumulated audio and overlaid onto that,
+    # which meant every sound effect copied the entire episode - by the last
+    # segment that is a 26 MB copy for a two second noise, and roughly
+    # 155 MB of churn across one show. It ran the instance out of its 512 MB
+    # and killed a production run.
+    start = max(0, len(spoken) - overlap)
 
-    # Extend the canvas so the effect has room to ring out past the end of
-    # the voice, rather than being clipped by the segment boundary.
-    tail_needed = max(0, (start + len(clip)) - len(combined))
+    tail_needed = max(0, (start + len(clip)) - len(spoken))
     if tail_needed:
-        combined = combined + AudioSegment.silent(duration=tail_needed)
+        spoken = spoken + AudioSegment.silent(duration=tail_needed)
 
-    return combined.overlay(clip, position=start)
+    return spoken.overlay(clip, position=start)
 
 
 # An interruption only works if the phone starts while he is STILL TALKING.
@@ -1212,11 +1239,23 @@ def lay_in_interruption(prev_audio, bit_audio, standardize, sound="phone"):
     lead = min(RING_LEAD_IN_MS, max(0, len(prev_audio) // 3))
     start = max(0, len(prev_audio) - lead)
 
-    canvas = prev_audio + AudioSegment.silent(duration=260) + bit_audio
-    if start + len(ring) > len(canvas):
-        canvas += AudioSegment.silent(duration=(start + len(ring)) - len(canvas))
+    # Only the TAIL of the previous line is needed, not the whole show.
+    #
+    # Building a canvas from the entire accumulated episode and overlaying
+    # onto that copies everything assembled so far - which on a five minute
+    # show is tens of megabytes for one phone ring, and is what ran the
+    # instance out of memory mid-production.
+    #
+    # So: slice off just the tail, mix the ring into that, and hand back the
+    # untouched head plus the mixed tail.
+    head = prev_audio[:start]
+    tail = prev_audio[start:]
 
-    out = canvas.overlay(ring, position=start)
+    canvas = tail + AudioSegment.silent(duration=260) + bit_audio
+    if len(ring) > len(canvas):
+        canvas += AudioSegment.silent(duration=len(ring) - len(canvas))
+
+    out = head + canvas.overlay(ring, position=0)
 
     # Only a phone call gets hung up.
     hangup = _pick_random_sfx("hangup") if sound == "phone" else None
