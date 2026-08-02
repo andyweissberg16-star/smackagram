@@ -2818,46 +2818,22 @@ def smack_board():
 # Flagged as samples so they are labelled honestly and pushed out on their own
 # as real posts arrive.
 WALL_SAMPLES = [
-    ("bigmike_47", "smackagram",
-     "Told him his fantasy team looks like a group project where everybody else dropped the class."),
-    ("thecommish", "locked",
-     "Armed one on the Cowboys. Fired at 11:47pm. He rang back two minutes later just to breathe heavily."),
-    ("dontatme_dave", "smackback",
-     "Got smacked, no idea who. Sent one back to all four suspects. One of them confessed."),
-    ("kellyfromohio", "smackagram",
-     "My brother-in-law has not mentioned the Browns at Thanksgiving since. Best dollar I have spent."),
-    ("nunez_theproblem", "locked",
-     "Set it up before the game and forgot about it. Three hours later my phone buzzed - he PICKED UP."),
-    ("saltyseahawk", "smackagram",
-     "Asked whether his quarterback is contractually obliged to throw to the other team."),
-    ("d_wrightt", "smackback",
-     "Whoever sent me that - I know it was you, Marcus. The Eagles line gave you away."),
-    ("hoopsandhops", "smackagram",
-     "Rang the loudest man in our group chat and asked him to read his record out loud. Slowly."),
-    ("greg_in_accounting", "locked",
-     "Armed six against my whole department. Four fired. I was not popular on Monday."),
-    ("mamaknowsball", "smackagram",
-     "My son is thirty-four years old and he cried."),
-    ("tallboy_tommy", "smackback",
-     "Got one, laughed, sent one back inside a minute. This is a loop I cannot escape."),
-    ("finn.mcduff", "smackagram",
-     "Told him his draft strategy appeared to be picking names he recognised off adverts."),
-    ("redzone_rachel", "locked",
-     "Armed it against my husband's team. He asked why I was smiling at my phone at ten on a Sunday."),
-    ("uncle_pat", "smackagram",
-     "Twenty years of him gloating. One phone call. I would have paid ten times that."),
-    ("smackedintampa", "smackback",
-     "Somebody rang me about the Bucs. I have never felt more seen and I hated every second."),
-    ("j_ramos21", "smackagram",
-     "Asked if his lineup was set with darts or out of a genuine dislike of winning."),
-    ("bucketsbrian", "locked",
-     "Fired the second the buzzer went. He was still in the car park."),
-    ("notmyproblem_jen", "smackagram",
-     "Sent one to my dad. He has told everyone at his golf club. Repeatedly. He is proud of it."),
-    ("cheeseheadchris", "smackback",
-     "Got smacked so I sent four back. Nobody in this league is safe now."),
-    ("theotherandy", "smackagram",
-     "Told him nought and four is not a slow start, it is a decision."),
+    # Placeholder rows so the rail is not empty before the first real call.
+    # Each is just a team and a handle - there is no line and no audio,
+    # because there was no call. Flagged as samples, labelled on the page,
+    # and pushed out on their own as real smacks arrive.
+    ("bigmike_47",        "smackagram", "Yankees"),
+    ("thecommish",        "locked",     "Cowboys"),
+    ("dontatme_dave",     "smackback",  "Browns"),
+    ("kellyfromohio",     "smackagram", "Bengals"),
+    ("nunez_theproblem",  "locked",     "Mets"),
+    ("saltyseahawk",      "smackagram", "Seahawks"),
+    ("d_wrightt",         "smackback",  "Eagles"),
+    ("hoopsandhops",      "smackagram", "Knicks"),
+    ("greg_in_accounting","locked",     "Bears"),
+    ("mamaknowsball",     "smackagram", "Cubs"),
+    ("redzone_rachel",    "locked",     "Tigers"),
+    ("cheeseheadchris",   "smackback",  "Packers"),
 ]
 
 
@@ -2985,6 +2961,8 @@ def publish_to_wall(record, product, audio_url=None):
             body=body,
             product=product,
             headline=wall_headline(record, product),
+            team_name=((getattr(record, "target_team", None)
+                        or getattr(record, "team", None) or "").strip() or None),
             team=((getattr(record, "target_team", None)
                    or getattr(record, "team", None) or "").strip() or None),
             audio_url=audio_url,
@@ -3059,9 +3037,10 @@ def api_wall():
 
     items = [{
         "handle": r.handle,
-        "body": r.body,
         "product": r.product,
         "headline": r.headline,
+        "team": r.team_name,
+        "team_color": chat_team_colors.readable_color_for_name(r.team_name),
         "team": r.team,
         # The team's real brand colour, lightened where it would vanish
         # against a dark card - several are close to black.
@@ -3078,9 +3057,15 @@ def api_wall():
     if len(items) < 12:
         pool = list(WALL_SAMPLES)
         random.shuffle(pool)
-        for handle, product, body in pool[: 12 - len(items)]:
-            items.append({"handle": handle, "body": body, "product": product,
-                          "audio_url": None, "sample": True})
+        for handle, product, team in pool[: 12 - len(items)]:
+            items.append({
+                "handle": handle, "product": product,
+                "team": team,
+                "team_color": chat_team_colors.readable_color_for_name(team),
+                # Examples carry no audio - there is no call behind them. The
+                # card shows the line and says so rather than faking a player.
+                "audio_url": None, "when": "Today", "sample": True,
+            })
 
     return jsonify({"count": len(items), "items": items})
 
@@ -4810,6 +4795,7 @@ with app.app_context():
                 product VARCHAR(20) DEFAULT 'smackagram',
                 team VARCHAR(80),
                 headline VARCHAR(80),
+                team_name VARCHAR(80),
                 audio_url VARCHAR(500),
                 approved BOOLEAN DEFAULT FALSE NOT NULL,
                 is_sample BOOLEAN DEFAULT FALSE NOT NULL,

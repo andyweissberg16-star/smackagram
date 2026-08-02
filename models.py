@@ -54,6 +54,10 @@ class WallPost(db.Model):
     # rather than parsing it back out of the headline text.
     team = db.Column(db.String(80), nullable=True)
     headline = db.Column(db.String(80), nullable=True)
+    # Stored separately from the headline so the card can colour the name in
+    # the team's own colours - the headline is a finished sentence, this is
+    # the thing to look up.
+    team_name = db.Column(db.String(80), nullable=True)
 
     audio_url = db.Column(db.String(500), nullable=True)
 

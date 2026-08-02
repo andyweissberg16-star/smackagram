@@ -21,7 +21,9 @@
   .stoday{
     display:flex; align-items:center; justify-content:center; gap:9px;
     width:max-content; max-width:calc(100% - 32px);
-    margin:18px auto 0; padding:8px 18px;
+    /* Wider than it needs to be, so it reads as a banner rather than a
+       label squeezed around its own text. */
+    margin:0 auto 20px; padding:11px 34px;
     background:rgba(224,27,36,0.10);
     border:1px solid var(--flare,#E01B24);
     border-radius:100px;
@@ -29,13 +31,17 @@
   /* The pulse carries the "live" signal, not the text. A flashing NUMBER is
      hard to read and looks broken; a dot beside a steady number reads as a
      feed that is running. */
+  /* Brighter than the site red and carrying a glow, because a 7px dot at
+     brand red on a dark background reads as maroon rather than as something
+     switched on. */
   .stoday-dot{
-    width:7px; height:7px; border-radius:50%; background:var(--flare,#E01B24);
-    flex:0 0 7px; animation:stoday-pulse 1.9s ease-in-out infinite;
+    width:9px; height:9px; border-radius:50%; background:#FF1B2D;
+    flex:0 0 9px; box-shadow:0 0 8px rgba(255,27,45,0.9);
+    animation:stoday-pulse 1.5s ease-in-out infinite;
   }
   @keyframes stoday-pulse{
-    0%,100%{opacity:1; transform:scale(1);}
-    50%{opacity:0.35; transform:scale(0.82);}
+    0%,100%{opacity:1; transform:scale(1);   box-shadow:0 0 10px rgba(255,27,45,0.95);}
+    50%    {opacity:0.4; transform:scale(0.8); box-shadow:0 0 3px rgba(255,27,45,0.4);}
   }
   .stoday-n{
     font-family:'Anton', Impact, sans-serif; font-size:19px; line-height:1;
@@ -50,7 +56,7 @@
     .stoday-dot{animation:none;}
   }
   @media(max-width:520px){
-    .stoday{padding:7px 14px; gap:7px;}
+    .stoday{padding:9px 20px; gap:8px;}
     .stoday-n{font-size:16px;}
     .stoday-lbl{font-size:8.5px; letter-spacing:1.4px;}
   }

@@ -92,3 +92,168 @@ DIVISIONS = {
         "Western": ["DAL", "GS", "LA", "LV", "MIN", "PHO", "SEA"],
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# Looking a colour up from a team NAME
+# ---------------------------------------------------------------------------
+# Keyed by NICKNAME rather than abbreviation, because abbreviations collide
+# across leagues and the wall does not know which sport it is looking at.
+# CLE is the Browns, the Guardians AND the Cavaliers - merging the leagues
+# turned Cleveland brown into Cleveland navy.
+#
+# Values are each team's real identity colour, lifted where the true one is
+# too dark to read on a black card - but always keeping the HUE. Brown stays
+# brown, navy stays navy, green stays green.
+
+TEAM_NAME_COLORS = {
+    # --- NFL ---
+    "cardinals": "#E8446B",   "falcons": "#D8232F",   "ravens": "#7B5BD6",
+    "bills": "#3B6FE8",       "panthers": "#0085CA",  "bears": "#F0662C",
+    "bengals": "#FB4F14",     "browns": "#C4761E",    "cowboys": "#8CA5C7",
+    "broncos": "#FB4F14",     "lions": "#4FA3E3",     "packers": "#FFB612",
+    "texans": "#C8102E",      "colts": "#4C8FD6",     "jaguars": "#12A19A",
+    "chiefs": "#E31837",      "raiders": "#C4C9CE",   "chargers": "#0080C6",
+    "rams": "#FFD100",        "dolphins": "#00C4B3",  "vikings": "#9B6FD6",
+    "patriots": "#5C7FA8",    "saints": "#D3BC8D",    "giants": "#4A7FD6",
+    "jets": "#3FA96B",        "eagles": "#3FA88F",    "steelers": "#FFB612",
+    "49ers": "#C8102E",       "niners": "#C8102E",    "seahawks": "#69BE28",
+    "buccaneers": "#D50A0A",  "bucs": "#D50A0A",      "titans": "#4B92DB",
+    "commanders": "#FFB612",
+
+    # --- MLB ---
+    "diamondbacks": "#E3574F","braves": "#CE1141",     "orioles": "#DF4601",
+    "red sox": "#BD3039",     "white sox": "#B0B7BC",  "cubs": "#4A7FD6",
+    "reds": "#C6011F",        "guardians": "#E31937",  "rockies": "#9E7FD6",
+    "tigers": "#F26722",      "astros": "#EB6E1F",     "royals": "#5B8FD6",
+    "angels": "#BA0021",      "dodgers": "#4A8FE0",    "marlins": "#00A3E0",
+    "brewers": "#C4A87A",     "twins": "#D31145",      "mets": "#FF5910",
+    "yankees": "#5B8FE0",     "athletics": "#5FA97F",  "phillies": "#E81828",
+    "pirates": "#FDB827",     "padres": "#C4A882",     "mariners": "#4FBFA8",
+    "rangers": "#C0111F",     "blue jays": "#3D8FDB",  "nationals": "#E8404A",
+
+    # --- NBA ---
+    "hawks": "#E03A3E",       "celtics": "#3FA96B",    "nets": "#C4C9CE",
+    "hornets": "#4FA3D6",     "bulls": "#CE1141",      "cavaliers": "#B5623C",
+    "mavericks": "#4A8FD6",   "nuggets": "#FEC524",    "pistons": "#E8546B",
+    "warriors": "#FFC72C",    "rockets": "#CE1141",    "pacers": "#FDBB30",
+    "clippers": "#E8546B",    "lakers": "#A96FD6",     "grizzlies": "#6BA3D6",
+    "heat": "#E8506B",        "bucks": "#5FA97F",      "timberwolves": "#5B9FD6",
+    "pelicans": "#C4A882",    "knicks": "#F58426",     "thunder": "#4FA3D6",
+    "magic": "#4A8FD6",       "sixers": "#4A8FD6",     "76ers": "#4A8FD6",
+    "suns": "#E56020",        "trail blazers": "#E8404A", "blazers": "#E8404A",
+    "kings": "#A96FD6",       "spurs": "#C4C9CE",      "raptors": "#CE1141",
+    "jazz": "#5FA97F",        "wizards": "#5B8FD6",
+}
+
+
+# ---------------------------------------------------------------------------
+# Looking a colour up from a team NAME
+# ---------------------------------------------------------------------------
+# TEAM_COLORS is keyed by abbreviation because that is what the score feeds
+# return. The wall stores what somebody typed - "Yankees", "Cowboys" - so it
+# needs a way in from the other end.
+
+# Nickname to abbreviation, across every league in TEAM_COLORS.
+_NAME_TO_ABBR = {
+    # NFL
+    "cardinals": "ARI", "falcons": "ATL", "ravens": "BAL", "bills": "BUF",
+    "panthers": "CAR", "bears": "CHI", "bengals": "CIN", "browns": "CLE",
+    "cowboys": "DAL", "broncos": "DEN", "lions": "DET", "packers": "GB",
+    "texans": "HOU", "colts": "IND", "jaguars": "JAX", "chiefs": "KC",
+    "raiders": "LV", "chargers": "LAC", "rams": "LAR", "dolphins": "MIA",
+    "vikings": "MIN", "patriots": "NE", "saints": "NO", "giants": "NYG",
+    "jets": "NYJ", "eagles": "PHI", "steelers": "PIT", "49ers": "SF",
+    "niners": "SF", "seahawks": "SEA", "buccaneers": "TB", "bucs": "TB",
+    "titans": "TEN", "commanders": "WAS",
+    # MLB
+    "diamondbacks": "ARI", "braves": "ATL", "orioles": "BAL", "red sox": "BOS",
+    "white sox": "CWS", "cubs": "CHC", "reds": "CIN", "guardians": "CLE",
+    "rockies": "COL", "tigers": "DET", "astros": "HOU", "royals": "KC",
+    "angels": "LAA", "dodgers": "LAD", "marlins": "MIA", "brewers": "MIL",
+    "twins": "MIN", "mets": "NYM", "yankees": "NYY", "athletics": "OAK",
+    "phillies": "PHI", "pirates": "PIT", "padres": "SD", "mariners": "SEA",
+    "rangers": "TEX", "blue jays": "TOR", "nationals": "WSH",
+    # NBA
+    "hawks": "ATL", "celtics": "BOS", "nets": "BKN", "hornets": "CHA",
+    "bulls": "CHI", "cavaliers": "CLE", "mavericks": "DAL", "nuggets": "DEN",
+    "pistons": "DET", "warriors": "GS", "rockets": "HOU", "pacers": "IND",
+    "clippers": "LAC", "lakers": "LAL", "grizzlies": "MEM", "heat": "MIA",
+    "bucks": "MIL", "timberwolves": "MIN", "pelicans": "NO", "knicks": "NYK",
+    "thunder": "OKC", "magic": "ORL", "sixers": "PHI", "76ers": "PHI",
+    "suns": "PHO", "trail blazers": "POR", "blazers": "POR", "kings": "SAC",
+    "spurs": "SA", "raptors": "TOR", "jazz": "UTA", "wizards": "WSH",
+}
+
+
+def _flatten_colors():
+    """TEAM_COLORS is nested by league; the wall does not know the league."""
+    out = {}
+    for v in TEAM_COLORS.values():
+        if isinstance(v, dict):
+            out.update(v)
+    return out if out else dict(TEAM_COLORS)
+
+
+def color_for_name(name):
+    """
+    A team's colour from its nickname, or None if unrecognised.
+
+    Checks the name-keyed table first. The abbreviation route below is only a
+    fallback for anything not listed, and is where the league collision lives
+    - it is deliberately second.
+    """
+    if not name:
+        return None
+    key = str(name).strip().lower()
+
+    direct = TEAM_NAME_COLORS.get(key)
+    if direct:
+        return direct
+    # "New York Yankees" and the like.
+    parts = key.split()
+    for n in (2, 1):
+        if len(parts) >= n:
+            direct = TEAM_NAME_COLORS.get(" ".join(parts[-n:]))
+            if direct:
+                return direct
+
+    abbr = _NAME_TO_ABBR.get(key)
+    if not abbr:
+        # "New York Yankees" and the like - try the last word or two.
+        parts = key.split()
+        for n in (2, 1):
+            if len(parts) >= n:
+                abbr = _NAME_TO_ABBR.get(" ".join(parts[-n:]))
+                if abbr:
+                    break
+    if not abbr:
+        return None
+    return _flatten_colors().get(abbr)
+
+
+def readable_color_for_name(name, on_dark=True):
+    """
+    The team's colour, lightened if it would disappear.
+
+    Plenty of real team colours are nearly black - Chicago's navy is #0B162A,
+    Cleveland's brown is #311D00 - and those are invisible on a dark card.
+    Anything too dark is lifted until it can be read, keeping the hue so it
+    is still recognisably the team.
+    """
+    hexv = color_for_name(name)
+    if not hexv:
+        return None
+    try:
+        h = hexv.lstrip("#")
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        # Perceived brightness, not a plain average - the eye weights green
+        # far more heavily than blue.
+        lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+        floor = 0.42 if on_dark else 0.0
+        if lum < floor and lum > 0:
+            scale = floor / lum
+            r, g, b = (min(255, int(c * scale)) for c in (r, g, b))
+        return f"#{r:02X}{g:02X}{b:02X}"
+    except Exception:
+        return hexv

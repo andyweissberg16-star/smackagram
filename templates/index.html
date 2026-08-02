@@ -484,9 +484,6 @@
     <div class="smackback-btn">CLICK HERE TO SMACK BACK</div>
   </a>
   <picture class="hero-band">
-
-{% include '_smacks_today.html' %}
-
   <source type="image/webp" sizes="100vw"
           srcset="{{ url_for('static', filename='img/hero-mascot-780.webp') }} 780w,
                   {{ url_for('static', filename='img/hero-mascot-1560.webp') }} 1560w,
@@ -499,10 +496,10 @@
 <div class="wrap field-lines">
   <section class="hero" style="padding-left:0; padding-right:0; padding-top:16px; padding-bottom:24px; position:relative; z-index:1;">
     <div>
-      <div style="display:inline-flex; align-items:center; gap:8px; margin-bottom:16px;">
-        <span class="live-dot"></span>
-        <span class="eyebrow" style="margin:0;">Live now — game day is here</span>
-      </div>
+      {# Replaces "Live now - game day is here", which said nothing a
+         visitor could act on. A real count of calls that went out today
+         does the same job and is true. #}
+      {% include '_smacks_today.html' %}
       <p class="league-strip">NFL &middot; NBA &middot; MLB &middot; NHL &middot; WNBA &middot; COLLEGE &middot; ANY TEAM &middot; ANY PLAYER</p>
       <h1>Their team lost.<br><span class="flare">Their phone rings.</span></h1>
       <p class="sub" style="max-width:760px; margin-left:auto; margin-right:auto; text-align:center;">I'm Smacky. You tell me who choked &mdash; the team, the quarterback, the guy who bricked two free throws &mdash; and I'll call your buddy and read him the news in my own voice. I already know the score, the record and the losing streak, so I'll use all of it. He never finds out it was you. One dollar.</p>
