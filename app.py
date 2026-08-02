@@ -82,30 +82,7 @@ def login_required(view_func):
     def wrapped(*args, **kwargs):
         if not get_current_user():
             if request.path.startswith("/api/"):
-                # ?raw=1 dumps the stat GROUPS and LABELS rather than the extracted
-    # facts, so rules for a new sport get written against what ESPN actually
-    # returns instead of an assumption about it.
-    if request.args.get("raw"):
-        import json as _j
-        from urllib.request import Request, urlopen
-        path = espn_scores.LEAGUE_PATHS.get(league)
-        u = f"{espn_scores.BASE}/{path[0]}/{path[1]}/summary?event={event_id}"
-        with urlopen(Request(u, headers={"User-Agent": "Mozilla/5.0"}), timeout=20) as r:
-            raw = _j.load(r)
-        groups = []
-        for blk in ((raw.get("boxscore") or {}).get("players") or []):
-            for g in (blk.get("statistics") or []):
-                ath = (g.get("athletes") or [{}])[0]
-                groups.append({
-                    "team": ((blk.get("team") or {}).get("name")),
-                    "group": g.get("name") or g.get("type"),
-                    "labels": g.get("labels"),
-                    "sample_player": ((ath.get("athlete") or {}).get("displayName")),
-                    "sample_stats": ath.get("stats"),
-                })
-        return jsonify({"event_id": event_id, "stat_groups": groups})
-
-    return jsonify({"error": "Please log in to do that.", "login_required": True}), 401
+                return jsonify({"error": "Please log in to do that.", "login_required": True}), 401
             return redirect(f"/login?next={request.path}")
         return view_func(*args, **kwargs)
     return wrapped
