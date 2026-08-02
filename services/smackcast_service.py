@@ -69,7 +69,7 @@ _SPORT_LABELS = {"nfl": "fantasy football", "nba": "fantasy basketball", "mlb": 
 
 
 _REACTION_TYPES = ("boo", "laugh", "cheer", "gasp", "trombone", "flourish",
-                   "aww", "crickets", "boom", "none")
+                   "aww", "crickets", "boom", "ring", "none")
 
 
 def generate_weekly_recap_script(league_name: str, week: int, matchups: list, team_count: int, sport: str = "nfl") -> dict:
@@ -1025,10 +1025,7 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
 
         sfx = _pick_random_sfx(seg.get("reaction", "none"))
         if sfx is not None:
-            # A brief pause before the effect so it doesn't feel like it's
-            # cutting off the last word of the segment.
-            combined += AudioSegment.silent(duration=200)
-            combined += _standardize(sfx) + SFX_VOLUME_REDUCTION_DB
+            combined = _lay_in_sfx(combined, sfx, len(spoken))
 
     if outro and outro_tail:
         # speech_bytes[-2] ends on the word the hit lands on; [-1] is the tail.
@@ -1085,3 +1082,45 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
     s3.put_object(Bucket=s3_bucket, Key=filename, Body=normalized_bytes, ContentType="audio/mpeg")
 
     return f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/{filename}"
+
+
+# How far INTO the tail of a segment an effect starts. A sound that waits
+# politely for the voice to finish sounds bolted on; one that starts while
+# the last word is still ringing sounds like it is happening in the room.
+SFX_OVERLAP_MS = 420
+# Effects that hard-stop sound like files. A fade gives them somewhere to go.
+SFX_FADE_OUT_MS = 600
+SFX_FADE_IN_MS = 40
+
+
+def _lay_in_sfx(combined, sfx, spoken_ms):
+    """
+    Place a sound effect so it feels played rather than pasted.
+
+    Two things do the work. It starts BEFORE the voice has quite finished -
+    overlapping the tail of the last word, the way a real reaction would -
+    and it fades out rather than stopping dead. A hard cut is the single
+    biggest tell that something was assembled rather than performed.
+    """
+    clip = _standardize(sfx) + SFX_VOLUME_REDUCTION_DB
+
+    # A short fade in stops the attack clicking, a longer one out gives it
+    # somewhere to land.
+    fade_out = min(SFX_FADE_OUT_MS, max(0, len(clip) // 2))
+    clip = clip.fade_in(min(SFX_FADE_IN_MS, len(clip) // 4)).fade_out(fade_out)
+
+    # Start it inside the tail of the read, but never so early that it steps
+    # on words that carry meaning - capped at a third of the segment.
+    overlap = min(SFX_OVERLAP_MS, max(0, spoken_ms // 3))
+    if overlap <= 0:
+        return combined + AudioSegment.silent(duration=180) + clip
+
+    start = max(0, len(combined) - overlap)
+
+    # Extend the canvas so the effect has room to ring out past the end of
+    # the voice, rather than being clipped by the segment boundary.
+    tail_needed = max(0, (start + len(clip)) - len(combined))
+    if tail_needed:
+        combined = combined + AudioSegment.silent(duration=tail_needed)
+
+    return combined.overlay(clip, position=start)
