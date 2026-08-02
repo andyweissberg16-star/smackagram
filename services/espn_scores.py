@@ -278,6 +278,11 @@ def fetch_game_detail(league: str, event_id: str) -> dict:
     loser_team = (out.get("loser") or {}).get("team")
     out["stakes"] = game_stakes(d, lg, loser_team)
     out["bad_nights"] = _bad_nights(d, loser_team, lg)
+    if lg in ("nba", "wnba"):
+        win_team = (out.get("winner") or {}).get("team")
+        out["nba_players"] = nba_players(d, loser_team, win_team)
+        out["nba_shooting"] = nba_team_shooting(d, loser_team)
+
     if lg == "nfl":
         out["stakes"] = game_stakes(d, lg, loser_team)
         win_team = (out.get("winner") or {}).get("team")
@@ -498,7 +503,20 @@ def select_facts(detail: dict, max_supporting: int = 3, avoid: list = None) -> l
     # The rest are sport-specific because the PHRASES are. Written against
     # baseball first, these find nothing in a football fact list - the call
     # would get a score and three random details with no lead at all.
-    if (detail.get("league") or "").upper() == "NFL":
+    _lg = (detail.get("league") or "").upper()
+
+    if _lg in ("NBA", "WNBA"):
+        lead_finders = stakes_finders + [
+            lambda f: "was still a minus" in f,
+            lambda f: "a blowout" in f,
+            lambda f: "one possession" in f,
+            lambda f: "from the field" in f,
+            lambda f: "the whole night was cold" in f,
+            lambda f: "did the damage" in f,
+            lambda f: "gave it away all night" in f,
+            lambda f: "not enough" in f,
+        ]
+    elif _lg == "NFL":
         lead_finders = stakes_finders + [
             lambda f: "MASSIVE UPSET" in f,
             lambda f: "UPSET:" in f,
@@ -564,6 +582,11 @@ def roast_facts(detail: dict) -> list:
     # baseball shape.
     if (detail.get("league") or "").upper() == "NFL":
         return stakes_facts(detail) + nfl_roast_facts(detail)
+
+    # Basketball, both leagues. Same box score shape, same
+    # hierarchy - WNBA needs no separate path.
+    if (detail.get("league") or "").upper() in ("NBA", "WNBA"):
+        return nba_roast_facts(detail)
     # What the loss COST goes first and outranks the box score. A man
     # who just lost a World Series does not want a pitching line.
     f = list(stakes_facts(detail))
@@ -1638,4 +1661,219 @@ def stakes_facts(detail):
         f.append(f"this was a POSTSEASON game - {rnd}. Playoff losses hurt in "
                  f"a way regular season losses do not, and there is a title "
                  f"at the end of this they are no longer walking toward")
+    return f
+
+
+# Confirmed against a real NBA payload (Magic/Grizzlies, 15 Jan 2026).
+# Basketball has no batting order and no quarterback - the signals are
+# MINUTES (under fifteen and nobody is the story), the starter flag, and
+# plus-minus, which catches what points alone miss.
+_NBA_LABELS = ["MIN", "PTS", "FG", "3PT", "FT", "REB", "AST", "TO",
+               "STL", "BLK", "OREB", "DREB", "PF", "+/-"]
+
+
+def _made_attempted(v):
+    """"12-22" into (12, 22). Also handles "4-18", "0-7"."""
+    try:
+        m, a = str(v).split("-")
+        return int(m), int(a)
+    except (ValueError, AttributeError):
+        return None, None
+
+
+def nba_players(d, losing_team, winning_team):
+    """
+    Who actually lost this game.
+
+    The trap here is roasting a man who played well. A real extraction
+    flagged Jaren Jackson Jr. for four turnovers in a game where he scored
+    THIRTY on 12-of-22 - he was the best player on the floor. What the raw
+    line missed was his plus-minus: minus twenty-one, in a game they lost by
+    seven. The team was twenty-one points worse with him out there.
+    """
+    out = {"cold": [], "sinkers": [], "star_carried": None, "their_star": None}
+
+    for block in ((d.get("boxscore") or {}).get("players") or []):
+        team = (block.get("team") or {})
+        nick = team.get("name") or team.get("shortDisplayName") or ""
+        side = ("losing" if nick.lower() == str(losing_team or "").lower()
+                else "winning" if nick.lower() == str(winning_team or "").lower()
+                else None)
+        if not side:
+            continue
+
+        for group in (block.get("statistics") or []):
+            labels = group.get("labels") or []
+            for ath in (group.get("athletes") or []):
+                if ath.get("didNotPlay"):
+                    continue
+                person = ath.get("athlete") or {}
+                name = person.get("displayName")
+                if not name:
+                    continue
+                st = _stat_map(labels, ath.get("stats") or [])
+
+                mins = _to_num(st.get("MIN"))
+                # Under fifteen minutes nobody is the story. This is the
+                # filter that stops a bench player who played six minutes
+                # being roasted for scoring two.
+                if mins is None or mins < 15:
+                    continue
+
+                pts = _to_num(st.get("PTS"))
+                made, att = _made_attempted(st.get("FG"))
+                pm = _to_num(str(st.get("+/-", "")).replace("+", ""))
+                starter = bool(ath.get("starter"))
+
+                entry = {"name": name, "minutes": int(mins), "points": int(pts or 0),
+                         "fg": st.get("FG"), "made": made, "attempts": att,
+                         "plus_minus": int(pm) if pm is not None else None,
+                         "starter": starter, "turnovers": _to_num(st.get("TO")),
+                         "rebounds": _to_num(st.get("REB")),
+                         "assists": _to_num(st.get("AST"))}
+
+                if side == "losing":
+                    # Cold shooting - the classic bad night. Volume matters:
+                    # 4-for-18 is a story, 1-for-3 is a quiet evening.
+                    if att and att >= 10 and made is not None and (made / att) < 0.35:
+                        out["cold"].append(entry)
+                    # The floor sank while they played. Worse than any single
+                    # stat because it survives a good-looking box score.
+                    if pm is not None and pm <= -12 and starter:
+                        out["sinkers"].append(entry)
+                    # A star who did his job and still lost.
+                    if pts and pts >= 25:
+                        cur = out["star_carried"]
+                        if not cur or pts > cur["points"]:
+                            out["star_carried"] = entry
+                else:
+                    if pts and pts >= 25:
+                        cur = out["their_star"]
+                        if not cur or pts > cur["points"]:
+                            out["their_star"] = entry
+
+    out["cold"].sort(key=lambda x: (x["made"] or 0) / (x["attempts"] or 1))
+    out["sinkers"].sort(key=lambda x: x["plus_minus"] or 0)
+    return out
+
+
+def nba_team_shooting(d, losing_team):
+    """Whole-team shooting. 38 percent is a night nobody enjoyed."""
+    for block in ((d.get("boxscore") or {}).get("teams") or []):
+        team = (block.get("team") or {})
+        nick = team.get("name") or team.get("shortDisplayName") or ""
+        if nick.lower() != str(losing_team or "").lower():
+            continue
+        vals = {}
+        for stat in (block.get("statistics") or []):
+            key = (stat.get("name") or stat.get("abbreviation") or "").strip().lower()
+            if key:
+                vals[key] = stat.get("displayValue")
+        out = {}
+        for k in ("fieldgoalpct", "fieldgoalspct", "fgpct"):
+            if k in vals:
+                pct = _to_num(str(vals[k]).replace("%", ""))
+                if pct is not None:
+                    out["fg_pct"] = pct
+                    out["cold_night"] = pct < 42.0
+                break
+        for k in ("threepointfieldgoalpct", "threepointpct"):
+            if k in vals:
+                pct = _to_num(str(vals[k]).replace("%", ""))
+                if pct is not None:
+                    out["three_pct"] = pct
+                    out["cold_from_three"] = pct < 30.0
+                break
+        for k in ("turnovers", "totalturnovers"):
+            if k in vals:
+                tov = _to_num(vals[k])
+                if tov is not None:
+                    out["turnovers"] = int(tov)
+                    out["careless"] = tov >= 18
+                break
+        return out or None
+    return None
+
+
+def nba_roast_facts(detail):
+    """
+    Basketball facts. No single player wears the loss the way a quarterback
+    or a starting pitcher does, so the hierarchy is different: the collapse
+    if there was one, then the man the floor sank behind, then cold
+    shooting, then their star who did the damage.
+    """
+    f = list(stakes_facts(detail))
+    w = detail.get("winner") or {}
+    l = detail.get("loser") or {}
+
+    if w.get("team") and l.get("team"):
+        ws, ls = w.get("score"), l.get("score")
+        f.append(f"{w['team']} beat {l['team']} {int(ws)}-{int(ls)}"
+                 if ws is not None and ls is not None
+                 else f"{w['team']} beat {l['team']}")
+    if l.get("record"):
+        f.append(f"{l['team']} are now {l['record']}")
+
+    m = detail.get("margin")
+    if m and m >= 20:
+        f.append(f"lost by {m} - a blowout, never competitive")
+    elif m and m <= 3:
+        f.append(f"lost by {m} - one possession, and they could not get it")
+
+    p = detail.get("nba_players") or {}
+
+    # The floor sank behind them. This survives a good-looking box score,
+    # which is the point - a man can score thirty and still be the reason.
+    for sink in (p.get("sinkers") or [])[:1]:
+        if sink.get("points", 0) >= 20:
+            f.append(f"{sink['name']} scored {sink['points']} and was still a "
+                     f"minus {abs(sink['plus_minus'])} - the team was worse "
+                     f"with him out there, which takes some doing")
+        else:
+            f.append(f"{sink['name']} was a minus {abs(sink['plus_minus'])} in "
+                     f"{sink['minutes']} minutes - every time he touched the "
+                     f"floor it got worse")
+
+    for cold in (p.get("cold") or [])[:2]:
+        f.append(f"{cold['name']} shot {cold['fg']} from the field in "
+                 f"{cold['minutes']} minutes")
+
+    # Compare by NAME, not by object. A dict comparison let the same player
+    # appear twice with opposite framings - "the team was worse with him out
+    # there" immediately followed by "nobody helped him", about one man.
+    star = p.get("star_carried")
+    sunk_names = {x["name"] for x in (p.get("sinkers") or [])}
+    if star and star["name"] not in sunk_names:
+        f.append(f"{star['name']} put up {star['points']} and it still was "
+                 f"not enough - nobody helped him")
+
+    their = p.get("their_star")
+    if their:
+        bits = f"{their['points']} points on {their['fg']}"
+        if their.get("rebounds"):
+            bits += f", {int(their['rebounds'])} boards"
+        f.append(f"their guy {their['name']} did the damage: {bits}")
+
+    sh = detail.get("nba_shooting") or {}
+    if sh.get("cold_night"):
+        f.append(f"shot {sh['fg_pct']} percent as a team - the whole night was cold")
+    if sh.get("cold_from_three"):
+        f.append(f"{sh['three_pct']} percent from three")
+    if sh.get("careless"):
+        f.append(f"{sh['turnovers']} turnovers - gave it away all night")
+
+    # The analytics line. NEVER a bare percentage - Smacky disputes it, he
+    # does not recite it. Same rule as everywhere else.
+    if detail.get("blew_it"):
+        f.append(f"the analytics people had {l.get('team','them')} well ahead "
+                 f"({detail.get('favoured_pct')}%) and they still lost - "
+                 f"DISPUTE this, never state the number, you were never asked")
+    elif detail.get("was_favoured"):
+        f.append(f"the analytics people had {l.get('team','them')} favoured "
+                 f"({detail.get('favoured_pct')}%) - DISPUTE it, never say the number")
+
+    if detail.get("lost_at_home"):
+        att = detail.get("attendance")
+        f.append(f"lost at home in front of {att:,}" if att else "lost at home")
+
     return f

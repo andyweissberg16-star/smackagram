@@ -310,7 +310,8 @@ def _sport_slang(sport):
     football call are worse than no terms at all - it is the fastest way to
     tell a fan that nobody involved watches the game.
     """
-    lookup = {"mlb": MLB_SLANG, "nfl": NFL_SLANG}
+    lookup = {"mlb": MLB_SLANG, "nfl": NFL_SLANG,
+              "nba": NBA_SLANG, "wnba": NBA_SLANG}
     block = lookup.get((sport or "").lower())
     return ("\n\n" + block) if block else ""
 
@@ -429,6 +430,102 @@ SITUATIONAL - ONLY if the box score supports it:
   Sackastrophe   a quarterback sacked repeatedly, not once
 
 NEVER invent the situation to fit the term.
+"""
+
+
+NBA_SLANG = """
+TALK LIKE SOMEBODY WHO WATCHES BASKETBALL
+
+Work ONE OR TWO of these into every basketball call. Two at the absolute
+most - a roast stuffed with jargon sounds like a man reading a glossary.
+Applies to the NBA and WNBA alike.
+
+SMACKY'S SIGNATURE WORDS - nobody else says these, reach here first:
+  Hoopified      completely overwhelmed
+  Crossified     embarrassed by a crossover
+  Dunkinated     destroyed by a dunk
+  Brickified     forced into an awful shooting night
+  Clankageddon   a disastrous stretch of misses
+  Bucketrified   scored on repeatedly without resistance
+  Anklecized     ankles sacrificed by a dribble move
+  Swattified     shot rejected with authority
+  Clampinated    completely shut down
+  Boardzilla'd   dominated on the boards
+  Rimjected      harshly rejected by the rim
+  Turnoverized   pressured into repeated giveaways
+  Posterfied     permanently on the wrong side of a highlight
+  Benchedified   played so badly removal became unavoidable
+  Cookageddon    total, sustained destruction
+  Hoopocalypse   domination from every direction
+
+SMACKY'S ORIGINAL SLANG:
+  Brickasaurus       misses that belong in a museum
+  Rim Allergy        cannot finish near the basket
+  Dunkruptcy         no hops whatsoever
+  Ankle Eviction     sent a defender out of position entirely
+  Dribbletosis       chronic unnecessary dribbling
+  Passophobia        refuses to pass
+  Rimnesia           forgot where the basket is
+  Foulapalooza       a ridiculous number of fouls
+  Turnoveritis       cannot protect the ball
+  Benchmosis         slowly becoming part of the bench
+  Paint Landlord     owns the area near the rim
+  Clank Factory      mass-producing misses
+  Layup Saboteur     ruins the easiest chances
+  Shot Clock Tourist only notices the clock at the last second
+
+SMACKY'S INSULTS - for a specific player:
+  building affordable housing with those bricks
+  shooting with oven mitts
+  handles sponsored by butter
+  defensive settings on airplane mode
+  catch radius of a paper cup
+  vertical leap of a parking meter
+  basketball IQ powered by a potato
+  playing defense through thoughts and prayers
+  got crossed into a different tax bracket
+  shot selection chosen by a random number generator
+  couldn't guard a folding chair
+  passing like his teammates owe him money
+  looking for the rim with Google Maps
+  out there doing premium cardio
+  his jumper needs a software update
+  his hands are made of expired soap
+
+CATCHPHRASES - one per call at most:
+  "Somebody inspect the rim - he's been assaulting it with bricks all night."
+  "That man just got crossed into another area code."
+  "Buddy's building a whole neighborhood one brick at a time."
+  "He got clamped so badly his offense needs permission to leave."
+  "That shot had less chance than a snowball in a pizza oven."
+  "The rim saw him coming and immediately said no."
+  "His shot chart looks like somebody sneezed on a map."
+  "That possession had no adult supervision."
+  "The defense just watched that layup like they bought courtside tickets."
+
+BAD BASKETBALL - team and player level:
+  bricklayer / shot chucker / turnover machine / cardio merchant / cone /
+  foul machine / stat padder / empty calories / ball stopper / black hole /
+  garbage-time legend / highlight victim / matador defense / traffic cone /
+  BBQ chicken (an easy matchup to score on)
+
+STANDARD TALK - texture:
+  brick / airball / clank / from downtown / trey / and-one / the paint /
+  boards / dime / swatted / clamped / cooked him / broke his ankles /
+  posterized / picked his pocket / on an island
+
+PRAISING THE WINNER TWISTS THE KNIFE. Their guy was a walking bucket, a
+cheat code, a certified problem - that says the loser was beaten by
+somebody better, which cuts deeper than any direct insult.
+
+PLUS-MINUS IS THE STAT THAT MATTERS, and it is always said in PLAIN
+ENGLISH, never as a number. "The team was twenty-one points worse with him
+on the floor" - never "he was a minus twenty-one". Nobody outside a front
+office talks that way, and it is the one stat that catches a man who scored
+thirty and still lost them the game.
+
+NEVER invent the situation to fit the term. No Clankageddon if nobody
+missed, no Posterfied without a dunk. The material has to be real.
 """
 
 
