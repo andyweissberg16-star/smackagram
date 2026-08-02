@@ -1,0 +1,82 @@
+{# ===========================================================================
+   Live counter — how many smacks went out today
+   ===========================================================================
+   Sits under the hero on the homepage and both generator pages.
+
+   Hidden entirely below a floor. A banner flashing "3 SMACKS SENT TODAY" is
+   worse than no banner at all - it advertises that nobody is here. The API
+   decides, and the banner appears on its own once the number is worth
+   showing.
+
+   Included with {% include '_smacks_today.html' %} - it fetches its own data
+   and stays hidden until there is something to say.
+   ======================================================================== #}
+<div class="stoday" id="smacksToday" hidden>
+  <span class="stoday-dot" aria-hidden="true"></span>
+  <span class="stoday-n" id="smacksTodayN">0</span>
+  <span class="stoday-lbl">SMACKS SENT TODAY</span>
+</div>
+
+<style>
+  .stoday{
+    display:flex; align-items:center; justify-content:center; gap:9px;
+    width:max-content; max-width:calc(100% - 32px);
+    margin:18px auto 0; padding:8px 18px;
+    background:rgba(224,27,36,0.10);
+    border:1px solid var(--flare,#E01B24);
+    border-radius:100px;
+  }
+  /* The pulse carries the "live" signal, not the text. A flashing NUMBER is
+     hard to read and looks broken; a dot beside a steady number reads as a
+     feed that is running. */
+  .stoday-dot{
+    width:7px; height:7px; border-radius:50%; background:var(--flare,#E01B24);
+    flex:0 0 7px; animation:stoday-pulse 1.9s ease-in-out infinite;
+  }
+  @keyframes stoday-pulse{
+    0%,100%{opacity:1; transform:scale(1);}
+    50%{opacity:0.35; transform:scale(0.82);}
+  }
+  .stoday-n{
+    font-family:'Anton', Impact, sans-serif; font-size:19px; line-height:1;
+    color:var(--chalk,#F5F5F3); letter-spacing:0.5px;
+  }
+  .stoday-lbl{
+    font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:1.8px;
+    color:var(--flare,#E01B24);
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .stoday-dot{animation:none;}
+  }
+  @media(max-width:520px){
+    .stoday{padding:7px 14px; gap:7px;}
+    .stoday-n{font-size:16px;}
+    .stoday-lbl{font-size:8.5px; letter-spacing:1.4px;}
+  }
+</style>
+
+<script>
+(function () {
+  var box = document.getElementById('smacksToday');
+  var out = document.getElementById('smacksTodayN');
+  if (!box || !out) return;
+
+  function load() {
+    fetch('/api/smacks-today').then(function (r) { return r.json(); }).then(function (d) {
+      if (!d.show) { box.hidden = true; return; }
+      out.textContent = d.count;
+      box.hidden = false;
+    }).catch(function () { /* stays hidden */ });
+  }
+
+  load();
+
+  // Refreshed every ninety seconds, and only while somebody is actually
+  // looking - polling a hidden tab spends requests on nobody.
+  setInterval(function () { if (!document.hidden) load(); }, 90000);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) load();
+  });
+})();
+</script>

@@ -1,0 +1,288 @@
+{# ===========================================================================
+   Smacks of the Week
+   ===========================================================================
+   Named for the day rather than the week because at any real volume the
+   rolling fifty turns over in hours - a wall labelled "this week" would be
+   showing the last two hours and quietly lying about it.
+   Shows the most recent smacks rather than a curated best-of. At real
+   volume the rail turns over quickly, which is the point - a visitor should
+   see something that went out today.
+   A scrolling wall of lines people actually sent, with the audio where the
+   sender opted in.
+
+   Deliberately NOT a review carousel. Seeded testimonials on a site that
+   takes payments is exactly what the FTC rule on fake reviews covers, and it
+   carries penalties per review per person who saw it. Example smacks make no
+   claim about anybody's experience - and they sell better, because reading
+   or hearing an actual smack tells you what a dollar buys in a way that
+   "great site, five stars" never does.
+
+   Included on the homepage and both generator pages. Loads its own data, so
+   dropping {% include '_smacks_of_the_week.html' %} into any page is all
+   that is needed.
+   ======================================================================== #}
+<section class="sotw" id="smacksOfTheWeek" hidden>
+  <div class="sotw-head">
+    <p class="sotw-kick">SMACKS OF THE WEEK</p>
+    <h2>The latest ones sent.</h2>
+    <p class="sotw-sub">Real lines, real calls, as they go out. Press play
+       &mdash; that is exactly what lands on somebody's phone, for less than
+       a dollar a call.</p>
+  </div>
+
+  <div class="sotw-wrap">
+    {# Arrows for a mouse. Hidden on touch, where a thumb does the job better
+       than any button and the arrows would just cover a card. #}
+    <button type="button" class="sotw-arrow sotw-prev" id="sotwPrev"
+            aria-label="Previous smacks">&#8249;</button>
+
+    <div class="sotw-rail" id="sotwRail">
+      <div class="sotw-track" id="sotwTrack"></div>
+    </div>
+
+    <button type="button" class="sotw-arrow sotw-next" id="sotwNext"
+            aria-label="More smacks">&#8250;</button>
+  </div>
+
+  <div class="sotw-foot">
+    <button type="button" class="sotw-add" id="sotwAdd">Sent a good one? Tell us &rarr;</button>
+  </div>
+</section>
+
+<style>
+  .sotw{padding:52px 0 46px; border-top:1px solid rgba(245,245,243,0.10);}
+  .sotw-head{max-width:760px; margin:0 auto 26px; padding:0 24px; text-align:center;}
+  .sotw-kick{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:2.4px;
+    color:var(--flare,#E01B24); margin:0 0 10px;}
+  .sotw-head h2{font-family:'Anton',sans-serif; font-size:32px; line-height:1;
+    color:var(--chalk,#F5F5F3); margin:0 0 10px; text-transform:uppercase;}
+  .sotw-sub{color:var(--chalk-dim,#9A9A96); font-size:13.5px; line-height:1.6; margin:0;}
+
+  /* Horizontal rail. Scrolls on its own but stays draggable and swipeable -
+     an auto-scroller you cannot grab is infuriating on a phone. */
+  .sotw-rail{overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch;
+    scrollbar-width:none; padding:4px 0 12px;}
+  .sotw-rail::-webkit-scrollbar{display:none;}
+  .sotw-track{display:flex; gap:14px; padding:0 24px; width:max-content;}
+
+  .sotw-wrap{position:relative;}
+
+  /* Arrows sit over the rail edges rather than below it, so they are where a
+     hand already is. */
+  .sotw-arrow{
+    position:absolute; top:50%; transform:translateY(-50%); z-index:3;
+    width:38px; height:38px; border-radius:50%;
+    background:rgba(13,13,13,0.88); border:1px solid var(--flare,#E01B24);
+    color:var(--chalk,#F5F5F3); font-size:20px; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition:opacity .15s, background .15s;
+  }
+  .sotw-arrow:hover{background:var(--flare,#E01B24);}
+  .sotw-prev{left:8px;}
+  .sotw-next{right:8px;}
+  /* Greyed out at either end rather than hidden - a button that vanishes
+     makes the row jump. */
+  .sotw-arrow[disabled]{opacity:0.28; cursor:default;}
+  .sotw-arrow[disabled]:hover{background:rgba(13,13,13,0.88);}
+
+  /* No arrows on touch. A thumb does this better and the buttons would sit
+     on top of a card. */
+  @media (hover:none){ .sotw-arrow{display:none;} }
+
+  /* Four across with a fifth cut off at the edge, so it is obvious there is
+     more without needing a label saying so.
+
+     Sized off the viewport rather than a fixed width - "four visible" means
+     different things on a 1280 screen and a 1600 one, and a 300px card on
+     both leaves a lonely gap on the wider display. Dividing by 4.35 gives
+     four full cards and about a third of the fifth. */
+  .sotw-card{
+    flex:0 0 calc((100vw - 48px - 56px) / 4.35);
+    max-width:340px; min-width:252px; background:#141416; border:2px solid var(--flare,#E01B24);
+    border-radius:9px; padding:15px 16px; display:flex; flex-direction:column;
+  }
+  .sotw-top{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+  .sotw-prod{font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:1.4px;
+    text-transform:uppercase; color:var(--flare,#E01B24); border:1px solid rgba(224,27,36,0.45);
+    padding:3px 7px; border-radius:3px;}
+  .sotw-who{font-family:'JetBrains Mono',monospace; font-size:10px; color:#7A7575;}
+  /* What this was about, before anybody presses play. */
+  .sotw-headline{
+    font-family:'Anton',sans-serif; font-size:16px; line-height:1.15;
+    color:var(--chalk,#F5F5F3); margin:0 0 8px; text-transform:uppercase;
+  }
+  /* The date sits under the headline rather than beside it - on a 300px card
+     a long team name plus a date on one line wraps badly. */
+  .sotw-when{
+    display:block; font-family:'JetBrains Mono',monospace; font-size:9.5px;
+    letter-spacing:1.2px; color:#7A7575; margin-top:4px; text-transform:none;
+  }
+  .sotw-body{color:#DCDCD9; font-size:13.5px; line-height:1.55; margin:0 0 12px; flex:1;}
+  .sotw-card audio{width:100%; height:34px; display:block;}
+  .sotw-noaudio{font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.2px;
+    color:#4A4E54; margin:0;}
+
+  .sotw-foot{text-align:center; margin-top:20px; padding:0 24px;}
+  .sotw-add{background:transparent; border:1px solid var(--silver,#C3CAD3);
+    color:var(--silver,#C3CAD3); font-family:'Inter',sans-serif; font-size:12.5px;
+    font-weight:700; padding:11px 20px; border-radius:7px; cursor:pointer;}
+  .sotw-add:hover{background:rgba(195,202,211,0.10);}
+
+  .sotw-note{font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.2px;
+    color:#4A4E54; text-align:center; margin:14px 0 0;}
+
+  /* Below four-across widths, fall back to fixed cards and let people
+     scroll. Trying to fit four on a tablet makes each one unreadable. */
+  @media(max-width:1080px){
+    .sotw-card{flex:0 0 270px; max-width:none; min-width:0;}
+  }
+  @media(max-width:640px){
+    .sotw-head h2{font-size:25px;}
+    /* One card and a peek of the next, so a thumb has something to grab
+       and it is obvious the row moves. */
+    .sotw-card{flex:0 0 82%; max-width:320px;}
+    .sotw-track{gap:11px; padding:0 16px;}
+  }
+</style>
+
+<script>
+(function () {
+  var track = document.getElementById('sotwTrack');
+  var rail  = document.getElementById('sotwRail');
+  var sect  = document.getElementById('smacksOfTheWeek');
+  if (!track || !sect) return;
+
+  var LABEL = {smackagram: 'Smackagram', locked: 'Locked & Loaded', smackback: 'Smack Back'};
+
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  // The team name in the team's own colour. Everything else in the headline
+  // stays white, so the eye lands on the team - which is the bit somebody
+  // scrolling is actually looking for.
+  function headlineHtml(it) {
+    var text = esc(it.headline);
+    if (!it.team || !it.team_color) return text;
+
+    var team = esc(String(it.team).toUpperCase());
+    var i = text.indexOf(team);
+    if (i === -1) return text;
+
+    return text.slice(0, i)
+      + '<span style="color:' + esc(it.team_color) + '">' + team + '</span>'
+      + text.slice(i + team.length);
+  }
+
+  function card(it) {
+    var audio = it.audio_url
+      ? '<audio controls preload="none" src="' + esc(it.audio_url) + '"></audio>'
+      : '';   // no audio kept for this one - the line stands on its own
+    return '<div class="sotw-card">'
+      + '<div class="sotw-top">'
+      +   '<span class="sotw-prod">' + esc(LABEL[it.product] || it.product) + '</span>'
+      +   '<span class="sotw-who">@' + esc(it.handle) + '</span>'
+      + '</div>'
+      + (it.headline
+          ? '<p class="sotw-headline">' + headlineHtml(it)
+            + (it.when ? '<span class="sotw-when">' + esc(it.when) + '</span>' : '')
+            + '</p>'
+          : '')
+      + '<p class="sotw-body">' + esc(it.body) + '</p>' 
+      + audio
+      + '</div>';
+  }
+
+  fetch('/api/wall').then(function (r) { return r.json(); }).then(function (d) {
+    if (!d.items || !d.items.length) return;   // stays hidden rather than empty
+
+    track.innerHTML = d.items.map(card).join('');
+    sect.hidden = false;
+    requestAnimationFrame(function () {
+      var n = document.getElementById('sotwNext');
+      var p = document.getElementById('sotwPrev');
+      if (p) p.disabled = true;
+      if (n) n.disabled = rail.scrollWidth <= rail.clientWidth + 2;
+    });
+
+    // Honest labelling. If any of what is showing is an example rather than
+    // a real post, the page says so - the whole point of building this as a
+    // wall of smacks rather than a wall of reviews.
+    if (d.items.some(function (x) { return x.sample; })) {
+      var note = document.createElement('p');
+      note.className = 'sotw-note';
+      note.textContent = 'SOME EXAMPLES SHOWN WHILE THE WALL FILLS UP';
+      sect.querySelector('.sotw-foot').appendChild(note);
+    }
+
+    // Only one plays at a time. "play" does not bubble, hence capture.
+    document.addEventListener('play', function (e) {
+      if (e.target.tagName !== 'AUDIO') return;
+      document.querySelectorAll('audio').forEach(function (a) {
+        if (a !== e.target && !a.paused) { a.pause(); a.currentTime = 0; }
+      });
+    }, true);
+
+    // Arrows. One card plus its gap per press, so a click always lands on a
+    // card edge rather than leaving one sliced down the middle.
+    var prev = document.getElementById('sotwPrev');
+    var next = document.getElementById('sotwNext');
+
+    function step() {
+      var card = track.querySelector('.sotw-card');
+      return card ? card.getBoundingClientRect().width + 14 : 300;
+    }
+
+    function refreshArrows() {
+      if (!prev || !next) return;
+      var atStart = rail.scrollLeft <= 2;
+      var atEnd = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 2;
+      prev.disabled = atStart;
+      next.disabled = atEnd;
+    }
+
+    if (prev && next) {
+      prev.addEventListener('click', function () {
+        rail.scrollBy({left: -step(), behavior: 'smooth'});
+      });
+      next.addEventListener('click', function () {
+        rail.scrollBy({left: step(), behavior: 'smooth'});
+      });
+      rail.addEventListener('scroll', refreshArrows, {passive: true});
+      window.addEventListener('resize', refreshArrows);
+      refreshArrows();
+    }
+
+    // Drift slowly to the right so the rail reads as alive. Stops the moment
+    // somebody touches it, and never restarts - fighting a reader for control
+    // of a scroll position is worse than not moving at all.
+    var stopped = false;
+    ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(function (ev) {
+      rail.addEventListener(ev, function () { stopped = true; }, {passive: true});
+    });
+    // Pressing an arrow is taking control too - the drift must not fight it.
+    [prev, next].forEach(function (b) {
+      if (b) b.addEventListener('click', function () { stopped = true; });
+    });
+    rail.addEventListener('mouseenter', function () { stopped = true; });
+
+    setInterval(function () {
+      if (stopped || document.hidden) return;
+      if (rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 2) {
+        rail.scrollLeft = 0;
+      } else {
+        rail.scrollLeft += 1;
+      }
+    }, 32);
+  }).catch(function () { /* stays hidden */ });
+
+  var add = document.getElementById('sotwAdd');
+  if (add) {
+    add.addEventListener('click', function () {
+      window.location.href = '/locker';
+    });
+  }
+})();
+</script>

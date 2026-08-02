@@ -137,6 +137,15 @@
     font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:1px;
     color:var(--muted-2); margin:0 0 12px;
   }
+  /* The price is the easiest thing to say about this product and it was set
+     in the same small grey mono as the caveat beside it. Anton and red, so
+     it carries the weight it deserves - a dollar is the argument. */
+  .send-price-amt{
+    font-family:'Anton', Impact, sans-serif;
+    font-size:19px; letter-spacing:0.5px;
+    color:var(--flare,#E01B24);
+    vertical-align:-1px; margin-right:4px;
+  }
 
   /* Narrow, centred buttons so the red bars don't run edge to edge. max-width
      rather than a fixed width, so they shrink gracefully on a phone instead of
@@ -706,6 +715,9 @@
 
 {% if not embed %}
 <picture class="hero-band">
+
+{% include '_smacks_today.html' %}
+
   <source type="image/webp" sizes="100vw"
           srcset="{{ url_for('static', filename='img/hero-mascot-780.webp') }} 780w,
                   {{ url_for('static', filename='img/hero-mascot-1560.webp') }} 1560w,
@@ -952,7 +964,7 @@
     <div id="orderError" role="alert" style="display:none;"></div>
 
     <div class="send-block">
-      <p class="send-price">$1 &middot; call delivered, reaction recorded</p>
+      <p class="send-price"><span class="send-price-amt">$1 per call!</span></p>
       <div class="btn-center">
         <button id="orderSubmitBtn" class="btn btn-flare btn-narrow">Send this Smackagram</button>
       </div>
@@ -968,6 +980,8 @@
 </div>
 
 {% if not embed %}
+{% include '_smacks_of_the_week.html' %}
+
 <footer>
   <a href="/terms">Terms</a> &middot; <a href="/contact">Contact</a>
 </footer>

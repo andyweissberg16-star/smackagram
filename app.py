@@ -14,7 +14,7 @@ import requests
 from dotenv import load_dotenv
 
 from models import SmackcastWeeklyNote
-from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
+from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode, WallPost
 from services import news_service, show_service, admin_service, settings_service, show_service
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service, revenge_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
@@ -565,6 +565,7 @@ def _execute_send_smack(user, data: dict) -> dict:
         scenario_id=data.get("scenario_id"),
         custom_message=data.get("custom_message", ""),
         voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
+        team=(data.get("team") or "").strip() or None,
         recipient_name=data["recipient_name"],
         recipient_phone=data["recipient_phone"],
         consent_confirmed=True,
@@ -582,6 +583,11 @@ def _execute_send_smack(user, data: dict) -> dict:
         audio_urls = call_audio_service.resolve_audio_url(order, os.environ["BASE_URL"])
         call_audio_service.pending_call_audio[("order", order.id)] = audio_urls
         order.message_audio_url = audio_urls[0]  # persist for reply-flow "hear it again" replay
+        # Straight onto the wall. A reply is a Smack Back; anything else is a
+        # standard Smackagram.
+        publish_to_wall(order,
+                        "smackback" if order.replied_to_type else "smackagram",
+                        audio_urls[0])
         call_sid = twilio_service.place_prank_call("order", order.id, order.recipient_phone, record=True)
         order.twilio_call_sid = call_sid
         order.call_status = "ringing"
@@ -773,6 +779,10 @@ def stripe_webhook():
                 audio_urls = call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")))
                 call_audio_service.pending_call_audio[("order", order.id)] = audio_urls
                 order.message_audio_url = audio_urls[0]  # persist for reply-flow "hear it again" replay
+                # Onto the wall, same as the wallet path above.
+                publish_to_wall(order,
+                                "smackback" if order.replied_to_type else "smackagram",
+                                audio_urls[0])
                 call_sid = twilio_service.place_prank_call("order", order.id, order.recipient_phone, record=True)
                 order.twilio_call_sid = call_sid
                 order.call_status = "ringing"
@@ -2795,6 +2805,286 @@ def smack_board():
     return render_template("smack_board.html")
 
 
+# Seed content for Smacks of the Week.
+#
+# EXAMPLE SMACKS, not customer reviews. That distinction is the whole design:
+# seeded testimonials on a site that takes payments is what the FTC rule on
+# fake reviews was written for, and it carries penalties per review per person
+# who saw it. Lines somebody could have sent make no claim about anybody's
+# experience - and they sell the product better, because reading an actual
+# smack tells you what a dollar buys in a way "great site, five stars" never
+# does.
+#
+# Flagged as samples so they are labelled honestly and pushed out on their own
+# as real posts arrive.
+WALL_SAMPLES = [
+    ("bigmike_47", "smackagram",
+     "Told him his fantasy team looks like a group project where everybody else dropped the class."),
+    ("thecommish", "locked",
+     "Armed one on the Cowboys. Fired at 11:47pm. He rang back two minutes later just to breathe heavily."),
+    ("dontatme_dave", "smackback",
+     "Got smacked, no idea who. Sent one back to all four suspects. One of them confessed."),
+    ("kellyfromohio", "smackagram",
+     "My brother-in-law has not mentioned the Browns at Thanksgiving since. Best dollar I have spent."),
+    ("nunez_theproblem", "locked",
+     "Set it up before the game and forgot about it. Three hours later my phone buzzed - he PICKED UP."),
+    ("saltyseahawk", "smackagram",
+     "Asked whether his quarterback is contractually obliged to throw to the other team."),
+    ("d_wrightt", "smackback",
+     "Whoever sent me that - I know it was you, Marcus. The Eagles line gave you away."),
+    ("hoopsandhops", "smackagram",
+     "Rang the loudest man in our group chat and asked him to read his record out loud. Slowly."),
+    ("greg_in_accounting", "locked",
+     "Armed six against my whole department. Four fired. I was not popular on Monday."),
+    ("mamaknowsball", "smackagram",
+     "My son is thirty-four years old and he cried."),
+    ("tallboy_tommy", "smackback",
+     "Got one, laughed, sent one back inside a minute. This is a loop I cannot escape."),
+    ("finn.mcduff", "smackagram",
+     "Told him his draft strategy appeared to be picking names he recognised off adverts."),
+    ("redzone_rachel", "locked",
+     "Armed it against my husband's team. He asked why I was smiling at my phone at ten on a Sunday."),
+    ("uncle_pat", "smackagram",
+     "Twenty years of him gloating. One phone call. I would have paid ten times that."),
+    ("smackedintampa", "smackback",
+     "Somebody rang me about the Bucs. I have never felt more seen and I hated every second."),
+    ("j_ramos21", "smackagram",
+     "Asked if his lineup was set with darts or out of a genuine dislike of winning."),
+    ("bucketsbrian", "locked",
+     "Fired the second the buzzer went. He was still in the car park."),
+    ("notmyproblem_jen", "smackagram",
+     "Sent one to my dad. He has told everyone at his golf club. Repeatedly. He is proud of it."),
+    ("cheeseheadchris", "smackback",
+     "Got smacked so I sent four back. Nobody in this league is safe now."),
+    ("theotherandy", "smackagram",
+     "Told him nought and four is not a slow start, it is a decision."),
+]
+
+
+# How many smacks the wall holds. The fifty-first pushes the oldest off.
+#
+# Nothing is lost by pruning: a WallPost is only a display row. The smack
+# itself lives on in its Order or Smackagram record, and the audio stays on
+# S3 - so this is housekeeping on a carousel, not deleting anybody's smack.
+WALL_KEEP = 50
+
+
+def prune_wall():
+    """Drop wall entries beyond the most recent WALL_KEEP."""
+    try:
+        keep = [r.id for r in (WallPost.query
+                               .filter_by(is_sample=False)
+                               .order_by(WallPost.id.desc())
+                               .limit(WALL_KEEP).all())]
+        if len(keep) < WALL_KEEP:
+            return
+        (WallPost.query
+         .filter_by(is_sample=False)
+         .filter(~WallPost.id.in_(keep))
+         .delete(synchronize_session=False))
+        db.session.commit()
+    except Exception as e:
+        print(f"[wall] prune skipped: {e}", flush=True)
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+
+def wall_when(dt):
+    """
+    When this went out, in words.
+
+    "Today" and "Yesterday" rather than a date, because they say the wall is
+    alive - a visitor seeing "Sent to a Yankees fan, today" understands that
+    people are using this right now, which a date never conveys. Anything
+    older falls back to the date, since "eleven days ago" is just arithmetic
+    somebody has to do.
+    """
+    if not dt:
+        return None
+    try:
+        from datetime import datetime, timezone as _tz, timedelta
+        now = datetime.now(_tz.utc)
+        # Rows written before timezone awareness landed have no tzinfo.
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=_tz.utc)
+        days = (now.date() - dt.date()).days
+        if days <= 0:
+            return "Today"
+        if days == 1:
+            return "Yesterday"
+        if days < 7:
+            return f"{days} days ago"
+        return dt.strftime("%d %B").lstrip("0")
+    except Exception:
+        return None
+
+
+def wall_headline(record, product):
+    """
+    Three or four words saying what this smack was about.
+
+    Somebody scrolling the wall needs to know what they are listening to
+    before they press play - "YANKEES LOST 9-2" tells you more in three words
+    than the smack itself does in thirty.
+
+    Built from whatever the record actually has. Locked & Loaded knows the
+    fixture and the result; a plain Smackagram only knows the team, so it
+    gets the shorter version rather than an invented scoreline.
+    """
+    def clean(v):
+        return (v or "").strip()
+
+    # Whose fan caught this. Locked & Loaded records the target explicitly;
+    # a standard smack only has the team that was being roasted, which comes
+    # to the same thing from the recipient's side.
+    team = (clean(getattr(record, "target_team", None))
+            or clean(getattr(record, "team", None)))
+    if not team:
+        return None
+
+    # "Yankees" -> "a Yankees fan". Reads as a person rather than a fixture,
+    # which is what the wall is actually about - somebody got a phone call.
+    return f"SENT TO A {team.upper()} FAN"
+
+
+def publish_to_wall(record, product, audio_url=None):
+    """
+    Put a smack on the wall as it is created.
+
+    Everything goes up. The generator already runs every message through
+    content_moderation before it is allowed to exist, so the wall inherits
+    that gate rather than adding a second one - and a wall that only fills
+    when somebody remembers to approve things is a wall that stays empty.
+
+    The audio is Smacky's GENERATED LINE, never a recording of the call.
+    Nothing is captured from the other end, so no second party is in the file
+    and there is nobody whose consent is missing - which is the whole reason
+    this can be automatic rather than opt-in.
+
+    Never raises. A wall post failing must not take down a call somebody has
+    already paid for.
+    """
+    try:
+        body = (getattr(record, "custom_message", None) or "").strip()
+        if not body:
+            return
+
+        user = None
+        try:
+            user = User.query.get(record.user_id) if record.user_id else None
+        except Exception:
+            pass
+
+        handle = (getattr(user, "screen_name", None) or "anonymous").strip()
+
+        db.session.add(WallPost(
+            user_id=getattr(record, "user_id", None),
+            handle=handle,
+            body=body,
+            product=product,
+            headline=wall_headline(record, product),
+            team=((getattr(record, "target_team", None)
+                   or getattr(record, "team", None) or "").strip() or None),
+            audio_url=audio_url,
+            approved=True,
+            is_sample=False,
+        ))
+        db.session.commit()
+        prune_wall()
+    except Exception as e:
+        print(f"[wall] could not publish: {e}", flush=True)
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
+
+@app.route("/api/smacks-today")
+def api_smacks_today():
+    """
+    How many smacks have gone out today.
+
+    Counts real calls across both tables - a paid Order and a fired
+    Smackagram are both a phone ringing.
+
+    Returns `show: false` below a floor. A banner flashing "3 SMACKS SENT
+    TODAY" is worse than no banner: it advertises that nobody is here. The
+    number appears on its own once there is one worth showing, with no code
+    change needed.
+    """
+    from datetime import datetime, timezone as _tz, timedelta
+
+    FLOOR = 15
+
+    try:
+        # Midnight Eastern, since that is the day everything else on the site
+        # is quoted in.
+        try:
+            from zoneinfo import ZoneInfo
+            now = datetime.now(ZoneInfo("America/New_York"))
+        except Exception:
+            now = datetime.now(_tz.utc)
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        orders = (Order.query
+                  .filter(Order.created_at >= start)
+                  .filter(Order.call_status.isnot(None))
+                  .count())
+        smackagrams = (Smackagram.query
+                       .filter(Smackagram.created_at >= start)
+                       .filter(Smackagram.status == "fired")
+                       .count())
+        total = orders + smackagrams
+    except Exception as e:
+        print(f"[counter] failed: {e}", flush=True)
+        return jsonify({"show": False, "count": 0})
+
+    return jsonify({"show": total >= FLOOR, "count": total})
+
+
+@app.route("/api/wall")
+def api_wall():
+    """
+    Smacks of the Week. Real approved posts first, topped up with samples
+    while there are not yet enough of them.
+    """
+    import random
+
+    rows = (WallPost.query
+            .filter_by(approved=True, is_sample=False)
+            .order_by(WallPost.id.desc())
+            .limit(WALL_KEEP).all())
+
+    items = [{
+        "handle": r.handle,
+        "body": r.body,
+        "product": r.product,
+        "headline": r.headline,
+        "team": r.team,
+        # The team's real brand colour, lightened where it would vanish
+        # against a dark card - several are close to black.
+        "team_color": chat_team_colors.readable_color_for_name(r.team),
+        "when": wall_when(r.created_at),
+        # Only ever served when the sender explicitly agreed. A post without
+        # consent still appears - it reads rather than plays.
+        # Smacky's generated line, not a recording of the call - nobody
+        # else's voice is in the file, so there is no consent to gather.
+        "audio_url": r.audio_url,
+        "sample": False,
+    } for r in rows]
+
+    if len(items) < 12:
+        pool = list(WALL_SAMPLES)
+        random.shuffle(pool)
+        for handle, product, body in pool[: 12 - len(items)]:
+            items.append({"handle": handle, "body": body, "product": product,
+                          "audio_url": None, "sample": True})
+
+    return jsonify({"count": len(items), "items": items})
+
+
 @app.route("/api/board/<league>")
 def api_board(league):
     """
@@ -3444,6 +3734,7 @@ def _execute_arm_smackagram(user, data: dict) -> dict:
         sensitivity=data.get("sensitivity", trash_talk_service.DEFAULT_SENSITIVITY),
         custom_message=data.get("custom_message") if mode == "custom" else None,
         voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
+        team=(data.get("team") or "").strip() or None,
         recipient_name=data["recipient_name"],
         recipient_phone=data["recipient_phone"],
         consent_confirmed=True,
@@ -4463,6 +4754,7 @@ with app.app_context():
             conn.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance_cents INTEGER DEFAULT 0 NOT NULL"))
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS user_id INTEGER"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id INTEGER"))
+            conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS team VARCHAR(80)"))
 
             # What makes a league THIS league. All optional - a commissioner
             # who fills in nothing still gets recaps, just more generic ones.
@@ -4506,6 +4798,22 @@ with app.app_context():
                 updated_at TIMESTAMP,
                 CONSTRAINT uq_weekly_note_sub_week
                     UNIQUE (subscription_id, week_number, season_year)
+            )"""))
+
+            # Smacks of the Week. Nothing appears until approved - it is the
+            # front page of a site that takes payments.
+            conn.execute(db.text("""CREATE TABLE IF NOT EXISTS wall_posts (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER,
+                handle VARCHAR(40) NOT NULL,
+                body TEXT NOT NULL,
+                product VARCHAR(20) DEFAULT 'smackagram',
+                team VARCHAR(80),
+                headline VARCHAR(80),
+                audio_url VARCHAR(500),
+                approved BOOLEAN DEFAULT FALSE NOT NULL,
+                is_sample BOOLEAN DEFAULT FALSE NOT NULL,
+                created_at TIMESTAMP
             )"""))
 
             conn.execute(db.text("""CREATE TABLE IF NOT EXISTS daily_shows (

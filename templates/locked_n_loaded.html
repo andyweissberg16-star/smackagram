@@ -587,6 +587,9 @@
 <div style="width:100%; overflow:hidden; line-height:0;">
 {% if not embed %}
   <picture class="hero-band">
+
+{% include '_smacks_today.html' %}
+
   <source type="image/webp" sizes="100vw"
           srcset="{{ url_for('static', filename='img/locked-hero-780.webp') }} 780w,
                   {{ url_for('static', filename='img/locked-hero-1560.webp') }} 1560w,
@@ -816,6 +819,8 @@
 </div>
 
 {% if not embed %}
+{% include '_smacks_of_the_week.html' %}
+
 <footer>
   <p>Games can only be locked in within 48 hours of kickoff. Holds not captured within 7 days are released automatically.</p>
   <p style="margin-top:12px;"><a href="/terms" style="color:var(--chalk-dim); text-decoration:none;">Terms</a> &middot; <a href="/contact" style="color:var(--chalk-dim); text-decoration:none;">Contact</a></p>

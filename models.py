@@ -5,6 +5,67 @@ from datetime import datetime, timezone
 db = SQLAlchemy()
 
 
+class WallPost(db.Model):
+    """
+    Smacks of the Week - the best lines people actually sent.
+
+    Deliberately NOT a review wall. A carousel of testimonials would have to
+    be real to be legal (the FTC rule on fake reviews carries penalties per
+    review, per person who saw it), and seeded testimonials on a site that
+    takes payments is exactly what that rule was written for.
+
+    A wall of funny smacks avoids all of that AND sells the product better:
+    somebody reading an actual line understands what they are buying in a way
+    that "great site, five stars" never achieves.
+
+    Everything here is moderated before it appears. It is the front page.
+    """
+    __tablename__ = "wall_posts"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    handle = db.Column(db.String(40), nullable=False)     # username, never a real name
+    body = db.Column(db.Text, nullable=False)
+    # Which product it came from, so the wall doubles as a menu - somebody
+    # reading a Locked & Loaded line learns that product exists.
+    product = db.Column(db.String(20), default="smackagram")   # smackagram | smackback | locked
+
+    # The GENERATED SMACK audio - Smacky's line as it was delivered. Never a
+    # recording of the call.
+    #
+    # That distinction is the whole legal position, and it is why no opt-in
+    # is needed. Recording a live call captures the recipient's voice, and
+    # Florida - where this company is registered - is one of twelve states
+    # requiring every party to consent to a recording. PrankDial deals with
+    # that by warning users away from those states and pushing the liability
+    # onto the sender.
+    #
+    # Smackagram never records anything. The call is generated audio played
+    # AT somebody and nothing comes back, so there is no second party in the
+    # file and nobody whose consent is missing.
+    #
+    # The control here is `approved` - nothing reaches the wall until it has
+    # been looked at, which is the right gate for a front page anyway.
+    # One short line saying what this was about, so somebody scrolling knows
+    # what they are listening to before they press play. "YANKEES LOST 9-2"
+    # tells you more in three words than the smack itself does in thirty.
+    # Kept so the team's brand colour can be looked up when the card renders,
+    # rather than parsing it back out of the headline text.
+    team = db.Column(db.String(80), nullable=True)
+    headline = db.Column(db.String(80), nullable=True)
+
+    audio_url = db.Column(db.String(500), nullable=True)
+
+    # Nothing appears until somebody has looked at it.
+    approved = db.Column(db.Boolean, default=False, nullable=False)
+    # Marks the seeded examples, so they can be told apart from real posts
+    # and labelled honestly on the page.
+    is_sample = db.Column(db.Boolean, default=False, nullable=False)
+
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class Scenario(db.Model):
     """A pre-recorded or scripted prank scenario in the library."""
     __tablename__ = "scenarios"
@@ -81,6 +142,10 @@ class Order(db.Model):
     scenario_id = db.Column(db.Integer, db.ForeignKey("scenarios.id"))
     custom_message = db.Column(db.Text, nullable=True)   # if using "write your own"
     voice_key = db.Column(db.String(40), default="default")  # which ElevenLabs voice to use
+    # The team being roasted. The form already sends it but it was never
+    # stored, which meant a smack had no way of saying what it was about once
+    # it existed - and the wall needs exactly that.
+    team = db.Column(db.String(80), nullable=True)
     recipient_name = db.Column(db.String(120))
     recipient_phone = db.Column(db.String(20))
     consent_confirmed = db.Column(db.Boolean, default=False)

@@ -145,6 +145,9 @@
 <img src="{{ url_for('static', filename='img/did-you-get-smacked-hero.png') }}" class="hero-band" alt="Did You Get Smacked? — check your Smack Inbox"
      style="width:100%; height:auto; display:block;">
 
+{% include '_smacks_today.html' %}
+
+
 <div class="wrap">
   <div class="hero">
     <h1>Smack <span>Inbox</span></h1>
@@ -161,6 +164,8 @@
     <!-- filled in by JS -->
   </div>
 </div>
+
+{% include '_smacks_of_the_week.html' %}
 
 <footer>
   <a href="/terms">Terms</a> &middot; <a href="/contact">Contact</a>
