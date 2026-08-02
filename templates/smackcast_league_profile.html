@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tell Smacky about your league — Smackagram</title>
+<title>Your League — Smackcast</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
@@ -13,6 +13,14 @@
     --punch:#E01B24; --silver:#C3CAD3; --hairline:#2A2D32;
     --line:rgba(245,245,243,0.10); --radius:8px;
   }
+  /* This page had no body rule at all, so text fell back to black on a
+     dark background and most of it was unreadable. Every other page sets
+     its own. */
+  body{
+    background:var(--ink); color:var(--chalk); margin:0;
+    font-family:'Inter',sans-serif; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
   .wrap{max-width:720px; margin:0 auto; padding:0 24px 90px;}
 
   .hd{margin:38px 0 8px;}
@@ -21,6 +29,8 @@
   .hd h1{font-family:'Anton',sans-serif; font-size:44px; line-height:0.94; margin:0 0 14px;
     color:var(--chalk); text-transform:uppercase;}
   .hd h1 span{color:var(--punch);}
+  .hd .tagline{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:2px;
+    text-transform:uppercase; color:var(--punch); margin:0 0 15px;}
   .hd p{color:var(--silver); font-size:15px; line-height:1.65; margin:0; max-width:560px;}
 
   .why{background:var(--surface); border:1px solid var(--hairline); border-left:3px solid var(--punch);
@@ -39,7 +49,18 @@
   input[type=text], textarea, select{
     width:100%; background:#0A0A0C; border:1px solid var(--hairline); border-radius:6px;
     color:var(--chalk); font-family:'Inter',sans-serif; font-size:14px; padding:11px 13px;
+    -webkit-appearance:none; appearance:none;
   }
+  /* A select keeps the system's light styling on some browsers unless the
+     option elements are coloured too - otherwise the closed control is dark
+     and the open list is white. */
+  select{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239A9A96' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 13px center;
+    padding-right:34px; cursor:pointer;
+  }
+  select option{background:#0A0A0C; color:var(--chalk);}
+  ::placeholder{color:#5A5E64;}
   textarea{min-height:82px; resize:vertical; line-height:1.55;}
   input:focus, textarea:focus, select:focus{
     outline:none; border-color:var(--punch); box-shadow:0 0 0 3px rgba(224,27,36,0.15);
@@ -69,19 +90,45 @@
 
 {% include '_nav.html' %}
 
+{% if preview %}
+<div style="background:#3A2A00; border-bottom:1px solid #7A5A00; color:#FFD400;
+            padding:9px 24px; font-family:'JetBrains Mono',monospace;
+            font-size:10.5px; letter-spacing:1.4px; text-align:center;">
+  ADMIN PREVIEW &middot; NO SUBSCRIPTION ON THIS ACCOUNT &middot; NOTHING WILL SAVE
+</div>
+{% endif %}
+
 <div class="wrap">
 
   <header class="hd">
     <p class="strip">SMACKCAST</p>
-    <h1>Tell Smacky<br><span>about your league.</span></h1>
-    <p>Every league gets the scores. Only yours gets the guy who has finished
-       last four years running and still talks the most.</p>
+    <h1>Your<br><span>League</span></h1>
+    <p class="tagline">Make the recap yours.</p>
+    <p>Smacky can already see your scores. What he cannot see is who any of
+       you actually are &mdash; and that is the difference between a recap
+       that could belong to any league in the country and one that could
+       only belong to yours.</p>
   </header>
 
   <div class="why">
-    <p><b>All of it is optional.</b> Leave the whole thing blank and you still
-       get your recap every week — it will just sound like anyone's. Fill in a
-       few and Smacky has something nobody else does.</p>
+    <p><b>Smacky sees the scores. He does not see the history.</b> He does not
+       know these two have been beating each other since 2016, that the man
+       who just lost has never won anything, or that the commissioner is the
+       one who set the rules he just fell foul of.</p>
+    <p style="margin-top:11px;">Grudges, near-misses, the trade nobody has
+       forgiven, who has been talking the loudest for the longest &mdash;
+       that is where the good stuff is, and none of it shows up in a box
+       score.</p>
+    <p style="margin-top:11px;"><b>All optional.</b> Three fields helps. All of
+       them and he sounds like he has been in your league for years.</p>
+    <p style="margin-top:13px; padding-top:12px; border-top:1px solid rgba(245,245,243,0.10);">
+       <b>Come back and change this whenever you like.</b> Recaps are written
+       every Tuesday, so anything saved by <b style="color:#E01B24;">11:59pm
+       Monday</b> is in that week's episode. After midnight it waits for the
+       following one.</p>
+    <p style="margin-top:11px; color:#9A9A96; font-size:12.5px;">He roasts the
+       fantasy, never the person &mdash; and he invents nothing. If you did
+       not write it here, he does not know it.</p>
   </div>
 
   {% if saved %}<p class="saved">Saved. Smacky will use this from the next recap on.</p>{% endif %}
@@ -109,38 +156,42 @@
           <label for="age">How long has it been running?</label>
           <select id="age" name="league_age">
             <option value="">Rather not say</option>
-            {% for v in ["First season", "A couple of years", "Five years or so",
-                         "Ten years plus", "Longer than anyone remembers"] %}
+            {# Year by year rather than vague bands. "Eight years" is a thing
+                 Smacky can actually use; "a while" is not. #}
+            {% for v in ["First season", "2 years", "3 years", "4 years",
+                         "5 years", "6 years", "7 years", "8 years",
+                         "9 years", "10+ years"] %}
               <option value="{{ v }}" {% if sub.league_age == v %}selected{% endif %}>{{ v }}</option>
             {% endfor %}
           </select>
         </div>
 
         <div class="fld">
-          <label for="buyin">Is there money in it?</label>
-          <select id="buyin" name="buy_in">
-            <option value="">Rather not say</option>
-            {% for v in ["No money, just pride", "Small buy-in, under $50",
-                         "Proper money, $50-$200", "Serious money, $200+",
-                         "Enough that people have fallen out over it"] %}
-              <option value="{{ v }}" {% if sub.buy_in == v %}selected{% endif %}>{{ v }}</option>
-            {% endfor %}
-          </select>
+          <label for="buyin">What's the buy-in?
+            <span class="hint">A real number is worth far more than "some money" &mdash;
+            losing $200 on a man who was on a bye is a joke, losing "a bit" isn't</span></label>
+          <input type="text" id="buyin" name="buy_in" maxlength="60"
+                 value="{{ sub.buy_in or '' }}"
+                 placeholder="ex - $50 each, or nothing but pride">
         </div>
       </div>
 
       <div class="fld">
-        <label for="trophy">What does the winner get?
-          <span class="hint">A trophy, a belt, a title, bragging rights, cash</span></label>
+        <label for="trophy">What does the league champion get at the end of the season?
+          <span class="hint">A trophy, a belt, a title, the pot, bragging rights &mdash;
+          whatever they are actually playing for all year</span></label>
         <input type="text" id="trophy" name="trophy" maxlength="200"
                value="{{ sub.trophy or '' }}" placeholder="ex - a hideous gold cup that gets engraved every year">
       </div>
 
       <div class="fld">
-        <label for="punish">What happens to last place?
-          <span class="hint">Usually the funniest thing about a league</span></label>
+        <label for="punish">Is there a punishment for finishing last?
+          <span class="hint">At the end of the season, does the person who
+          comes bottom of the league have to actually do something? Plenty of
+          leagues have one and it is usually the funniest thing about
+          them.</span></label>
         <textarea id="punish" name="last_place_punishment" maxlength="600"
-                  placeholder="ex - has to get a tattoo the winner picks">{{ sub.last_place_punishment or '' }}</textarea>
+                  placeholder="ex - has to get a tattoo the winner picks. Or: wears a dress to the next draft. Or: no punishment, we're not animals.">{{ sub.last_place_punishment or '' }}</textarea>
       </div>
     </fieldset>
 
@@ -155,11 +206,24 @@
           <input type="text" id="commish" name="commissioner_name" maxlength="80" value="{{ sub.commissioner_name or '' }}">
         </div>
         <div class="fld">
-          <label for="winner">Who wins constantly?</label>
+          <label for="champ">Who won it last season?
+            <span class="hint">If they're still in the league</span></label>
+          <input type="text" id="champ" name="reigning_champion" maxlength="80" value="{{ sub.reigning_champion or '' }}">
+        </div>
+        <div class="fld">
+          <label for="runner">Who came second?
+            <span class="hint">If they're still in the league</span></label>
+          <input type="text" id="runner" name="runner_up" maxlength="80" value="{{ sub.runner_up or '' }}">
+        </div>
+        <div class="fld">
+          <label for="winner">Who wins constantly?
+            <span class="hint">Across the years, not just last season &mdash;
+            if they're still in the league</span></label>
           <input type="text" id="winner" name="perennial_winner" maxlength="80" value="{{ sub.perennial_winner or '' }}">
         </div>
         <div class="fld">
-          <label for="loser">Who has never won?</label>
+          <label for="loser">Who has never won?
+            <span class="hint">If they're still in the league</span></label>
           <input type="text" id="loser" name="perennial_loser" maxlength="80" value="{{ sub.perennial_loser or '' }}">
         </div>
         <div class="fld">
@@ -171,6 +235,32 @@
       <div class="fld">
         <label for="absent">Who barely pays attention but keeps paying?</label>
         <input type="text" id="absent" name="most_absent" maxlength="80" value="{{ sub.most_absent or '' }}">
+      </div>
+
+      <div class="two">
+        <div class="fld">
+          <label for="newest">Who's new this season?
+            <span class="hint">First-year members are fair game</span></label>
+          <input type="text" id="newest" name="newest_member" maxlength="80" value="{{ sub.newest_member or '' }}">
+        </div>
+        <div class="fld">
+          <label for="lineups">Who's worst at setting lineups?
+            <span class="hint">The one who leaves points on the bench every week</span></label>
+          <input type="text" id="lineups" name="worst_at_lineups" maxlength="80" value="{{ sub.worst_at_lineups or '' }}">
+        </div>
+      </div>
+
+      <div class="fld">
+        <label for="chat">Is there a league group chat?
+          <span class="hint">Where the arguing actually happens</span></label>
+        <select id="chat" name="group_chat">
+          <option value="">Rather not say</option>
+          {% for v in ["Yes - WhatsApp", "Yes - iMessage / group text", "Yes - Discord",
+                       "Yes - Slack", "Yes - GroupMe", "Yes - Facebook Messenger",
+                       "Yes - somewhere else", "No group chat"] %}
+            <option value="{{ v }}" {% if sub.group_chat == v %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
       </div>
     </fieldset>
 
@@ -192,10 +282,22 @@
       </div>
 
       <div class="fld">
-        <label for="else">Anything else Smacky should know?</label>
-        <textarea id="else" name="anything_else" maxlength="800">{{ sub.anything_else or '' }}</textarea>
+        <label for="else">Describe your league in your own words
+          <span class="hint">The most useful box on this page. Write it the way
+          you'd explain the league to somebody who has never met any of you &mdash;
+          who's in it, what it's like, what makes it yours. A paragraph beats
+          a list, and anything you'd tell a friend about it is worth saying
+          here.</span></label>
+        <textarea id="else" name="anything_else" maxlength="1200" style="min-height:130px;"
+                  placeholder="ex - Twelve of us, mostly from a job half of us have left. It's been going since 2016 and the same two people have won it every year. Dave has finished last three seasons running and has never once shut up about being unlucky. The trophy is a bowling trophy someone found in a charity shop.">{{ sub.anything_else or '' }}</textarea>
       </div>
     </fieldset>
+
+    <p style="font-family:'JetBrains Mono',monospace; font-size:10px;
+              letter-spacing:1.4px; color:var(--chalk-dim); text-align:center;
+              margin:26px 0 0;">
+      SAVED BY 11:59PM MONDAY &middot; IN TUESDAY'S RECAP
+    </p>
 
     <div class="save">
       <button type="submit" class="btn">Save it</button>

@@ -13,6 +13,7 @@ from sqlalchemy import func
 import requests
 from dotenv import load_dotenv
 
+from models import SmackcastWeeklyNote
 from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode
 from services import news_service, show_service, admin_service, settings_service, show_service
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service, revenge_service
@@ -3829,6 +3830,124 @@ def smackcast_download_recap(recap_id):
     )
 
 
+# Fields the commissioner can set. Listed explicitly rather than looping
+# over the form, so a renamed input can never write to a column nobody
+# intended - the model has payment and platform fields on the same table.
+_LEAGUE_PROFILE_FIELDS = (
+    "how_they_know_each_other", "newest_member", "worst_at_lineups",
+    "buy_in", "trophy",
+    "last_place_punishment", "league_age", "commissioner_name",
+    "reigning_champion", "runner_up", "group_chat",
+    "perennial_winner", "perennial_loser", "biggest_talker", "most_absent",
+    "running_jokes", "rivalries", "anything_else",
+)
+
+
+_WEEKLY_NOTE_FIELDS = ("big_trade", "brutal_loss", "loudest_in_chat", "anything_else")
+
+
+@app.route("/smackcast/this-week", methods=["GET", "POST"])
+@login_required
+def smackcast_weekly_note():
+    """
+    What happened in the league this week.
+
+    The week is worked out from the clock, not chosen - anything saved
+    before 11:59pm Monday belongs to the week just finished, anything after
+    midnight belongs to the next one. The page says which, so nobody has to
+    guess.
+    """
+    from services.smackcast_service import current_notes_week
+
+    user = get_current_user()
+    sub = (SmackcastSubscription.query
+           .filter_by(user_id=user.id)
+           .order_by(SmackcastSubscription.id.desc())
+           .first())
+
+    # An admin with no subscription of their own still needs to see this
+    # page - otherwise the only way to check the design is to create a fake
+    # league, which then sits in the database forever. Preview mode hands
+    # over an unsaved object: the page renders exactly as a subscriber sees
+    # it, and saving is refused rather than writing junk.
+    preview = False
+    if not sub:
+        if user.is_admin:
+            preview = True
+            sub = SmackcastSubscription(league_name="Preview League")
+        else:
+            return redirect("/smackcast")
+
+    week, season_year, closes = current_notes_week()
+
+    note = None if preview else SmackcastWeeklyNote.query.filter_by(
+        subscription_id=sub.id, week_number=week, season_year=season_year).first()
+
+    saved = False
+    if request.method == "POST" and not preview:
+        if not note:
+            note = SmackcastWeeklyNote(subscription_id=sub.id,
+                                       week_number=week, season_year=season_year)
+            db.session.add(note)
+        for field in _WEEKLY_NOTE_FIELDS:
+            value = (request.form.get(field) or "").strip()
+            setattr(note, field, value or None)
+        db.session.commit()
+        saved = True
+
+    # Earlier weeks, so somebody can see what they have already told him.
+    past = [] if preview else (SmackcastWeeklyNote.query
+            .filter_by(subscription_id=sub.id, season_year=season_year)
+            .filter(SmackcastWeeklyNote.week_number != week)
+            .order_by(SmackcastWeeklyNote.week_number.desc())
+            .limit(6).all())
+
+    return render_template("smackcast_weekly_note.html",
+                           sub=sub, note=note, week=week, closes=closes,
+                           past=[p for p in past if p.has_content()],
+                           saved=saved, preview=preview)
+
+
+@app.route("/smackcast/league-profile", methods=["GET", "POST"])
+@login_required
+def smackcast_league_profile():
+    """
+    What makes one league different from every other league.
+
+    Commissioner only - specifically, whoever owns the subscription. Letting
+    any member write details about other members would be a harassment
+    vector wearing a feature's clothes, and whatever gets written comes back
+    out in Smacky's voice, which makes it ours.
+    """
+    user = get_current_user()
+    sub = (SmackcastSubscription.query
+           .filter_by(user_id=user.id)
+           .order_by(SmackcastSubscription.id.desc())
+           .first())
+
+    # Same preview allowance as the weekly page - an admin with no league of
+    # their own can still see how it renders, and saving is refused so no
+    # placeholder subscription ends up in the database.
+    preview = False
+    if not sub:
+        if user.is_admin:
+            preview = True
+            sub = SmackcastSubscription(league_name="Preview League")
+        else:
+            return redirect("/smackcast")
+
+    saved = False
+    if request.method == "POST" and not preview:
+        for field in _LEAGUE_PROFILE_FIELDS:
+            value = (request.form.get(field) or "").strip()
+            setattr(sub, field, value or None)
+        db.session.commit()
+        saved = True
+
+    return render_template("smackcast_league_profile.html",
+                           sub=sub, saved=saved, preview=preview)
+
+
 @app.route("/smackcast/library")
 @login_required
 def smackcast_library_page():
@@ -4270,6 +4389,51 @@ with app.app_context():
             conn.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance_cents INTEGER DEFAULT 0 NOT NULL"))
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS user_id INTEGER"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id INTEGER"))
+
+            # What makes a league THIS league. All optional - a commissioner
+            # who fills in nothing still gets recaps, just more generic ones.
+            for _col, _type in [
+                ("how_they_know_each_other", "VARCHAR(40)"),
+                ("newest_member", "VARCHAR(80)"),
+                ("worst_at_lineups", "VARCHAR(80)"),
+                ("buy_in", "VARCHAR(60)"),
+                ("trophy", "VARCHAR(200)"),
+                ("last_place_punishment", "TEXT"),
+                ("league_age", "VARCHAR(40)"),
+                ("commissioner_name", "VARCHAR(80)"),
+                ("reigning_champion", "VARCHAR(80)"),
+                ("runner_up", "VARCHAR(80)"),
+                ("group_chat", "VARCHAR(60)"),
+                ("perennial_winner", "VARCHAR(80)"),
+                ("perennial_loser", "VARCHAR(80)"),
+                ("biggest_talker", "VARCHAR(80)"),
+                ("most_absent", "VARCHAR(80)"),
+                ("running_jokes", "TEXT"),
+                ("rivalries", "TEXT"),
+                ("anything_else", "TEXT"),
+            ]:
+                conn.execute(db.text(
+                    f"ALTER TABLE smackcast_subscriptions "
+                    f"ADD COLUMN IF NOT EXISTS {_col} {_type}"))
+            # What happened in the league each week. Separate from the
+            # season-long profile because a note has to belong to a specific
+            # week - otherwise nothing can tell whether it was meant for the
+            # recap being written tomorrow or the one after.
+            conn.execute(db.text("""CREATE TABLE IF NOT EXISTS smackcast_weekly_notes (
+                id SERIAL PRIMARY KEY,
+                subscription_id INTEGER NOT NULL,
+                week_number INTEGER NOT NULL,
+                season_year INTEGER NOT NULL,
+                big_trade TEXT,
+                brutal_loss TEXT,
+                loudest_in_chat TEXT,
+                anything_else TEXT,
+                created_at TIMESTAMP,
+                updated_at TIMESTAMP,
+                CONSTRAINT uq_weekly_note_sub_week
+                    UNIQUE (subscription_id, week_number, season_year)
+            )"""))
+
             conn.execute(db.text("""CREATE TABLE IF NOT EXISTS daily_shows (
                 id SERIAL PRIMARY KEY,
                 audio_url VARCHAR(500) NOT NULL,

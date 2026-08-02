@@ -1,6 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timezone
 
 db = SQLAlchemy()
 
@@ -651,6 +651,52 @@ class SmackcastSubscription(db.Model):
     sport = db.Column(db.String(10), nullable=False, default="nfl")  # "nfl", "nba", "mlb" - mlb is ESPN-only, Sleeper has no baseball leagues
     league_id = db.Column(db.String(100), nullable=False)
     league_name = db.Column(db.String(200), nullable=True)  # fetched from the platform once connected
+
+    # --- what makes this league THIS league -------------------------------
+    #
+    # A box score is the same everywhere. "You lost by forty" is a joke that
+    # works in every league in the country, which is another way of saying
+    # it works in none of them. "You lost by forty to the guy who sits two
+    # desks away" only works in one - and that is the one people screenshot.
+    #
+    # All optional. A commissioner who fills in nothing still gets a recap;
+    # they just get a more generic one.
+    #
+    # Written by the COMMISSIONER only. Letting any member add details about
+    # other members is a harassment vector wearing a feature's clothes - and
+    # whatever gets written arrives in Smacky's voice, which makes it ours.
+    how_they_know_each_other = db.Column(db.String(40), nullable=True)
+    # Who arrived this season. A first-year member is a target from week one,
+    # and it changes every year, which keeps the profile from going stale.
+    newest_member = db.Column(db.String(80), nullable=True)
+    # Different from never winning - this is the person who leaves points on
+    # the bench every week, which is a recurring joke rather than a
+    # season-long one.
+    worst_at_lineups = db.Column(db.String(80), nullable=True)
+    buy_in = db.Column(db.String(60), nullable=True)      # free, small, serious
+    trophy = db.Column(db.String(200), nullable=True)
+    last_place_punishment = db.Column(db.Text, nullable=True)
+    league_age = db.Column(db.String(40), nullable=True)
+
+    # People. Names only, no accusations - the prompt turns these into
+    # affectionate needling about FANTASY, never about the person.
+    commissioner_name = db.Column(db.String(80), nullable=True)
+    # Last season specifically, as opposed to "wins constantly" - a reigning
+    # champion is a target in a way a historical one is not.
+    reigning_champion = db.Column(db.String(80), nullable=True)
+    runner_up = db.Column(db.String(80), nullable=True)
+    perennial_winner = db.Column(db.String(80), nullable=True)
+    perennial_loser = db.Column(db.String(80), nullable=True)
+    biggest_talker = db.Column(db.String(80), nullable=True)
+    most_absent = db.Column(db.String(80), nullable=True)
+
+    # Where they all talk. "The group chat is going to be unbearable tonight"
+    # only works if Smacky knows there is one.
+    group_chat = db.Column(db.String(60), nullable=True)
+
+    running_jokes = db.Column(db.Text, nullable=True)
+    rivalries = db.Column(db.Text, nullable=True)
+    anything_else = db.Column(db.Text, nullable=True)
     team_count = db.Column(db.Integer, nullable=True)  # drives recap length scaling
     season_year = db.Column(db.Integer, nullable=False)
 
@@ -724,6 +770,54 @@ class SmackcastPurchase(db.Model):
     @property
     def slots_remaining(self):
         return max(0, (self.league_slots or 0) - self.slots_used)
+
+
+class SmackcastWeeklyNote(db.Model):
+    """
+    What happened in the league THIS week.
+
+    Kept apart from the profile deliberately. The profile is season-long and
+    gets overwritten - who the commissioner is, what the punishment is. These
+    are dated, and that is the whole point: a note has to belong to a
+    specific week or the system cannot tell whether "Dave made a terrible
+    trade" was meant for the recap being written tomorrow or the one after.
+
+    The week is stamped when the note is SAVED, from whatever week is
+    currently open for collection. Monday 11:58pm goes into tomorrow's
+    episode; Tuesday 12:01am waits for the following one. The stamp decides,
+    never the timing of the job.
+
+    Nothing is deleted at the end of a week. Old notes are what let Smacky
+    say "three weeks ago somebody told me Dave made a terrible trade, and
+    Dave has now lost four in a row" - which is worth more than any single
+    week's material.
+    """
+    __tablename__ = "smackcast_weekly_notes"
+
+    id = db.Column(db.Integer, primary_key=True)
+    subscription_id = db.Column(db.Integer, db.ForeignKey("smackcast_subscriptions.id"), nullable=False)
+    week_number = db.Column(db.Integer, nullable=False)
+    season_year = db.Column(db.Integer, nullable=False)
+
+    big_trade = db.Column(db.Text, nullable=True)
+    brutal_loss = db.Column(db.Text, nullable=True)
+    loudest_in_chat = db.Column(db.Text, nullable=True)
+    anything_else = db.Column(db.Text, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc))
+
+    # One note per subscription per week - saving again edits the same row
+    # rather than stacking up duplicates.
+    __table_args__ = (
+        db.UniqueConstraint("subscription_id", "week_number", "season_year",
+                            name="uq_weekly_note_sub_week"),
+    )
+
+    def has_content(self):
+        return any([self.big_trade, self.brutal_loss,
+                    self.loudest_in_chat, self.anything_else])
 
 
 class SmackcastRecap(db.Model):

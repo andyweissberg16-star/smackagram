@@ -73,7 +73,159 @@ _REACTION_TYPES = ("boo", "laugh", "cheer", "gasp", "trombone", "flourish",
                    "aww", "crickets", "boom", "ring", "none")
 
 
-def generate_weekly_recap_script(league_name: str, week: int, matchups: list, team_count: int, sport: str = "nfl") -> dict:
+def league_colour(sub) -> str:
+    """
+    Everything that makes one league different from every other league.
+
+    A box score is identical everywhere. "You lost by forty" is a joke that
+    works in every league in the country, which is another way of saying it
+    lands in none of them. "You lost by forty to the man who sits two desks
+    away" only works in one - and that is the one somebody screenshots.
+
+    All fields optional. A commissioner who filled in nothing gets a normal
+    recap; there is simply less to work with.
+    """
+    if sub is None:
+        return ""
+
+    def g(attr):
+        v = getattr(sub, attr, None)
+        return v.strip() if isinstance(v, str) and v.strip() else None
+
+    bits = []
+
+    known = g("how_they_know_each_other")
+    if known:
+        bits.append(f"How they know each other: {known}")
+    age = g("league_age")
+    if age:
+        bits.append(f"The league has been running: {age}")
+
+    buy_in = g("buy_in")
+    if buy_in:
+        bits.append(f"Buy-in: {buy_in}")
+
+    trophy = g("trophy")
+    if trophy:
+        bits.append(f"The trophy: {trophy}")
+    punishment = g("last_place_punishment")
+    if punishment:
+        bits.append(f"What last place has to do: {punishment}")
+
+    for attr, label in [
+        ("commissioner_name", "Commissioner"),
+        ("reigning_champion", "Won it last season"),
+        ("runner_up", "Came second last season"),
+        ("perennial_winner", "Wins constantly"),
+        ("perennial_loser", "Has never won"),
+        ("biggest_talker", "Talks the most"),
+        ("most_absent", "Barely pays attention"),
+        ("newest_member", "New this season"),
+        ("worst_at_lineups", "Always leaves points on the bench"),
+    ]:
+        v = g(attr)
+        if v:
+            bits.append(f"{label}: {v}")
+
+    chat = g("group_chat")
+    if chat:
+        bits.append(f"They all talk in a group chat on: {chat}")
+
+    for attr, label in [("running_jokes", "Running jokes"),
+                        ("rivalries", "Rivalries"),
+                        ("anything_else", "Other")]:
+        v = g(attr)
+        if v:
+            bits.append(f"{label}: {v}")
+
+    if not bits:
+        return ""
+
+    return (
+        "\n\nWHAT MAKES THIS LEAGUE THIS LEAGUE\n\n  "
+        + "\n  ".join(bits)
+        + "\n\n"
+        "  USE THIS. It is the entire difference between a recap that could "
+        "belong to anybody and one that could only belong to them. Work at "
+        "least two of these details in.\n\n"
+        "  BUT AIM IT AT THE FANTASY, NOT THE PERSON. These are real people "
+        "and a commissioner wrote this about their friends. 'Kyle started a "
+        "man on bye, and Kyle is the commissioner' is the joke. Anything "
+        "about how Kyle looks, what Kyle earns, or Kyle's marriage is not, "
+        "however it was phrased in the form.\n\n"
+        "  INVENT NOTHING. If it is not written above, it did not happen. "
+        "You do not know that the trophy is ugly unless somebody said so, "
+        "and a detail you made up about a real person is the one thing here "
+        "that could genuinely upset somebody.\n\n"
+        "  THE REIGNING CHAMPION IS THE BEST TARGET IN THE LEAGUE. Last "
+        "season's winner losing this week is worth more than anybody else "
+        "losing, and the runner-up is the person most likely to enjoy it. "
+        "If either shows up in the results, lead with them.\n\n"
+        "  MONEY CHANGES THE TONE. A free league is a laugh. A league with "
+        "real money in it means the man who lost on a bad start actually "
+        "minds, and that is funnier - lean into what it cost him.\n"
+    )
+
+
+def weekly_notes_block(note, past_notes=None) -> str:
+    """
+    What the commissioner said happened this week, plus older weeks for
+    callbacks.
+
+    This is the material a box score cannot give you. A score says somebody
+    lost; a note says he lost by half a point to a man who started a player
+    on a bye, and that is the difference between a recap and a roast.
+    """
+    lines = []
+
+    if note is not None:
+        for attr, label in [
+            ("big_trade", "A trade people are still talking about"),
+            ("brutal_loss", "A loss somebody has not recovered from"),
+            ("loudest_in_chat", "Loudest in the group chat"),
+            ("anything_else", "Also"),
+        ]:
+            v = getattr(note, attr, None)
+            if v and v.strip():
+                lines.append(f"{label}: {v.strip()}")
+
+    older = []
+    for p in (past_notes or []):
+        bits = [getattr(p, a, None) for a in
+                ("big_trade", "brutal_loss", "loudest_in_chat", "anything_else")]
+        bits = [b.strip() for b in bits if b and b.strip()]
+        if bits:
+            older.append(f"Week {p.week_number}: " + " / ".join(bits))
+
+    if not lines and not older:
+        return ""
+
+    out = "\n\nWHAT ACTUALLY HAPPENED THIS WEEK\n\n"
+    if lines:
+        out += "  " + "\n  ".join(lines) + "\n\n"
+    else:
+        out += "  Nothing was submitted for this week.\n\n"
+
+    if older:
+        out += "  EARLIER IN THE SEASON\n  " + "\n  ".join(older[:6]) + "\n\n"
+        out += (
+            "  Those older weeks are for CALLBACKS. 'Three weeks ago somebody "
+            "told me Dave made a terrible trade, and Dave has now lost four in "
+            "a row' is the single best thing you can do with them - it makes "
+            "the show sound like it has been paying attention all season, "
+            "which nothing else achieves.\n\n")
+
+    out += (
+        "  LEAD WITH THIS WEEK'S ITEMS where they fit the results. Somebody "
+        "took the trouble to write them down, which means they matter to the "
+        "league far more than any scoreline does.\n\n"
+        "  Same rules as everything else: aim at the FANTASY, invent nothing, "
+        "and if it was not written above it did not happen.\n"
+    )
+    return out
+
+
+def generate_weekly_recap_script(league_name: str, week: int, matchups: list, team_count: int, sport: str = "nfl", subscription=None, note=None, past_notes=None) -> dict:
     """
     matchups: list of {team_a, team_a_score, team_b, team_b_score}
     Returns {"intro": str, "segments": [{"text": str, "reaction": str}],
@@ -237,8 +389,10 @@ Respond with ONLY a JSON object, nothing else:
     user_content = (
         f"League: {league_name}\n"
         f"Week: {week}\n\n"
-        f"This week's matchups:\n{matchups_block}\n\n"
-        f"Write the recap."
+        f"This week's matchups:\n{matchups_block}\n"
+        + league_colour(subscription)
+        + weekly_notes_block(note, past_notes)
+        + f"\nWrite the recap."
     )
 
     last_error = None
@@ -1459,3 +1613,73 @@ def maybe_ambient(spoken, standardize):
 
     print(f"[audio] ambient bed: {kind}", flush=True)
     return spoken.overlay(bed)
+
+
+# ---------------------------------------------------------------------------
+# Which week are we collecting for?
+# ---------------------------------------------------------------------------
+# Notes are stamped when they are SAVED, not when the recap runs. A note at
+# 11:58pm Monday belongs to the week that just finished and goes into
+# tomorrow's episode; a note at 12:01am Tuesday belongs to the week now
+# starting and waits seven days.
+#
+# Everything is Eastern, because the deadline is stated to subscribers as
+# 11:59pm Monday and a deadline that means different things in different
+# places is not a deadline.
+
+NOTES_DEADLINE_WEEKDAY = 0     # Monday, in Python's Monday=0 numbering
+SEASON_TZ = "America/New_York"
+
+
+def _eastern_now():
+    """Now, in the timezone the deadline is quoted in."""
+    from datetime import datetime, timezone as _tz
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo(SEASON_TZ))
+    except Exception:
+        # Falls back to UTC rather than failing. The window shifts by a few
+        # hours, which is wrong but survivable; raising here would take the
+        # page down.
+        return datetime.now(_tz.utc)
+
+
+def current_notes_week(season_start=None, now=None):
+    """
+    The week notes are currently being collected for, and when it closes.
+
+    Returns (week_number, season_year, closes_at). The week rolls at
+    midnight Eastern on Tuesday - the moment the Monday deadline passes.
+
+    season_start is the date of the season's first game week. Without one
+    the week number is derived from the NFL's usual early-September start,
+    which is right for the overwhelming majority of leagues and adjustable
+    per subscription later.
+    """
+    from datetime import datetime, timedelta, date
+
+    now = now or _eastern_now()
+    today = now.date()
+
+    # The most recent Tuesday midnight. Anything after it belongs to the new
+    # week; anything before belongs to the week that is still open.
+    days_since_tue = (today.weekday() - 1) % 7
+    week_opened = today - timedelta(days=days_since_tue)
+
+    # Closes at the end of the following Monday.
+    closes = datetime.combine(week_opened + timedelta(days=6),
+                              datetime.max.time())
+
+    if season_start is None:
+        # First Tuesday on or after 1 September - close enough to the NFL's
+        # opening week for a default, and overridable per league later.
+        sep = date(today.year if today.month >= 3 else today.year - 1, 9, 1)
+        season_start = sep + timedelta(days=(1 - sep.weekday()) % 7)
+
+    week = ((week_opened - season_start).days // 7) + 1
+    season_year = season_start.year
+
+    # Before the season opens the counter would go negative or zero.
+    week = max(1, week)
+
+    return week, season_year, closes
