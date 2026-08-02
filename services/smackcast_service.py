@@ -934,9 +934,18 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
     _parts = []
 
     def _flush(audio):
-        """Write a finished piece to disk and release it."""
+        """
+        Write a finished piece to disk and release it.
+
+        Every piece is forced to the SAME format first. ffmpeg's concat
+        demuxer does not resample - it assumes every input matches, and if
+        one piece is at a different sample rate the output plays that
+        section at the wrong speed. Heard in a real episode: a minute of
+        garbled, slow audio in the middle of an otherwise clean show.
+        """
         if audio is None or len(audio) == 0:
             return
+        audio = audio.set_frame_rate(44100).set_channels(1).set_sample_width(2)
         path = os.path.join(_tmpdir, f"part-{len(_parts):03d}.wav")
         audio.export(path, format="wav")
         _parts.append(path)
@@ -1167,6 +1176,22 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
     # ffmpeg concatenates the pieces. It STREAMS - it reads and writes a
     # buffer at a time and never holds the episode - which is the entire
     # point of writing the pieces out in the first place.
+    # Confirm every piece really does match before handing them to ffmpeg.
+    # A mismatch here is silent - the output is simply wrong - so it is
+    # worth a line in the log rather than a listener finding it.
+    try:
+        import wave
+        rates = set()
+        for pth in _parts:
+            with wave.open(pth) as w:
+                rates.add((w.getframerate(), w.getnchannels(), w.getsampwidth()))
+        if len(rates) > 1:
+            print(f"[audio] WARNING mixed formats across pieces: {rates}", flush=True)
+        else:
+            print(f"[audio] all {len(_parts)} pieces at {rates.pop()}", flush=True)
+    except Exception as e:
+        print(f"[audio] could not verify piece formats: {e}", flush=True)
+
     _memlog(f"concatenating {len(_parts)} pieces")
 
     import subprocess

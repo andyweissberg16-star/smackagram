@@ -913,7 +913,12 @@ def write_script(material: dict, only_league: str = None,
         # a single segment that never named either team. Each league is
         # written in its own call, so this is a per-league budget rather than
         # one shared across the show.
-        max_tokens=4000,
+        # 2500 originally, raised to 4000 to fix a WNBA coverage warning, and
+        # that produced an ELEVEN MINUTE episode against a six minute cap -
+        # max_tokens was quietly the only thing limiting length, because the
+        # word budget below it is advisory. 3000 is a compromise: room for
+        # every league, not room to write a second show.
+        max_tokens=3000,
         system=system,
         messages=[{"role": "user", "content": user}],
     )
@@ -1340,6 +1345,10 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
     # A phone bit, sometimes. Inserted after the break is placed so it never
     # lands next to the advert, and before audio so it is treated as a normal
     # segment everywhere downstream.
+    # Hold it to the budget BEFORE the interruption goes in, so the bit is
+    # never the thing that gets cut.
+    segments = enforce_length(segments, plan, log)
+
     segments = maybe_interruption(segments)
 
     if dry_run:
@@ -1986,6 +1995,64 @@ RETURN_LINES = [
 # Which is why the pool needs to be big. At thirty scripts a daily listener
 # gets a month before hearing a repeat; at twelve they would notice inside a
 # fortnight, and a joke you can see coming is not one.
+
+
+def enforce_length(segments, plan, log=None):
+    """
+    Hold the script to its word budget.
+
+    The budget was only ever a line in the prompt, which meant the real
+    limit was max_tokens - and raising that to cover a missing league
+    produced an eleven minute episode against a six minute cap. A number
+    the model is asked to respect is not a limit; this is.
+
+    Whole segments are dropped from the END rather than sentences trimmed
+    from the middle, because a segment cut mid-thought sounds broken and a
+    missing one sounds like editing. The advert and anything before it are
+    never touched - the break has to stay where it was placed.
+    """
+    budget = int(plan.get("word_budget") or 0)
+    if not budget or not segments:
+        return segments
+
+    # A SAFETY NET, not a pair of scissors.
+    #
+    # The eleven minute episode that prompted this turned out to be mostly a
+    # playback fault - pieces written at the wrong sample rate played back
+    # slowed down, stretching the runtime - rather than the model writing
+    # too much. Trimming at a tight tolerance would have cut a script that
+    # was fine.
+    #
+    # So this only fires on genuine runaway: sixty percent over budget is
+    # far outside normal variation and means something has actually gone
+    # wrong. Below that the script is left exactly as written.
+    ceiling = int(budget * 1.6)
+
+    def words(seg):
+        return len((seg.get("text") or "").split())
+
+    total = sum(words(x) for x in segments)
+    if total <= ceiling:
+        return segments
+
+    # Never cut the break or anything before it.
+    last_break = -1
+    for i, seg in enumerate(segments):
+        if (seg.get("league") or "").upper() == "BREAK":
+            last_break = i
+
+    kept, running = [], 0
+    for i, seg in enumerate(segments):
+        w = words(seg)
+        if i <= last_break or running + w <= ceiling or not kept:
+            kept.append(seg)
+            running += w
+        # else: dropped
+
+    if log and len(kept) < len(segments):
+        log(f"trimmed {len(segments) - len(kept)} segment(s): script was "
+            f"{total} words against a {budget} budget")
+    return kept
 
 
 def maybe_interruption(segments):
