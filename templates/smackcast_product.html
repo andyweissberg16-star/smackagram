@@ -245,11 +245,41 @@
   }
   .have-pass{text-align:center; margin-top:18px; font-size:var(--fs-base);}
   .have-pass a{color:var(--punch); font-weight:600;}
+
+  /* Subscriber links, sitting under the nav on the right. */
+  .sub-bar{
+    display:flex; align-items:center; justify-content:flex-end; gap:18px;
+    max-width:1100px; margin:0 auto; padding:11px 24px 0;
+    font-size:12.5px;
+  }
+  .sub-bar .sub-league{
+    font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:1.4px;
+    text-transform:uppercase; color:#7A7575; margin-right:auto;
+  }
+  .sub-bar a{color:var(--flare,#E01B24); text-decoration:none; font-weight:600;}
+  .sub-bar a:hover{text-decoration:underline;}
+  @media(max-width:600px){
+    .sub-bar{gap:13px; padding:10px 16px 0; flex-wrap:wrap; justify-content:flex-start;}
+    .sub-bar .sub-league{flex:0 0 100%; margin:0 0 6px;}
+  }
 </style>
 </head>
 <body>
 
 {% include '_nav.html' %}
+
+{# Subscriber links, top right. This page is both the shopfront and the front
+   door - somebody who has already bought should not have to scroll past a
+   pitch to reach their own recaps, and these do not belong in the site nav
+   where they would show to people who cannot use them. #}
+{% if has_smackcast %}
+<div class="sub-bar">
+  <span class="sub-league">{{ smackcast_league or 'Your league' }}</span>
+  <a href="/smackcast/this-week">This Week</a>
+  <a href="/smackcast/library">Library</a>
+  <a href="/smackcast/league-profile">Your League</a>
+</div>
+{% endif %}
 
 {% if hero_image_exists %}
 <img src="{{ url_for('static', filename='img/smackcast-hero.png') }}" class="hero-band"

@@ -3620,8 +3620,21 @@ def smackcast_page():
     to turn it on. Generate them at /smackcast/test, then paste the
     resulting audio URL, best line, league name, sport and week here.
     """
+    # A subscriber gets their own links rather than being sold something they
+    # already own. Looked up here so the page can be both the shopfront and
+    # the front door.
+    _u = get_current_user()
+    _sub = None
+    if _u:
+        _sub = (SmackcastSubscription.query
+                .filter_by(user_id=_u.id)
+                .order_by(SmackcastSubscription.id.desc())
+                .first())
+
     return render_template(
         "smackcast_product.html",
+        has_smackcast=_sub is not None,
+        smackcast_league=(_sub.league_name if _sub else None),
         samples=SMACKCAST_SAMPLES,
         smacky_image_exists=os.path.exists(os.path.join(app.root_path, "static", "img", "smacky-hero.png")),
         hero_image_exists=os.path.exists(os.path.join(app.root_path, "static", "img", "smackcast-hero.png")),

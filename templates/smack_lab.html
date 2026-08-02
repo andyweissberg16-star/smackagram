@@ -134,7 +134,11 @@
 
 {% include '_nav.html' %}
 
-<img src="{{ url_for('static', filename='img/smack-lab-hero.jpg') }}" alt="Smack Lab — 1 on 1 coaching with Smacky to take your smack to the big leagues"
+{# hero-band, matching every other page - a full-bleed image wants the red
+   band top and bottom rather than a four-sided frame that would run off the
+   edges of the screen. #}
+<img src="{{ url_for('static', filename='img/smack-lab-hero.jpg') }}" class="hero-band"
+     alt="Smack Lab — 1 on 1 coaching with Smacky to take your smack to the big leagues"
      style="width:100%; height:auto; display:block;">
 
 <div class="wrap">

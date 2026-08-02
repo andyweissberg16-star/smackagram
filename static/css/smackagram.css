@@ -427,6 +427,50 @@ html body .hero-band{
 html body .hero-band img,
 html body img.hero-band{display:block; width:100%; height:auto;}
 
+/* ---------------------------------------------------------------------------
+   Every image gets the red frame, automatically
+   ---------------------------------------------------------------------------
+   Rather than remembering to add a class each time, images are framed by
+   default and the exceptions opt out. New images added to any page pick this
+   up with nothing to remember.
+
+   Scoped to images inside page CONTENT, not chrome - the nav, the footer and
+   anything inside a button are excluded, because framing an icon looks like a
+   mistake rather than a style.
+
+   Full four-sided border here, unlike .hero-band which is a top-and-bottom
+   band because it bleeds edge to edge. An inset image needs closing on all
+   four sides or it reads as unfinished.
+   ------------------------------------------------------------------------ */
+html body img:not(.hero-band):not(.no-frame):not(nav img):not(footer img){
+  border:3px solid var(--flare, #E01B24);
+  border-radius:6px;
+  display:block;
+  max-width:100%;
+  height:auto;
+}
+
+/* Things that are furniture rather than pictures. A framed avatar or a framed
+   icon looks broken, so anything that is clearly UI opts out by name. */
+/* An image inside a .hero-band already has its band from the wrapper - a
+   four-sided frame on top of it is a border inside a border. */
+html body .hero-band img,
+html body picture.hero-band img,
+html body nav img,
+html body footer img,
+html body button img,
+html body .no-frame,
+html body .no-frame img,
+html body img.judge-face,
+html body img.smacky-waiting-img,
+html body img.smacky-portrait,
+html body img[src*="logo"],
+html body img[src*="icon"],
+html body img[src*="avatar"]{
+  border:none;
+  border-radius:0;
+}
+
 /* ---- Share sheet (desktop fallback for navigator.share) ---- */
 #smkShareSheet{position:fixed; inset:0; z-index:9999; display:grid; place-items:center;}
 .smk-share-scrim{position:absolute; inset:0; background:rgba(0,0,0,.72); backdrop-filter:blur(3px);}
