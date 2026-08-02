@@ -4802,6 +4802,25 @@ with app.app_context():
                 created_at TIMESTAMP
             )"""))
 
+            # CREATE TABLE IF NOT EXISTS does nothing to a table that already
+            # exists, so every column added after the wall shipped needs its
+            # own ALTER. Without these, a deploy that adds a field leaves the
+            # model and the database disagreeing and every query 500s.
+            for _col, _type in [
+                ("user_id",    "INTEGER"),
+                ("body",       "TEXT"),
+                ("product",    "VARCHAR(20)"),
+                ("team",       "VARCHAR(80)"),
+                ("headline",   "VARCHAR(80)"),
+                ("team_name",  "VARCHAR(80)"),
+                ("audio_url",  "VARCHAR(500)"),
+                ("approved",   "BOOLEAN DEFAULT FALSE"),
+                ("is_sample",  "BOOLEAN DEFAULT FALSE"),
+                ("created_at", "TIMESTAMP"),
+            ]:
+                conn.execute(db.text(
+                    f"ALTER TABLE wall_posts ADD COLUMN IF NOT EXISTS {_col} {_type}"))
+
             conn.execute(db.text("""CREATE TABLE IF NOT EXISTS daily_shows (
                 id SERIAL PRIMARY KEY,
                 audio_url VARCHAR(500) NOT NULL,
