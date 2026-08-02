@@ -1,4 +1,6 @@
 import os
+import re
+from urllib.parse import quote
 import json
 import functools
 import secrets
@@ -3802,13 +3804,28 @@ def smackcast_download_recap(recap_id):
         print(f"[smackcast] download failed for recap {recap_id}: {e}")
         return "Couldn't retrieve that audio file.", 502
 
+    name = _recap_filename(recap, subscription)
+
+    headers = {
+        # filename* as well as filename. Some mobile browsers ignore the
+        # plain one and save the URL's last path segment instead, which
+        # here would be the word "download" with no extension.
+        "Content-Disposition":
+            f'attachment; filename="{name}"; filename*=UTF-8\'\'{quote(name)}',
+        # Lets a phone seek and resume rather than pulling the whole file
+        # before it can do anything with it.
+        "Accept-Ranges": "bytes",
+    }
+
+    # Only if S3 gave us one. An empty string is an invalid header value.
+    length = upstream.headers.get("Content-Length")
+    if length:
+        headers["Content-Length"] = length
+
     return Response(
         upstream.iter_content(chunk_size=64 * 1024),
         mimetype="audio/mpeg",
-        headers={
-            "Content-Disposition": f'attachment; filename="{_recap_filename(recap, subscription)}"',
-            "Content-Length": upstream.headers.get("Content-Length", ""),
-        },
+        headers=headers,
     )
 
 

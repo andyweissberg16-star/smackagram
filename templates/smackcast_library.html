@@ -210,7 +210,11 @@
                   <a class="recap-btn recap-btn-primary" href="/smackcast/recap/{{ r.id }}/download">Download audio</a>
                 {% endif %}
                 {% if r.share_token %}
-                  <a class="recap-btn" href="/smackcast-recap/{{ r.share_token }}" target="_blank" rel="noopener">Open share page</a>
+                  <button type="button" class="recap-btn share-btn"
+                          data-url="{{ url_for('smackcast_recap_page', share_token=r.share_token, _external=True) }}"
+                          data-week="{{ r.week_number }}"
+                          data-line="{{ r.best_line|default('', true) }}"
+                          data-audio="{{ r.audio_url|default('', true) }}">Share</button>
                   <button class="recap-btn copy-btn" data-url="{{ url_for('smackcast_recap_page', share_token=r.share_token, _external=True) }}">Copy link</button>
                 {% endif %}
               </div>
@@ -222,11 +226,44 @@
   {% endif %}
 </div>
 
+<script src="{{ url_for('static', filename='js/share.js') }}"></script>
 <script>
 // Copy-link buttons. Falls back to a hidden textarea + execCommand on
 // browsers/contexts where the async clipboard API isn't available (older
 // iOS Safari, and any non-HTTPS origin), so the button never silently
 // does nothing.
+// Only one episode plays at a time. Starting a second while the first was
+// still going left them talking over each other, which on a page of a dozen
+// weeks is easy to do by accident.
+//
+// Bound on the document in the capture phase because "play" does not
+// bubble - a listener on a parent never sees it otherwise.
+// Opens the share sheet in place rather than sending somebody to another
+// page to share something - the sheet already has every platform, the copy
+// field and the download in it.
+document.querySelectorAll('.share-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const line = btn.dataset.line;
+    window.smkShare({
+      url: btn.dataset.url,
+      title: 'Smackcast \u2014 Week ' + btn.dataset.week,
+      text: line ? '\u201C' + line + '\u201D' : 'This week, roasted.',
+      audioUrl: btn.dataset.audio || null,
+      filename: 'smackcast-week' + btn.dataset.week + '.mp3',
+    });
+  });
+});
+
+document.addEventListener('play', (e) => {
+  if (e.target.tagName !== 'AUDIO') return;
+  document.querySelectorAll('audio').forEach(other => {
+    if (other !== e.target && !other.paused) {
+      other.pause();
+      other.currentTime = 0;
+    }
+  });
+}, true);
+
 document.querySelectorAll('.copy-btn').forEach(btn => {
   btn.addEventListener('click', async () => {
     const url = btn.dataset.url;

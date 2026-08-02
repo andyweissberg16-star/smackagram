@@ -91,6 +91,11 @@
     telegram: '<path d="M23.07 3.3L19.6 20.5c-.26 1.16-.95 1.44-1.92.9l-5.3-3.9-2.56 2.47c-.28.28-.52.52-1.07.52l.38-5.4 9.83-8.88c.43-.38-.09-.6-.66-.22L6.15 13.6.92 11.96c-1.14-.36-1.16-1.14.24-1.69L21.6 2.35c.95-.35 1.78.22 1.47.95z"/>',
     sms: '<path d="M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2zM7 9h10v2H7V9zm7 5H7v-2h7v2zm3-6H7V6h10v2z"/>',
     email: '<path d="M20 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>',
+    linkedin: '<path d="M4.98 3.5a2.5 2.5 0 11-.01 5 2.5 2.5 0 01.01-5zM3 9h4v12H3zM9 9h3.8v1.7h.05c.53-.95 1.83-1.95 3.76-1.95C20.5 8.75 21 11.1 21 14.1V21h-4v-6.1c0-1.45-.03-3.3-2.05-3.3-2.05 0-2.36 1.57-2.36 3.2V21H9z"/>',
+    discord: '<path d="M19.3 5.3A16.5 16.5 0 0015.2 4l-.2.4a12.5 12.5 0 013.6 1.8 15.6 15.6 0 00-13.2 0 12.5 12.5 0 013.6-1.8L8.8 4a16.5 16.5 0 00-4.1 1.3C2.1 9.2 1.4 13 1.7 16.7a16.6 16.6 0 005 2.5l1.1-1.6a10.8 10.8 0 01-1.7-.8l.4-.3a11.9 11.9 0 0011 0l.4.3c-.5.3-1.1.6-1.7.8l1.1 1.6a16.6 16.6 0 005-2.5c.4-4.3-.7-8.1-2.9-11.4zM8.7 14.5c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2zm6.6 0c-1 0-1.8-.9-1.8-2s.8-2 1.8-2 1.8.9 1.8 2-.8 2-1.8 2z"/>',
+    instagram: '<path d="M12 2.2c3.2 0 3.6 0 4.9.07 1.2.05 1.8.25 2.2.42.6.22 1 .48 1.4.9.43.42.7.83.9 1.4.18.4.38 1 .43 2.2.06 1.3.07 1.7.07 4.9s0 3.6-.07 4.9c-.05 1.2-.25 1.8-.42 2.2-.22.6-.48 1-.9 1.4-.42.43-.83.7-1.4.9-.4.18-1 .38-2.2.43-1.3.06-1.7.07-4.9.07s-3.6 0-4.9-.07c-1.2-.05-1.8-.25-2.2-.42-.6-.22-1-.48-1.4-.9-.43-.42-.7-.83-.9-1.4-.18-.4-.38-1-.43-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.07-4.9c.05-1.2.25-1.8.42-2.2.22-.6.48-1 .9-1.4.42-.43.83-.7 1.4-.9.4-.18 1-.38 2.2-.43C8.4 2.2 8.8 2.2 12 2.2zm0 3.14A6.66 6.66 0 1018.66 12 6.66 6.66 0 0012 5.34zm0 10.99A4.33 4.33 0 1116.33 12 4.33 4.33 0 0112 16.33zm8.48-11.25a1.56 1.56 0 11-1.56-1.56 1.56 1.56 0 011.56 1.56z"/>',
+    tiktok: '<path d="M16.6 5.82A4.28 4.28 0 0115.54 3h-3.09v12.4a2.59 2.59 0 01-2.59 2.5 2.59 2.59 0 010-5.18c.27 0 .53.04.77.12v-3.2a5.8 5.8 0 00-.77-.05A5.73 5.73 0 1016.6 15.3V9.01a7.35 7.35 0 004.29 1.37V7.3a4.29 4.29 0 01-4.29-1.48z"/>',
+    twitch: '<path d="M4.3 2L2.6 6.2v14.3h5v3h3l3-3h4l5-5V2H4.3zm15.4 12.6l-3 3h-5l-3 3v-3H4.9V3.7h14.8v10.9zM15.9 7v5.4h-1.7V7h1.7zm-4.6 0v5.4H9.6V7h1.7z"/>',
   };
 
   function platformLinks(url, text) {
@@ -103,7 +108,20 @@
       {id: 'reddit',   label: 'Reddit',   href: 'https://www.reddit.com/submit?url=' + u + '&title=' + t},
       {id: 'telegram', label: 'Telegram', href: 'https://t.me/share/url?url=' + u + '&text=' + t},
       {id: 'sms',      label: 'Text',     href: 'sms:?&body=' + t + '%20' + u},
+      {id: 'linkedin', label: 'LinkedIn', href: 'https://www.linkedin.com/sharing/share-offsite/?url=' + u},
       {id: 'email',    label: 'Email',    href: 'mailto:?subject=' + t + '&body=' + u},
+
+      // These four have NO web share URL. There is no link you can send
+      // somebody that opens Instagram or TikTok with your URL already in a
+      // post - the platforms simply do not offer one, and anything claiming
+      // to is either an app-only intent or does not work at all.
+      //
+      // So they copy the link first and then open the app, which is the
+      // only thing that genuinely works. The button says so.
+      {id: 'discord',   label: 'Discord',   href: 'https://discord.com/app',        copyFirst: true},
+      {id: 'instagram', label: 'Instagram', href: 'https://www.instagram.com/',     copyFirst: true},
+      {id: 'tiktok',    label: 'TikTok',    href: 'https://www.tiktok.com/upload',  copyFirst: true},
+      {id: 'twitch',    label: 'Twitch',    href: 'https://www.twitch.tv/',         copyFirst: true},
     ];
   }
 
@@ -143,8 +161,13 @@
               encodeURIComponent(tagUrl(opts.url.split('?')[0], p.id)));
             /* aria-label carries the name for screen readers, since the icon
                alone says nothing to one. */
-            return '<a class="smk-share-btn smk-' + p.id + '" href="' + p.href + '"' +
-                   ' target="_blank" rel="noopener" aria-label="' + p.label + '" title="' + p.label + '">' +
+            /* copyFirst platforms have no share URL at all, so the link
+               is put on the clipboard before the app opens - otherwise
+               somebody lands in Instagram with nothing to paste. */
+            var cf = p.copyFirst ? ' data-copyfirst="1"' : '';
+            var hint = p.copyFirst ? p.label + ' (copies the link first)' : p.label;
+            return '<a class="smk-share-btn smk-' + p.id + '" href="' + p.href + '"' + cf +
+                   ' target="_blank" rel="noopener" aria-label="' + hint + '" title="' + hint + '">' +
                    '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
                    ICONS[p.id] + '</svg></a>';
           }).join('') +
@@ -156,12 +179,24 @@
         (opts.audioUrl
           ? '<a class="smk-share-dl" href="' + opts.audioUrl + '" download>Download the audio</a>'
           : '') +
-        '<p class="smk-share-note">Instagram and TikTok don\u2019t accept links from ' +
-        'a desktop browser \u2014 open this page on your phone and they\u2019ll ' +
-        'appear in the share menu.</p>' +
+        '<p class="smk-share-note">Instagram, TikTok, Discord and Twitch have no ' +
+        'share link \u2014 those four copy this page\u2019s link and open the app, ' +
+        'so you can paste it wherever you want it.</p>' +
         '<button type="button" class="smk-share-close" aria-label="Close">Close</button>' +
       '</div>';
     document.body.appendChild(wrap);
+
+    /* Put the link on the clipboard before the app opens. The copy has to
+       happen inside the click for the browser to allow it, so the default
+       is prevented and the window opened afterwards by hand. */
+    wrap.querySelectorAll('[data-copyfirst]').forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        e.preventDefault();
+        var href = el.getAttribute('href');
+        try { copy(opts.url); } catch (err) {}
+        window.open(href, '_blank', 'noopener');
+      });
+    });
 
     function close() { wrap.remove(); }
     wrap.querySelector('.smk-share-scrim').addEventListener('click', close);
