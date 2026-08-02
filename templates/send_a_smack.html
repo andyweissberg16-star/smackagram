@@ -709,7 +709,7 @@
   <source type="image/webp" sizes="100vw"
           srcset="{{ url_for('static', filename='img/hero-mascot-780.webp') }} 780w,
                   {{ url_for('static', filename='img/hero-mascot-1560.webp') }} 1560w,
-                  {{ url_for('static', filename='img/hero-mascot-1983.webp') }} 1983w">
+                  {{ url_for('static', filename='img/hero-mascot-1672.webp') }} 1672w">
   <img src="{{ url_for('static', filename='img/hero-mascot-1560.jpg') }}" alt="Send a Smackagram"
        width="1983" height="793" style="width:100%; height:auto; display:block;">
 </picture>
@@ -1732,8 +1732,28 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
 
   var loaded = false;
 
+  // Load the other generator quietly once the page has settled, so the first
+  // click is instant rather than showing an empty frame while it fetches.
+  // Deferred to idle time so it never competes with the page somebody is
+  // actually looking at.
+  function preload() {
+    if (loaded) return;
+    frame.src = '/locked-n-loaded?embed=1';
+    loaded = true;
+  }
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(preload, {timeout: 4000});
+  } else {
+    setTimeout(preload, 2500);
+  }
+
   function show(which) {
     var locked = which === 'locked';
+
+    // Hold the scroll position across the swap. The two generators are
+    // different heights, so hiding one and showing the other moves the
+    // document under the reader and throws them somewhere else on the page.
+    var keep = window.scrollY;
     // The site-wide page frame is red. Repaint it amber for Locked & Loaded
     // so there is ONE border that changes colour, not a red one wrapping an
     // amber one.
@@ -1751,6 +1771,12 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
     // Reflect it in the URL without navigating, so a reload or a shared link
     // lands on the same generator.
     history.replaceState(null, '', locked ? '?gen=locked' : location.pathname);
+
+    // Put them back where they were. Twice: once immediately, and again on
+    // the next frame after the browser has recalculated layout, because the
+    // first restore happens before the new height is known.
+    window.scrollTo(0, keep);
+    requestAnimationFrame(function () { window.scrollTo(0, keep); });
   }
 
   tabS.addEventListener('click', function () { show('smack'); });

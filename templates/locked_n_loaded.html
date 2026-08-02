@@ -1533,8 +1533,26 @@ loadVoices();
 
   var loaded = false;
 
+  // Load the other generator quietly once the page has settled, so the first
+  // click is instant rather than showing an empty frame while it fetches.
+  function preload() {
+    if (loaded) return;
+    frame.src = '/send-a-smack?embed=1';
+    loaded = true;
+  }
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(preload, {timeout: 4000});
+  } else {
+    setTimeout(preload, 2500);
+  }
+
   function show(which) {
     var smack = which === 'smack';
+
+    // Hold the scroll position across the swap - the two generators are
+    // different heights, so swapping them moves the document under the
+    // reader and lands them somewhere else on the page.
+    var keep = window.scrollY;
     // Lazy - don't pay for a second generator until it's asked for.
     if (smack && !loaded) { frame.src = '/send-a-smack?embed=1'; loaded = true; }
     shell.style.display = smack ? 'block' : 'none';
@@ -1544,6 +1562,11 @@ loadVoices();
     // Page frame follows whichever generator is showing.
     document.body.classList.toggle('gen-smack', smack);
     history.replaceState(null, '', smack ? '?gen=smack' : location.pathname);
+
+    // Twice: once now, and again next frame once the browser has recalculated
+    // layout, because the first restore runs before the new height exists.
+    window.scrollTo(0, keep);
+    requestAnimationFrame(function () { window.scrollTo(0, keep); });
   }
 
   tabS.addEventListener('click', function () { show('smack'); });
