@@ -3842,7 +3842,26 @@ def arm_smackagram():
         redirect = _store_pending_action(user, "locked_n_loaded", data)
         return jsonify({"error": "insufficient_balance", "redirect": redirect}), 402
 
-    result = _execute_arm_smackagram(user, data)
+    try:
+        result = _execute_arm_smackagram(user, data)
+    except ValueError as e:
+        # These are the deliberate refusals - "this game has already
+        # started", and so on. They were escaping as 500s, so the browser
+        # could not read the message and fell back to "something went wrong",
+        # which tells somebody nothing about a situation they could fix.
+        #
+        # The wallet was debited above, so put it back before returning.
+        try:
+            wallet_service.credit_wallet(
+                user, wallet_service.LOCKED_N_LOADED_COST_CENTS,
+                "locked_n_loaded_refund",
+                description="Arming refused - " + str(e)[:80],
+            )
+            db.session.commit()
+        except Exception as refund_err:
+            print(f"[arm] refund after refusal failed: {refund_err}", flush=True)
+        return jsonify({"error": str(e)}), 400
+
     return jsonify(result)
 
 

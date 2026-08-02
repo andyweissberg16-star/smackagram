@@ -154,8 +154,8 @@
     /* Silver on the cards so the container's red border has something to be.
        Red inside red inside red flattened the section - everything shouted
        and nothing stood out. */
-    min-height:0; background:#141416; border:1px solid var(--silver-hairline,#3A3D42);
-    transition:border-color .15s;
+    min-height:0; background:#141416; border:2px solid #FF2233;
+    transition:border-color .15s, box-shadow .15s;
     border-radius:9px; padding:15px 16px; display:flex; flex-direction:column;
   }
   .sotw-prod{font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:1.4px;
@@ -164,7 +164,7 @@
     padding:3px 7px; border-radius:3px;}
 
   /* Still responds to a cursor, without needing colour to do it. */
-  .sotw-card:hover{border-color:var(--silver,#C3CAD3);}
+  .sotw-card:hover{box-shadow:0 0 18px rgba(255,34,51,0.35);}
   /* What this was about, before anybody presses play. */
   .sotw-headline{
     font-family:'Anton',sans-serif; font-size:16px; line-height:1.15;
@@ -190,13 +190,15 @@
   .sotw-stage{padding:16px 0 2px;}
 
   .sotw-play{
-    width:56px; height:56px; border-radius:10px;
+    width:74px; height:74px; border-radius:12px;
     /* appearance:none matters. A <button> keeps its native styling on some
        platforms and quietly ignores background-color, which rendered this
        block black instead of red. */
     -webkit-appearance:none; appearance:none;
     background-color:#E01B24; background-image:none;
-    border:none; cursor:pointer;
+    /* Black outline so the red block reads as its own object against the red
+       card border rather than blending into it. */
+    border:3px solid #0D0D0D; cursor:pointer;
     display:inline-flex; align-items:center; justify-content:center; padding:0;
     /* A soft white glow behind it rather than a hard edge. Two layers - one
        tight, one wide and faint - so it reads as light coming off the block
@@ -280,7 +282,7 @@
     var audio = it.audio_url
       ? '<div class="sotw-stage">'
         + '<button type="button" class="sotw-play" aria-label="Play this smack">'
-        +   '<svg width="17" height="19" viewBox="0 0 17 19" aria-hidden="true">'
+        +   '<svg width="23" height="26" viewBox="0 0 17 19" aria-hidden="true">'
         +     '<path d="M1 1l15 8.5L1 18z" fill="#0D0D0D"/></svg>'
         + '</button>'
         + '<audio preload="none" src="' + esc(it.audio_url) + '"></audio>'
@@ -294,7 +296,7 @@
       // Same block, greyed out and inert.
       : '<div class="sotw-stage">'
         + '<span class="sotw-play is-empty" aria-hidden="true">'
-        +   '<svg width="17" height="19" viewBox="0 0 17 19">'
+        +   '<svg width="23" height="26" viewBox="0 0 17 19">'
         +     '<path d="M1 1l15 8.5L1 18z" fill="#0D0D0D"/></svg>'
         + '</span>'
         + '</div>';
@@ -349,9 +351,9 @@
       var now  = line.querySelector('.sotw-now');
       var dur  = line.querySelector('.sotw-dur');
 
-      var PLAY  = '<svg width="17" height="19" viewBox="0 0 17 19" aria-hidden="true">'
+      var PLAY  = '<svg width="23" height="26" viewBox="0 0 17 19" aria-hidden="true">'
                 + '<path d="M1 1l15 8.5L1 18z" fill="#0D0D0D"/></svg>';
-      var PAUSE = '<svg width="15" height="17" viewBox="0 0 15 17" aria-hidden="true">'
+      var PAUSE = '<svg width="20" height="23" viewBox="0 0 15 17" aria-hidden="true">'
                 + '<rect x="1" y="1" width="4.5" height="15" fill="#0D0D0D"/>'
                 + '<rect x="9.5" y="1" width="4.5" height="15" fill="#0D0D0D"/></svg>';
 
@@ -403,12 +405,24 @@
       return card ? card.getBoundingClientRect().width + 14 : 300;
     }
 
+    // Only touch the DOM when the state actually CHANGES.
+    //
+    // Rubber-band scrolling keeps firing scroll events at either end and
+    // scrollLeft oscillates around the boundary, so writing .disabled on
+    // every event flipped the button on and off several times a second -
+    // which reads as the arrow pulsing or loading.
+    //
+    // The 8px tolerance is deliberately wider than the 2px it was: sub-pixel
+    // rounding on a scaled viewport can leave scrollLeft a fraction short of
+    // the true end forever.
+    var wasStart = null, wasEnd = null;
+
     function refreshArrows() {
       if (!prev || !next) return;
-      var atStart = rail.scrollLeft <= 2;
-      var atEnd = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 2;
-      prev.disabled = atStart;
-      next.disabled = atEnd;
+      var atStart = rail.scrollLeft <= 8;
+      var atEnd = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 8;
+      if (atStart !== wasStart) { prev.disabled = atStart; wasStart = atStart; }
+      if (atEnd !== wasEnd) { next.disabled = atEnd; wasEnd = atEnd; }
     }
 
     if (prev && next) {
@@ -418,7 +432,15 @@
       next.addEventListener('click', function () {
         rail.scrollBy({left: step(), behavior: 'smooth'});
       });
-      rail.addEventListener('scroll', refreshArrows, {passive: true});
+      // Throttled to one check per frame. A trackpad fires scroll events far
+      // faster than the screen refreshes, and there is no value in checking
+      // more often than the browser can paint.
+      var queued = false;
+      rail.addEventListener('scroll', function () {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(function () { queued = false; refreshArrows(); });
+      }, {passive: true});
       window.addEventListener('resize', refreshArrows);
       refreshArrows();
     }

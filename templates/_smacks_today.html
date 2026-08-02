@@ -30,7 +30,12 @@
        the hero image, where it was touching the border; on the homepage it
        sat inside a padded section. Owning the margin makes the gap identical
        everywhere. */
-    margin:28px auto 20px; padding:11px 58px;
+    /* Tucked up close under the hero without touching it. 14px is enough
+       clearance that the counter reads as its own element rather than part
+       of the image border, and close enough that the two belong together.
+       Owned by the counter itself, so the gap is identical on every page
+       regardless of what sits above it. */
+    margin:14px auto 20px; padding:11px 58px;
     background:rgba(224,27,36,0.10);
     border:1px solid var(--flare,#E01B24);
     border-radius:100px;
