@@ -161,9 +161,12 @@
 </div>
 
 <script>
+// Ordered by what is actually in season. Baseball leads through the summer;
+// come September the NFL should move to the front, which is the same
+// seasonal reorder LEAGUE_ORDER needs in the daily show.
 const LEAGUES = [
-  {key:"nfl",   label:"NFL"},
   {key:"mlb",   label:"MLB"},
+  {key:"nfl",   label:"NFL"},
   {key:"nba",   label:"NBA"},
   {key:"wnba",  label:"WNBA"},
   {key:"ncaaf", label:"CFB"},
@@ -174,6 +177,12 @@ const LEAGUES = [
 
 let current = null;
 let timer = null;
+
+// The arming page speaks SportsDataIO's sport names, which are not the same
+// strings ESPN uses for its paths.
+const SPORT_FOR = {nfl:"nfl", mlb:"mlb", nba:"nba", wnba:"wnba", nhl:"nhl",
+                   ncaaf:"cfb", ncaab:"cbb", ncaaw:"cbb"};
+function currentSport(){ return SPORT_FOR[current] || current || ""; }
 
 function esc(s){
   return String(s == null ? "" : s).replace(/[&<>"']/g,
@@ -212,18 +221,25 @@ function actions(g){
   const loser = g.losing === "home" ? g.home : (g.losing === "away" ? g.away : null);
   const name = loser ? (loser.nick || loser.abbr) : null;
 
+  // The TEAM is passed on, not the ESPN game id. The arming page searches
+  // SportsDataIO by team name, and the two services do not share ids - so
+  // handing over a name is the only thing that actually resolves.
+  const home = g.home.nick || g.home.abbr || "";
+  const away = g.away.nick || g.away.abbr || "";
+
   if (g.upcoming){
     return `<div class="actions">
-      <button class="btn-arm" data-arm="${esc(g.espn_id)}">ARM IT</button>
+      <button class="btn-arm" data-team="${esc(home)}" data-sport="${esc(currentSport())}">ARM ${esc(home.toUpperCase())}</button>
+      <button class="btn-arm" data-team="${esc(away)}" data-sport="${esc(currentSport())}">ARM ${esc(away.toUpperCase())}</button>
     </div><span class="hint">ARM →</span>`;
   }
 
   const smackLabel = name ? `SMACK A ${esc(name.toUpperCase())} FAN` : "SMACK SOMEBODY";
-  const armBtn = g.final ? "" :
-    `<button class="btn-arm" data-arm="${esc(g.espn_id)}">ARM THE FINAL</button>`;
+  const armBtn = (g.final || !loser) ? "" :
+    `<button class="btn-arm" data-team="${esc(loser.nick || loser.abbr)}" data-sport="${esc(currentSport())}">ARM THE FINAL</button>`;
 
   return `<div class="actions">
-      <button class="btn-smack" data-smack="${esc(g.espn_id)}">${smackLabel}</button>
+      <button class="btn-smack" data-team="${esc(name || home)}" data-sport="${esc(currentSport())}">${smackLabel}</button>
       ${armBtn}
     </div><span class="hint">SMACK →</span>`;
 }
@@ -294,15 +310,14 @@ document.addEventListener("click", (e) => {
   // Both actions hand off to the existing flows rather than duplicating
   // them - the generator already knows how to build a call, and Locked &
   // Loaded already knows how to arm one.
-  const smack = e.target.closest("[data-smack]");
-  if (smack){
-    window.location.href = "/send-a-smack?game=" + encodeURIComponent(smack.dataset.smack);
-    return;
-  }
-  const arm = e.target.closest("[data-arm]");
-  if (arm){
-    window.location.href = "/locked-n-loaded?game=" + encodeURIComponent(arm.dataset.arm);
-  }
+  const btn = e.target.closest("[data-team]");
+  if (!btn) return;
+
+  const q = "?team=" + encodeURIComponent(btn.dataset.team)
+          + "&sport=" + encodeURIComponent(btn.dataset.sport || "");
+
+  window.location.href =
+    (btn.classList.contains("btn-arm") ? "/locked-n-loaded" : "/send-a-smack") + q;
 });
 
 buildTabs();

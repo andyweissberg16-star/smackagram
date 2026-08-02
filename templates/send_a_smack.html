@@ -1086,6 +1086,20 @@ document.addEventListener('DOMContentLoaded', () => {
     var el = document.getElementById(id);
     if (el) el.addEventListener('input', refreshGateState);
   });
+
+  // Arriving from the Smack Board with the team already chosen. The board
+  // knows who is losing, so it hands over that name and this page starts a
+  // step further along.
+  (function () {
+    var team = new URLSearchParams(window.location.search).get('team');
+    if (!team) return;
+    var el = document.getElementById('teamInput');
+    if (!el) return;
+    el.value = team.trim();
+    // Fire the same event typing would, so anything watching the field -
+    // the gate that enables the generate button - sees the value.
+    el.dispatchEvent(new Event('input', {bubbles: true}));
+  })();
   var out = document.getElementById('trashTalkOutput');
   if (out) out.addEventListener('input', refreshOutputState);
   refreshGateState();

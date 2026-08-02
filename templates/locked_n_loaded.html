@@ -1129,6 +1129,31 @@ document.getElementById('teamSearchInput').addEventListener('input', (e) => {
   searchDebounceTimer = setTimeout(() => searchAllSports(query), 350);
 });
 
+// Arriving from the Smack Board with a team already chosen.
+//
+// The board passes a NAME rather than a game id, because ESPN and
+// SportsDataIO do not share ids - a name is the only thing that resolves
+// against this page's search. searchAllSports sweeps every sport anyway, so
+// the sport parameter is a hint rather than a requirement.
+(function prefillFromBoard(){
+  const params = new URLSearchParams(window.location.search);
+  const team = (params.get('team') || '').trim();
+  if (!team) return;
+
+  const input = document.getElementById('teamSearchInput');
+  if (!input) return;
+
+  input.value = team;
+  searchAllSports(team);
+
+  // Put them at the search results rather than the top of the page - they
+  // have already made the first choice, on the board.
+  setTimeout(() => {
+    const list = document.getElementById('gameList');
+    if (list) list.scrollIntoView({behavior: 'smooth', block: 'center'});
+  }, 400);
+})();
+
 // Mode switching removed - auto_summary is the only mode.
 
 async function loadVoices() {
