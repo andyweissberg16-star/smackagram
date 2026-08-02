@@ -4,25 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Smackagram — Talk smack. Get it on tape.</title>
-<meta name="description" content="AI writes a savage, personalized roast from a real game result, then calls your friend and reads it out loud in a real voice. Completely anonymous.">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Smackagram">
-<meta property="og:title" content="Smackagram — Talk smack. Get it on tape.">
-<meta property="og:description" content="AI writes a savage, personalized roast from a real game result, then calls your friend and reads it out loud in a real voice. Completely anonymous.">
-<meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:url" content="{{ request.base_url }}">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Smackagram — Talk smack. Get it on tape.">
-<meta name="twitter:description" content="AI writes a savage, personalized roast from a real game result, then calls your friend and reads it out loud in a real voice. Completely anonymous.">
-<meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
-<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
-<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
-<meta name="theme-color" content="#0D0D0D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
   :root{
     --ink:#0D0D0D;
@@ -33,15 +16,11 @@
     --flare-dim:#3A0810;
     --turf:#39FF6A;
     --gold:#FFD400;
-    --silver:#C3CAD3;
-    --silver-hot:#F4F6F9;
-    --silver-deep:#98A0AA;
-    --silver-hairline:#3A3D42;
     --cyan:#F5F5F3;
     --line:rgba(245,245,243,0.10);
     --line-strong:rgba(245,245,243,0.24);
   }
-  html{scroll-behavior:smooth;}
+  *{box-sizing:border-box; margin:0; padding:0;}
   body{
     background:var(--ink);
     color:var(--chalk);
@@ -54,8 +33,13 @@
   .wrap{max-width:1080px; margin:0 auto; padding:0 24px;}
 
   /* NAV */
+  nav{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:22px 24px; border-bottom:1px solid var(--line);
+  }
   .logo{font-family:'Anton',sans-serif; font-size:22px; letter-spacing:0.5px;}
   .logo span{color:var(--flare); text-shadow:0 0 12px rgba(232,20,44,0.7);}
+  .nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
   .btn{
     font-family:'Inter',sans-serif; font-weight:600; font-size:14px;
     padding:11px 22px; border-radius:2px; border:none; cursor:pointer;
@@ -65,115 +49,17 @@
   .btn-ghost{background:transparent; color:var(--chalk); border:1px solid var(--line-strong);}
 
   /* TICKER */
-  .ticker-bar{background:var(--flare); overflow:hidden; white-space:nowrap; padding:8px 0; position:relative;}
-  /* WCAG 2.2.2 (Pause, Stop, Hide): content that moves automatically for more
-     than five seconds needs a way to stop it - for everyone, not only people
-     who set the reduced-motion preference. */
-  .ticker-pause{
-    position:absolute; top:0; right:0; bottom:0; width:44px;
-    display:flex; align-items:center; justify-content:center;
-    background:var(--flare); border:0; padding:0; cursor:pointer; color:#fff;
-    box-shadow:-16px 0 16px 10px var(--flare);
-  }
-  .ticker-pause .glyph{
-    display:block; width:12px; height:14px;
-    border-left:4px solid currentColor; border-right:4px solid currentColor;
-  }
-  .ticker-pause.is-paused .glyph{
-    width:0; height:0; border-left:13px solid currentColor; border-right:0;
-    border-top:8px solid transparent; border-bottom:8px solid transparent;
-  }
-  .ticker-pause:hover{color:var(--gold);}
-  /* If motion is already off, the control would be a no-op - hide it. */
-  @media(prefers-reduced-motion:reduce){ .ticker-pause{display:none;} }
+  .ticker-bar{background:var(--flare); overflow:hidden; white-space:nowrap; padding:8px 0;}
   .ticker-track{display:inline-block; animation:scroll 28s linear infinite;}
-  .ticker-track span{font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:#fff; margin-right:16px; text-transform:uppercase; letter-spacing:0.5px;}
-  .ticker-track span.ticker-bolt{margin-right:16px; font-size:13px; color:var(--gold); text-shadow:0 0 6px rgba(255,212,0,0.8); text-transform:none; letter-spacing:0;}
+  .ticker-track span{font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:#fff; margin-right:48px; text-transform:uppercase; letter-spacing:0.5px;}
   @keyframes scroll{ from{transform:translateX(0);} to{transform:translateX(-50%);} }
 
   /* HERO */
   .hero{
-    padding:80px 24px 60px; display:flex; justify-content:center; text-align:center;
+    padding:80px 24px 60px; display:grid; grid-template-columns:1.1fr 0.9fr; gap:48px; align-items:center;
   }
-  .hero > div{max-width:640px;}
-  .hero-ctas{justify-content:center;}
-  .live-dot{
-    width:9px; height:9px; border-radius:50%; background:var(--flare);
-    box-shadow:0 0 8px var(--flare); animation:live-pulse 1.3s ease-in-out infinite;
-  }
-  @keyframes live-pulse{0%,100%{opacity:1; transform:scale(1);} 50%{opacity:0.4; transform:scale(1.3);}}
-
-  @keyframes cta-pulse{
-    0%,100%{box-shadow:0 0 20px rgba(232,20,44,0.5);}
-    50%{box-shadow:0 0 32px rgba(232,20,44,0.85), 0 0 8px rgba(232,20,44,0.6);}
-  }
-  .hero-ctas .btn-flare{animation:cta-pulse 2s ease-in-out infinite;}
-  .league-strip{font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700;
-    letter-spacing:1.4px; color:var(--silver); margin-bottom:14px; text-transform:uppercase;}
-  .home-band{border-top:1px solid var(--silver-hairline); padding:44px 0;}
-  .home-band.alt{background:var(--ink-2);}
-  .home-card{background:var(--ink-2); border:1px solid var(--silver-hairline);
-    border-radius:6px; padding:20px;}
-  .home-card h3{font-family:'Anton',sans-serif; font-size:20px; color:var(--silver-hot);
-    margin:0 0 6px;}
-  .home-card p{color:#B5B0B0; font-size:14px; line-height:1.5; margin:0;}
-  .home-kicker{font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
-    letter-spacing:1.2px; color:var(--silver-deep); text-transform:uppercase; margin-bottom:8px;}
-  .home-duo{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
-  .home-closer{text-align:center;}
-  .home-closer h2{font-family:'Anton',sans-serif; font-size:34px; line-height:1.04;
-    color:var(--silver-hot); margin:0 0 18px;}
-  .home-closer h2 span{color:var(--silver);}
-  @media (max-width:700px){
-    .home-duo{grid-template-columns:1fr;}
-    .home-closer h2{font-size:26px;}
-    .league-strip{font-size:10.5px; letter-spacing:1px;}
-  }
-
-  @media (min-width:721px){
-    #heroBanner{aspect-ratio:2.6/1; object-fit:cover; object-position:center;}
-  }
-  .smackback-frame{
-    position:absolute; z-index:5;
-    top:50%; left:16.667%; transform:translate(-50%,-50%);
-    width:25%; min-width:230px; height:26%; min-height:96px;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:8px; padding:11px 14px; box-sizing:border-box;
-    background:rgba(13,13,13,0.62);
-    backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px);
-    border:3px solid var(--flare); border-radius:6px;
-    text-decoration:none; line-height:1.15;
-    animation:smackback-edge 1.8s ease-in-out infinite;
-  }
-  .smackback-frame:hover{background:rgba(13,13,13,0.74);}
-  .smackback-banner{
-    font-family:'Anton',sans-serif; color:var(--chalk);
-    font-size:clamp(15px,1.6vw,26px); text-align:center;
-    letter-spacing:0.5px; text-transform:uppercase;
-    text-shadow:0 2px 10px rgba(0,0,0,0.9);
-  }
-  .smackback-btn{
-    font-family:'Inter',sans-serif; font-weight:800;
-    font-size:clamp(10px,0.85vw,14px); letter-spacing:0.6px;
-    color:#fff; background:var(--flare);
-    padding:9px 16px; border-radius:4px; text-align:center;
-    white-space:nowrap; text-transform:uppercase;
-  }
-  @keyframes smackback-edge{
-    0%,100%{border-color:var(--flare); box-shadow:0 0 18px rgba(232,20,44,0.6);}
-    33%{border-color:var(--gold); box-shadow:0 0 34px rgba(255,212,0,0.85);}
-    66%{border-color:#F5F5F3; box-shadow:0 0 30px rgba(245,245,243,0.75);}
-  }
-  @media (prefers-reduced-motion:reduce){
-    .smackback-frame{animation:none; border-color:var(--flare); box-shadow:0 0 18px rgba(232,20,44,0.6);}
-  }
-  @media (max-width:640px){
-    .smackback-frame{width:62%; height:38%;}
-  }
-
-
   .eyebrow{color:var(--cyan); font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; letter-spacing:1px; margin-bottom:16px; text-transform:uppercase; text-shadow:0 0 10px rgba(47,155,255,0.6);}
-  h1{font-size:var(--h1-hero); line-height:0.98; margin-bottom:20px;}
+  h1{font-size:clamp(38px,6vw,64px); line-height:0.98; margin-bottom:20px;}
   h1 .flare{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.6);}
   .sub{color:var(--chalk-dim); font-size:17px; max-width:440px; margin-bottom:32px;}
   .hero-ctas{display:flex; gap:12px;}
@@ -201,19 +87,19 @@
 
   /* PLAY BY PLAY (how it works) */
   section{padding:64px 24px;}
-  .section-title{font-family:'Anton',sans-serif; font-size:32px; margin-bottom:8px; text-shadow:2px 2px 0 var(--flare);}
+  .section-title{font-family:'Anton',sans-serif; font-size:32px; margin-bottom:8px;}
   .section-sub{color:var(--chalk-dim); font-size:14px; margin-bottom:40px;}
   .downs{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
-  .down{border:2px solid var(--chalk); border-radius:2px; padding:22px 18px; position:relative; background:var(--ink); box-shadow:5px 5px 0 var(--flare);}
-  .down-tag{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare-text); font-weight:700; letter-spacing:1px; margin-bottom:14px;}
+  .down{border:1px solid var(--line); border-radius:4px; padding:22px 18px; position:relative;}
+  .down-tag{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--flare); font-weight:700; letter-spacing:1px; margin-bottom:14px;}
   .down h3{font-size:16px; margin-bottom:8px; font-weight:600;}
   .down p{font-size:13px; color:var(--chalk-dim);}
 
   /* SCENARIOS */
   .card-row{display:flex; gap:14px; overflow-x:auto; padding-bottom:8px;}
   .player-card{
-    min-width:180px; background:var(--ink-2); border:2px solid var(--chalk); border-radius:2px;
-    padding:18px; flex-shrink:0; box-shadow:5px 5px 0 var(--flare);
+    min-width:180px; background:var(--ink-2); border:1px solid var(--line); border-radius:4px;
+    padding:18px; flex-shrink:0;
   }
   .power{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--gold); margin-bottom:12px; letter-spacing:0.5px;}
   .player-card h4{font-size:15px; margin-bottom:6px; font-weight:600;}
@@ -221,20 +107,19 @@
 
   /* PRICING */
   .pricing{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
-  .price-card{border:2px solid var(--chalk); border-radius:2px; padding:28px 24px; position:relative; box-shadow:6px 6px 0 var(--ink-2);}
-  .price-card.featured{border:3px solid var(--flare); box-shadow:7px 7px 0 var(--flare), 0 0 30px rgba(232,20,44,0.25);}
-  .badge{position:absolute; top:-14px; left:20px; background:var(--gold); color:var(--ink); font-size:11px; font-weight:700; padding:5px 12px; text-transform:uppercase; letter-spacing:0.5px; font-family:'JetBrains Mono',monospace; border:2px solid var(--ink); transform:rotate(-4deg); box-shadow:2px 2px 0 var(--ink);}
+  .price-card{border:1px solid var(--line); border-radius:4px; padding:28px 24px; position:relative;}
+  .price-card.featured{border:2px solid var(--flare); box-shadow:5px 5px 0 var(--flare), 0 0 30px rgba(232,20,44,0.15);}
+  .badge{position:absolute; top:-12px; left:20px; background:var(--flare); color:#fff; font-size:11px; font-weight:700; padding:4px 10px; text-transform:uppercase; letter-spacing:0.5px; font-family:'JetBrains Mono',monospace;}
   .price{font-family:'Anton',sans-serif; font-size:44px; margin:10px 0 18px;}
   .feat{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--chalk-dim); margin-bottom:8px;}
   .feat.no{color:#5C5A54;}
 
   /* CTA */
-  .final-cta{text-align:center; background:var(--ink-2); border-radius:6px; padding:60px 24px; margin:0 24px; border:2px solid var(--line-strong);}
+  .final-cta{text-align:center; background:var(--ink-2); border-radius:6px; padding:60px 24px; margin:0 24px;}
   .final-cta h2{font-size:34px; margin-bottom:12px;}
   .final-cta p{color:var(--chalk-dim); margin-bottom:28px;}
 
   footer{padding:32px 24px; border-top:1px solid var(--line); display:flex; justify-content:space-between; font-size:12px; color:var(--chalk-dim);}
-
   footer .flinks{display:flex; gap:20px;}
 
   .field-lines{
@@ -247,31 +132,6 @@
     padding:7px 14px; border-radius:20px; border:1px solid var(--line-strong); color:var(--chalk-dim);
   }
   .league-pill.active{background:var(--flare); border-color:var(--flare); color:#fff; box-shadow:0 0 14px rgba(232,20,44,0.5);}
-
-  /* SENSITIVITY SELECTOR — clean vertical list */
-  .sensitivity-row{
-    display:flex; align-items:center; gap:10px; padding:10px 0;
-    border-bottom:1px solid var(--line); cursor:pointer;
-  }
-  .sensitivity-row:last-child{border-bottom:none;}
-  .sensitivity-checkbox{
-    width:16px; height:16px; accent-color:var(--flare); cursor:pointer; flex-shrink:0;
-  }
-  .sensitivity-label{
-    font-size:14px; color:var(--chalk-dim); flex:1; transition:color 0.15s ease;
-  }
-  .sensitivity-row.checked .sensitivity-label{color:var(--chalk); font-weight:600;}
-  .sensitivity-info-btn{
-    width:16px; height:16px; border-radius:50%; border:1px solid var(--chalk-dim); background:transparent;
-    color:var(--chalk-dim); font-size:10px; font-family:'JetBrains Mono',monospace; line-height:1;
-    cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center; flex-shrink:0;
-  }
-  .sensitivity-info-btn:hover{border-color:var(--flare); color:var(--flare);}
-  .sensitivity-desc{
-    color:var(--chalk-dim); font-size:12px; margin:0 0 8px 26px;
-    padding-bottom:4px; display:none;
-  }
-  .sensitivity-desc.show{display:block;}
 
   /* SCOREBOARD CLOCK */
   .clock{
@@ -291,20 +151,20 @@
   }
 
   /* CARD TEAM STRIPE */
-  .player-card:nth-child(1){box-shadow:5px 5px 0 var(--flare);}
-  .player-card:nth-child(2){box-shadow:5px 5px 0 var(--cyan);}
-  .player-card:nth-child(3){box-shadow:5px 5px 0 var(--turf);}
-  .player-card:nth-child(4){box-shadow:5px 5px 0 var(--gold);}
+  .player-card{border-top:3px solid var(--flare); box-shadow:0 0 18px rgba(232,20,44,0.12);}
+  .player-card:nth-child(2){border-top-color:var(--cyan); box-shadow:0 0 18px rgba(47,155,255,0.12);}
+  .player-card:nth-child(3){border-top-color:var(--turf); box-shadow:0 0 18px rgba(57,255,136,0.12);}
+  .player-card:nth-child(4){border-top-color:var(--gold); box-shadow:0 0 18px rgba(255,212,0,0.12);}
 
   .ball-icon{width:16px; height:16px; display:inline-block; vertical-align:-3px; margin-right:6px;}
 
   /* COMIC ACCENTS — matches the logo's illustrated style */
   .halftone{
-    background-image: radial-gradient(var(--line-strong) 1.5px, transparent 1.5px);
-    background-size: 9px 9px;
+    background-image: radial-gradient(var(--line-strong) 1px, transparent 1px);
+    background-size: 10px 10px;
   }
   .btn-flare{
-    background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(232,20,44,0.5), 4px 4px 0 var(--ink);
+    background:var(--flare); color:#fff; box-shadow:0 0 20px rgba(232,20,44,0.5);
     border:2px solid #fff; outline:2px solid var(--ink); outline-offset:-1px;
   }
   .burst{
@@ -317,282 +177,87 @@
     border:2px solid var(--chalk); box-shadow:4px 4px 0 var(--flare);
   }
 
-  /* Radiating burst background — pulled from the hero art's action-line style */
-  .burst-bg{
-    position:relative;
-    background-image: repeating-conic-gradient(from 0deg at 50% 50%,
-      rgba(232,20,44,0.08) 0deg 6deg, transparent 6deg 12deg);
-  }
-
-  /* Jagged torn-edge divider between sections, comic-panel style */
-  .zigzag-divider{
-    height:22px; width:100%;
-    background:var(--flare);
-    clip-path: polygon(
-      0% 0%,4% 100%,8% 0%,12% 100%,16% 0%,20% 100%,24% 0%,28% 100%,
-      32% 0%,36% 100%,40% 0%,44% 100%,48% 0%,52% 100%,56% 0%,60% 100%,
-      64% 0%,68% 100%,72% 0%,76% 100%,80% 0%,84% 100%,88% 0%,92% 100%,96% 0%,100% 100%,100% 0%
-    );
-  }
-
-  .star-accent{position:absolute; opacity:0.35; pointer-events:none;}
-
-  /* CUSTOM SCROLLBAR — matches the brand instead of default gray */
-  ::-webkit-scrollbar{width:12px;}
-  ::-webkit-scrollbar-track{background:var(--ink);}
-  ::-webkit-scrollbar-thumb{background:var(--flare); border:2px solid var(--ink); border-radius:6px;}
-  ::-webkit-scrollbar-thumb:hover{background:#ff3b1a;}
-  html{scrollbar-color:var(--flare) var(--ink); scrollbar-width:thin;}
-
-  /* HOVER BOUNCE/TILT — makes cards and buttons feel alive on interaction */
-  .down, .player-card, .price-card{transition:transform 0.15s ease, box-shadow 0.15s ease;}
-  .down:hover, .player-card:hover, .price-card:hover{
-    transform:translate(-2px,-4px) rotate(-0.5deg);
-    box-shadow:7px 9px 0 var(--flare);
-  }
-  .price-card.featured:hover{box-shadow:9px 11px 0 var(--flare), 0 0 30px rgba(232,20,44,0.25);}
-  .btn{transition:transform 0.12s ease;}
-  .btn:hover{transform:scale(1.06) rotate(-1deg);}
-  .btn:active{transform:scale(0.96) rotate(0deg);}
-
-  /* GIANT FAINT BACKGROUND SPLASH TEXT — classic comic panel filler */
-  .bg-splash{
-    position:absolute; font-family:'Anton',sans-serif; color:var(--chalk);
-    opacity:0.035; font-size:clamp(80px,18vw,220px); white-space:nowrap;
-    pointer-events:none; z-index:0; user-select:none; letter-spacing:4px;
-  }
-
   @media(max-width:760px){
+    .hero{grid-template-columns:1fr;}
     .downs{grid-template-columns:1fr 1fr;}
     .pricing{grid-template-columns:1fr;}
     nav{flex-wrap:wrap; gap:12px;}
     .nav-links{display:none;}
-    .hero-split{grid-template-columns:1fr !important;}
   }
-
-  /* ---- The Daily Smack player ---- */
-  #onAirBar{
-    position:relative; overflow:hidden;
-    background:linear-gradient(165deg,#1C0A0B 0%,#0D0D0D 58%);
-    border:2px solid var(--flare); border-radius:12px;
-    box-shadow:0 0 34px rgba(232,20,44,0.3);
-  }
-  #onAirBar[hidden]{display:none;}
-  #onAirBar::after{
-    content:''; position:absolute; left:0; right:0; bottom:0; height:55%;
-    background:radial-gradient(ellipse at 50% 125%, rgba(232,20,44,0.28), transparent 62%);
-    pointer-events:none;
-  }
-  #onAirBar > *{position:relative; z-index:1;}
-
-  .ds-head{
-    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-    padding:11px 20px; background:rgba(232,20,44,0.09);
-    border-bottom:1px solid rgba(232,20,44,0.26);
-  }
-  /* Two blinks then a rest. A steady one-second on/off reads as broken and
-     nags; this reads as a signal being sent - the eye catches it, then lets go. */
-  .ds-sign{
-    display:inline-flex; align-items:center; gap:9px;
-    animation:dsBlink 2.4s ease-in-out infinite;
-  }
-  @keyframes dsBlink{
-    0%,8%{opacity:1} 9%,17%{opacity:.2} 18%,26%{opacity:1}
-    27%,35%{opacity:.2} 36%,100%{opacity:1}
-  }
-  .ds-sign-dot{
-    width:9px; height:9px; border-radius:50%; background:var(--flare);
-    box-shadow:0 0 12px var(--flare);
-  }
-  .ds-sign-txt{
-    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:800;
-    letter-spacing:3px; color:var(--flare);
-  }
-  .ds-meta{
-    margin-left:auto; font-family:'JetBrains Mono',monospace;
-    font-size:9.5px; letter-spacing:1.6px; color:var(--chalk-dim);
-  }
-
-  .ds-body{padding:20px 22px 14px;}
-  .ds-top{display:flex; align-items:center; gap:16px; margin-bottom:16px;}
-  .ds-play{
-    width:56px; height:56px; border-radius:50%; flex-shrink:0;
-    background:var(--flare); border:none; color:#fff; cursor:pointer;
-    font-size:18px; display:grid; place-items:center;
-    box-shadow:0 0 24px rgba(232,20,44,0.5);
-  }
-  .ds-play:hover{transform:scale(1.05);}
-  .ds-titles{min-width:0;}
-  .ds-eyebrow{
-    font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:3px;
-    color:var(--chalk-dim); text-transform:uppercase; margin:0 0 5px;
-  }
-  .ds-quote{
-    font-size:17px; line-height:1.4; color:var(--chalk);
-    font-weight:500; margin:0;
-  }
-
-  .ds-canvas{
-    display:block; width:100%; height:60px; margin-bottom:12px;
-  }
-
-  .ds-controls{display:flex; align-items:center; gap:12px;}
-  .ds-track{
-    flex:1; height:4px; border-radius:2px; background:rgba(255,255,255,0.1);
-    cursor:pointer; overflow:hidden;
-  }
-  .ds-fill{height:100%; width:0; background:var(--flare); border-radius:2px;}
-  .ds-time{
-    font-family:'JetBrains Mono',monospace; font-size:11px;
-    color:var(--chalk-dim); white-space:nowrap; min-width:38px;
-  }
-
-  .ds-foot{
-    font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.8px;
-    text-transform:uppercase; color:#5A5555; padding:11px 22px;
-    border-top:1px solid rgba(255,255,255,0.07);
-  }
-
-  @media(max-width:640px){
-    .ds-quote{font-size:15px;}
-    .ds-play{width:48px; height:48px;}
-    .ds-body{padding:16px 16px 12px;}
-  }
-  @media(prefers-reduced-motion:reduce){ .ds-sign{animation:none;} }
 </style>
 </head>
 <body>
 
-{% include '_nav.html' %}
+<nav>
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram" style="height:34px; width:auto;">
+  <div class="nav-links">
+    <span>How it works</span>
+    <span>Scenarios</span>
+    <span>Sign in</span>
+  </div>
+  <div style="display:flex; align-items:center; gap:16px;">
+    <div class="clock"><span class="dot"></span>Q4 · 00:12</div>
+    <button class="btn btn-flare">Send a smack</button>
+  </div>
+</nav>
+
+<div class="leagues">
+  <span class="league-pill active">NFL</span>
+  <span class="league-pill">NBA</span>
+  <span class="league-pill">MLB</span>
+  <span class="league-pill">NHL</span>
+  <span class="league-pill">NCAAF</span>
+</div>
 
 <div class="ticker-bar">
   <div class="ticker-track">
-    <span>COWBOYS FANS — 214 SMACKS SENT TODAY</span><span class="ticker-bolt">⚡</span>
-    <span>EAGLES JUST GOT RUNG UP AFTER THE 4TH QUARTER COLLAPSE</span><span class="ticker-bolt">⚡</span>
-    <span>LIVE — SUNDAY SLATE SMACK VOLUME UP 3X</span><span class="ticker-bolt">⚡</span>
-    <span>COWBOYS FANS — 214 SMACKS SENT TODAY</span><span class="ticker-bolt">⚡</span>
-    <span>EAGLES JUST GOT RUNG UP AFTER THE 4TH QUARTER COLLAPSE</span><span class="ticker-bolt">⚡</span>
-    <span>LIVE — SUNDAY SLATE SMACK VOLUME UP 3X</span><span class="ticker-bolt">⚡</span>
+    <span>COWBOYS FANS — 214 SMACKS SENT TODAY</span>
+    <span>EAGLES JUST GOT RUNG UP AFTER THE 4TH QUARTER COLLAPSE</span>
+    <span>LIVE — SUNDAY SLATE SMACK VOLUME UP 3X</span>
+    <span>COWBOYS FANS — 214 SMACKS SENT TODAY</span>
+    <span>EAGLES JUST GOT RUNG UP AFTER THE 4TH QUARTER COLLAPSE</span>
+    <span>LIVE — SUNDAY SLATE SMACK VOLUME UP 3X</span>
   </div>
-  <button class="ticker-pause" id="tickerPause" type="button"
-          aria-pressed="false" aria-label="Pause the ticker"><span class="glyph"></span></button>
-</div>
-
-<div style="width:100%; overflow:hidden; line-height:0; position:relative;">
-  <a href="/did-you-get-smacked" class="smackback-frame" aria-label="Did you just get smacked? Click here to smack back">
-    <div class="smackback-banner">DID YOU JUST GET SMACKED?</div>
-    <div class="smackback-btn">CLICK HERE TO SMACK BACK</div>
-  </a>
-  <picture class="hero-band">
-  <source type="image/webp" sizes="100vw"
-          srcset="{{ url_for('static', filename='img/hero-mascot-780.webp') }} 780w,
-                  {{ url_for('static', filename='img/hero-mascot-1560.webp') }} 1560w,
-                  {{ url_for('static', filename='img/hero-mascot-1672.webp') }} 1672w">
-  <img id="heroBanner" src="{{ url_for('static', filename='img/hero-mascot-1560.jpg') }}" alt="Smackagram — let the smack talk begin"
-       width="1672" height="941" style="width:100%; height:auto; display:block;">
-</picture>
 </div>
 
 <div class="wrap field-lines">
-  <section class="hero" style="padding-left:0; padding-right:0; padding-top:16px; padding-bottom:24px; position:relative; z-index:1;">
+  <div style="text-align:center; padding:32px 24px 8px; position:relative; z-index:1;">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Smackagram — let the smack begin" style="max-width:520px; width:90%; height:auto;">
+  </div>
+
+  <section class="hero" style="padding-left:0; padding-right:0; padding-top:16px; position:relative; z-index:1;">
     <div>
-      <div style="display:inline-flex; align-items:center; gap:8px; margin-bottom:16px;">
-        <span class="live-dot"></span>
-        <span class="eyebrow" style="margin:0;">Live now — game day is here</span>
+      <p class="eyebrow">Their team just lost</p>
+      <h1>Talk smack.<br>Get it <span class="flare">on tape.</span></h1>
+      <p class="sub">Send a prank call to any sports fan who needs to hear it. Two bucks. Delivered in a minute. Recorded so you can relive it forever.</p>
+      <div class="hero-ctas">
+        <button class="btn btn-flare">Send a smack — $2</button>
+        <button class="btn btn-ghost">Hear a sample</button>
       </div>
-      <p class="league-strip">NFL &middot; NBA &middot; MLB &middot; NHL &middot; WNBA &middot; COLLEGE &middot; ANY TEAM &middot; ANY PLAYER</p>
-      <h1>Their team lost.<br><span class="flare">Their phone rings.</span></h1>
-      <p class="sub" style="max-width:760px; margin-left:auto; margin-right:auto; text-align:center;">I'm Smacky. You tell me who choked &mdash; the team, the quarterback, the guy who bricked two free throws &mdash; and I'll call your buddy and read him the news in my own voice. I already know the score, the record and the losing streak, so I'll use all of it. He never finds out it was you. One dollar.</p>
+    </div>
+
+    <div class="scorecard comic-border" style="position:relative;">
+      <div class="burst">DELIVERED!</div>
+      <div class="scorecard-head">
+        <span>SMACK RECEIPT</span>
+        <span>#04471</span>
+      </div>
+      <div class="scorecard-body">
+        <div class="sc-row"><span class="sc-label">Target</span><span class="sc-val">Mike — Eagles fan</span></div>
+        <div class="sc-row"><span class="sc-label">Scenario</span><span class="sc-val">4th quarter choke</span></div>
+        <div class="sc-row"><span class="sc-label">Answered</span><span class="sc-val">0:04 in</span></div>
+        <div class="sc-row"><span class="sc-label">Duration</span><span class="sc-val">0:38</span></div>
+        <div class="sc-verdict">
+          <p>DELIVERED</p>
+          <small>RECORDING READY TO DOWNLOAD</small>
+        </div>
+      </div>
     </div>
   </section>
 </div>
 
-<!-- THE DAILY SMACK. High on the page on purpose: it's the only asset here
-     that DEMONSTRATES rather than describes. A stranger can't judge "AI trash
-     talk" from a sentence, but a genuinely funny line they can read - and then
-     press play on - settles it either way.
-     The grill imagery is deliberate: Smacky says "the grill's hot, the smoke's
-     rising" out loud in every single episode, so the visual and the audio are
-     the same idea. Hidden entirely when no episode is live. -->
-<div style="max-width:1100px; margin:0 auto 22px; padding:0 24px;">
-  <div id="onAirBar" hidden>
-    <div class="ds-head">
-      <span class="ds-sign" id="dsSign">
-        <span class="ds-sign-dot"></span>
-        <span class="ds-sign-txt">ON AIR</span>
-      </span>
-      <span class="ds-meta" id="dsMeta"></span>
-    </div>
-
-    <div class="ds-body">
-      <div class="ds-top">
-        <button id="oaPlay" class="ds-play" type="button" aria-label="Play today's show">
-          <span id="oaIcon">&#9654;</span>
-        </button>
-        <div class="ds-titles">
-          <p class="ds-eyebrow">The Daily Smack</p>
-          <p class="ds-quote" id="dsQuote">Last night&rsquo;s scores. Roasted.</p>
-        </div>
-      </div>
-
-      <!-- A real analyser, not a loop. It reads the audio actually playing, so
-           it moves with his voice and sits still when he pauses. Falls back to
-           a simulated trace if the browser or CORS blocks the analyser. -->
-      <canvas id="oaCanvas" class="ds-canvas" height="120" aria-hidden="true"></canvas>
-
-      <div class="ds-controls">
-        <span class="ds-time" id="oaTime">&mdash;</span>
-        <div class="ds-track" id="oaTrack"><div class="ds-fill" id="oaFill"></div></div>
-        <span class="ds-time" id="oaDur">&mdash;</span>
-      </div>
-    </div>
-
-    <div class="ds-foot">New episode every morning &middot; 6am ET</div>
-    <audio id="oaAudio" preload="none" crossorigin="anonymous"></audio>
-  </div>
-</div>
-
-<div style="max-width:1100px; margin:0 auto; padding:0 24px;">
-  <div class="hero-split" style="display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:8px; text-align:left; width:100%;">
-    <div style="background:var(--ink-2); border:1px solid var(--flare); border-radius:8px; padding:40px; box-shadow:0 0 30px rgba(232,20,44,0.35);">
-      <p style="font-family:'Anton',sans-serif; font-size:32px; letter-spacing:0.5px; margin-bottom:16px; text-transform:uppercase; color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.6); line-height:1.05; text-align:center;">Send a Smackagram</p>
-      <p style="font-size:15px; color:var(--chalk-dim); margin-bottom:24px; line-height:1.5; text-align:center;">Pick a team, Smacky writes the roast, and calls your friend with it — live, in his own voice, completely anonymous. The call gets recorded so you can hear their reaction after.</p>
-      <input id="heroTeamInput" type="text" placeholder="Team to roast" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:14px;" data-team-search>
-      <input id="heroRecipientInput" type="text" placeholder="Friend's name" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:20px;">
-      <button id="heroStartBtn" class="btn btn-flare" style="width:100%; padding:18px 24px; font-size:16px;">Send a Smack</button>
-    </div>
-
-    <div style="background:var(--ink-2); border:1px solid var(--flare); border-radius:8px; padding:40px; box-shadow:0 0 30px rgba(232,20,44,0.35);">
-      <p style="font-family:'Anton',sans-serif; font-size:32px; letter-spacing:0.5px; margin-bottom:16px; text-transform:uppercase; color:var(--gold); text-shadow:0 0 24px rgba(255,212,0,0.5); line-height:1.05; text-align:center;">Get Locked &amp; Loaded</p>
-      <p style="font-size:15px; color:var(--chalk-dim); margin-bottom:24px; line-height:1.5; text-align:center;">Pick a team, and we watch their next game for you — if they lose, we automatically call your friend with a fresh roast, completely anonymous. If they win, you pay nothing.</p>
-      <input id="heroLockedTeamInput" type="text" placeholder="Team to watch" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:14px;" data-team-search>
-      <input id="heroLockedRecipientInput" type="text" placeholder="Friend's name" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:20px;">
-      <button id="heroLockedBtn" class="btn btn-flare" style="width:100%; padding:18px 24px; font-size:16px;">Arm a Smack</button>
-    </div>
-  </div>
-</div>
-
-
-<div class="wrap">
-  <div style="background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:20px 16px; margin:8px 0 32px; display:grid; grid-template-columns:repeat(3,1fr); text-align:center;">
-    <div>
-      <p class="display" style="font-family:'Anton',sans-serif; font-size:34px; color:var(--flare); text-shadow:0 0 16px rgba(232,20,44,0.5);">2,847</p>
-      <p class="mono" style="font-size:11px; color:var(--chalk-dim); letter-spacing:1px; margin-top:2px;">SMACKS SENT THIS WEEK</p>
-    </div>
-    <div style="border-left:1px solid var(--line-strong); border-right:1px solid var(--line-strong);">
-      <p class="display" style="font-family:'Anton',sans-serif; font-size:34px; color:var(--silver); text-shadow:0 0 16px rgba(195,202,211,0.35);">4</p>
-      <p class="mono" style="font-size:11px; color:var(--chalk-dim); letter-spacing:1px; margin-top:2px;">VOICES TO CHOOSE FROM</p>
-    </div>
-    <div>
-      <p class="display" style="font-family:'Anton',sans-serif; font-size:34px; color:var(--cyan);">60s</p>
-      <p class="mono" style="font-size:11px; color:var(--chalk-dim); letter-spacing:1px; margin-top:2px;">FROM TYPE TO DELIVERED</p>
-    </div>
-  </div>
-</div>
-
-<section id="how-it-works" class="halftone" style="background:var(--ink-2); position:relative; overflow:hidden;">
-  <p class="bg-splash" style="top:10%; left:-4%; transform:rotate(-8deg);">SMACK!</p>
-  <div class="wrap" style="position:relative; z-index:1;">
+<section class="halftone" style="background:var(--ink-2);">
+  <div class="wrap">
     <p class="section-title">Four downs to a smack</p>
     <p class="section-sub">First and goal. Here's the drive.</p>
     <div class="downs">
@@ -600,7 +265,7 @@
         <div class="jersey">1</div>
         <p class="down-tag">1ST DOWN</p>
         <h3>Pick a scenario</h3>
-        <p>Choose from the library, or write your own line and Smacky'll read it.</p>
+        <p>Choose from the library, or write your own line and we'll read it.</p>
       </div>
       <div class="down">
         <div class="jersey">2</div>
@@ -611,8 +276,8 @@
       <div class="down">
         <div class="jersey">3</div>
         <p class="down-tag">3RD DOWN</p>
-        <h3>Smacky makes the call</h3>
-        <p>Phone rings, they answer, and Smacky's the one talking.</p>
+        <h3>We make the call</h3>
+        <p>Phone rings, they answer, the smack talk starts.</p>
       </div>
       <div class="down">
         <div class="jersey">4</div>
@@ -624,266 +289,169 @@
   </div>
 </section>
 
-<div class="home-band">
+<section>
   <div class="wrap">
-    <p class="home-kicker">Free &middot; new every morning at 6</p>
-    <h2 style="font-family:'Anton',sans-serif; font-size:28px; color:var(--silver-hot); margin:0 0 6px;">The Daily Smack</h2>
-    <p style="color:#B5B0B0; font-size:14px; line-height:1.5; margin:0 0 18px; max-width:640px;">Every loss from last night, and I don't hold back on any of them. Baseball, basketball, hockey, football when it's on. Hear what I sound like before you point me at somebody.</p>
-    <a href="/daily-smack" class="btn btn-flare" style="display:inline-block; text-decoration:none; padding:14px 28px; font-size:15px;">Listen to today's episode</a>
-  </div>
-</div>
-
-<div class="home-band alt">
-  <div class="wrap">
-    <div class="home-duo">
-      <div class="home-card">
-        <p class="home-kicker">Free</p>
-        <h3>Smack Lab</h3>
-        <p>Run it by me first. I'll tell you if it's weak, and I'll tell you why. Then we sharpen it until it isn't.</p>
-        <a href="/smack-lab" style="color:var(--flare); font-weight:700; font-size:14px; text-decoration:none; display:inline-block; margin-top:12px;">Practice on me &rarr;</a>
+    <p class="section-title">Trending scenarios</p>
+    <p class="section-sub">New ones added every game week.</p>
+    <div class="card-row">
+      <div class="player-card">
+        <p class="power"><svg class="ball-icon" viewBox="0 0 24 24" fill="none" stroke="#FFD400" stroke-width="1.6"><ellipse cx="12" cy="12" rx="10" ry="6" transform="rotate(-30 12 12)"/><path d="M7 13l10-6M8.5 15.5l1-1.7M14.5 8.5l1-1.7" transform="rotate(-30 12 12)"/></svg>POWER 94</p>
+        <h4>4th quarter choke</h4>
+        <p>Angry announcer voice, blow-by-blow recap of the meltdown.</p>
       </div>
-      <div class="home-card">
-        <p class="home-kicker">Fantasy leagues</p>
-        <h3>Smackcast</h3>
-        <p>Your league, your commissioner, your guy who starts players on bye. Roasted weekly, by name, with the actual scores.</p>
-        <a href="/smackcast" style="color:var(--flare); font-weight:700; font-size:14px; text-decoration:none; display:inline-block; margin-top:12px;">Get your league done &rarr;</a>
+      <div class="player-card">
+        <p class="power"><svg class="ball-icon" viewBox="0 0 24 24" fill="none" stroke="#FFD400" stroke-width="1.6"><ellipse cx="12" cy="12" rx="10" ry="6" transform="rotate(-30 12 12)"/><path d="M7 13l10-6M8.5 15.5l1-1.7M14.5 8.5l1-1.7" transform="rotate(-30 12 12)"/></svg>POWER 88</p>
+        <h4>Rival fan rage bait</h4>
+        <p>For the group chat trash talker in your life.</p>
+      </div>
+      <div class="player-card">
+        <p class="power"><svg class="ball-icon" viewBox="0 0 24 24" fill="none" stroke="#FFD400" stroke-width="1.6"><ellipse cx="12" cy="12" rx="10" ry="6" transform="rotate(-30 12 12)"/><path d="M7 13l10-6M8.5 15.5l1-1.7M14.5 8.5l1-1.7" transform="rotate(-30 12 12)"/></svg>POWER 81</p>
+        <h4>Refs robbed us</h4>
+        <p>Full conspiracy theorist energy, unhinged and proud.</p>
+      </div>
+      <div class="player-card">
+        <p class="power">POWER —</p>
+        <h4>Write your own</h4>
+        <p>Type it, we'll read it back word for word.</p>
       </div>
     </div>
   </div>
-</div>
+</section>
 
-<div class="home-band">
-  <div class="wrap home-closer">
-    <h2>Somebody's team won tonight.<br><span>That's a problem I can fix.</span></h2>
-    <a href="/send-a-smack" class="btn btn-flare" style="display:inline-block; text-decoration:none; padding:16px 36px; font-size:16px;">Send a smack &mdash; $1</a>
+<section style="background:var(--ink-2);">
+  <div class="wrap">
+    <p class="section-title">Stuck on what to say?</p>
+    <p class="section-sub">Type the team you want roasted. We'll write the smack talk.</p>
+
+    <input id="teamInput" type="text" placeholder="Team to trash talk (e.g. Eagles)" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; margin-bottom:14px;">
+
+    <button id="generateBtn" class="btn btn-flare" style="margin-bottom:14px;">Generate smack talk</button>
+
+    <textarea id="trashTalkOutput" placeholder="Your generated line shows up here — edit it however you want before sending." style="width:100%; min-height:100px; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; resize:vertical;"></textarea>
+
+    <div style="display:flex; align-items:center; gap:12px; margin-top:12px;">
+      <button id="previewBtn" class="btn btn-ghost">Hear it</button>
+      <span id="previewStatus" style="font-size:12px; color:var(--chalk-dim);"></span>
+    </div>
+    <audio id="previewAudio" style="width:100%; margin-top:10px; display:none;" controls></audio>
   </div>
-</div>
-
-<div class="zigzag-divider"></div>
+</section>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+document.getElementById('generateBtn').addEventListener('click', async () => {
+  const team = document.getElementById('teamInput').value.trim();
+  const output = document.getElementById('trashTalkOutput');
+  const btn = document.getElementById('generateBtn');
 
-// Hero "Send a Smack" mini card — hands off to the dedicated generator
-// page with team/recipient pre-filled, rather than duplicating the full
-// generator's logic in a second place on this page.
-document.getElementById('heroStartBtn').addEventListener('click', () => {
-  const team = document.getElementById('heroTeamInput').value.trim();
-  const recipient = document.getElementById('heroRecipientInput').value.trim();
-  const params = new URLSearchParams();
-  if (team) params.set('team', team);
-  if (recipient) params.set('recipient_name', recipient);
-  const query = params.toString();
-  window.location.href = query ? `/send-a-smack?${query}` : '/send-a-smack';
+  if (!team) {
+    output.placeholder = "Type a team first.";
+    return;
+  }
+
+  btn.textContent = 'Writing...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/generate-trash-talk', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({team: team})
+    });
+    const data = await resp.json();
+    output.value = data.generated_text;
+  } catch (err) {
+    output.value = "Couldn't generate right now — try again.";
+  } finally {
+    btn.textContent = 'Generate smack talk';
+    btn.disabled = false;
+  }
 });
 
-// Hero "Locked & Loaded" mini card — hands off to the real Locked & Loaded
-// page with the team pre-filled, rather than rebuilding real-game search
-// in a second, smaller place.
-document.getElementById('heroLockedBtn').addEventListener('click', () => {
-  const team = document.getElementById('heroLockedTeamInput').value.trim();
-  const recipient = document.getElementById('heroLockedRecipientInput').value.trim();
-  const params = new URLSearchParams();
-  if (team) params.set('team', team);
-  if (recipient) params.set('recipient_name', recipient);
-  const query = params.toString();
-  window.location.href = query ? `/locked-n-loaded?${query}` : '/locked-n-loaded';
-});
+document.getElementById('previewBtn').addEventListener('click', async () => {
+  const text = document.getElementById('trashTalkOutput').value.trim();
+  const btn = document.getElementById('previewBtn');
+  const status = document.getElementById('previewStatus');
+  const audioEl = document.getElementById('previewAudio');
 
-document.getElementById('heroLockedRecipientInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('heroLockedBtn').click();
-});
+  if (!text) {
+    status.textContent = 'Generate or type a line first.';
+    return;
+  }
 
-document.getElementById('heroTeamInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('heroStartBtn').click();
-});
-document.getElementById('heroRecipientInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('heroStartBtn').click();
-});
-document.getElementById('heroLockedTeamInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('heroLockedBtn').click();
-});
+  btn.textContent = 'Loading...';
+  btn.disabled = true;
+  status.textContent = '';
 
+  try {
+    const resp = await fetch('/api/preview-audio', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text: text})
+    });
+    const data = await resp.json();
 
-}); // end DOMContentLoaded
+    if (resp.status === 429) {
+      status.textContent = data.error;
+    } else if (data.audio_url) {
+      audioEl.src = data.audio_url;
+      audioEl.style.display = 'block';
+      audioEl.play();
+      status.textContent = `${data.previews_remaining} free previews left this hour.`;
+    } else {
+      status.textContent = 'Something went wrong — try again.';
+    }
+  } catch (err) {
+    status.textContent = 'Something went wrong — try again.';
+  } finally {
+    btn.textContent = 'Hear it';
+    btn.disabled = false;
+  }
+});
 </script>
+
+<section style="background:var(--ink-2);">
+  <div class="wrap">
+    <p class="section-title">Pick your play</p>
+    <p class="section-sub">No tokens, no subscriptions. Just pay per smack.</p>
+    <div class="pricing">
+      <div class="price-card featured">
+        <span class="badge">Most popular</span>
+        <p class="section-sub" style="margin:0;">Call + recording</p>
+        <p class="price">$2</p>
+        <div class="feat">✓ Call delivered</div>
+        <div class="feat">✓ Reaction recorded</div>
+        <div class="feat">✓ Downloadable + shareable</div>
+        <button class="btn btn-flare" style="width:100%; margin-top:16px;">Send it</button>
+      </div>
+      <div class="price-card">
+        <p class="section-sub" style="margin:0;">Call only</p>
+        <p class="price">$1</p>
+        <div class="feat">✓ Call delivered</div>
+        <div class="feat no">✗ No recording</div>
+        <div class="feat no">✗ Nothing to share</div>
+        <button class="btn btn-ghost" style="width:100%; margin-top:16px;">Send it</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="final-cta field-lines">
+    <div style="position:relative; z-index:1;">
+      <p class="mono" style="color:var(--gold); font-size:12px; letter-spacing:1px; margin-bottom:14px;">FINAL SCORE: YOU 2 — THEM 0</p>
+      <h2 class="display" style="font-family:'Anton',sans-serif;">Ready to make their day worse?</h2>
+      <p>Two bucks gets you the call plus proof it happened.</p>
+      <button class="btn btn-flare">Get started</button>
+    </div>
+  </div>
+</section>
 
 <footer>
   <span>© 2026 Smackagram</span>
   <div class="flinks">
-    <a href="/terms" style="color:inherit; text-decoration:none;">Terms</a><span>Privacy</span><span>Opt out</span><a href="/contact" style="color:inherit; text-decoration:none;">Support</a>
+    <span>Terms</span><span>Privacy</span><span>Opt out</span><span>Support</span>
   </div>
 </footer>
 
-
-<script>
-(function(){
-  var track = document.querySelector('.ticker-track');
-  var btn   = document.getElementById('tickerPause');
-  if (!track || !btn) return;
-  btn.addEventListener('click', function(){
-    var nowPaused = track.style.animationPlayState !== 'paused';
-    track.style.animationPlayState = nowPaused ? 'paused' : 'running';
-    btn.classList.toggle('is-paused', nowPaused);
-    btn.setAttribute('aria-pressed', String(nowPaused));
-    btn.setAttribute('aria-label', nowPaused ? 'Resume the ticker' : 'Pause the ticker');
-  });
-})();
-</script>
-
-<script>
-(function () {
-  var bar = document.getElementById('onAirBar');
-  if (!bar) return;
-  var audio  = document.getElementById('oaAudio');
-  var btn    = document.getElementById('oaPlay');
-  var icon   = document.getElementById('oaIcon');
-  var quote  = document.getElementById('dsQuote');
-  var meta   = document.getElementById('dsMeta');
-  var canvas = document.getElementById('oaCanvas');
-  var timeEl = document.getElementById('oaTime');
-  var durEl  = document.getElementById('oaDur');
-  var track  = document.getElementById('oaTrack');
-  var fill   = document.getElementById('oaFill');
-  var ctx    = canvas.getContext('2d');
-
-  fetch('/api/show/current')
-    .then(function (r) { return r.json(); })
-    .then(function (d) {
-      if (!d.live || !d.audio_url) return;
-      audio.src = d.audio_url;
-      if (d.best_line) quote.textContent = '\u201C' + d.best_line + '\u201D';
-      var bits = [];
-      if (d.date_label) bits.push(d.date_label);
-      if (d.leagues) bits.push(d.leagues);
-      if (d.game_count) bits.push(d.game_count + ' games');
-      meta.textContent = bits.join(' \u00B7 ');
-      bar.hidden = false;
-      sizeCanvas();
-      drawFlat();
-    })
-    .catch(function () {});
-
-  function sizeCanvas() {
-    var dpr = window.devicePixelRatio || 1;
-    canvas.width = canvas.offsetWidth * dpr;
-    canvas.height = 60 * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
-  window.addEventListener('resize', function () { sizeCanvas(); if (audio.paused) drawFlat(); });
-
-  // ---- Real analyser over the playing audio ----
-  // Reads what's actually coming out, so the trace moves with his voice and
-  // sits flat when he stops. Needs CORS on the audio host; if that's missing
-  // or the browser refuses, it falls back to a simulated trace rather than
-  // showing a dead line.
-  var actx = null, analyser = null, data = null, useReal = false;
-
-  function initAnalyser() {
-    if (actx) return;
-    try {
-      var AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      actx = new AC();
-      var src = actx.createMediaElementSource(audio);
-      analyser = actx.createAnalyser();
-      analyser.fftSize = 1024;
-      analyser.smoothingTimeConstant = 0.72;
-      data = new Uint8Array(analyser.fftSize);
-      src.connect(analyser);
-      analyser.connect(actx.destination);
-      useReal = true;
-    } catch (e) {
-      useReal = false;   // simulated trace instead
-    }
-  }
-
-  var raf = null, t = 0;
-
-  function drawFlat() {
-    var w = canvas.offsetWidth, h = 60;
-    ctx.clearRect(0, 0, w, h);
-    ctx.strokeStyle = 'rgba(232,20,44,0.28)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, h / 2);
-    ctx.lineTo(w, h / 2);
-    ctx.stroke();
-  }
-
-  function draw() {
-    var w = canvas.offsetWidth, h = 60, mid = h / 2;
-    ctx.clearRect(0, 0, w, h);
-
-    var grad = ctx.createLinearGradient(0, 0, w, 0);
-    grad.addColorStop(0,    'rgba(232,20,44,0)');
-    grad.addColorStop(0.07, 'rgba(232,20,44,1)');
-    grad.addColorStop(0.93, 'rgba(232,20,44,1)');
-    grad.addColorStop(1,    'rgba(232,20,44,0)');
-    ctx.strokeStyle = grad;
-    ctx.lineWidth = 2;
-    ctx.lineJoin = 'round';
-
-    ctx.beginPath();
-    if (useReal && analyser) {
-      analyser.getByteTimeDomainData(data);
-      var step = data.length / w;
-      for (var x = 0; x < w; x++) {
-        var v = (data[Math.floor(x * step)] - 128) / 128;   // -1..1
-        var y = mid + v * (mid - 3) * 1.9;
-        x ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-      }
-    } else {
-      t += 0.11;
-      for (var x2 = 0; x2 <= w; x2 += 2) {
-        var amp = Math.sin(x2 * 0.05 + t) * Math.sin(x2 * 0.011 + t * 0.6) * (mid - 6);
-        var y2 = mid + amp;
-        x2 ? ctx.lineTo(x2, y2) : ctx.moveTo(x2, y2);
-      }
-    }
-    ctx.stroke();
-    raf = requestAnimationFrame(draw);
-  }
-
-  function fmt(s) {
-    if (!isFinite(s)) return '\u2014';
-    var m = Math.floor(s / 60), r = Math.floor(s % 60);
-    return m + ':' + (r < 10 ? '0' : '') + r;
-  }
-
-  btn.addEventListener('click', function () {
-    initAnalyser();
-    if (actx && actx.state === 'suspended') actx.resume();
-    audio.paused ? audio.play() : audio.pause();
-  });
-
-  audio.addEventListener('play', function () {
-    icon.innerHTML = '&#10074;&#10074;';
-    if (!raf) draw();
-  });
-  ['pause', 'ended'].forEach(function (e) {
-    audio.addEventListener(e, function () {
-      icon.innerHTML = '&#9654;';
-      if (raf) { cancelAnimationFrame(raf); raf = null; }
-      drawFlat();
-    });
-  });
-  audio.addEventListener('loadedmetadata', function () {
-    durEl.textContent = fmt(audio.duration);
-  });
-  audio.addEventListener('timeupdate', function () {
-    timeEl.textContent = fmt(audio.currentTime);
-    if (isFinite(audio.duration)) {
-      fill.style.width = (audio.currentTime / audio.duration * 100) + '%';
-    }
-  });
-  track.addEventListener('click', function (e) {
-    if (!isFinite(audio.duration)) return;
-    var r = track.getBoundingClientRect();
-    audio.currentTime = ((e.clientX - r.left) / r.width) * audio.duration;
-  });
-})();
-</script>
-<script src="{{ url_for('static', filename='js/share.js') }}"></script>
 </body>
 </html>
