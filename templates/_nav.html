@@ -1,12 +1,9 @@
 <script src="{{ url_for('static', filename='js/smackagram.js') }}"></script>
 <nav>
-  <a href="/" style="display:flex; align-items:center; text-decoration:none;">
-    <picture>
-      <source type="image/webp" srcset="{{ url_for('static', filename='img/logo-204.webp') }}">
-      <img src="{{ url_for('static', filename='img/logo-204.png') }}" alt="Smackagram"
-           width="51" height="34" style="height:34px; width:auto; display:block;">
-    </picture>
-  </a>
+  {# Wordmark rather than the image logo. Set in Anton to match every other
+     display heading on the site, at 34px so it occupies the same vertical
+     space the image did and nothing in the nav shifts. #}
+  <a href="/" class="brand" aria-label="Smackagram home">SMACK<span>AGRAM</span></a>
   <!-- Grouped by what somebody is trying to DO, not by what it costs.
        "Free" is an accounting category, not a user's mental model, and a
        bin labelled that way quietly signals "lesser tier" about the exact
@@ -18,11 +15,12 @@
   <div class="nav-links">
     <div class="nav-group">
       <button type="button" class="nav-group-btn" aria-expanded="false" aria-haspopup="true">
-        Send <span class="nav-caret" aria-hidden="true">&#9662;</span>
+        Smackagram <span class="nav-caret" aria-hidden="true">&#9662;</span>
       </button>
       <div class="nav-menu">
         <a href="/send-a-smack">Smackagram</a>
         <a href="/locked-n-loaded">Locked &amp; Loaded</a>
+        <a href="/did-you-get-smacked">Smack Back</a>
       </div>
     </div>
 
@@ -33,7 +31,6 @@
       <div class="nav-menu">
         <a href="/smack-zone" class="nav-menu-hub">All of it &rarr;</a>
         <a href="/smack-lab">Smack Lab</a>
-        <a href="/smack-chat">Smack Chat</a>
         <a href="/smack-battle">Smack Battle</a>
         <a href="/smack-board">The Smack Board</a>
       </div>
@@ -54,11 +51,14 @@
     <!-- Stays top-level on purpose. This is where somebody lands after being
          told a URL on a phone call, mid-fury - it has to be findable in one
          look, not nested behind anything. -->
-    <a href="/did-you-get-smacked" style="color:inherit; text-decoration:none;">Did You Get Smacked?</a>
     <a href="/meet-smacky" style="color:inherit; text-decoration:none;">Meet Smacky</a>
   </div>
   <div class="auth-links">
     {% if current_user %}
+      {# The locker holds everything somebody owns - sent smacks, received
+         smacks, fantasy recaps. It was reachable only by typing the URL,
+         which for the hub of the whole account is not a nav. #}
+      <a href="/locker" style="color:inherit; text-decoration:none;">My Locker</a>
       <a href="/profile" style="color:inherit; text-decoration:none;">My Profile</a>
     {% else %}
       <a href="/login" style="color:inherit; text-decoration:none;">Log In</a>
@@ -77,11 +77,11 @@
   <p class="nav-drawer-head">Send</p>
   <a href="/send-a-smack">Smackagram</a>
   <a href="/locked-n-loaded" class="is-flare">Locked &amp; Loaded</a>
+  <a href="/did-you-get-smacked">Smack Back</a>
 
   <p class="nav-drawer-head">Smack Zone</p>
   <a href="/smack-zone">The Smack Zone</a>
   <a href="/smack-lab">Smack Lab</a>
-  <a href="/smack-chat">Smack Chat</a>
   <a href="/smack-battle">Smack Battle</a>
   <a href="/smack-board">The Smack Board</a>
 
@@ -91,11 +91,11 @@
   <a href="/smackcast/library">Smackcast Library</a>
 
   <p class="nav-drawer-head">More</p>
-  <a href="/did-you-get-smacked">Did You Get Smacked?</a>
   <a href="/meet-smacky">Meet Smacky</a>
   <div class="nav-drawer-auth">
     {% if current_user %}
-      <a href="/profile" class="is-gold">My Profile</a>
+      <a href="/locker" class="is-gold">My Locker</a>
+      <a href="/profile">My Profile</a>
     {% else %}
       <a href="/login">Log In</a>
       <a href="/register" class="is-flare">Register</a>

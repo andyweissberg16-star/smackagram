@@ -146,6 +146,30 @@ footer a:hover{color:var(--flare-text);}
    growing the hit area to 44px costs no layout. */
 nav > a:first-of-type{min-height:44px; display:flex; align-items:center;}
 
+/* The wordmark that replaced the image logo. Anton to match every display
+   heading on the site, sized to occupy the same vertical space the image
+   did so nothing else in the nav shifts.
+
+   Tight letter-spacing because Anton is already condensed and the default
+   tracking makes a nine-letter word sprawl across a phone's nav bar. */
+.brand{
+  font-family:'Anton', Impact, sans-serif;
+  font-size:25px;
+  line-height:1;
+  letter-spacing:0.5px;
+  color:var(--chalk, #F5F5F3);
+  text-decoration:none;
+  white-space:nowrap;
+  display:flex;
+  align-items:center;
+}
+.brand span{color:var(--flare, #E01B24);}
+.brand:hover{opacity:0.88;}
+
+@media(max-width:520px){
+  .brand{font-size:21px;}
+}
+
 /* Buttons measured 37-42px. Not applied to `button` generally, because small
    icon buttons (the 16px sensitivity "i") would stretch and break their rows. */
 .btn,.btn-play,.btn-flare,.btn-ghost{min-height:44px;}
