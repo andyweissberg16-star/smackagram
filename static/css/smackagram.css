@@ -566,9 +566,48 @@ body::after{
 
 /* 200px off a 390px screen is most of the viewport and stops reading as
    texture. */
+/* The same word again on the right, so the page is anchored at both
+   corners rather than weighted to one side.
+
+   On html::after rather than a third layer on body - body's two
+   pseudo-elements are already carrying the beams and the left word, and
+   html's are free, which means no template anywhere needs a new div. */
+html::after{
+  content:"SMACK";
+  position:fixed;
+  right:32px;
+  bottom:24px;
+  z-index:-1;
+  pointer-events:none;
+  font-family:'Anton', Impact, sans-serif;
+  font-size:109px;
+  line-height:1;
+  white-space:nowrap;
+  color:transparent;
+  -webkit-text-stroke:1px rgba(232,20,44,0.15);
+}
+
+/* 109px off a 390px screen is most of the viewport and stops reading as
+   texture. Both words shrink together. */
 @media(max-width:720px){
   body::after{font-size:62px; left:18px; bottom:16px;}
+  html::after{font-size:62px; right:18px; bottom:16px;}
 }
+
+/* Two words at 109px need about 570px between them. Below that they would
+   collide in the middle, so the right one steps aside and the left one
+   carries the page on its own. */
+@media(max-width:900px) and (min-width:721px){
+  html::after{display:none;}
+}
+
+/* And the admin panel gets neither.
+
+   :has() rather than a descendant selector - html is the ANCESTOR of body,
+   so "body.smk-plain html::after" selects nothing at all. This asks the
+   root element whether it contains a plain body, which is the only way to
+   reach upward. */
+html:has(body.smk-plain)::after{display:none;}
 
 /* Somebody who has asked their system not to animate things means it. */
 @media (prefers-reduced-motion: reduce){
