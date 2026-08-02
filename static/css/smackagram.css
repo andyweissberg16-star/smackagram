@@ -495,8 +495,19 @@ body::before{
     /* Both glows identical now - same ellipse, same opacity, same falloff -
        so the page is lit evenly from opposite corners. They were 55%/35%
        and 60%/30%, which read as one being larger than the other. */
-    radial-gradient(ellipse 60% 30% at 100% 100%, rgba(232,20,44,0.12), transparent 70%),
-    radial-gradient(ellipse 60% 30% at 0% 0%, rgba(232,20,44,0.12), transparent 70%),
+    /* Positioned for the VIEWPORT, not for this element.
+       
+       The layer is inset:-25% so it can rotate without exposing the
+       corners, which makes it 1.5x the screen in both directions. A glow
+       "at 0% 0%" therefore sits a quarter of a screen ABOVE and LEFT of
+       anything anybody can see - both glows were entirely off-screen, and
+       the light visible at the top was the beam rather than the glow.
+       
+       The viewport's own corners fall at 16.67% and 83.33% of this
+       element. Sizes are scaled by the same factor so they read the same
+       as they would at 60% 30% of the screen. */
+    radial-gradient(ellipse 40% 20% at 83.33% 83.33%, rgba(232,20,44,0.13), transparent 70%),
+    radial-gradient(ellipse 40% 20% at 16.67% 16.67%, rgba(232,20,44,0.13), transparent 70%),
     /* a matching pair of beams thrown back up from off the bottom right,
        so the light comes from two directions the way a stadium is lit
        rather than from a single source overhead */
