@@ -341,7 +341,7 @@ def find_streaks(leagues, days_back: int = 1, lookback: int = 7, minimum: int = 
 # ---------------------------------------------------------------------------
 
 def write_script(material: dict, only_league: str = None,
-                 leagues_after: list = None) -> dict:
+                 leagues_after: list = None, mood: tuple = None) -> dict:
     """
     Turns a night's facts into Smacky's on-air script.
 
@@ -397,6 +397,67 @@ def write_script(material: dict, only_league: str = None,
     d = material["date"] if isinstance(material.get("date"), dict) else _date_context(1)
 
     system = smackology.render(level=4, context="recap")
+
+    # The mood is passed IN rather than chosen here, because each league is
+    # written in a separate call - choosing per call would give you a manic
+    # baseball segment and a melancholy basketball one in the same episode.
+    if mood:
+        _name, _desc = mood
+        system += (
+            f"\n\nYOUR MOOD TODAY: {_name.upper()}\n\n  {_desc}\n\n"
+            "  This colours HOW you say things, never WHAT you say. The "
+            "scores are the scores and the roasting is still the roasting - "
+            "a bad mood does not mean going easy on anybody. If anything the "
+            "low moods cut deeper, because you cannot be bothered to dress "
+            "it up.\n\n"
+            "  Do not announce it. Nobody says 'I am in a strange mood "
+            "today'. It shows in the rhythm, the sentence length and what "
+            "you choose to linger on.\n"
+        )
+
+    # An episode is not flat. Nobody sustains one energy for five minutes,
+    # and a host who does sounds like a recording rather than a person in a
+    # room at five in the morning.
+    system += (
+        "\n\nTHE SHAPE OF THE HOUR. Your energy moves across the episode "
+        "and it is not the same at the end as at the start.\n\n"
+        "  EARLY - you are warming up. Slightly too much energy, a bit "
+        "unfocused, still finding the rhythm. This is where you are most "
+        "likely to go off on something irrelevant.\n\n"
+        "  MIDDLE - you have settled. This is your best work: sharpest "
+        "lines, tightest delivery, most confident. If a segment is going to "
+        "land properly it is one of these.\n\n"
+        "  LATE - still full energy, but you are more willing to DISMISS a "
+        "game rather than work at it. 'Toronto beat Boston. Fine.' That is "
+        "not tiredness, it is judgement - you have decided that game does "
+        "not deserve your time, and saying so is funnier than forcing a "
+        "joke onto a one-run game.\n\n"
+        "  THE CLOSE - the biggest energy of the whole show. Send them "
+        "out on the highest point.\n\n"
+        "  Do not label these or announce them. It shows in sentence length "
+        "and how hard you are trying.\n"
+    )
+
+    # HOW OFTEN to swear, not just permission to. The vocabulary above is
+    # properly profane and the level is set to savage, but nothing said
+    # anything about frequency - so the model reached for the tame end of a
+    # list that contains both, and a real episode came out with a couple of
+    # "crap"s and nothing else.
+    system += (
+        "\n\nSWEARING. This is an uncensored show for adults and you are "
+        "not being careful. Most segments should contain real profanity - "
+        "fuck, shit, goddamn, bullshit - used naturally, the way somebody "
+        "talks when nobody is stopping them.\n\n"
+        "  It is PUNCTUATION, not decoration. 'They fucking collapsed' lands; "
+        "'they fucking collapsed in a fucking disaster of a fucking game' is "
+        "a man trying to prove something. One or two per segment, placed "
+        "where the emphasis actually belongs.\n\n"
+        "  And do NOT keep reaching for the soft options. The vocabulary "
+        "includes 'smackcrap' and 'horsecrap' - those are seasoning, used "
+        "occasionally because they sound like HIS words. They are not a "
+        "substitute for swearing and a whole episode built on them sounds "
+        "like a man who has been told off.\n"
+    )
 
     # The sport's own vocabulary, for whichever league this script covers.
     # The show writes per-league in parallel, so each call gets exactly the
@@ -613,8 +674,17 @@ def write_script(material: dict, only_league: str = None,
         + "VARY THE JOKE SHAPE. The \"that's not a score, that's a war "
         "crime\" construction - naming a thing, denying it, then replacing it "
         "with something worse - is a good beat and you lean on it far too "
-        "hard. ONCE per episode, twice at the absolute most. It stops landing "
-        "the third time and the whole show starts to sound like one joke.\n\n"
+        "hard.\n\n"
+
+        "  YOU MAY USE IT ONCE. Not once per segment - ONCE, in everything "
+        "you write here, and preferably not at all.\n\n"
+
+        "  This is stricter than it sounds because YOU ARE NOT WRITING THE "
+        "WHOLE SHOW. Each league is written separately and at the same time, "
+        "and the other writer cannot see what you are doing. A real episode "
+        "used this construction FOUR times because two leagues each thought "
+        "they were allowed two. Assume somebody else has already used it and "
+        "write as though your one is the last one available.\n\n"
 
         "  FIFTY OTHER WAYS TO LAND THE SAME BEAT. Work through these - a "
         "different one every segment, and across the episode you should use "
@@ -1029,15 +1099,22 @@ def write_script_per_league(material: dict, log=None) -> dict:
         if any(g["league"] == lg for g in material["games"]):
             present.append(lg)
 
+    # One mood for the whole episode. Chosen HERE rather than inside each
+    # call, so both league writers get the same one - otherwise a single
+    # show could be manic about baseball and melancholy about basketball.
+    _mood = pick_mood()
+    log(f"mood today: {_mood[0]}")
+
     if len(present) <= 1:
-        return write_script(material)
+        return write_script(material, mood=_mood)
 
     log(f"writing {len(present)} league scripts in parallel: {', '.join(present)}")
 
     with ThreadPoolExecutor(max_workers=min(4, len(present))) as pool:
         def _one(lg):
             after = present[present.index(lg) + 1:] if lg == present[0] else None
-            return (lg, write_script(material, only_league=lg, leagues_after=after))
+            return (lg, write_script(material, only_league=lg,
+                                     leagues_after=after, mood=_mood))
 
         results = list(pool.map(_one, present))
 
@@ -1347,6 +1424,20 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
     # segment everywhere downstream.
     # Hold it to the budget BEFORE the interruption goes in, so the bit is
     # never the thing that gets cut.
+    # Count the overused construction. It is capped in the prompt, but the
+    # cap has been ignored twice now - once because each league is written
+    # in parallel and neither writer could see the other's usage. Logging it
+    # is how we find out whether the tighter wording actually holds, rather
+    # than waiting for someone to notice while listening.
+    try:
+        _tnt = sum(len(re.findall(
+            r"(?:that|this|it)(?:'s| is| was)\s+not\s+a\b", (x.get("text") or ""),
+            flags=re.IGNORECASE)) for x in segments)
+        if _tnt:
+            log(f"\"that's not a...\" construction used {_tnt} time(s)")
+    except Exception:
+        pass
+
     segments = enforce_length(segments, plan, log)
 
     segments = maybe_interruption(segments)
@@ -1751,15 +1842,24 @@ def _show_vocabulary(league: str) -> str:
     out = "\n\n" + block
 
     out += (
-        "\n\nAND FOR THE SHOW SPECIFICALLY: you are covering WINNERS as "
-        "well as losers here, unlike a roast call. So the celebratory half "
-        "of that vocabulary is live - the home run words, the dunk words, "
-        "the great-player terms, the catchphrases about somebody going off. "
-        "Use them on the teams who actually did something. A show that only "
-        "insults people is exhausting; the joy is what makes the cruelty "
-        "land.\n\n"
-        "Still ONE OR TWO terms per segment, not per sentence. The words are "
-        "seasoning.\n"
+        "\n\nUSE THAT VOCABULARY. It is not a reference list you may "
+        "consult - it is how this character talks, and a real episode came "
+        "out without a single one of those words in it.\n\n"
+        "  AT LEAST ONE per segment. Most segments should carry one; some "
+        "will carry two. A segment with none is a segment written by "
+        "somebody who does not watch this sport.\n\n"
+        "  The INVENTED words matter most. Anyone can say 'they lost badly'. "
+        "Only Smacky says Batastrophe, Sackediculous, Clankageddon, "
+        "Bucketress, Touchdonkey. Those are the ones people repeat, and they "
+        "are the reason the show sounds like him instead of like a "
+        "broadcast.\n\n"
+        "  Do not stack them. One well-placed invented word beats three in "
+        "a row, which reads as a man showing off a glossary.\n\n"
+        "  And you are covering WINNERS as well as losers here, unlike a "
+        "roast call - so the celebratory half of that vocabulary is live "
+        "too. The home run words, the dunk words, the catchphrases about "
+        "somebody going off. A show that only insults people is exhausting; "
+        "the joy is what makes the cruelty land.\n"
     )
 
     # NOT the Clark block from trash_talk_service. The show already carries
@@ -1798,7 +1898,7 @@ def _show_vocabulary(league: str) -> str:
 
 PHONE_INTERRUPTIONS = [
     # The mother
-    "Hang on. Hang on. (sigh) Ma. Ma, I'm working. I am literally working "
+    "Hang on. Hang on. ... Hello? ... Ma. Ma, I'm working. I am literally working "
     "right now. No. No, I told you Tuesday. Tuesday, Ma. I have to go. I "
     "have to - okay. Okay. Bye. ... Where was I.",
 
@@ -1808,7 +1908,7 @@ PHONE_INTERRUPTIONS = [
     "Bye. ... Right.",
 
     # Defending the job
-    "I can't, I'm live. I'm live right now, people are listening. ... No, "
+    "Hello? ... I can't, I'm live. I'm live right now, people are listening. ... No, "
     "dozens of people. ... That's not the point.",
 
     # The list
@@ -1817,14 +1917,14 @@ PHONE_INTERRUPTIONS = [
 
     # Explaining what he does for a living. Names the sport, so it is tagged
     # - dropped into a basketball segment it would be simply wrong.
-    ("I'm going to have to call you back. ... Because I'm describing a "
+    ("Hello? ... I'm going to have to call you back. ... Because I'm describing a "
      "baseball game to strangers. ... Yes. Yes, that's what I do now.", "MLB"),
 
     # Screening it
-    "Sorry. One second. ... Nope. Not answering that.",
+    "Sorry. One second. ... Hello? ... Nope. Nope, not doing this. Goodbye.",
 
     # The same number all week
-    "Oh, you have got to be kidding me. ... It's the same number. It's been "
+    "Hello? ... Oh, you have got to be kidding me. ... It's the same number. It's been "
     "the same number all week. If you're the extended warranty people, I "
     "don't own a car.",
 
@@ -1837,7 +1937,7 @@ PHONE_INTERRUPTIONS = [
     "went oh for four.",
 
     # His agent, at five in the morning
-    "It's five in the morning. ... No, I haven't read it. ... Send it again "
+    "Hello? ... It's five in the morning. ... No, I haven't read it. ... Send it again "
     "and I'll not read it again.",
 
     # Somebody who heard the show
@@ -1852,7 +1952,7 @@ PHONE_INTERRUPTIONS = [
     "Hello? ... No, I don't know where it is. ... Because I didn't move it. "
     "... Because I've been here, doing this.",
 
-    "Hang on. (sigh) I'm not having this conversation again. ... It's a "
+    "Hang on. ... Hello? ... I'm not having this conversation again. ... It's a "
     "chair. ... It's a perfectly good chair.",
 
     "Hello? ... What do you mean it's leaking. ... Since when. ... Okay. "
@@ -1881,7 +1981,7 @@ PHONE_INTERRUPTIONS = [
     "Hello? ... No, I've not filled that in. ... Because it's a form, and "
     "I'm a grown man.",
 
-    "It's five in the morning. ... Yes, I'm aware what time zone you're in. "
+    "Hello? ... It's five in the morning. ... Yes, I'm aware what time zone you're in. "
     "... That's not my problem.",
 
     "Hello? ... The invoice went out. ... It went out. ... I'll check. I'm "
@@ -1970,6 +2070,79 @@ PHONE_INTERRUPTIONS = [
 #
 # A return line does the work: he gathers himself, says something, and the
 # show resumes. Varied so it is not the same recovery every time.
+# He has to NOTICE the phone. A ring followed instantly by "Hello?" sounds
+# like a cue rather than an interruption - a real person hears it, reacts,
+# apologises, and only then answers. This is what turns a sound effect into
+# a moment.
+# And he has to END the call. Most scripts simply stop, which leaves the
+# other person hanging and the listener wondering whether the line is dead.
+# A real call closes, even badly.
+SIGNOFF_LINES = [
+    "Okay. Bye. Bye. Bye.",
+    "Right - I have to go. Bye.",
+    "Yep. Okay. Bye.",
+    "I'm hanging up now. Goodbye.",
+    "Okay, love you, bye.",
+    "Right. Bye then.",
+    "I'll call you back. I won't, but I'll say it. Bye.",
+    "Okay. Okay. Goodbye.",
+    "Alright, bye. Bye. BYE.",
+    "That's me gone. Bye.",
+    "Yeah. Bye.",
+    "Goodbye. Goodbye.",
+]
+
+# Smacky is in FULL GEAR, every single episode.
+#
+# A mood system was built here - eight states, one picked per morning, so
+# some days he turned up flat or melancholy. Good idea for a show that runs
+# several times a day; wrong for this one. There is ONE episode every
+# morning, and a listener who gets the tired version has got the only
+# version. Every episode has to be his best.
+#
+# So the variation lives in WHAT he says, not in how much he can be bothered.
+FULL_GEAR = (
+    "wired",
+    "You are in full gear and you stay there. Loud, fast, delighted, "
+    "completely on. This is the version of you that is having the best time "
+    "of anybody involved in professional sport this morning.\n\n"
+    "  You are not tired. You are not going through the motions. You are not "
+    "above this - you LOVE this, and the joy is exactly what makes the "
+    "cruelty land. A host who sounds bored makes the audience bored.\n\n"
+    "  Big reactions. Real delight at other people's disasters. The energy "
+    "of a man who cannot believe he gets paid for this."
+)
+
+
+def pick_mood():
+    """
+    Always full gear.
+
+    Kept as a function rather than inlined so the seam is obvious if this
+    ever becomes variable again - and so the log line still reports what he
+    is doing.
+    """
+    return FULL_GEAR
+
+
+PICKUP_LINES = [
+    "Sorry - hang on, let me just grab this.",
+    "Oh - sorry. Sorry, I thought that was on silent.",
+    "Hang on, hang on. I should get this.",
+    "Sorry, one second, I have to take this.",
+    "Oh, come on. ... Sorry. One moment.",
+    "That's - sorry. That's mine. Give me a second.",
+    "Hang on. I've got to answer that, it might be important. It won't be.",
+    "Sorry, I'll be honest, I thought I turned that off.",
+    "Oh, for - sorry. Let me deal with this.",
+    "Hold on. Hold on. Sorry about this.",
+    "That's been going all morning. Sorry. Let me just...",
+    "Sorry - I'm going to get that. I know. I know.",
+    "One second. I promise this is quick.",
+    "Oh, brilliant. Perfect timing. Sorry, hang on.",
+    "Sorry. Right. Let me just see who this is.",
+]
+
 RETURN_LINES = [
     "Anyway.",
     "Right. Where was I.",
@@ -2110,6 +2283,32 @@ def maybe_interruption(segments):
         return segments
 
     text, _lg, sound = random.choice(usable)
+
+    # Build the bit in explicit parts rather than by appending strings, which
+    # produced a call that said goodbye twice and another that hung up after
+    # announcing it would not answer.
+    if sound == "phone":
+        low = text.lower()
+
+        # Some scripts REFUSE the call - "not answering that", "let that go
+        # to voicemail". Those get noticed but never answered, so no hello
+        # and certainly no goodbye.
+        declines = any(k in low for k in
+                       ("not answering", "voicemail", "not doing this"))
+
+        parts = [random.choice(PICKUP_LINES), text]
+
+        if not declines:
+            # Only add a farewell if the script does not already end on one.
+            # Checked across the last stretch rather than the exact ending,
+            # because several close with "Bye. ... Where was I." and an exact
+            # match misses it.
+            tail = low[-60:]
+            if not any(k in tail for k in
+                       ("bye", "goodbye", "hang up", "hanging up")):
+                parts.append(random.choice(SIGNOFF_LINES))
+
+        text = " ... ".join(parts)
 
     # Close it. Some scripts already end on a recovery - "Where was I",
     # "Right." - so a second one would be doubled up.

@@ -1109,12 +1109,25 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
             if spoken is not before:
                 _ambient_used = True
 
-        sfx = _pick_random_sfx(seg.get("reaction", "none"))
+        # If an interruption follows this segment, do NOT put a reaction
+        # sound on the end of it.
+        #
+        # The ring is meant to start while he is still TALKING - that is the
+        # whole point of the bit. But a reaction sound extends the segment
+        # with its own tail, so the ring ended up mixing over a decaying
+        # sound effect instead of over speech. Heard in a real episode: an
+        # explosion, then a phone ringing into silence, with no voice
+        # underneath either.
+        _next_interrupts = (i + 1 < len(segments)
+                            and segments[i + 1].get("interruption"))
+
+        sfx = None if _next_interrupts else _pick_random_sfx(seg.get("reaction", "none"))
         if sfx is not None:
             # _standardize is nested inside this function, so it is passed
             # in rather than reached for - a module-level helper cannot see
             # it, which is exactly how the first version of this failed.
-            spoken = _lay_in_sfx(spoken, sfx, len(spoken), _standardize)
+            spoken = _lay_in_sfx(spoken, sfx, len(spoken), _standardize,
+                                 kind=seg.get("reaction"))
 
         piece = (lead_gap + spoken) if lead_gap is not None else spoken
 
@@ -1245,13 +1258,24 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
 # because this helper lives at module scope and cannot see the nested one -
 # the third scope mistake in a row while building this.
 SFX_VOLUME_DB = -10
+
+# Some effects are mastered far hotter than others. Sound libraries normalise
+# an explosion to the same peak as a laugh, so it lands about twice as loud
+# in context - it was noticeably too loud in a real episode. These take an
+# extra trim on top of the shared level.
+SFX_EXTRA_TRIM_DB = {
+    "boom": -7,        # explosions are always the loudest thing in a library
+    "alarm": -4,
+    "carhorn": -4,
+    "siren": -3,
+}
 SFX_OVERLAP_MS = 420
 # Effects that hard-stop sound like files. A fade gives them somewhere to go.
 SFX_FADE_OUT_MS = 600
 SFX_FADE_IN_MS = 40
 
 
-def _lay_in_sfx(spoken, sfx, spoken_ms, standardize):
+def _lay_in_sfx(spoken, sfx, spoken_ms, standardize, kind=None):
     """
     Place a sound effect so it feels played rather than pasted.
 
@@ -1260,7 +1284,7 @@ def _lay_in_sfx(spoken, sfx, spoken_ms, standardize):
     and it fades out rather than stopping dead. A hard cut is the single
     biggest tell that something was assembled rather than performed.
     """
-    clip = standardize(sfx) + SFX_VOLUME_DB
+    clip = standardize(sfx) + SFX_VOLUME_DB + SFX_EXTRA_TRIM_DB.get(kind, 0)
 
     # A short fade in stops the attack clicking, a longer one out gives it
     # somewhere to land.
