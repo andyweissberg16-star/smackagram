@@ -2689,7 +2689,14 @@ def espn_probe():
         if not event_id:
             return jsonify({"error": "no espn_id captured", "sample_game": sample}), 500
 
-    return jsonify(espn_scores.probe_summary(league, event_id))
+    # Runs the real extraction rather than dumping raw JSON, so this tests
+    # the whole path: fetch, parse, and the fact lines Smacky writes from.
+    detail = espn_scores.fetch_game_detail(league, event_id)
+    return jsonify({
+        "event_id": event_id,
+        "detail": detail,
+        "roast_facts": espn_scores.roast_facts(detail),
+    })
 
 
 @app.route("/api/battles/live")
