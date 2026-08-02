@@ -490,15 +490,29 @@ body::before{
   pointer-events:none;
   background-image:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E"),
-    radial-gradient(ellipse 60% 30% at 50% 0%, rgba(232,20,44,0.10), transparent 70%),
+    /* a second pool in the opposite corner, so the page is lit from both
+       ends rather than falling away into nothing at the bottom */
+    radial-gradient(ellipse 55% 35% at 88% 96%, rgba(232,20,44,0.11), transparent 68%),
+    radial-gradient(ellipse 60% 30% at 50% 0%, rgba(232,20,44,0.12), transparent 70%),
+    /* a matching pair of beams thrown back up from off the bottom right,
+       so the light comes from two directions the way a stadium is lit
+       rather than from a single source overhead */
+    conic-gradient(from 20deg at 108% 118%,
+      transparent 0deg,
+      rgba(232,20,44,0.070) 15deg,
+      transparent 32deg,
+      transparent 44deg,
+      rgba(232,20,44,0.050) 60deg,
+      transparent 77deg),
+    /* the beams themselves, red rather than white */
     conic-gradient(from 202deg at 50% -22%,
       transparent 0deg,
-      rgba(245,245,243,0.055) 16deg,
+      rgba(232,20,44,0.075) 16deg,
       transparent 34deg,
       transparent 46deg,
-      rgba(245,245,243,0.040) 62deg,
+      rgba(232,20,44,0.055) 62deg,
       transparent 80deg);
-  background-repeat:repeat, no-repeat, no-repeat;
+  background-repeat:repeat, no-repeat, no-repeat, no-repeat, no-repeat;
 }
 
 /* The beams rotate a few degrees over twenty-six seconds - slow enough
@@ -522,12 +536,14 @@ body::before{
 body::after{
   content:"SMACK";
   position:fixed;
-  left:-52px;
-  bottom:-56px;
+  /* Sits fully inside the frame now rather than bleeding off - the S was
+     running past the left edge and the word read as a fragment. */
+  left:32px;
+  bottom:24px;
   z-index:-1;
   pointer-events:none;
   font-family:'Anton', Impact, sans-serif;
-  font-size:200px;
+  font-size:91px;
   line-height:1;
   white-space:nowrap;
   color:transparent;
@@ -537,7 +553,7 @@ body::after{
 /* 200px off a 390px screen is most of the viewport and stops reading as
    texture. */
 @media(max-width:720px){
-  body::after{font-size:120px; left:-30px; bottom:-32px;}
+  body::after{font-size:52px; left:18px; bottom:16px;}
 }
 
 /* Somebody who has asked their system not to animate things means it. */
