@@ -138,9 +138,17 @@
      both leaves a lonely gap on the wider display. Dividing by 4.35 gives
      four full cards and about a third of the fifth. */
   .sotw-card{
-    /* Four and a bit across the container. cqw would be neater but is not
-       safe everywhere yet, so this is a percentage of the rail. */
-    flex:0 0 22.4%;
+    /* Sized in vw, NOT a percentage.
+       
+       A percentage flex-basis inside a track set to width:max-content is
+       circular - the track's width depends on the cards and the cards depend
+       on the track - so browsers fall back to auto, the cards shrink to their
+       content, and the rail collapses into a column of text. That is the bug
+       this replaces.
+       
+       The section is 80vw capped at 1500px, so a card is 80/4.35 = 18.4vw,
+       clamped so it stays sane on very wide and very narrow screens. */
+    flex:0 0 18.4vw;
     max-width:340px; min-width:252px;
     /* Roughly double the old height. The player needs room, the line needs
        room, and short cards made the rail look like a row of buttons rather
@@ -241,7 +249,9 @@
     .sotw-head h2{font-size:25px;}
     /* One card and a peek of the next, so a thumb has something to grab
        and it is obvious the row moves. */
-    .sotw-card{flex:0 0 82%; max-width:320px;}
+    /* vw, not a percentage - same circular-sizing problem as above. One card
+       plus a peek of the next, so a thumb has something to grab. */
+    .sotw-card{flex:0 0 78vw; max-width:320px; min-width:0;}
     .sotw-track{gap:11px; padding:0 16px;}
   }
 </style>
