@@ -238,6 +238,80 @@ def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAU
     return f"{opener} {roast}"
 
 
+MLB_SLANG = """
+TALK LIKE SOMEBODY WHO WATCHES BASEBALL
+
+Work ONE OR TWO of these into every MLB call. Two at the absolute most. A
+roast stuffed with jargon sounds like a man reading a glossary - one
+well-placed term proves you watch the sport, three proves you looked it up.
+
+SMACKY'S OWN VOCABULARY - reach here first, this is the house voice:
+  Batastrophe          a hilariously terrible at-bat
+  Glove Goblin         a fielder who eats easy grounders
+  Dugout Decoration    never leaves the bench
+  Popcorn Cannon       hits lazy pop flies every time
+  Foul Ball Farmer     can only hit foul balls
+  Strikeout Sommelier  an expert at tasting strike three
+  Swing Picasso        the swing looks artistic, hits nothing
+  Dirt Inspector       more time face-down than making plays
+  Base Vacationer      never leaves first base
+  Bench Fossil         sitting so long he is becoming part of the stadium
+  Bullpen Arsonist     a reliever who immediately torches the lead
+  Rally Vampire        sucks the life out of every rally
+  Double Play Dealer   always grounds into two
+  Warning Track Warrior hits everything ALMOST out
+
+SMACKY'S INSULTS - for a specific player who stunk:
+  swinging with wi-fi lag         always late on pitches
+  batting with oven mitts         cannot make solid contact
+  glove full of butter            cannot catch anything
+  GPS couldn't find first base    completely lost out there
+  certified pop-up professional   hits automatic outs
+  MVP of Almost                   always close, never succeeds
+  strike zone tourist             just visiting strike three
+  defensive speed bump            everything gets through him
+  walking error machine           an error waiting to happen
+  budget Babe Ruth                thinks he is a legend, is not
+  dollar store slugger            cheap imitation power
+  hot dog without the dog         all bun, no substance
+  left his bat on airplane mode   forgot how to hit
+  swinging like he's fighting bees wild, out of control
+  built like a bat rack           awkward and stiff
+
+CATCHPHRASES - use sparingly, one per call at most:
+  "I've seen folding chairs make more contact."
+  "That swing had absolutely zero parental supervision."
+  "He's collecting strikeouts like they're Pokemon cards."
+  "That bat should file a missing person report for the baseball."
+  "Somebody check if his bat is connected to Bluetooth."
+  "The only thing he barreled today was disappointment."
+  "That swing was sponsored by wishful thinking."
+  "That pitcher is serving frozen pizza - every meatball right down the middle."
+
+STANDARD BASEBALL TALK - use for texture:
+  o-fer (a hitless game) / the bump (the mound) / the yard (the ballpark) /
+  goose egg (a zero) / punch-out (a strikeout) / meatball (a pitch begging
+  to be hit) / hanger (a breaking ball left over the plate) / cheese, gas,
+  heat (a fastball) / can of corn (an easy fly) / bush league (classless) /
+  frame (half an inning) / stranded (left on base) / booted (an error)
+
+PRAISING THE WINNER TWISTS THE KNIFE. Calling the other team's guy a
+certified rake or a run factory is a better insult than anything aimed at
+the loser directly - it says they were beaten by someone better.
+
+SITUATIONAL - ONLY if the facts actually support it:
+  golden sombrero   EXACTLY four strikeouts by one batter. Not three.
+  hat trick         exactly three strikeouts by one batter
+  Mendoza line      a batting average around .200
+  no-hitter         only if they were genuinely held hitless
+  blown save        only if a reliever actually gave away a lead
+
+NEVER invent the situation to fit the term. If nobody struck out four times
+there is no golden sombrero, however much better the line would sound. The
+material has to be real - that rule beats every joke.
+"""
+
+
 LOCKED_ROAST_RULES = """
 HOW TO CALL THIS ONE
 
@@ -273,7 +347,7 @@ LENGTH: about 165 words, which lands around fifty seconds.
 """
 
 
-def generate_game_recap_roast(team: str, recipient_name: str, key_facts: list[str], sensitivity: int = DEFAULT_SENSITIVITY) -> str:
+def generate_game_recap_roast(team: str, recipient_name: str, key_facts: list[str], sensitivity: int = DEFAULT_SENSITIVITY, sport: str = None) -> str:
     """
     Same personalized-greeting pattern as generate_trash_talk, but the roast
     itself is grounded in real facts pulled from the just-finished game
@@ -294,7 +368,11 @@ def generate_game_recap_roast(team: str, recipient_name: str, key_facts: list[st
         user_content = (
             f"Team to roast: {team}\n\n"
             f"Real facts from the game:\n{facts_block}\n\n"
-            + LOCKED_ROAST_RULES + "\n\nWrite the call."
+            + LOCKED_ROAST_RULES
+            # Baseball vocabulary in a basketball call is worse than no
+            # vocabulary at all, so this is gated to the sport.
+            + (("\n\n" + MLB_SLANG) if (sport or "").lower() == "mlb" else "")
+            + "\n\nWrite the call."
         )
     else:
         # fallback if the sports feed didn't return usable facts for this
