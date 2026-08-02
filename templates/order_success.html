@@ -43,6 +43,9 @@
     display:inline-block; background:var(--flare); color:#fff; text-decoration:none;
     padding:12px 28px; font-weight:600; border-radius:2px;
   }
+  .alt-link{margin-top:16px; font-size:13px;}
+  .alt-link a{color:var(--chalk-dim,#9A9A96); text-decoration:none;}
+  .alt-link a:hover{color:var(--chalk,#F5F5F3);}
 </style>
 </head>
 <body>
@@ -51,7 +54,11 @@
 <div>
   <h1>Smack delivered.</h1>
   <p>Payment confirmed — the call is on its way. You'll be able to hear the reaction once it's recorded.</p>
-  <a href="/" class="cta-btn">Send another one</a>
+  {# Back to the generator, not the homepage. Somebody who has just sent one
+     and clicked "send another" wants the form, and sending them to the top
+     of the site makes them navigate back to where they already were. #}
+  <a href="/send-a-smack" class="cta-btn">Send another one</a>
+  <p class="alt-link"><a href="/locker">See it in your locker &rarr;</a></p>
 </div>
 </div>
 </body>

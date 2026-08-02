@@ -1994,3 +1994,75 @@ def fetch_board(league: str, force: bool = False) -> list:
 
     _BOARD_CACHE[lg] = (_t.time(), games)
     return games
+
+
+# ---------------------------------------------------------------------------
+# Ticker tags
+# ---------------------------------------------------------------------------
+# Two or three words of Smacky next to each game on the homepage ticker.
+#
+# Rules rather than a model call. The homepage is the busiest page on the site
+# and a Claude call per visit would add cost and a second of latency - for
+# three words. The score already carries the joke: down nine in the fourth is
+# a different line from down one in the ninth, and that is all a tag this
+# short needs to know.
+#
+# Several per bucket so the same game does not read identically on a refresh.
+
+_TAGS = {
+    "blowout_live":    ["MERCY. RING THEM.", "THIS IS ABUSE.",
+                        "SOMEBODY CALL SOMEBODY.", "IT IS OVER. GO.", "PILE ON."],
+    "comfortable_live":["COMFORTABLE. FOR NOW.", "SLIPPING AWAY.",
+                        "GETTING UGLY.", "TROUBLE BREWING."],
+    "close_live":      ["TOO CLOSE. WAIT.", "HOLD YOUR FIRE.",
+                        "NOT YET.", "ARM IT INSTEAD."],
+    "tied_live":       ["NOBODY IS WINNING.", "STALEMATE. BORING.",
+                        "SOMEBODY DO SOMETHING."],
+    "blowout_final":   ["HUMILIATING. RING THEM.", "THAT IS A CALL.",
+                        "NO SURVIVORS.", "SEND IT NOW."],
+    "final":           ["SOMEBODY LOST.", "GO ON THEN.", "RING THEM.", "THEY KNOW."],
+    "close_final":     ["LOST BY ONE. BRUTAL.", "SO CLOSE. RING THEM.",
+                        "THAT WILL STING."],
+    "upcoming":        ["ARM IT NOW.", "SET THE TRAP.",
+                        "BET AGAINST THEM.", "LOAD IT UP."],
+}
+
+# A hiding means different things by sport - nine runs is a massacre in
+# baseball, nine points is a close game in basketball.
+_BLOWOUT = {"mlb": 7, "nfl": 17, "ncaaf": 21, "nba": 20,
+            "wnba": 18, "ncaab": 18, "ncaaw": 18, "nhl": 4}
+_CLOSE   = {"mlb": 1, "nfl": 3, "ncaaf": 3, "nba": 4,
+            "wnba": 4, "ncaab": 4, "ncaaw": 4, "nhl": 1}
+
+
+def ticker_tag(game, league):
+    """Two or three words of Smacky for one game."""
+    import random
+
+    lg = (league or "").lower()
+    big, tight = _BLOWOUT.get(lg, 10), _CLOSE.get(lg, 2)
+
+    if game.get("upcoming"):
+        return random.choice(_TAGS["upcoming"])
+
+    hs = (game.get("home") or {}).get("score")
+    as_ = (game.get("away") or {}).get("score")
+    if hs is None or as_ is None:
+        return random.choice(_TAGS["upcoming"])
+
+    margin = abs(hs - as_)
+
+    if game.get("final"):
+        if margin >= big:
+            return random.choice(_TAGS["blowout_final"])
+        if margin <= tight:
+            return random.choice(_TAGS["close_final"])
+        return random.choice(_TAGS["final"])
+
+    if margin == 0:
+        return random.choice(_TAGS["tied_live"])
+    if margin >= big:
+        return random.choice(_TAGS["blowout_live"])
+    if margin <= tight:
+        return random.choice(_TAGS["close_live"])
+    return random.choice(_TAGS["comfortable_live"])

@@ -140,35 +140,7 @@
   /* The price is the easiest thing to say about this product and it was set
      in the same small grey mono as the caveat beside it. Anton and red, so
      it carries the weight it deserves - a dollar is the argument. */
-  /* The price as a graphic rather than a word.
-     
-     A dollar is the strongest single argument this page makes and it was set
-     in the same small grey mono as the caveat beside it. Comic-book
-     treatment: red fill, hard black outline, a slight tilt and a drop
-     shadow, so it reads as a stamp somebody slapped on rather than a line of
-     body copy. */
   .send-price{text-align:center;}
-  .send-price-amt{
-    display:inline-block;
-    font-family:'Anton', Impact, sans-serif;
-    font-size:34px;
-    line-height:1;
-    letter-spacing:1px;
-    color:#FF2233;
-    padding:6px 16px;
-    transform:rotate(-2.5deg);
-    /* Outline drawn with shadows rather than -webkit-text-stroke, which
-       thins the letterforms from the inside and makes Anton look frail. */
-    text-shadow:
-      -2px -2px 0 #0D0D0D,  2px -2px 0 #0D0D0D,
-      -2px  2px 0 #0D0D0D,  2px  2px 0 #0D0D0D,
-      -3px  0   0 #0D0D0D,  3px  0   0 #0D0D0D,
-       0   -3px 0 #0D0D0D,  0    3px 0 #0D0D0D,
-       4px  5px 0 rgba(13,13,13,0.55);
-  }
-  @media(max-width:520px){
-    .send-price-amt{font-size:27px;}
-  }
 
   /* Narrow, centred buttons so the red bars don't run edge to edge. max-width
      rather than a fixed width, so they shrink gracefully on a phone instead of
@@ -987,7 +959,7 @@
     <div id="orderError" role="alert" style="display:none;"></div>
 
     <div class="send-block">
-      <p class="send-price"><span class="send-price-amt">$1 per call!</span></p>
+      <p class="send-price"><span class="smk-price-stamp">Less than $1 a call</span></p>
       <div class="btn-center">
         <button id="orderSubmitBtn" class="btn btn-flare btn-narrow">Send this Smackagram</button>
       </div>

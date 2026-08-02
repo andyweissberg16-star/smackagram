@@ -2984,42 +2984,85 @@ def api_smacks_today():
     """
     How many smacks have gone out today.
 
-    Counts real calls across both tables - a paid Order and a fired
-    Smackagram are both a phone ringing.
+    Counts wall_posts, which is the SAME source the wall reads. Previously
+    this queried the orders tables directly, so the number beside the hero
+    and the cards below it could disagree - and a counter that contradicts
+    the thing underneath it is worse than no counter.
 
-    Returns `show: false` below a floor. A banner flashing "3 SMACKS SENT
-    TODAY" is worse than no banner: it advertises that nobody is here. The
-    number appears on its own once there is one worth showing, with no code
-    change needed.
+    Every smack writes a wall post as it is created, so this is a true count
+    of calls placed today.
     """
-    from datetime import datetime, timezone as _tz, timedelta
-
-    FLOOR = 15
+    from datetime import datetime, timezone as _tz
 
     try:
-        # Midnight Eastern, since that is the day everything else on the site
-        # is quoted in.
         try:
             from zoneinfo import ZoneInfo
             now = datetime.now(ZoneInfo("America/New_York"))
         except Exception:
             now = datetime.now(_tz.utc)
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        orders = (Order.query
-                  .filter(Order.created_at >= start)
-                  .filter(Order.call_status.isnot(None))
-                  .count())
-        smackagrams = (Smackagram.query
-                       .filter(Smackagram.created_at >= start)
-                       .filter(Smackagram.status == "fired")
-                       .count())
-        total = orders + smackagrams
+        total = (WallPost.query
+                 .filter(WallPost.is_sample == False)  # noqa: E712
+                 .filter(WallPost.created_at >= start_of_day)
+                 .count())
     except Exception as e:
         print(f"[counter] failed: {e}", flush=True)
         return jsonify({"show": False, "count": 0})
 
-    return jsonify({"show": total >= FLOOR, "count": total})
+    # Shown as soon as there is anything at all. A real number, however
+    # small, is honest; hiding it until some threshold means the first
+    # people through never see the site working.
+    return jsonify({"show": total > 0, "count": total})
+
+
+@app.route("/api/ticker")
+def api_ticker():
+    """
+    Games for the homepage ticker, across every league in season.
+
+    Live first, then upcoming, then finals. Uses the same cached board fetch
+    as the Smack Board, so a busy homepage is one call to ESPN every 45
+    seconds rather than one per visitor.
+    """
+    from services import espn_scores
+
+    leagues = ["mlb", "wnba", "nfl", "ncaaf", "nba", "ncaab", "nhl"]
+
+    items = []
+    for lg in leagues:
+        try:
+            games = espn_scores.fetch_board(lg)
+        except Exception:
+            continue                      # league out of season, or ESPN down
+        for g in games:
+            loser = None
+            if g.get("losing") == "home":
+                loser = g.get("home")
+            elif g.get("losing") == "away":
+                loser = g.get("away")
+
+            home, away = g.get("home") or {}, g.get("away") or {}
+            items.append({
+                "league": lg.upper(),
+                "live": bool(g.get("live")),
+                "final": bool(g.get("final")),
+                "upcoming": bool(g.get("upcoming")),
+                "status": g.get("status") or "",
+                "away": away.get("nick") or away.get("abbr"),
+                "home": home.get("nick") or home.get("abbr"),
+                "away_score": away.get("score"),
+                "home_score": home.get("score"),
+                # Who the link points at. An upcoming game has no loser yet,
+                # so it arms against the home side and the arming page lets
+                # them switch.
+                "target": (loser or {}).get("nick") or home.get("nick"),
+                "sport": lg,
+                "tag": espn_scores.ticker_tag(g, lg),
+            })
+
+    items.sort(key=lambda x: (0 if x["live"] else (1 if x["upcoming"] else 2)))
+    return jsonify({"count": len(items), "items": items[:24]})
 
 
 @app.route("/api/wall")

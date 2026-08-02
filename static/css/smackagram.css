@@ -685,3 +685,50 @@ html:has(body.smk-plain)::after{display:none;}
 /* The admin panel gets none of it - a working tool, not a shopfront. */
 body.smk-plain::before,
 body.smk-plain::after{display:none;}
+
+
+/* ---------------------------------------------------------------------------
+   The price, as a stamp
+   ---------------------------------------------------------------------------
+   A dollar is the strongest single argument the site makes, and it was set in
+   ordinary body copy everywhere it appeared. Comic treatment - red fill, hard
+   black outline, a tilt, a slow pulse - so it reads as something slapped on
+   rather than a sentence.
+
+   Defined once here so it is identical on every page rather than duplicated
+   into each template and drifting apart.
+   ------------------------------------------------------------------------ */
+.smk-price-stamp{
+  display:inline-block;
+  font-family:'Anton', Impact, sans-serif;
+  font-size:26px;
+  line-height:1;
+  letter-spacing:0.5px;
+  color:#FF2233;
+  padding:4px 14px;
+  transform:rotate(-6deg);
+  animation:smk-price-pulse 2.4s ease-in-out infinite;
+  /* Outline drawn with shadows rather than -webkit-text-stroke, which thins
+     the letterforms from the inside and makes Anton look frail. */
+  text-shadow:
+    -2px -2px 0 #0D0D0D,  2px -2px 0 #0D0D0D,
+    -2px  2px 0 #0D0D0D,  2px  2px 0 #0D0D0D,
+    -3px  0   0 #0D0D0D,  3px  0   0 #0D0D0D,
+     0   -3px 0 #0D0D0D,  0    3px 0 #0D0D0D,
+     4px  5px 0 rgba(13,13,13,0.55);
+}
+
+/* Dips to 55% rather than blinking out - a price that vanishes is unreadable
+   half the time, which on a page somebody is reading is just irritating. */
+@keyframes smk-price-pulse{
+  0%,100%{opacity:1;    transform:rotate(-6deg)   scale(1);}
+  50%    {opacity:0.55; transform:rotate(-4.5deg) scale(0.97);}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .smk-price-stamp{animation:none;}
+}
+
+@media(max-width:640px){
+  .smk-price-stamp{font-size:20px;}
+}

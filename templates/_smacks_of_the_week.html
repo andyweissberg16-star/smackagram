@@ -30,7 +30,7 @@
     {# The price sits with the proof. Somebody who has just heard what a smack
        sounds like is the person most likely to want one, and this is the only
        number that matters. #}
-    <p class="sotw-price"><span>Less than $1 a call</span></p>
+    <p class="sotw-price"><span class="smk-price-stamp">Less than $1 a call</span></p>
   </div>
 
   <div class="sotw-wrap">
@@ -47,9 +47,6 @@
             aria-label="More smacks">&#8250;</button>
   </div>
 
-  <div class="sotw-foot">
-    <button type="button" class="sotw-add" id="sotwAdd">Sent a good one? Tell us &rarr;</button>
-  </div>
 </section>
 
 <style>
@@ -67,9 +64,17 @@
      a feature in its own right, narrow enough that the page still has
      margins and the box has edges you can see. */
   .sotw{
-    width:80%;
-    max-width:1500px;
-    margin:56px auto;
+    /* Sized off the VIEWPORT, not the parent, and pulled back out of
+       whatever column it happens to sit in.
+
+       .wrap is 1080px on the homepage, 720px on the generators and 560px on
+       Smack Back - so "80%" meant three different widths and the wall looked
+       cramped everywhere except home. This makes it identical on all four.
+
+       margin-left drags the box back to true centre: half the parent, minus
+       half the box. */
+    width:min(80vw, 1500px);
+    margin:56px 0 56px calc(50% - min(40vw, 750px));
     padding:34px 0 30px;
     background:rgba(20,20,22,0.55);
     border:2px solid var(--flare,#E01B24);
@@ -83,44 +88,15 @@
     color:var(--chalk,#F5F5F3); margin:0 0 10px; text-transform:uppercase;}
   .sotw-sub{color:var(--chalk-dim,#9A9A96); font-size:13.5px; line-height:1.6; margin:0;}
 
-  /* Same comic stamp as the send page - red fill, hard outline, a slight
-     tilt - so the price reads the same wherever it turns up. */
-  .sotw-price{margin:16px 0 0; text-align:center; line-height:1;}
-  .sotw-price span{
-    display:inline-block;
-    font-family:'Anton', Impact, sans-serif;
-    /* One line now, so it is longer - sized to sit inside the box on a
-       laptop without wrapping. */
-    font-size:26px; line-height:1; letter-spacing:0.5px;
-    color:#FF2233;
-    padding:4px 14px;
-    /* Tilted harder for the comic look, and it pulses rather than blinking
-       fully out - a price that vanishes is unreadable half the time, and on
-       a page somebody is reading that is just irritating. */
-    transform:rotate(-6deg);
-    animation:sotw-price-pulse 2.4s ease-in-out infinite;
-    text-shadow:
-      -2px -2px 0 #0D0D0D,  2px -2px 0 #0D0D0D,
-      -2px  2px 0 #0D0D0D,  2px  2px 0 #0D0D0D,
-      -3px  0   0 #0D0D0D,  3px  0   0 #0D0D0D,
-       0   -3px 0 #0D0D0D,  0    3px 0 #0D0D0D,
-       4px  5px 0 rgba(13,13,13,0.55);
-  }
   /* Dips to 55% rather than to nothing, and rocks a degree and a half either
      side of its resting tilt. Slow enough to read as deliberate rather than
      as a fault. */
-  @keyframes sotw-price-pulse{
-    0%,100%{opacity:1;    transform:rotate(-6deg)   scale(1);}
-    50%    {opacity:0.55; transform:rotate(-4.5deg) scale(0.97);}
   }
 
 
   /* Somebody who has asked their system not to animate things means it. */
   @media (prefers-reduced-motion:reduce){
-    .sotw-price span{animation:none;}
-  }
-
-  @media(max-width:640px){ .sotw-price span{font-size:19px;} }
+  
 
   /* Horizontal rail. Scrolls on its own but stays draggable and swipeable -
      an auto-scroller you cannot grab is infuriating on a phone. */
@@ -169,14 +145,20 @@
     /* Roughly double the old height. The player needs room, the line needs
        room, and short cards made the rail look like a row of buttons rather
        than something to read. */
-    min-height:0; background:#141416; border:2px solid var(--flare,#E01B24);
+    /* Silver on the cards so the container's red border has something to be.
+       Red inside red inside red flattened the section - everything shouted
+       and nothing stood out. */
+    min-height:0; background:#141416; border:1px solid var(--silver-hairline,#3A3D42);
+    transition:border-color .15s;
     border-radius:9px; padding:15px 16px; display:flex; flex-direction:column;
   }
-  .sotw-top{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
   .sotw-prod{font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:1.4px;
-    text-transform:uppercase; color:var(--flare,#E01B24); border:1px solid rgba(224,27,36,0.45);
+    text-transform:uppercase; color:var(--silver,#C3CAD3);
+    border:1px solid var(--silver-hairline,#3A3D42);
     padding:3px 7px; border-radius:3px;}
-  .sotw-who{font-family:'JetBrains Mono',monospace; font-size:10px; color:#7A7575;}
+
+  /* Still responds to a cursor, without needing colour to do it. */
+  .sotw-card:hover{border-color:var(--silver,#C3CAD3);}
   /* What this was about, before anybody presses play. */
   .sotw-headline{
     font-family:'Anton',sans-serif; font-size:16px; line-height:1.15;
@@ -192,7 +174,43 @@
      side until they read on a black card, hue kept, so it is still
      recognisably the team. */
   .sotw-team{color:var(--chalk,#F5F5F3);}
-  .sotw-card audio{width:100%; height:36px; display:block;}
+  /* The element still plays the audio; the button drives it. Hidden because
+     the browser's own controls look different on every platform and cannot
+     be styled to match anything. */
+  .sotw-card audio{display:none;}
+
+  .sotw-card{text-align:center;}
+  .sotw-prod{display:inline-block; margin-bottom:11px;}
+  .sotw-stage{padding:16px 0 2px;}
+
+  .sotw-play{
+    width:56px; height:56px; border-radius:10px;
+    /* appearance:none matters. A <button> keeps its native styling on some
+       platforms and quietly ignores background-color, which rendered this
+       block black instead of red. */
+    -webkit-appearance:none; appearance:none;
+    background-color:#E01B24; background-image:none;
+    border:none; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; padding:0;
+    /* A soft white glow behind it rather than a hard edge. Two layers - one
+       tight, one wide and faint - so it reads as light coming off the block
+       rather than as a border drawn around it. */
+    box-shadow:0 0 20px rgba(245,245,243,0.55), 0 0 42px rgba(245,245,243,0.22);
+    transition:transform .13s, box-shadow .13s;
+  }
+  .sotw-play:hover{
+    transform:scale(1.06);
+    box-shadow:0 0 26px rgba(245,245,243,0.75), 0 0 56px rgba(245,245,243,0.30);
+  }
+  .sotw-play svg{display:block;}
+
+  /* Hidden until it is playing - a progress bar sitting at zero on every
+     card is clutter that says nothing. */
+  .sotw-line{display:none; align-items:center; gap:9px; margin-top:14px;}
+  .sotw-line.is-on{display:flex;}
+  .sotw-t{font-family:'JetBrains Mono',monospace; font-size:9px; color:#7A7575; flex:0 0 auto;}
+  .sotw-bar{flex:1; height:3px; background:#2A2D32; border-radius:2px; overflow:hidden;}
+  .sotw-bar i{display:block; height:3px; width:0; background:var(--flare,#E01B24); border-radius:2px;}
   /* Sits where the player would, so a card without audio is not visibly
      shorter than the ones beside it. */
   .sotw-noaudio{
@@ -203,21 +221,18 @@
   .sotw-noaudio{font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.2px;
     color:#4A4E54; margin:0;}
 
-  .sotw-foot{text-align:center; margin-top:20px; padding:0 24px;}
-  .sotw-add{background:transparent; border:1px solid var(--silver,#C3CAD3);
-    color:var(--silver,#C3CAD3); font-family:'Inter',sans-serif; font-size:12.5px;
-    font-weight:700; padding:11px 20px; border-radius:7px; cursor:pointer;}
-  .sotw-add:hover{background:rgba(195,202,211,0.10);}
 
-  .sotw-note{font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.2px;
-    color:#4A4E54; text-align:center; margin:14px 0 0;}
 
   /* Below four-across widths, fall back to fixed cards and let people
      scroll. Trying to fit four on a tablet makes each one unreadable. */
   /* Below desktop the eighty percent leaves too little room for a card, so
      the box widens toward the edges instead. */
   @media(max-width:900px){
-    .sotw{width:calc(100% - 28px); margin:40px auto; padding:26px 0 22px;}
+    .sotw{
+      width:calc(100vw - 28px);
+      margin:40px 0 40px calc(50% - (50vw - 14px));
+      padding:26px 0 22px;
+    }
   }
 
   @media(max-width:1080px){
@@ -252,14 +267,27 @@
   // scrolling is actually looking for.
 
   function card(it) {
+    // Custom player rather than the browser's default controls, which look
+    // different on every platform and cannot be styled. The <audio> element
+    // still does the work - it is just hidden and driven by the button.
     var audio = it.audio_url
-      ? '<audio controls preload="none" src="' + esc(it.audio_url) + '"></audio>'
+      ? '<div class="sotw-stage">'
+        + '<button type="button" class="sotw-play" aria-label="Play this smack">'
+        +   '<svg width="17" height="19" viewBox="0 0 17 19" aria-hidden="true">'
+        +     '<path d="M1 1l15 8.5L1 18z" fill="#0D0D0D"/></svg>'
+        + '</button>'
+        + '<audio preload="none" src="' + esc(it.audio_url) + '"></audio>'
+        + '</div>'
+        + '<div class="sotw-line">'
+        +   '<span class="sotw-t sotw-now">0:00</span>'
+        +   '<span class="sotw-bar"><i></i></span>'
+        +   '<span class="sotw-t sotw-dur">0:00</span>'
+        + '</div>'
       : '<p class="sotw-noaudio">NO RECORDING KEPT</p>';
     return '<div class="sotw-card">'
-      + '<div class="sotw-top">'
-      +   '<span class="sotw-prod">' + esc(LABEL[it.product] || it.product) + '</span>'
-      +   '<span class="sotw-who">@' + esc(it.handle) + '</span>'
-      + '</div>'
+      // No username. It told a visitor nothing and added a second line of
+      // small grey type competing with the thing that matters.
+      + '<span class="sotw-prod">' + esc(LABEL[it.product] || it.product) + '</span>' 
       // Who it went to, when, and the audio. The line itself is not shown -
       // hearing it delivered is the point, and a wall of text undersells a
       // product whose whole appeal is the voice.
@@ -285,15 +313,63 @@
       if (n) n.disabled = rail.scrollWidth <= rail.clientWidth + 2;
     });
 
-    // Honest labelling. If any of what is showing is an example rather than
-    // a real post, the page says so - the whole point of building this as a
-    // wall of smacks rather than a wall of reviews.
-    if (d.items.some(function (x) { return x.sample; })) {
-      var note = document.createElement('p');
-      note.className = 'sotw-note';
-      note.textContent = 'SOME EXAMPLES SHOWN WHILE THE WALL FILLS UP';
-      sect.querySelector('.sotw-foot').appendChild(note);
+
+    // Drive the custom players.
+    //
+    // The <audio> element does the work; the button and the line are just a
+    // face on it. Wiring it this way means seeking, pausing and the end of
+    // playback all come from real events rather than a timer that drifts.
+    function fmt(sec) {
+      if (!isFinite(sec) || sec < 0) sec = 0;
+      var m = Math.floor(sec / 60), s2 = Math.floor(sec % 60);
+      return m + ':' + (s2 < 10 ? '0' : '') + s2;
     }
+
+    track.querySelectorAll('.sotw-card').forEach(function (card) {
+      var btn  = card.querySelector('.sotw-play');
+      var a    = card.querySelector('audio');
+      var line = card.querySelector('.sotw-line');
+      if (!btn || !a || !line) return;
+
+      var fill = line.querySelector('.sotw-bar i');
+      var now  = line.querySelector('.sotw-now');
+      var dur  = line.querySelector('.sotw-dur');
+
+      var PLAY  = '<svg width="17" height="19" viewBox="0 0 17 19" aria-hidden="true">'
+                + '<path d="M1 1l15 8.5L1 18z" fill="#0D0D0D"/></svg>';
+      var PAUSE = '<svg width="15" height="17" viewBox="0 0 15 17" aria-hidden="true">'
+                + '<rect x="1" y="1" width="4.5" height="15" fill="#0D0D0D"/>'
+                + '<rect x="9.5" y="1" width="4.5" height="15" fill="#0D0D0D"/></svg>';
+
+      btn.addEventListener('click', function () {
+        if (a.paused) { a.play(); } else { a.pause(); }
+      });
+
+      a.addEventListener('play', function () {
+        btn.innerHTML = PAUSE;
+        btn.setAttribute('aria-label', 'Pause');
+        line.classList.add('is-on');
+      });
+      a.addEventListener('pause', function () {
+        btn.innerHTML = PLAY;
+        btn.setAttribute('aria-label', 'Play this smack');
+      });
+      a.addEventListener('loadedmetadata', function () {
+        if (dur) dur.textContent = fmt(a.duration);
+      });
+      a.addEventListener('timeupdate', function () {
+        if (now) now.textContent = fmt(a.currentTime);
+        if (fill && a.duration) {
+          fill.style.width = ((a.currentTime / a.duration) * 100) + '%';
+        }
+      });
+      a.addEventListener('ended', function () {
+        btn.innerHTML = PLAY;
+        line.classList.remove('is-on');
+        if (fill) fill.style.width = '0';
+        if (now) now.textContent = '0:00';
+      });
+    });
 
     // Only one plays at a time. "play" does not bubble, hence capture.
     document.addEventListener('play', function (e) {
@@ -333,34 +409,17 @@
       refreshArrows();
     }
 
-    // Drift slowly to the right so the rail reads as alive. Stops the moment
-    // somebody touches it, and never restarts - fighting a reader for control
-    // of a scroll position is worse than not moving at all.
-    var stopped = false;
-    ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(function (ev) {
-      rail.addEventListener(ev, function () { stopped = true; }, {passive: true});
-    });
-    // Pressing an arrow is taking control too - the drift must not fight it.
-    [prev, next].forEach(function (b) {
-      if (b) b.addEventListener('click', function () { stopped = true; });
-    });
-    rail.addEventListener('mouseenter', function () { stopped = true; });
-
-    setInterval(function () {
-      if (stopped || document.hidden) return;
-      if (rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 2) {
-        rail.scrollLeft = 0;
-      } else {
-        rail.scrollLeft += 1;
-      }
-    }, 32);
+    // No auto-scroll.
+    //
+    // It nudged scrollLeft every 32ms, which fired a scroll event, which
+    // re-evaluated the arrows - so at either end the button flickered
+    // between enabled and disabled without stopping. It also snapped back
+    // to the start on reaching the end, which yanked the rail out from
+    // under anybody reading it.
+    //
+    // Arrows on desktop and a thumb on touch are enough. A rail that moves
+    // while somebody is trying to read it was never worth the trouble.
   }).catch(function () { /* stays hidden */ });
 
-  var add = document.getElementById('sotwAdd');
-  if (add) {
-    add.addEventListener('click', function () {
-      window.location.href = '/locker';
-    });
-  }
 })();
 </script>

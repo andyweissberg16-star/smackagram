@@ -78,9 +78,9 @@
 
   load();
 
-  // Refreshed every ninety seconds, and only while somebody is actually
-  // looking - polling a hidden tab spends requests on nobody.
-  setInterval(function () { if (!document.hidden) load(); }, 90000);
+  // Every twenty seconds while the tab is visible. Polling a hidden tab
+  // spends requests on nobody, so it pauses and catches up on return.
+  setInterval(function () { if (!document.hidden) load(); }, 20000);
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) load();
   });
