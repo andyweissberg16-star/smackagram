@@ -2680,13 +2680,8 @@ def espn_probe():
     league = (request.args.get("league") or "mlb").lower()
     event_id = request.args.get("event")
 
-    try:
-        days_back = max(1, int(request.args.get("days_back", 1)))
-    except (TypeError, ValueError):
-        days_back = 1
-
     if not event_id:
-        finals = espn_scores.fetch_finals(league, days_back=days_back)
+        finals = espn_scores.fetch_finals(league, days_back=1)
         if not finals:
             return jsonify({"error": f"no {league} finals yesterday"}), 404
         sample = finals[0]
@@ -2696,64 +2691,6 @@ def espn_probe():
 
     # Runs the real extraction rather than dumping raw JSON, so this tests
     # the whole path: fetch, parse, and the fact lines Smacky writes from.
-    # ?raw=1 dumps the stat GROUPS and LABELS rather than extracted facts, so
-    # rules for a new sport get written against what ESPN actually returns.
-    if request.args.get("raw"):
-        import json as _j
-        from urllib.request import Request, urlopen
-        _p = espn_scores.LEAGUE_PATHS.get(league)
-        _u = f"{espn_scores.BASE}/{_p[0]}/{_p[1]}/summary?event={event_id}"
-        with urlopen(Request(_u, headers={"User-Agent": "Mozilla/5.0"}), timeout=20) as _r:
-            _raw = _j.load(_r)
-        _groups = []
-        for _blk in ((_raw.get("boxscore") or {}).get("players") or []):
-            for _g in (_blk.get("statistics") or []):
-                _ath = (_g.get("athletes") or [{}])[0]
-                _groups.append({
-                    "team": ((_blk.get("team") or {}).get("name")),
-                    "group": _g.get("name") or _g.get("type"),
-                    "labels": _g.get("labels"),
-                    "sample_player": ((_ath.get("athlete") or {}).get("displayName")),
-                    "sample_stats": _ath.get("stats"),
-                })
-        _plays = _raw.get("plays") or []
-        _scoring = [pl for pl in _plays if pl.get("scoringPlay")]
-        return jsonify({
-            "event_id": event_id,
-            "stat_groups": _groups,
-            "top_level_keys": sorted(_raw.keys()),
-            "leaders": [{
-                "team": ((_t.get("team") or {}).get("displayName")),
-                "categories": [{
-                    "name": _c.get("name"),
-                    "displayName": _c.get("displayName"),
-                    "leaders": [{
-                        "displayValue": _l.get("displayValue"),
-                        "athlete": ((_l.get("athlete") or {}).get("displayName")),
-                        "position": (((_l.get("athlete") or {}).get("position") or {}).get("abbreviation")),
-                    } for _l in (_c.get("leaders") or [])[:2]],
-                } for _c in (_t.get("leaders") or [])],
-            } for _t in (_raw.get("leaders") or [])],
-            "drives_present": bool(_raw.get("drives")),
-            "drive_count": len((_raw.get("drives") or {}).get("previous") or []),
-            "scoring_summary": [{
-                "period": (x.get("period") or {}).get("number"),
-                "clock": (x.get("clock") or {}).get("displayValue"),
-                "text": (x.get("text") or x.get("description") or "")[:120],
-                "type": (x.get("scoringType") or {}).get("name"),
-            } for x in (_raw.get("scoringPlays") or [])],
-            "play_count": len(_plays),
-            "scoring_play_count": len(_scoring),
-            "first_play_shape": _plays[0] if _plays else None,
-            "scoring_plays": [{
-                "period": (pl.get("period") or {}).get("number"),
-                "clock": (pl.get("clock") or {}).get("displayValue"),
-                "away": pl.get("awayScore"), "home": pl.get("homeScore"),
-                "type": (pl.get("type") or {}).get("text"),
-                "text": (pl.get("text") or "")[:140],
-            } for pl in _scoring],
-        })
-
     detail = espn_scores.fetch_game_detail(league, event_id)
     return jsonify({
         "event_id": event_id,

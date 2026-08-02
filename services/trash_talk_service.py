@@ -166,12 +166,78 @@ GREETINGS = [
     "Good day to you",
 ]
 
+# Fifty openers, because five meant a regular recipient heard the same line
+# within a fortnight. Every one of them does three jobs in a single breath:
+# names the person so they know it is for them, IDENTIFIES SMACKY properly
+# (never a bare "Smacky" - nobody receiving this has heard of him), and says
+# a friend sent it without ever hinting WHICH friend.
+#
+# The mystery of who is half the product. The volume can be public, the
+# identity never is.
 RECAP_GREETINGS = [
-    "Hey {name}! Did you catch that {team} game tonight?",
-    "Yo {name}! You watching that {team} game that just wrapped up?",
-    "Well hello there, {name} — I'm guessing you saw how that {team} game just went?",
-    "Hey {name}, that {team} game just ended, and wow.",
-    "{name}! That {team} game just finished, and I had to call.",
+    # Straight, with the sender implied
+    "Hey {name}, this is Smacky, and I've been given direct orders to roast your fucking team.",
+    "{name}, this is Smacky. Somebody in your life paid actual money to have me call you about this.",
+    "Hey {name} — Smacky here. I've been sent. I don't make the rules, I just make the calls.",
+    "{name}, it's Smacky calling. Somebody who knows you thought you needed to hear this.",
+    "This is Smacky, {name}. I've been contracted to ruin your evening.",
+    "Hey {name}, Smacky here, and I'm under instruction to be extremely unkind.",
+    "{name}? This is Smacky. I've got a job to do and it's about the {team}.",
+    "Smacky here, {name}. Somebody dropped a dollar on this call, so I'm going to earn it.",
+    "Hey {name} — this is Smacky, and I have been dispatched.",
+    "{name}, this is Smacky. I've been hired to say some things about the {team}.",
+
+    # Leading with the team
+    "Hey {name}, Smacky here. We need to talk about the {team}.",
+    "{name}? This is Smacky, and I'm calling about the {team}.",
+    "Smacky here, {name}. You're a {team} fan, so let's get into it.",
+    "Hey {name} — it's Smacky. The {team} happened again.",
+    "{name}, this is Smacky calling about your {team}. Sit down.",
+    "This is Smacky, {name}. I've been watching the {team} so you don't have to explain yourself.",
+    "Hey {name}, Smacky here. The {team} played today. You know where this is going.",
+    "{name}, it's Smacky. I've got the {team} box score in front of me and I have questions.",
+
+    # Fake concern
+    "Hey {name}, this is Smacky, and I'm calling with my condolences.",
+    "{name}? Smacky here. First of all, I'm sorry. That's a lie, but I'm saying it.",
+    "This is Smacky, {name}. I hope you were already sitting down.",
+    "Hey {name} — Smacky. Bad time? Perfect.",
+    "{name}, it's Smacky, and I'm not going to pretend I'm upset about this.",
+    "Smacky here, {name}. I've been looking forward to this all day.",
+    "Hey {name}, this is Smacky. You're not going to enjoy the next forty seconds.",
+    "{name}, Smacky calling. Don't hang up, this is the fun part.",
+
+    # Mock formality
+    "Good evening {name}, this is Smacky. I'm calling regarding the {team}.",
+    "{name}? Smacky here. I'll keep this brief. I won't.",
+    "This is Smacky, {name}. Professional obligation. Let's talk about your team.",
+    "Hey {name} — Smacky calling on behalf of somebody who could not do this themselves.",
+    "{name}, this is Smacky. I'm required by contract to bring this up.",
+    "Smacky here, {name}. Consider this an official notification.",
+
+    # Direct and blunt
+    "{name}. This is Smacky. Bad news.",
+    "Hey {name}, Smacky here. You know why I'm calling.",
+    "{name}? Yeah, this is Smacky. About the {team}.",
+    "This is Smacky, {name}. Somebody had to make this call.",
+    "Hey {name} — it's Smacky, and I brought numbers.",
+    "{name}, Smacky here. Let's talk about your evening.",
+    "Smacky calling, {name}. Got a second? Doesn't matter.",
+
+    # Playing it as routine
+    "Hey {name}, this is Smacky. I do this for a living, and today you're the job.",
+    "{name}? Smacky here. I make these calls. Today's is about the {team}.",
+    "This is Smacky, {name}. I watched it so you'd have to talk about it.",
+    "Hey {name} — Smacky. I've seen the {team} result. We should discuss it.",
+    "{name}, it's Smacky, and I want you to know somebody thought of you specifically.",
+
+    # Warmer setups
+    "Hey {name}! This is Smacky. Hope you're having a great evening. You're not.",
+    "{name}, this is Smacky, and I come bearing terrible news about people you love.",
+    "Smacky here, {name}. How's your night? Rhetorical. I already know.",
+    "Hey {name} — this is Smacky, and I need about forty seconds of your time.",
+    "{name}? Smacky. I'm going to be honest with you, and you're not going to like it.",
+    "This is Smacky, {name}. Somebody out there loves you enough to do this.",
 ]
 
 
@@ -238,6 +304,17 @@ def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAU
     return f"{opener} {roast}"
 
 
+def _sport_slang(sport):
+    """
+    Vocabulary for the sport actually being played. Baseball terms in a
+    football call are worse than no terms at all - it is the fastest way to
+    tell a fan that nobody involved watches the game.
+    """
+    lookup = {"mlb": MLB_SLANG, "nfl": NFL_SLANG}
+    block = lookup.get((sport or "").lower())
+    return ("\n\n" + block) if block else ""
+
+
 def _pile_block(position, total):
     """
     Several people smacked the same person about the same game.
@@ -272,6 +349,87 @@ def _pile_block(position, total):
         f"been given are already picked to avoid repeating them, so lean on "
         f"what is in front of you rather than reaching for the obvious.\n\n"
     )
+
+
+NFL_SLANG = """
+TALK LIKE SOMEBODY WHO WATCHES FOOTBALL
+
+Work ONE OR TWO of these into every NFL call. Two at the absolute most - a
+roast stuffed with jargon sounds like a man reading a glossary.
+
+SMACKY'S SIGNATURE WORDS - nobody else says these, reach here first:
+  Smackdownery   total domination
+  Cookification  completely embarrassing a defender
+  Pancakified    flattened into the turf
+  Anklified      had his ankles broken by a move
+  Sackediculous  a ridiculously hard sack
+  Mossified      jumped over for a catch
+  Burninated     beaten deep, repeatedly
+  Clamped        erased from the game
+  Fumbletosis    chronic inability to hold the football
+  Turfectomy     a violent meeting with the ground
+  Blitzified     overwhelmed by pressure
+  Endzoned       left watching a touchdown happen
+  Helmetized     took a huge legal hit
+
+SMACKY'S ORIGINAL SLANG:
+  Touchdonkey        ugly but effective score
+  Sackastrophe       a quarterback getting destroyed
+  Turf Magnet        falls over constantly
+  Helmet Hugger      tackled immediately, every time
+  Cleat Eater        a defender left on the ground
+  Sideline Spectator never sees the field
+  Fumbleitis         cannot hold the ball
+  Ref Magnet         always getting flagged
+  Fourth-and-Forever an impossible distance
+  Couch Route        a receiver who never gets open
+  Playbook Tourist   looks lost in his own offense
+  Turf Taster        gets flattened repeatedly
+  Shoulder Pad Statue just stands there
+
+SMACKY'S INSULTS - for a specific player:
+  running like he's towing a boat        slow
+  GPS couldn't find the end zone         never scores
+  throwing with oven mitts               no accuracy
+  playing corner in flip-flops           burned every play
+  got cooked medium rare                 beaten badly
+  tackling like he's asking permission   soft
+  human bye week                         an easy opponent
+  catch radius of a toothpick            cannot catch
+  hands sponsored by butter              drops everything
+  pocket awareness of a goldfish         never feels pressure
+  reads defenses like IKEA instructions  confused
+  football IQ powered by dial-up         slow decisions
+  built like an expired Gatorade         nothing left
+
+CATCHPHRASES - one per call at most:
+  "Buddy just got introduced to the turf personally."
+  "That defender got put on a missing person's poster."
+  "He threw that football like it owed him money."
+  "That hit just changed his Wi-Fi password."
+  "He got pancaked so hard they're serving syrup."
+  "Buddy got juked into another ZIP code."
+  "He tackled absolutely nobody but his own pride."
+  "That secondary is running a sightseeing tour."
+
+TEAM-LEVEL FAILURE - good for a whole-offense roast:
+  three-and-out / stalled drive / punt festival / turnover machine /
+  red zone disaster / false start factory / holding clinic /
+  human turnstile, revolving door, Swiss cheese line (a bad o-line)
+
+PRAISING THE WINNER TWISTS THE KNIFE. Calling their quarterback a cheat code
+or a walking mismatch says the loser was beaten by somebody better, which
+cuts deeper than any direct insult.
+
+SITUATIONAL - ONLY if the box score supports it:
+  pick six       an interception ACTUALLY returned for a touchdown
+  strip sack     a sack that genuinely caused a fumble
+  three-and-out  an actual three-and-out drive
+  shutout        they genuinely scored nothing
+  Sackastrophe   a quarterback sacked repeatedly, not once
+
+NEVER invent the situation to fit the term.
+"""
 
 
 MLB_SLANG = """
@@ -407,7 +565,7 @@ def generate_game_recap_roast(team: str, recipient_name: str, key_facts: list[st
             + LOCKED_ROAST_RULES
             # Baseball vocabulary in a basketball call is worse than no
             # vocabulary at all, so this is gated to the sport.
-            + (("\n\n" + MLB_SLANG) if (sport or "").lower() == "mlb" else "")
+            + _sport_slang(sport)
             + _pile_block(pile_position, pile_total)
             + "\n\nWrite the call."
         )

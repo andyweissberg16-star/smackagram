@@ -276,7 +276,16 @@ def fetch_game_detail(league: str, event_id: str) -> dict:
     out["lost_at_home"] = bool((out.get("loser") or {}).get("home"))
 
     loser_team = (out.get("loser") or {}).get("team")
+    out["stakes"] = game_stakes(d, lg, loser_team)
     out["bad_nights"] = _bad_nights(d, loser_team, lg)
+    if lg == "nfl":
+        out["stakes"] = game_stakes(d, lg, loser_team)
+        win_team = (out.get("winner") or {}).get("team")
+        out["nfl_players"] = nfl_skill_players(d, loser_team)
+        out["upset"] = detect_upset(out)
+        out["flow"] = nfl_game_flow(d, loser_team, win_team)
+        out["leaders"] = nfl_leaders(d, loser_team, win_team)
+
     if lg == "mlb":
         out["losing_pitcher"] = _losing_pitcher(d, loser_team)
         out["top_order"] = _top_order_collapse(d, loser_team)
@@ -292,7 +301,13 @@ _BAD_NIGHT_RULES = {
     "mlb":  [("H-AB", "hitless", None, "{n} for {d}"), ("K", ">=", 3, "struck out {v} times")],
     "nba":  [("TO", ">=", 4, "{v} turnovers"), ("PTS", "<=", 2, "{v} points")],
     "wnba": [("TO", ">=", 4, "{v} turnovers"), ("PTS", "<=", 2, "{v} points")],
-    "nfl":  [("INT", ">=", 2, "{v} interceptions"), ("FUM", ">=", 2, "{v} fumbles")],
+    # Football. Labels read from whatever ESPN returns rather than assumed -
+    # the probe has not yet sampled an NFL payload, so anything missing
+    # simply does not fire instead of guessing.
+    "nfl":  [("INT", ">=", 2, "{v} interceptions"),
+             ("FUM", ">=", 1, "{v} fumbles lost"),
+             ("SACKS", ">=", 4, "sacked {v} times"),
+             ("LONG", "<=", 5, "a long gain of {v} yards all day")],
     "nhl":  [("+/-", "<=", -2, "a minus {v} night")],
 }
 
@@ -311,6 +326,14 @@ def _is_principal(ath, league):
             return order is not None and 1 <= int(order) <= 5
         except (TypeError, ValueError):
             return False
+    if league == "nfl":
+        # Football has no batting order and ESPN groups by position, so the
+        # signal is WHICH group the player appears in. A quarterback throwing
+        # picks is always the story; a backup safety missing a tackle is not.
+        # Handled at the group level in _bad_nights rather than here, so
+        # everyone in a scoring group qualifies.
+        return True
+
     # Everywhere else, a starter is the bar.
     return bool(ath.get("starter"))
 
@@ -331,6 +354,16 @@ def _bad_nights(d, losing_team, league):
             continue
         for group in (block.get("statistics") or []):
             labels = group.get("labels") or []
+            # Football: only the groups where a bad game actually matters.
+            # ESPN splits the box score by position - passing, rushing,
+            # receiving, defensive - and a roast about a punter is nobody's
+            # idea of a good time.
+            if league == "nfl":
+                gname = (group.get("name") or group.get("type") or "").lower()
+                if not any(k in gname for k in
+                           ("passing", "rushing", "receiving", "fumbles")):
+                    continue
+
             for ath in (group.get("athletes") or []):
                 person = (ath.get("athlete") or {})
                 name = person.get("displayName") or person.get("shortName")
@@ -452,15 +485,41 @@ def select_facts(detail: dict, max_supporting: int = 3, avoid: list = None) -> l
     # The lead - the single worst thing that happened. Ordered by how much
     # each is worth as an opening, and shuffled among equals so the same
     # angle does not lead every night.
-    lead_finders = [
-        lambda f: "was shelled" in f,
-        lambda f: "shut out" in f,
-        lambda f: "hit all night" in f or "hits all night" in f,
-        lambda f: "on the season" in f,
-        lambda f: "did not survive" in f,
-        lambda f: "heart of the order" in f,
-        lambda f: "took the loss" in f,
+    # Checked for every sport before anything sport-specific: a championship
+    # or elimination loss outranks the whole box score.
+    stakes_finders = [
+        lambda f: "THEY LOST" in f,
+        lambda f: "SEASON IS OVER" in f,
+        lambda f: "ELIMINATION GAME" in f,
+        lambda f: "ONE LOSS from elimination" in f,
+        lambda f: "POSTSEASON game" in f,
     ]
+
+    # The rest are sport-specific because the PHRASES are. Written against
+    # baseball first, these find nothing in a football fact list - the call
+    # would get a score and three random details with no lead at all.
+    if (detail.get("league") or "").upper() == "NFL":
+        lead_finders = stakes_finders + [
+            lambda f: "MASSIVE UPSET" in f,
+            lambda f: "UPSET:" in f,
+            lambda f: "OVERTIME" in f,
+            lambda f: "field goal with" in f,
+            lambda f: "last two minutes" in f,
+            lambda f: "DEFENCE scored" in f,
+            lambda f: "did nothing all day" in f,
+            lambda f: "actually played well" in f,
+            lambda f: "never in it" in f,
+        ]
+    else:
+        lead_finders = stakes_finders + [
+            lambda f: "was shelled" in f,
+            lambda f: "shut out" in f,
+            lambda f: "hit all night" in f or "hits all night" in f,
+            lambda f: "on the season" in f,
+            lambda f: "did not survive" in f,
+            lambda f: "heart of the order" in f,
+            lambda f: "took the loss" in f,
+        ]
     # Collect every angle that is actually available tonight, then pick one
     # at random rather than always taking the first. Searching in fixed
     # order meant a shelled pitcher led every single call - the variety was
@@ -498,7 +557,16 @@ def roast_facts(detail: dict) -> list:
     """The fact lines Smacky writes from, ordered by what they are worth."""
     if not detail:
         return []
-    f = []
+
+    # Football is a different game with a different hierarchy - the upset
+    # leads, the quarterback always answers for it, and the defence is
+    # roasted as a unit. Handled separately rather than bent into the
+    # baseball shape.
+    if (detail.get("league") or "").upper() == "NFL":
+        return stakes_facts(detail) + nfl_roast_facts(detail)
+    # What the loss COST goes first and outranks the box score. A man
+    # who just lost a World Series does not want a pitching line.
+    f = list(stakes_facts(detail))
     w = detail.get("winner") or {}
     l = detail.get("loser") or {}
 
@@ -1007,3 +1075,547 @@ def _team_offense(d, losing_team):
             out["errors"] = int(errors)
         return out or None
     return None
+
+
+def _parse_record(rec):
+    """"9-4" or "9-4-1" into wins and losses."""
+    if not rec:
+        return None
+    parts = str(rec).split("-")
+    try:
+        return int(parts[0]), int(parts[1])
+    except (ValueError, IndexError):
+        return None
+
+
+def detect_upset(detail):
+    """
+    Did a good team lose to a bad one?
+
+    In football this is the single biggest roasting point there is - bigger
+    than any individual stat line. A 9-4 team losing to a 3-9 team IS the
+    call; everything else is supporting detail. Seventeen games means one
+    loss carries far more weight than it does in a 162-game baseball season.
+    """
+    w = _parse_record((detail.get("winner") or {}).get("record"))
+    l = _parse_record((detail.get("loser") or {}).get("record"))
+    if not w or not l:
+        return None
+
+    # Records include tonight's result, so back it out to compare how the
+    # two teams looked going IN.
+    win_w, win_l = w[0] - 1, w[1]
+    los_w, los_l = l[0], l[1] - 1
+    if win_w < 0 or los_l < 0:
+        return None
+
+    def pct(won, lost):
+        total = won + lost
+        return (won / total) if total else 0.5
+
+    winner_pct = pct(win_w, win_l)
+    loser_pct = pct(los_w, los_l)
+    gap = loser_pct - winner_pct
+
+    if gap < 0.20:
+        return None
+
+    return {
+        "loser_record_before": f"{los_w}-{los_l}",
+        "winner_record_before": f"{win_w}-{win_l}",
+        "gap": round(gap, 2),
+        # A losing team beating a winning one is the full humiliation.
+        "beaten_by_losing_team": winner_pct < 0.500 and loser_pct > 0.500,
+    }
+
+
+# Confirmed against a real NFL payload (Browns/49ers, 30 Nov 2025). These
+# are the labels ESPN actually returns, not an assumption about them.
+_NFL_GROUPS = {
+    "passing":   ["C/ATT", "YDS", "AVG", "TD", "INT", "SACKS", "QBR", "RTG"],
+    "rushing":   ["CAR", "YDS", "AVG", "TD", "LONG"],
+    "receiving": ["REC", "YDS", "AVG", "TD", "LONG", "TGTS"],
+    "fumbles":   ["FUM", "LOST", "REC"],
+}
+
+
+def nfl_skill_players(d, losing_team):
+    """
+    The offence, by name. Quarterback, backs, receivers, tight ends - the
+    players who are supposed to score. Defence is roasted as a UNIT, never
+    by name: giving up 26 points is a collective failure and singling out one
+    safety is both unfair and less funny.
+    """
+    out = {"quarterback": None, "skill": [], "fumblers": []}
+
+    for block in ((d.get("boxscore") or {}).get("players") or []):
+        team = (block.get("team") or {})
+        nick = team.get("name") or team.get("shortDisplayName") or ""
+        if nick.lower() != str(losing_team or "").lower():
+            continue
+
+        for group in (block.get("statistics") or []):
+            gname = (group.get("name") or group.get("type") or "").lower()
+            labels = group.get("labels") or []
+            athletes = group.get("athletes") or []
+            if not athletes:
+                continue
+
+            if gname == "passing":
+                ath = athletes[0]          # the starter
+                person = ath.get("athlete") or {}
+                name = person.get("displayName")
+                st = _stat_map(labels, ath.get("stats") or [])
+                if not name:
+                    continue
+                qbr = _to_num(st.get("QBR"))
+                sacks_raw = str(st.get("SACKS") or "")
+                sacks = None
+                if "-" in sacks_raw:
+                    sacks = _to_num(sacks_raw.split("-")[0])
+                out["quarterback"] = {
+                    "name": name,
+                    "line": st.get("C/ATT"),
+                    "yards": st.get("YDS"),
+                    "tds": _to_num(st.get("TD")),
+                    "ints": _to_num(st.get("INT")),
+                    "sacks_taken": int(sacks) if sacks is not None else None,
+                    "qbr": qbr,
+                    "rating": st.get("RTG"),
+                    # ESPN's own composite. 16.3 is obviously terrible without
+                    # anyone needing to know the scale, which is exactly what
+                    # makes it usable on a phone call.
+                    "awful": qbr is not None and qbr < 30,
+                    "poor": qbr is not None and 30 <= qbr < 50,
+                    "played_well": qbr is not None and qbr >= 65,
+                }
+
+            elif gname == "rushing":
+                for ath in athletes[:2]:
+                    person = ath.get("athlete") or {}
+                    name = person.get("displayName")
+                    st = _stat_map(labels, ath.get("stats") or [])
+                    car, avg = _to_num(st.get("CAR")), _to_num(st.get("AVG"))
+                    # Volume matters - a backup with two carries for one yard
+                    # is not the story.
+                    if name and car and car >= 10 and avg is not None and avg < 3.5:
+                        out["skill"].append({
+                            "name": name, "role": "running back",
+                            "line": f"{int(car)} carries for {st.get('YDS')} yards",
+                            "detail": f"{avg} a carry"})
+
+            elif gname == "receiving":
+                for ath in athletes[:3]:
+                    person = ath.get("athlete") or {}
+                    name = person.get("displayName")
+                    st = _stat_map(labels, ath.get("stats") or [])
+                    rec, tg = _to_num(st.get("REC")), _to_num(st.get("TGTS"))
+                    yds = _to_num(st.get("YDS"))
+                    # Thrown at repeatedly and did nothing with it.
+                    if name and tg and tg >= 5 and rec is not None and (rec / tg) < 0.5:
+                        out["skill"].append({
+                            "name": name, "role": "receiver",
+                            "line": f"{int(rec)} catches on {int(tg)} targets",
+                            "detail": f"{st.get('YDS')} yards"})
+                    elif name and tg and tg >= 6 and yds is not None and yds < 30:
+                        out["skill"].append({
+                            "name": name, "role": "receiver",
+                            "line": f"{int(tg)} targets for {int(yds)} yards",
+                            "detail": None})
+
+            elif gname == "fumbles":
+                for ath in athletes:
+                    person = ath.get("athlete") or {}
+                    name = person.get("displayName")
+                    st = _stat_map(labels, ath.get("stats") or [])
+                    fum, lost = _to_num(st.get("FUM")), _to_num(st.get("LOST"))
+                    if name and fum and fum >= 1:
+                        out["fumblers"].append({
+                            "name": name, "fumbles": int(fum),
+                            "lost": int(lost or 0)})
+
+    return out
+
+
+def nfl_roast_facts(detail):
+    """
+    Football facts, ordered by what actually matters.
+
+    THE UPSET LEADS if there is one. A good team losing to a bad one is the
+    single biggest roasting point in football - seventeen games means one
+    loss carries weight a baseball loss never does, and it puts January in
+    doubt. Everything else is supporting detail.
+
+    QBR decides whether the quarterback gets roasted but NEVER appears in the
+    script - the average listener has no idea what a 16.3 means, and
+    explaining a scale mid-call kills the joke. Same rule as the win
+    probability percentage.
+    """
+    f = []
+    w = detail.get("winner") or {}
+    l = detail.get("loser") or {}
+
+    if w.get("team") and l.get("team"):
+        ws, ls = w.get("score"), l.get("score")
+        f.append(f"{w['team']} beat {l['team']} {int(ws)}-{int(ls)}"
+                 if ws is not None and ls is not None
+                 else f"{w['team']} beat {l['team']}")
+
+    # THE UPSET. This leads.
+    up = detail.get("upset")
+    if up:
+        if up.get("beaten_by_losing_team"):
+            f.append(f"MASSIVE UPSET: {l['team']} were {up['loser_record_before']} "
+                     f"and lost to a {up['winner_record_before']} team - a team "
+                     f"with a LOSING record. This is the story of the call.")
+        else:
+            f.append(f"UPSET: {l['team']} were {up['loser_record_before']} and "
+                     f"lost to a {up['winner_record_before']} team. Lead with this.")
+        f.append("their season just got a lot harder - playoff maths, "
+                 "momentum, all of it in question after a loss like that")
+
+    if l.get("record"):
+        f.append(f"{l['team']} are now {l['record']}")
+
+    m = detail.get("margin")
+    if m and m >= 17:
+        f.append(f"lost by {m} - never in it")
+
+    # How it ended. Losing on a kick as time expires is a completely
+    # different wound from losing by thirty, and it deserves to lead when
+    # there is no upset to lead with.
+    fl = detail.get("flow") or {}
+    if fl.get("went_to_overtime"):
+        f.append("it went to OVERTIME - they had four quarters and needed a fifth, "
+                 "and still lost")
+    if fl.get("walkoff_field_goal"):
+        f.append(f"lost it to a field goal with {fl.get('last_score_clock')} left - "
+                 f"one kick, and that is the whole season in one swing of a leg")
+    elif fl.get("decided_late"):
+        f.append(f"decided in the last two minutes - {fl.get('last_score_clock')} "
+                 f"on the clock when it went")
+    if fl.get("defensive_touchdown"):
+        f.append(f"their DEFENCE scored: {fl['defensive_touchdown']} - "
+                 f"the offence handed over points")
+    lp = fl.get("last_period_with_any_score")
+    if lp and lp <= 2 and not fl.get("decided_late"):
+        f.append("nobody scored after the first half - the whole second half "
+                 "produced nothing")
+
+    # The opposing player who did the damage, by name. Being taken apart by
+    # one man is a better roast than anything aimed at the loser.
+    for ldr in (detail.get("leaders", {}).get("theirs") or [])[:2]:
+        pos = f" ({ldr['position']})" if ldr.get("position") else ""
+        f.append(f"their {ldr['category']} leader {ldr['name']}{pos}: {ldr['line']}")
+
+    # The quarterback. Named every time, because in football he answers for
+    # it whether he played badly or not.
+    qb = detail.get("nfl_players", {}).get("quarterback")
+    if qb:
+        if qb.get("awful"):
+            f.append(f"quarterback {qb['name']} did nothing all day - "
+                     f"{qb['line']} for {qb['yards']} yards")
+        elif qb.get("poor"):
+            f.append(f"quarterback {qb['name']} was ordinary at best - "
+                     f"{qb['line']} for {qb['yards']} yards")
+        elif qb.get("played_well"):
+            f.append(f"quarterback {qb['name']} actually played well "
+                     f"({qb['line']}, {qb['yards']} yards) - which makes losing worse, "
+                     f"not better. Somebody else lost this.")
+        if qb.get("ints"):
+            f.append(f"{qb['name']} threw {int(qb['ints'])} interceptions")
+        if qb.get("sacks_taken") and qb["sacks_taken"] >= 3:
+            f.append(f"{qb['name']} was sacked {qb['sacks_taken']} times - "
+                     f"the line never held")
+
+    for p_ in (detail.get("nfl_players", {}).get("skill") or [])[:2]:
+        extra = f", {p_['detail']}" if p_.get("detail") else ""
+        f.append(f"{p_['role']} {p_['name']}: {p_['line']}{extra}")
+
+    for fu in (detail.get("nfl_players", {}).get("fumblers") or [])[:2]:
+        if fu["fumbles"] >= 2:
+            f.append(f"{fu['name']} put the ball on the ground "
+                     f"{fu['fumbles']} times")
+        elif fu["lost"]:
+            f.append(f"{fu['name']} lost a fumble")
+
+    # The defence as a UNIT. Never by name - giving up points is collective,
+    # and singling out one safety is unfair and less funny.
+    if w.get("score") is not None:
+        pts = int(w["score"])
+        if pts >= 30:
+            f.append(f"the defence gave up {pts} points - a total no-show")
+        elif pts >= 24:
+            f.append(f"the defence gave up {pts} points")
+
+    if detail.get("lost_at_home"):
+        v, att = detail.get("venue"), detail.get("attendance")
+        f.append(f"lost at home at {v} in front of {att:,}" if v and att
+                 else f"lost at home in front of {att:,}" if att
+                 else "lost at home")
+
+    return f
+
+
+def _clock_secs(clock):
+    """"4:09" into seconds remaining in the period."""
+    try:
+        m, sec = str(clock).split(":")
+        return int(m) * 60 + int(sec)
+    except (ValueError, AttributeError):
+        return None
+
+
+def nfl_game_flow(d, loser_team, winner_team):
+    """
+    How the game actually went, from scoringPlays.
+
+    Football is decided late far more often than baseball, and losing on a
+    field goal as time expires is a completely different wound from losing
+    by thirty. Confirmed shape: each entry carries period, clock, type and
+    full text - note the key is scoringPlays, NOT the flat plays array
+    baseball uses, which comes back empty for NFL.
+    """
+    plays = d.get("scoringPlays") or []
+    if not plays:
+        return {}
+
+    out = {"score_count": len(plays)}
+    last = plays[-1]
+    per = (last.get("period") or {}).get("number")
+    secs = _clock_secs((last.get("clock") or {}).get("displayValue"))
+
+    out["went_to_overtime"] = bool(per and per > 4)
+    out["last_score_period"] = per
+    out["last_score_text"] = (last.get("text") or "")[:150]
+    out["last_score_type"] = (last.get("scoringType") or {}).get("name")
+
+    # Decided at the death. Two minutes is the football threshold - that is
+    # when the game stops being a game and becomes a situation.
+    if per and per >= 4 and secs is not None and secs <= 120:
+        out["decided_late"] = True
+        out["last_score_clock"] = (last.get("clock") or {}).get("displayValue")
+        if out["last_score_type"] == "field-goal":
+            out["walkoff_field_goal"] = True
+
+    # A defensive score - pick six or fumble return. The most humiliating
+    # way to concede points, because your own offence gave them up.
+    for pl in plays:
+        text = (pl.get("text") or "").lower()
+        if any(k in text for k in ("interception return", "int return",
+                                   "fumble return", "pick-six", "pick six")):
+            out["defensive_touchdown"] = (pl.get("text") or "")[:150]
+            out["defensive_td_period"] = (pl.get("period") or {}).get("number")
+            break
+
+    # When did the loser last score? A team that stopped scoring in the
+    # second quarter did not lose a game, they left one.
+    loser_scores = [pl for pl in plays
+                    if str(loser_team or "").lower() in (pl.get("text") or "").lower()]
+    scoring_periods = [(pl.get("period") or {}).get("number")
+                       for pl in plays if pl.get("period")]
+    if scoring_periods:
+        out["last_period_with_any_score"] = max(p for p in scoring_periods if p)
+
+    return out
+
+
+def nfl_leaders(d, loser_team, winner_team):
+    """
+    The opposing player who did the damage, by name.
+
+    ESPN pre-formats these - "16/25, 149 YDS, 1 TD" - so they are read
+    rather than parsed. Being taken apart by one named man is a better
+    roast than anything aimed at the loser directly.
+    """
+    out = {"theirs": [], "yours": []}
+    for team_block in (d.get("leaders") or []):
+        name = ((team_block.get("team") or {}).get("displayName") or "")
+        side = ("theirs" if str(winner_team or "").lower() in name.lower()
+                else "yours" if str(loser_team or "").lower() in name.lower()
+                else None)
+        if not side:
+            continue
+        for cat in (team_block.get("leaders") or []):
+            label = cat.get("displayName")
+            for ldr in (cat.get("leaders") or [])[:1]:
+                ath = (ldr.get("athlete") or {})
+                who = ath.get("displayName")
+                if not who:
+                    continue
+                out[side].append({
+                    "category": label,
+                    "name": who,
+                    "position": ((ath.get("position") or {}).get("abbreviation")),
+                    "line": ldr.get("displayValue"),
+                })
+    return out
+
+
+# What a loss actually costs, ranked. A championship defeat makes every stat
+# in the box score irrelevant - nobody who just lost a Super Bowl wants to
+# hear about third down conversions.
+STAKES_NONE = 0
+STAKES_POSTSEASON = 1
+STAKES_ELIMINATION = 2
+STAKES_CHAMPIONSHIP = 3
+
+
+def game_stakes(d, league, loser_team):
+    """
+    Was this a playoff game, an elimination, or the championship itself?
+
+    seasonType is ESPN's own marker: 1 preseason, 2 regular, 3 postseason.
+    Reliable across every league. The series state for baseball is read from
+    seasonseries when it is there and simply absent when it is not - a
+    missing series is far better than a wrong one, because telling somebody
+    their season is over when it is not would be unforgivable in a product
+    that trades on knowing the sport.
+    """
+    out = {"level": STAKES_NONE, "postseason": False}
+
+    header = d.get("header") or {}
+    season = header.get("season") or {}
+    stype = season.get("type")
+    if stype != 3:
+        return out
+
+    out["postseason"] = True
+    out["level"] = STAKES_POSTSEASON
+    out["year"] = season.get("year")
+
+    comp = (header.get("competitions") or [{}])[0]
+    notes = comp.get("notes") or []
+    label = ""
+    for n in notes:
+        label = (n.get("headline") or n.get("type") or "") or label
+    out["round"] = label
+
+    low = (label or "").lower()
+    lg = (league or "").lower()
+
+    # The championship itself.
+    if lg == "nfl" and "super bowl" in low:
+        out["level"] = STAKES_CHAMPIONSHIP
+        out["title"] = "the Super Bowl"
+    elif lg == "mlb" and "world series" in low:
+        out["level"] = STAKES_CHAMPIONSHIP
+        out["title"] = "the World Series"
+    elif lg == "nba" and "finals" in low:
+        out["level"] = STAKES_CHAMPIONSHIP
+        out["title"] = "the NBA Finals"
+    elif lg == "nhl" and ("stanley cup" in low or "final" in low):
+        out["level"] = STAKES_CHAMPIONSHIP
+        out["title"] = "the Stanley Cup Final"
+
+    # Single-elimination formats - lose and you are out, no series to save it.
+    if lg == "nfl" or (lg == "mlb" and "wild card" in low):
+        if out["level"] != STAKES_CHAMPIONSHIP:
+            out["level"] = STAKES_ELIMINATION
+            out["single_elimination"] = True
+
+    # Series state, where the format is a series rather than one game.
+    series = _series_state(d, loser_team)
+    if series:
+        out["series"] = series
+        if series.get("eliminated"):
+            out["level"] = max(out["level"], STAKES_ELIMINATION)
+        if series.get("facing_elimination"):
+            out["level"] = max(out["level"], STAKES_ELIMINATION)
+
+    return out
+
+
+def _series_state(d, loser_team):
+    """
+    Where the series stands. Read defensively - the shape of seasonseries
+    has not been confirmed against a real postseason payload, so anything
+    unrecognised is skipped rather than guessed at.
+    """
+    ss = d.get("seasonseries")
+    if not ss:
+        return None
+    block = ss[0] if isinstance(ss, list) and ss else ss
+    if not isinstance(block, dict):
+        return None
+
+    summary = block.get("summary") or block.get("title") or ""
+    events = block.get("events") or []
+    total = block.get("totalCompetitions") or len(events) or None
+
+    out = {"summary": summary, "games_played": len(events) or None,
+           "best_of": total}
+
+    # "SEA leads 3-1" style summaries carry the state without needing the
+    # individual games parsed.
+    import re as _re
+    m = _re.search(r"(\d+)\s*[-–]\s*(\d+)", str(summary))
+    if m:
+        hi, lo = int(m.group(1)), int(m.group(2))
+        out["leader_wins"], out["trailer_wins"] = hi, lo
+        loser_named = str(loser_team or "").lower() in str(summary).lower()
+
+        # Best-of-seven needs four; best-of-five needs three.
+        needed = 4 if (total or 7) >= 7 else 3
+        if hi >= needed and not loser_named:
+            out["eliminated"] = True
+        elif hi == needed - 1 and not loser_named:
+            out["facing_elimination"] = True
+
+    return out or None
+
+
+def stakes_facts(detail):
+    """
+    What the loss actually cost. This goes at the TOP of the fact list and
+    overrides everything, because a man who just lost a championship does
+    not want to hear about third down conversions. The season is over. That
+    is the entire call.
+    """
+    st = detail.get("stakes") or {}
+    lvl = st.get("level", 0)
+    if not lvl:
+        return []
+
+    l = (detail.get("loser") or {}).get("team", "they")
+    f = []
+
+    if lvl >= STAKES_CHAMPIONSHIP:
+        title = st.get("title", "the championship")
+        f.append(f"THEY LOST {title.upper()}. This is the entire call. Nothing "
+                 f"else in this game matters next to it - not the stats, not "
+                 f"the players, not the score. {l} played the biggest game of "
+                 f"the year and lost it.")
+        f.append("lean into it completely: a full season, all of it, gone in "
+                 "one night. Months of work. The one game everybody watches. "
+                 "Better luck next year - and next year is a long way away")
+        return f
+
+    ser = st.get("series") or {}
+    if ser.get("eliminated"):
+        f.append(f"THEIR SEASON IS OVER. {l} were knocked out - the series is "
+                 f"done, {ser.get('summary','')}. Everything else is a "
+                 f"footnote. There is no next game.")
+        f.append("no more baseball for them this year. Whatever they were "
+                 "building toward, it stopped tonight")
+        return f
+
+    if st.get("single_elimination"):
+        f.append(f"ELIMINATION GAME - {l} lost and they are OUT. One game, "
+                 f"win or go home, and they went home. Season over.")
+        return f
+
+    if ser.get("facing_elimination"):
+        f.append(f"they are now ONE LOSS from elimination - {ser.get('summary','')}. "
+                 f"Their season is hanging by a thread and everybody watching "
+                 f"knows it")
+        f.append("build the dread: the ring they were chasing is getting "
+                 "further away by the night, and there may not be another game")
+        return f
+
+    if st.get("postseason"):
+        rnd = st.get("round") or "the playoffs"
+        f.append(f"this was a POSTSEASON game - {rnd}. Playoff losses hurt in "
+                 f"a way regular season losses do not, and there is a title "
+                 f"at the end of this they are no longer walking toward")
+    return f

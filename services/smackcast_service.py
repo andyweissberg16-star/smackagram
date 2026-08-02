@@ -752,6 +752,20 @@ def sanitize_for_speech(text: str) -> str:
     text = re.sub(r"\b(\d+)\.(\d+)\b",
                   lambda m: f"{m.group(1)} point {' '.join(m.group(2))}", text)
 
+    # Football notation. Read literally these all come out wrong: "16/25"
+    # becomes "sixteen slash twenty five", "3-34" becomes "three minus
+    # thirty four", and a QBR of "16.3" hits the same decimal problem that
+    # made a real episode say "above dot five hundred".
+    #
+    # Ordered longest-pattern-first so the sack line is consumed before the
+    # bare hyphen rule can get to it.
+    text = re.sub(r"\b(\d+)-(\d+)\s+sacks?\b",
+                  lambda m: f"{m.group(1)} sacks for {m.group(2)} yards", text)
+    text = re.sub(r"\bsacked\s+(\d+)-(\d+)\b",
+                  lambda m: f"sacked {m.group(1)} times for {m.group(2)} yards", text)
+    text = re.sub(r"\b(\d+)/(\d+)\b",
+                  lambda m: f"{m.group(1)} of {m.group(2)}", text)
+
     for abbr, spoken in (
         ("St. Louis", "Saint Louis"), ("St. John", "Saint John"),
         ("Ft. ", "Fort "), ("Mt. ", "Mount "),
