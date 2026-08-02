@@ -507,12 +507,25 @@ def write_script(material: dict, only_league: str = None,
         "script, you are reacting to numbers as they land in front of you, "
         "and the writing should carry that. React FIRST, then explain - the "
         "noise comes before the analysis. Interrupt yourself when something "
-        "is genuinely stupid: \"they scored - hang on. Hang on. Let me read "
-        "that again.\" Double back on a number you cannot believe. Build to "
+        "is genuinely stupid. Build to "
         "the realisation instead of leading with the conclusion, so the "
         "listener gets there half a second after you do. A host who has "
         "clearly already read the box score is boring; one who is finding "
         "out live is the whole appeal.\n\n"
+
+        "  BUT VARY HOW YOU DO IT. The \"hang on - hang on, let me read that "
+        "again\" double-take is ONE way and you lean on it far too hard. "
+        "ONCE per episode at the absolute most, and some days not at all. "
+        "It reads fine on the page and lands flat out loud when the delivery "
+        "does not sell the pause - which is most of the time.\n\n"
+        "  Other ways to sound like you are finding out live:\n"
+        "  - say the number, then stop, then carry on as if nothing happened\n"
+        "  - question it rather than repeating it: \"is that right?\"\n"
+        "  - address the scoreboard directly, or somebody off-mic\n"
+        "  - start the sentence, abandon it, start a different one\n"
+        "  - state it completely flatly, as if it is beneath comment\n"
+        "  - react to the wrong part of it entirely\n"
+        "  - accept it immediately and move on, which is funnier than shock\n\n"
 
         "  Do not overdo the interruptions either - one or two a show, saved "
         "for the genuinely absurd. Constant self-interruption reads as a tic "
@@ -603,15 +616,73 @@ def write_script(material: dict, only_league: str = None,
         "hard. ONCE per episode, twice at the absolute most. It stops landing "
         "the third time and the whole show starts to sound like one joke.\n\n"
 
-        "  Reach for something else instead:\n"
-        "  - understatement: state the carnage flatly and move on\n"
-        "  - the direct address: talk to the losing fanbase, not about them\n"
-        "  - the false comfort: sympathise, then withdraw it\n"
-        "  - the specific detail: one absurd stat carries a whole segment\n"
-        "  - the aside: interrupt yourself with something petty\n"
-        "  - the callback: refer to a beating from earlier in the episode\n"
-        "  - the rhetorical question you answer yourself, badly\n"
-        "  - just the number, said twice, with nothing after it\n\n"
+        "  FIFTY OTHER WAYS TO LAND THE SAME BEAT. Work through these - a "
+        "different one every segment, and across the episode you should use "
+        "a dozen different shapes, not one shape a dozen times.\n\n"
+
+        "  REACTING TO A NUMBER\n"
+        "   1. Say it flatly and move on. No comment. The silence does it.\n"
+        "   2. Say it, pause, say a completely unrelated thing.\n"
+        "   3. Question whether it is correct, then accept it sadly.\n"
+        "   4. Do the maths out loud badly and give up.\n"
+        "   5. Compare it to something domestic and small.\n"
+        "   6. Say the number twice with nothing after it.\n"
+        "   7. Refuse to say the number at all and describe it instead.\n"
+        "   8. Round it up in their favour and note it does not help.\n\n"
+
+        "  TALKING TO PEOPLE\n"
+        "   9. Address the losing fanbase directly. Second person.\n"
+        "  10. Address one specific fan you have invented.\n"
+        "  11. Address the team as if they are in the room.\n"
+        "  12. Address the winning team and thank them.\n"
+        "  13. Ask the audience a question and answer it yourself, wrongly.\n"
+        "  14. Apologise to somebody uninvolved.\n"
+        "  15. Speak to the city rather than the team.\n\n"
+
+        "  FALSE SYMPATHY\n"
+        "  16. Sympathise sincerely, then withdraw it mid-sentence.\n"
+        "  17. Offer practical advice nobody asked for.\n"
+        "  18. Suggest they take the rest of the week off.\n"
+        "  19. Say it could be worse, then fail to think of how.\n"
+        "  20. Find one genuine positive and undersell it enormously.\n"
+        "  21. Congratulate them on something irrelevant.\n"
+        "  22. Pretend to defend them and give up halfway.\n\n"
+
+        "  STRUCTURE TRICKS\n"
+        "  23. Start the sentence, abandon it, start a better one.\n"
+        "  24. Interrupt yourself with something petty and unrelated.\n"
+        "  25. Call back to a team you buried earlier in the episode.\n"
+        "  26. Set up an expectation and undercut it immediately.\n"
+        "  27. Tell it in the wrong order - punchline first.\n"
+        "  28. Build a list and stop at two.\n"
+        "  29. Ask a rhetorical question and leave it hanging.\n"
+        "  30. Repeat one word from the score three times.\n\n"
+
+        "  THE SPECIFIC DETAIL\n"
+        "  31. Pick one absurd stat and stay on it for the whole segment.\n"
+        "  32. Name the one player who did nothing and dwell on him.\n"
+        "  33. Mention how long the game took.\n"
+        "  34. Mention how many people paid to watch it in person.\n"
+        "  35. Note what inning or quarter it was already over.\n"
+        "  36. Compare their night to their own previous night.\n\n"
+
+        "  TONE SHIFTS\n"
+        "  37. Say something genuinely kind, then move on quickly.\n"
+        "  38. Get quiet about it rather than loud.\n"
+        "  39. Sound tired rather than delighted.\n"
+        "  40. Sound personally betrayed by the result.\n"
+        "  41. Treat it as a medical matter.\n"
+        "  42. Treat it as a legal matter.\n"
+        "  43. Treat it as a weather event.\n"
+        "  44. Treat it as entirely expected and barely worth mentioning.\n\n"
+
+        "  COMPARISONS\n"
+        "  45. Compare the team to a business that is failing.\n"
+        "  46. Compare them to a household appliance.\n"
+        "  47. Compare them to their own fans.\n"
+        "  48. Compare tonight to a specific past humiliation.\n"
+        "  49. Compare them favourably to something worse, barely.\n"
+        "  50. Refuse to compare it to anything because nothing fits.\n\n"
 
         "NAMING PEOPLE. First mention of anyone gets their full name. "
         "Only after that do you use she, he or they. A real episode opened "
@@ -703,12 +774,19 @@ def write_script(material: dict, only_league: str = None,
 
         "THE CLOSE - the last thing you say, WORD FOR WORD, never reworded, "
         "never shortened. Say something of your own first if you want, then "
-        "land on exactly this:\n"
+        "land on exactly this. But the phrase \"That's The Daily Smack\" "
+        "appears ONCE, in this close, and nowhere else - a real episode said "
+        "it, carried on talking, and said it again, which sounded like the "
+        "show ending twice. Your own preamble must not use it:\n"
         '     \"That\'s The Daily Smack. The grill\'s cooling down, but it '
         'never goes out. Same time tomorrow - somebody else is getting '
         'roasted.\"\n'
         "     Same rule as the opening: it only works as branding if it is "
         "identical every single day.\n\n"
+
+        "     AND IT COMES LAST. Nothing follows it. If you want a final "
+        "thought, it goes BEFORE the close, not after - the close is the "
+        "door shutting.\n\n"
 
         "STOP THERE. Do not sign your name, do not name the website, do not "
         "add a farewell after it. The actual sign-off is appended "
@@ -797,7 +875,26 @@ def write_script(material: dict, only_league: str = None,
         "segment without a league field is a broken response.\n\n"
 
         "Reply with JSON only:\n"
-        '{"intro": "...", "segments": [{"text": "...", "reaction": "burn", '
+        "SOUND EFFECTS. Each segment can carry a reaction, played after it:\n"
+        "  boo       a bad result, a team letting people down\n"
+        "  laugh     something genuinely absurd\n"
+        "  cheer     used IRONICALLY - one competent thing all night\n"
+        "  gasp      a number nobody expected\n"
+        "  trombone  the classic sad wah-wah, for a collapse\n"
+        "  flourish  a moment worth celebrating, or mock-celebrating\n"
+        "  aww       mock sympathy\n"
+        "  crickets  NOTHING happened - a shutout, a team with two hits\n"
+        "  boom      BLOWOUTS ONLY. A genuinely absurd scoreline, the sort\n"
+        "            where a team got run out of their own building. Once an\n"
+        "            episode at the very most, and most days not at all - it\n"
+        "            is a big loud sound and it stops meaning anything the\n"
+        "            second time.\n"
+        "  none      say nothing after it\n\n"
+        "  MOST SEGMENTS SHOULD BE \"none\". A sound after every segment turns "
+        "a comedy show into a soundboard. Roughly a third is right, and the "
+        "silence after a brutal line does more work than any effect.\n\n"
+
+        '{"intro": "...", "segments": [{"text": "...", "reaction": "boo", '
         '"league": "MLB"}], "break_in": "...", "break_out": "...", '
         '"outro": "...", "best_line": "..."}\n'
         "Group segments sensibly - a [BIG] game is its own segment, several "
@@ -996,13 +1093,16 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
     # finished script to one wrong field name.
     segments = []
     for seg in script.get("segments", []):
+        # "burn" was the default and is not a valid reaction type - it is not
+        # in _REACTION_TYPES, so nothing ever played for it. Any segment the
+        # model did not explicitly tag silently got no sound at all.
         if isinstance(seg, str):
             body = seg
-            reaction = "burn"
+            reaction = "none"
         else:
             body = (seg.get("text") or seg.get("line") or seg.get("content")
                     or seg.get("body") or seg.get("script") or "")
-            reaction = seg.get("reaction", "burn")
+            reaction = seg.get("reaction") or "none"
         body = (body or "").strip()
         if not body:
             continue

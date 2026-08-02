@@ -68,7 +68,8 @@ def _target_word_count(team_count: int) -> int:
 _SPORT_LABELS = {"nfl": "fantasy football", "nba": "fantasy basketball", "mlb": "fantasy baseball"}
 
 
-_REACTION_TYPES = ("boo", "laugh", "cheer", "gasp", "trombone", "flourish", "aww", "none")
+_REACTION_TYPES = ("boo", "laugh", "cheer", "gasp", "trombone", "flourish",
+                   "aww", "crickets", "boom", "none")
 
 
 def generate_weekly_recap_script(league_name: str, week: int, matchups: list, team_count: int, sport: str = "nfl") -> dict:
@@ -570,17 +571,23 @@ def _pick_random_sfx(reaction: str):
         return None
 
     existing_paths = []
+    # Accept wav as well as mp3. Sound libraries hand out wav far more
+    # often, and a conversion step before every new effect is friction
+    # that ends with effects simply not being added.
     for i in range(1, _MAX_SFX_VARIANTS + 1):
-        path = os.path.join(_SFX_DIR, f"smackcast-{reaction}-{i}.mp3")
-        if os.path.exists(path):
-            existing_paths.append(path)
+        for ext in ("mp3", "wav"):
+            path = os.path.join(_SFX_DIR, f"smackcast-{reaction}-{i}.{ext}")
+            if os.path.exists(path):
+                existing_paths.append(path)
+                break          # one file per variant number; mp3 wins
 
     if not existing_paths:
         return None
 
     chosen_path = random.choice(existing_paths)
     try:
-        return AudioSegment.from_mp3(chosen_path)
+        # from_file reads the format off the file rather than being told.
+        return AudioSegment.from_file(chosen_path)
     except Exception as e:
         print(f"[smackcast] failed to load sound effect {chosen_path}: {e}")
         return None
@@ -825,6 +832,17 @@ def sanitize_for_speech(text: str) -> str:
     # nothing upstream has split an acronym apart before it can be matched,
     # but BEFORE the final whitespace collapse so any spacing this
     # introduces gets tidied by it.
+    # The engine ran "Smackagram dot com" together into something that
+    # sounded like "detached com" - heard in a real episode. Breaking the
+    # brand into syllables forces articulation, and this is the one line
+    # that has to be understood: it is where people are told to go.
+    #
+    # Done as a regex rather than a dict entry because by this point earlier
+    # cleanup may have turned "Smackagram.com" into "Smackagram. com", and a
+    # literal lookup misses that.
+    text = re.sub(r"\bsmackagram\s*(?:\.|\s+dot\s+)\s*com\b",
+                  "Smack a gram dot com", text, flags=re.IGNORECASE)
+
     for acronym, spoken in SPEECH_PRONUNCIATIONS.items():
         text = re.sub(rf"\b{re.escape(acronym)}\b", spoken, text)
 
