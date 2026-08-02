@@ -2716,7 +2716,22 @@ def espn_probe():
                     "sample_player": ((_ath.get("athlete") or {}).get("displayName")),
                     "sample_stats": _ath.get("stats"),
                 })
-        return jsonify({"event_id": event_id, "stat_groups": _groups})
+        _plays = _raw.get("plays") or []
+        _scoring = [pl for pl in _plays if pl.get("scoringPlay")]
+        return jsonify({
+            "event_id": event_id,
+            "stat_groups": _groups,
+            "play_count": len(_plays),
+            "scoring_play_count": len(_scoring),
+            "first_play_shape": _plays[0] if _plays else None,
+            "scoring_plays": [{
+                "period": (pl.get("period") or {}).get("number"),
+                "clock": (pl.get("clock") or {}).get("displayValue"),
+                "away": pl.get("awayScore"), "home": pl.get("homeScore"),
+                "type": (pl.get("type") or {}).get("text"),
+                "text": (pl.get("text") or "")[:140],
+            } for pl in _scoring],
+        })
 
     detail = espn_scores.fetch_game_detail(league, event_id)
     return jsonify({
