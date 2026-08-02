@@ -2721,6 +2721,15 @@ def espn_probe():
         return jsonify({
             "event_id": event_id,
             "stat_groups": _groups,
+            "top_level_keys": sorted(_raw.keys()),
+            "drives_present": bool(_raw.get("drives")),
+            "drive_count": len((_raw.get("drives") or {}).get("previous") or []),
+            "scoring_summary": [{
+                "period": (x.get("period") or {}).get("number"),
+                "clock": (x.get("clock") or {}).get("displayValue"),
+                "text": (x.get("text") or x.get("description") or "")[:120],
+                "type": (x.get("scoringType") or {}).get("name"),
+            } for x in (_raw.get("scoringPlays") or [])],
             "play_count": len(_plays),
             "scoring_play_count": len(_scoring),
             "first_play_shape": _plays[0] if _plays else None,
