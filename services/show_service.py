@@ -944,7 +944,9 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
     Called by the cron endpoint. Returns a dict describing what happened, so
     a failure is visible in the logs rather than silent.
     """
-    from services.smackcast_service import assemble_recap_audio, sanitize_for_speech
+    from services.smackcast_service import (assemble_recap_audio,
+                                            sanitize_for_speech,
+                                            sanitize_for_display)
 
     log, elapsed = _elapsed_logger()
     log("started - fetching results")
@@ -1005,8 +1007,13 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
         if not body:
             continue
         league = (seg.get("league") or "").strip().upper() if isinstance(seg, dict) else ""
-        segments.append({"text": sanitize_for_speech(body), "reaction": reaction,
-                         "league": league})
+        # Two versions of every segment. The engine gets the respelled one -
+        # "double you N B A", ".500" as "five hundred". The transcript keeps
+        # what was actually written, because a real episode stored "double
+        # you N B A" in its text and it looked broken to anyone reading it.
+        segments.append({"text": sanitize_for_speech(body),
+                         "display_text": sanitize_for_display(body),
+                         "reaction": reaction, "league": league})
 
     if not segments:
         print(f"[show] script had no usable segments. Keys returned: "
@@ -1205,7 +1212,11 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
         log("DRY RUN - stopping before audio")
         log("  segment order: " + " ".join(order))
         for i, seg in enumerate(segments):
-            log(f"  [{i}] {(seg.get('text') or '')[:70]}")
+            # Preview the DISPLAY text. The speech version is respelled for
+            # the engine - "double you N B A" - which is right out loud and
+            # unreadable in a log.
+            preview = seg.get("display_text") or seg.get("text") or ""
+            log(f"  [{i}] {preview[:70]}")
         return {"published": False, "dry_run": True,
                 "segment_count": len(segments),
                 "segments": [{"league": sg.get("league"),

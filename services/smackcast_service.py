@@ -678,6 +678,28 @@ SPEECH_PRONUNCIATIONS = {
 }
 
 
+def sanitize_for_display(text: str) -> str:
+    """
+    Clean text for a transcript somebody READS, as opposed to one the engine
+    speaks.
+
+    The speech sanitizer respells things for the ear - "WNBA" becomes
+    "double you N B A", ".500" becomes "five hundred", "16/25" becomes "16
+    of 25". All correct out loud and all wrong on a page. A real episode
+    stored "double you N B A" in its transcript because both uses shared one
+    pass.
+
+    So this does only the parts that are wrong in BOTH forms: emoji, and
+    punctuation names the model wrote out as words.
+    """
+    if not text:
+        return text
+    text = _PUNCT_NAME_RE.sub(" ", text)
+    text = _EMOJI_RE.sub(" ", text)
+    text = re.sub(r"[_~^|`]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def sanitize_for_speech(text: str) -> str:
     """
     Cleans script text before it goes to text-to-speech.
