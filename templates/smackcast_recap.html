@@ -36,7 +36,12 @@
   .hero h1{font-family:'Anton',sans-serif; font-size:var(--h1-page); text-transform:uppercase; letter-spacing:0.5px; margin-top:6px;}
   .card{background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:28px; margin-top:24px;}
   audio{width:100%; margin-bottom:20px;}
-  .script-text{font-size:15px; color:#DCDCD9; white-space:pre-wrap; line-height:1.7;}
+  /* One line rather than the whole script. It gives somebody a reason to
+     press play without spending the joke before they hear it delivered. */
+  .best-line{
+    font-size:16px; color:#DCDCD9; line-height:1.6; font-style:italic;
+    margin:18px 0 0; padding-left:14px; border-left:2px solid #E01B24;
+  }
   .footer-note{text-align:center; font-size:12px; color:var(--chalk-dim); margin-top:24px;}
   .footer-note a{color:var(--gold); text-decoration:none;}
 </style>
@@ -53,10 +58,17 @@
 
   <div class="card">
     <audio controls preload="metadata" src="{{ recap.audio_url }}"></audio>
-    {% if recap.meme_image_url %}
-    <img src="{{ recap.meme_image_url }}" alt="Week {{ recap.week_number }} meme" style="width:100%; border-radius:4px; margin-bottom:20px;">
+
+    {# Image and transcript removed, matching the library. Somebody arriving
+       from a shared link wants to press play, not read a wall of text - and
+       the transcript gave away every joke before they heard it.
+
+       The meme still goes in the og:image tags above, which is where it
+       actually earns its keep: it is the thumbnail in the message preview
+       that makes somebody tap the link in the first place. #}
+    {% if recap.best_line %}
+    <p class="best-line">&ldquo;{{ recap.best_line }}&rdquo;</p>
     {% endif %}
-    <p class="script-text">{{ recap.script_text }}</p>
   </div>
 
   <p class="footer-note">Want this delivered automatically to your own league every week? <a href="/smackcast">Get Smackcast</a></p>
