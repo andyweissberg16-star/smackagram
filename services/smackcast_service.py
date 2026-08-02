@@ -6,6 +6,7 @@ Smackagram-toned script covering every matchup in the league, sized to
 the league's team count.
 """
 import os
+import tempfile
 import re
 import json
 import anthropic
@@ -915,7 +916,42 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
             print(f"[audio {m:5.0f}MB] {where}", flush=True)
 
     _memlog("assembly starting")
-    combined = AudioSegment.empty()
+
+    # Pieces are written to disk as they are finished rather than being
+    # accumulated in memory.
+    #
+    # The old approach built the entire episode as one AudioSegment. Decoded
+    # audio is raw PCM - roughly 88KB a second at 44.1kHz mono - so a five
+    # minute show is about 26MB, and pydub COPIES on every append, so the
+    # peak is far higher than the final size. Production logs showed it
+    # climbing ~10MB a segment and a run was killed at segment six on a
+    # 512MB instance.
+    #
+    # Writing each piece out and letting ffmpeg concatenate at the end means
+    # at most two pieces are ever held - the current one, and the previous
+    # one when an interruption needs to mix across their boundary.
+    _tmpdir = tempfile.mkdtemp(prefix="smackcast-")
+    _parts = []
+
+    def _flush(audio):
+        """Write a finished piece to disk and release it."""
+        if audio is None or len(audio) == 0:
+            return
+        path = os.path.join(_tmpdir, f"part-{len(_parts):03d}.wav")
+        audio.export(path, format="wav")
+        _parts.append(path)
+
+    def _total_ms():
+        """Rough running length, for the logs - reads headers, not audio."""
+        import wave
+        total = 0
+        for pth in _parts:
+            try:
+                with wave.open(pth) as w:
+                    total += (w.getnframes() / w.getframerate()) * 1000
+            except Exception:
+                pass
+        return total
 
     def _standardize(segment):
         """
@@ -991,18 +1027,22 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
     # of the combined track and pydub's copy-on-append, exceeded the limit.
     # Keeping only the compressed bytes gives us the parallel-network win
     # without the memory cost - each decoded segment is freed once appended.
-    combined += _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[0])))
+    _flush(_standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[0]))))
 
     # At most one ambient bed per episode - it is texture, not a feature.
     _ambient_used = False
+
+    # The previous piece, held back one beat. An interruption has to mix its
+    # ring across the boundary into the tail of the line before it, so that
+    # line cannot be written to disk until we know what follows.
+    _pending = None
 
     for i, seg in enumerate(segments):
         # A real beat before each new matchup. Spoken transitions carry most of
         # the work, but back-to-back speech with no gap still runs together to
         # the ear. Skipped before the first segment, which follows the intro
         # and already has the intro's own trailing pause.
-        if i > 0:
-            combined += AudioSegment.silent(duration=450)
+        lead_gap = AudioSegment.silent(duration=450) if i > 0 else None
 
         spoken = _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[1 + i])))
 
@@ -1039,13 +1079,17 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
         elif bed_path:
             print(f"[audio] music bed not found at {bed_path}; running the read dry", flush=True)
 
-        # A phone interruption is mixed differently from a normal segment:
-        # the ring has to start while he is STILL TALKING on the previous
-        # line, so it cannot simply be appended.
+        # An interruption mixes ACROSS the boundary - the ring starts while
+        # he is still talking on the previous line - so it is merged into
+        # the piece that is still pending rather than becoming its own.
         if seg.get("interruption"):
-            combined = lay_in_interruption(
-                combined, spoken, _standardize,
+            base = _pending if _pending is not None else AudioSegment.silent(duration=1)
+            if lead_gap is not None:
+                base = base + lead_gap
+            _pending = lay_in_interruption(
+                base, spoken, _standardize,
                 sound=seg.get("interrupt_sound") or "phone")
+            del spoken, base
             continue
 
         # Background noise, sometimes, under one segment. Never on the
@@ -1056,22 +1100,27 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
             if spoken is not before:
                 _ambient_used = True
 
-        # Every third segment, so a leak shows as a rising number rather
-        # than one reading at the end that cannot be interpreted.
-        if i % 3 == 0:
-            _memlog(f"segment {i} done, show is {len(combined)/1000:.0f}s")
-
         sfx = _pick_random_sfx(seg.get("reaction", "none"))
-        if sfx is None:
-            combined += spoken
-        else:
-            # _standardize is nested inside this function, so it is passed in
-            # rather than reached for - a module-level helper cannot see it,
-            # which is exactly how the first version of this failed.
-            combined += _lay_in_sfx(spoken, sfx, len(spoken), _standardize)
+        if sfx is not None:
+            # _standardize is nested inside this function, so it is passed
+            # in rather than reached for - a module-level helper cannot see
+            # it, which is exactly how the first version of this failed.
+            spoken = _lay_in_sfx(spoken, sfx, len(spoken), _standardize)
 
+        piece = (lead_gap + spoken) if lead_gap is not None else spoken
 
-    _memlog(f"all segments assembled ({len(combined)/1000:.0f}s)")
+        # The previous piece is safe to write now: nothing after it needs to
+        # reach back into it.
+        _flush(_pending)
+        _pending = piece
+        del spoken, piece
+
+        if i % 3 == 0:
+            _memlog(f"segment {i} written, {_total_ms()/1000:.0f}s on disk")
+
+    _flush(_pending)
+    _pending = None
+    _memlog(f"all segments written ({_total_ms()/1000:.0f}s)")
     if outro and outro_tail:
         # speech_bytes[-2] ends on the word the hit lands on; [-1] is the tail.
         hit_clip = _trim_trailing_silence(
@@ -1096,10 +1145,10 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
             except Exception as e:
                 print(f"[audio] smack sfx failed to load ({e}); continuing without it", flush=True)
 
-        combined += signoff
+        _flush(signoff)
         del hit_clip, tail_clip, signoff
     elif outro:
-        combined += _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[-1])))
+        _flush(_standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[-1]))))
 
     # Compressed source blobs are no longer needed, and the export plus the
     # ffmpeg normalization pass below both need headroom on a 512MB box.
@@ -1115,10 +1164,45 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
     # playback miscalculation in some browsers, which could plausibly
     # explain garbled or overlapping-sounding playback without showing
     # up as any duration mismatch in the file itself.
-    buffer = io.BytesIO()
-    combined.export(buffer, format="mp3", parameters=["-b:a", "192k"])
-    combined_bytes = buffer.getvalue()
+    # ffmpeg concatenates the pieces. It STREAMS - it reads and writes a
+    # buffer at a time and never holds the episode - which is the entire
+    # point of writing the pieces out in the first place.
+    _memlog(f"concatenating {len(_parts)} pieces")
+
+    import subprocess
+    listfile = os.path.join(_tmpdir, "parts.txt")
+    with open(listfile, "w") as fh:
+        for pth in _parts:
+            fh.write(f"file '{pth}'\n")
+
+    outpath = os.path.join(_tmpdir, "show.mp3")
+    try:
+        subprocess.run(
+            ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+             "-f", "concat", "-safe", "0", "-i", listfile,
+             "-b:a", "192k", outpath],
+            check=True, capture_output=True, timeout=300)
+        with open(outpath, "rb") as fh:
+            combined_bytes = fh.read()
+    except Exception as e:
+        # If ffmpeg is unavailable or fails, fall back to doing it in memory
+        # rather than losing the episode. Slower and heavier, but it works.
+        print(f"[audio] ffmpeg concat failed ({e}); falling back to in-memory",
+              flush=True)
+        merged = AudioSegment.empty()
+        for pth in _parts:
+            merged += AudioSegment.from_file(pth)
+        buffer = io.BytesIO()
+        merged.export(buffer, format="mp3", parameters=["-b:a", "192k"])
+        combined_bytes = buffer.getvalue()
+        del merged
+
+    _memlog("concatenated, normalising")
     normalized_bytes = elevenlabs_service.normalize_loudness(combined_bytes)
+
+    # Temp files are not small - a five minute show is roughly 26MB of wav.
+    import shutil
+    shutil.rmtree(_tmpdir, ignore_errors=True)
 
     s3_bucket = os.environ["AUDIO_S3_BUCKET"]
     s3_region = os.environ.get("AWS_REGION", "us-east-1")
