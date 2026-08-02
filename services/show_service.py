@@ -907,7 +907,13 @@ def write_script(material: dict, only_league: str = None,
 
     resp = _get_client().messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=2500,
+        # Raised from 2500. The prompt has grown a lot - fifty joke shapes,
+        # per-league vocabulary, sound effect guidance - and two consecutive
+        # runs logged "leagues played but NOT covered", with the WNBA getting
+        # a single segment that never named either team. Each league is
+        # written in its own call, so this is a per-league budget rather than
+        # one shared across the show.
+        max_tokens=4000,
         system=system,
         messages=[{"role": "user", "content": user}],
     )
@@ -1285,7 +1291,7 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
         # Only worth breaking if there is show left on the other side of it.
         if last_mlb < len(segments) - 1:
             brk = [{"text": break_in, "reaction": "none", "league": "BREAK"},
-                   {"text": AD_COPY, "reaction": "none", "league": "BREAK",
+                   {"text": ad_copy_for_today(), "reaction": "none", "league": "BREAK",
                     "music_bed": AD_MUSIC_PATH,
                     "music_gain_db": AD_MUSIC_GAIN_DB,
                     "music_fade_ms": AD_MUSIC_FADE_MS}]
@@ -1302,6 +1308,11 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
                 f"{last_mlb + 1}, via {how})")
         else:
             log("break skipped - baseball was the last segment, nothing to come back to")
+
+    # A phone bit, sometimes. Inserted after the break is placed so it never
+    # lands next to the advert, and before audio so it is treated as a normal
+    # segment everywhere downstream.
+    segments = maybe_interruption(segments)
 
     if dry_run:
         # Everything above is cheap - one Claude call. Everything below is
@@ -1388,6 +1399,52 @@ DUCK_DB = -11             # bed drops once he's speaking, still audible
 # somewhere real without re-recording. Smacky's complaint going in and his
 # line coming back out are written fresh by the model each day; only the ad
 # itself is fixed, which is what makes it read as an ad rather than a bit.
+# Occasionally the read goes wrong. The ad is currently a hard block that
+# listeners will learn to skip, and the single best defence against that is
+# making it sound live - a man reading copy badly is worth listening to, a
+# clean recording is not.
+#
+# Never so wrong that the message is lost. The domain, the dollar and the
+# promise all survive every variant; what breaks is his composure.
+AD_FUMBLES = [
+    # loses his place
+    ("Smackagram. The world leader in sports trash tal- sorry. Sorry. "
+     "Let me start that again. ", ""),
+
+    # reads it too fast, then apologises
+    ("", " ...that was too fast. Nobody got any of that. It's on the website."),
+
+    # gets the domain wrong and corrects himself
+    ("", " Smackagram dot org. Dot com. It's dot com. It's always been dot com."),
+
+    # editorialises mid-read
+    ("", " I've read that four hundred times and I still don't know who wrote it."),
+
+    # can't believe the price
+    ("", " One dollar. A whole phone call for a dollar. We are being robbed."),
+
+    # sincerely means it
+    ("", " And that one's actually true, by the way. All of it."),
+
+    # loses interest halfway
+    ("", " ...and so on. You've heard it. You know what it says."),
+]
+
+# How often the read goes wrong. Roughly one episode in five - often enough
+# to be worth staying for, rare enough that a clean read is still the norm.
+AD_FUMBLE_CHANCE = 0.20
+
+
+def ad_copy_for_today():
+    """The advert, occasionally delivered badly."""
+    import random
+    if random.random() > AD_FUMBLE_CHANCE:
+        return AD_COPY
+    pre, post = random.choice(AD_FUMBLES)
+    print("[show] ad read fumbled", flush=True)
+    return (pre + AD_COPY + post).strip()
+
+
 AD_COPY = (
     "Smackagram. The world leader in sports trash talk. Any sport. Any team. "
     "You write the smack. We make the call. A real phone, ringing in their "
@@ -1679,3 +1736,294 @@ def _show_vocabulary(league: str) -> str:
         out += "\n" + tt.COLLEGE_ANGLES
 
     return out
+
+
+# ---------------------------------------------------------------------------
+# Interruptions
+# ---------------------------------------------------------------------------
+# Short bits where something pulls Smacky off the show. They exist to give
+# him a life outside the box score - a voice reading scores is a format, a
+# man whose phone keeps going is a character.
+#
+# Written rather than generated, deliberately. A bad improvised interruption
+# lands in the middle of a published episode and there is no taking it back.
+#
+# Two rules hold the whole thing together:
+#
+#   ONE PER EPISODE AT MOST, and not every episode. The danger is Smacky's
+#   kitchen becoming more interesting than the sport.
+#
+#   HE ALWAYS COMES OFF WORSE. He is aggressive with the entire sporting
+#   world for five minutes and folds instantly the moment his wife rings.
+#   That contrast is the joke. The moment his cruelty points at somebody in
+#   his own life he stops being fun and starts being someone you would
+#   avoid.
+
+PHONE_INTERRUPTIONS = [
+    # The mother
+    "Hang on. Hang on. (sigh) Ma. Ma, I'm working. I am literally working "
+    "right now. No. No, I told you Tuesday. Tuesday, Ma. I have to go. I "
+    "have to - okay. Okay. Bye. ... Where was I.",
+
+    # The wife, and he folds instantly
+    "Hang on. (sigh) Hi. Yes. No, I'm at work. This is work. No, I - okay. "
+    "Okay, I'll get it on the way home. ... I know I said that yesterday. "
+    "Bye. ... Right.",
+
+    # Defending the job
+    "I can't, I'm live. I'm live right now, people are listening. ... No, "
+    "dozens of people. ... That's not the point.",
+
+    # The list
+    "Hello? ... No, that was on the list, I got the - ... I got most of the "
+    "list.",
+
+    # Explaining what he does for a living. Names the sport, so it is tagged
+    # - dropped into a basketball segment it would be simply wrong.
+    ("I'm going to have to call you back. ... Because I'm describing a "
+     "baseball game to strangers. ... Yes. Yes, that's what I do now.", "MLB"),
+
+    # Screening it
+    "Sorry. One second. ... Nope. Not answering that.",
+
+    # The same number all week
+    "Oh, you have got to be kidding me. ... It's the same number. It's been "
+    "the same number all week. If you're the extended warranty people, I "
+    "don't own a car.",
+
+    # Wrong number entirely
+    "Hello? ... This isn't the mortgage people. ... No, sir. ... No, I don't "
+    "own the house either.",
+
+    # The mother of a player he just roasted
+    "Hello? ... Ma'am, I'm sure he's a lovely boy. ... Ma'am. ... Ma'am, he "
+    "went oh for four.",
+
+    # His agent, at five in the morning
+    "It's five in the morning. ... No, I haven't read it. ... Send it again "
+    "and I'll not read it again.",
+
+    # Somebody who heard the show
+    "Hello? ... Yes, that was me. ... Well, yes, I did say that about your "
+    "team. ... I stand by it. ... Hello?",
+
+    # The one that will not stop
+    "I'm not - I'm going to let that go to voicemail. We're all going to "
+    "pretend that isn't happening.",
+
+    # --- home ---
+    "Hello? ... No, I don't know where it is. ... Because I didn't move it. "
+    "... Because I've been here, doing this.",
+
+    "Hang on. (sigh) I'm not having this conversation again. ... It's a "
+    "chair. ... It's a perfectly good chair.",
+
+    "Hello? ... What do you mean it's leaking. ... Since when. ... Okay. "
+    "Okay, I'm coming. Not now. ... Fine.",
+
+    "No - no, I said I'd think about it. ... Thinking about it is a thing "
+    "you can do. ... Okay. Bye.",
+
+    "Hello? ... I did feed him. ... I fed him at four. ... Well, he's lying "
+    "to you.",
+
+    # --- family ---
+    "Ma. Ma. Ma. ... No, that was your other son. ... Yes, I know. Yes. "
+    "Bye, Ma.",
+
+    "Hello? ... No, I'm not coming Sunday. ... Because last Sunday took "
+    "eleven hours. ... It did, Ma. I timed it.",
+
+    "Hello? ... You're breaking up. You're - I can hear you perfectly, "
+    "actually. I'm lying.",
+
+    "Yes? ... He said what about me. ... At Christmas? He's been saving "
+    "that since Christmas?",
+
+    # --- work and admin ---
+    "Hello? ... No, I've not filled that in. ... Because it's a form, and "
+    "I'm a grown man.",
+
+    "It's five in the morning. ... Yes, I'm aware what time zone you're in. "
+    "... That's not my problem.",
+
+    "Hello? ... The invoice went out. ... It went out. ... I'll check. I'm "
+    "not going to check.",
+
+    "Yes? ... No, that's not what I said. ... That's what you heard. ... I "
+    "have to go.",
+
+    # --- strangers ---
+    "Hello? ... Is this about the car? ... I don't have a car. ... I've "
+    "never had a car.",
+
+    "Hello? ... No, this is Smacky. ... No. Smacky. ... You know what, yes. "
+    "Yes, speaking.",
+
+    "Hello? ... How did you get this number. ... How did you get this "
+    "number.",
+
+    "Hello? ... Hello? ... Somebody's breathing. Somebody is just breathing "
+    "at me.",
+
+    "Hello? ... Sir, it's five in the morning. ... Sir, I'm going to hang "
+    "up. ... Sir.",
+
+    # --- the baby ---
+    # He never tells anyone to deal with it. A man shouting at his wife
+    # about a crying child is not funny, it is just a man you would avoid -
+    # the joke is that his life is happening loudly and he has no authority
+    # over any of it.
+    ("Okay, he's up. He's up, we're all up. Nobody in this house is asleep "
+     "now.", None, "baby"),
+
+    ("That's not going to stop, is it. ... No. No, that's the rest of the "
+     "show, then.", None, "baby"),
+
+    ("I'm going to keep going. I'm going to keep going, and we're all going "
+     "to have a difficult five minutes together.", None, "baby"),
+
+    ("That is the sound of a man's career. Right there. That noise.",
+     None, "baby"),
+
+    ("Can somebody - ... anyone? ... No. Okay. It's me. It's always me.",
+     None, "baby"),
+
+    # --- the neighbour ---
+    # Never named, never seen, referenced as though the audience already
+    # knows him - because after three weeks they do. A running joke costs
+    # nothing and builds equity: people start waiting for it.
+    ("He's out there again. Five in the morning. He's out there.",
+     None, "mower"),
+
+    ("That's him. That's the man. I'm not going to say his name.",
+     None, "mower"),
+
+    ("Somebody is cutting grass. In the dark. I want that on the record.",
+     None, "mower"),
+
+    ("He knows I'm doing this. That's the part that gets me. He knows.",
+     None, "mower"),
+
+    ("Twenty past five and the man is landscaping.", None, "mower"),
+
+    ("I've seen the lawn. It did not need doing. It has never needed "
+     "doing.", None, "mower"),
+
+    ("One day I'm going to go out there. Not today. But one day.",
+     None, "mower"),
+
+    ("That's the third time this week. I'm keeping count now.",
+     None, "mower"),
+]
+
+
+# The neighbour with the lawnmower. Never named, never seen, referenced as
+# though the audience already knows him - because after three weeks they do.
+# A running joke costs nothing and builds equity: people start waiting for
+# it, and something people wait for is worth more than something that lands
+# once.
+#
+# These fire alongside the ambient mower bed, so the sound and the complaint
+# arrive together.
+# Every bit has to CLOSE ITSELF. The interruption is inserted after the
+# script is written, so the segment that follows has no idea it happened and
+# will simply carry on with a baseball score - which leaves the bit hanging
+# in the air with nobody acknowledging it.
+#
+# A return line does the work: he gathers himself, says something, and the
+# show resumes. Varied so it is not the same recovery every time.
+RETURN_LINES = [
+    "Anyway.",
+    "Right. Where was I.",
+    "Sorry. Sorry about that.",
+    "Okay. Moving on.",
+    "That's my life. That's what that is.",
+    "Let's pretend that didn't happen.",
+    "Back to it.",
+    "Right. Baseball.",
+    "So. Yes.",
+    "We're going to move past that.",
+    "Anyway, none of you needed to hear any of that.",
+    "Where were we. Doesn't matter.",
+    "That's going to be dealt with later. Not now. Later.",
+    "Okay. Focus.",
+    "I apologise to everyone listening.",
+    "That's the last we'll speak of it.",
+]
+
+# EXACTLY ONE PER EPISODE, ALWAYS. Not a chance roll - the bit is part of
+# the show now rather than an accident that sometimes happens.
+#
+# Which is why the pool needs to be big. At thirty scripts a daily listener
+# gets a month before hearing a repeat; at twelve they would notice inside a
+# fortnight, and a joke you can see coming is not one.
+
+
+def maybe_interruption(segments):
+    """
+    Insert at most one interruption, in a gap between segments.
+
+    Placed BETWEEN segments rather than inside one, because a bit dropped
+    into the middle of a game recap buries the score it was reporting.
+    Never first and never last - the show opens and closes on its own terms.
+    """
+    import random
+
+    # One every episode. The only reason to skip is a show too short to have
+    # anywhere sensible to put it.
+    if len(segments) < 4:
+        return segments
+
+    # Somewhere in the middle. Not the opening, not the close, and not
+    # immediately either side of the commercial break.
+    lo, hi = 1, len(segments) - 1
+    spots = [i for i in range(lo, hi)
+             if (segments[i].get("league") or "") not in ("BREAK",)
+             and (segments[i - 1].get("league") or "") not in ("BREAK",)]
+    if not spots:
+        return segments
+
+    at = random.choice(spots)
+
+    # Which league is he in the middle of? Most bits work anywhere, but any
+    # that NAME a sport - "describing a baseball game to strangers" - are
+    # tagged, and dropping one of those into a basketball segment would just
+    # be wrong.
+    here = (segments[at - 1].get("league") or "").upper()
+
+    def entry(e):
+        """
+        Normalise to (text, league, sound).
+
+        Most entries are a bare string - anywhere, phone. Some name a sport
+        and are tagged to it. Some are not phone calls at all: the baby ones
+        need a crying baby underneath, and playing a phone ring over "he's
+        up, we're all up" would be nonsense.
+        """
+        if isinstance(e, tuple):
+            return (e + (None, None))[:3] if len(e) < 3 else e
+        return (e, None, "phone")
+
+    rows = [entry(e) for e in PHONE_INTERRUPTIONS]
+    rows = [(t, lg, snd or "phone") for t, lg, snd in rows]
+
+    usable = [r for r in rows if r[1] is None or r[1].upper() == here]
+    if not usable:
+        usable = [r for r in rows if r[1] is None]
+    if not usable:
+        return segments
+
+    text, _lg, sound = random.choice(usable)
+
+    # Close it. Some scripts already end on a recovery - "Where was I",
+    # "Right." - so a second one would be doubled up.
+    if not any(text.rstrip().endswith(e) for e in
+               ("Where was I.", "Right.", "It's always me.")):
+        text = text.rstrip() + " ... " + random.choice(RETURN_LINES)
+
+    bit = {"text": text, "display_text": text, "reaction": "none",
+           "league": "", "interruption": True, "interrupt_sound": sound}
+    segments.insert(at, bit)
+    print(f"[show] interruption inserted at segment {at}", flush=True)
+    return segments

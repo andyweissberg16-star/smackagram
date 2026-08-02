@@ -978,6 +978,9 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
     # without the memory cost - each decoded segment is freed once appended.
     combined += _standardize(AudioSegment.from_mp3(io.BytesIO(speech_bytes[0])))
 
+    # At most one ambient bed per episode - it is texture, not a feature.
+    _ambient_used = False
+
     for i, seg in enumerate(segments):
         # A real beat before each new matchup. Spoken transitions carry most of
         # the work, but back-to-back speech with no gap still runs together to
@@ -1020,6 +1023,23 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
                 print(f"[audio] music bed failed ({e}); running the read dry", flush=True)
         elif bed_path:
             print(f"[audio] music bed not found at {bed_path}; running the read dry", flush=True)
+
+        # A phone interruption is mixed differently from a normal segment:
+        # the ring has to start while he is STILL TALKING on the previous
+        # line, so it cannot simply be appended.
+        if seg.get("interruption"):
+            combined = lay_in_interruption(
+                combined, spoken, _standardize,
+                sound=seg.get("interrupt_sound") or "phone")
+            continue
+
+        # Background noise, sometimes, under one segment. Never on the
+        # commercial break - the ad has its own bed.
+        if not seg.get("music_bed") and i > 0 and not _ambient_used:
+            before = spoken
+            spoken = maybe_ambient(spoken, _standardize)
+            if spoken is not before:
+                _ambient_used = True
 
         combined += spoken
 
@@ -1136,3 +1156,134 @@ def _lay_in_sfx(combined, sfx, spoken_ms, standardize):
         combined = combined + AudioSegment.silent(duration=tail_needed)
 
     return combined.overlay(clip, position=start)
+
+
+# An interruption only works if the phone starts while he is STILL TALKING.
+# A ring that waits for a gap sounds like a cue; one that arrives mid-thought
+# sounds like an interruption, which is the entire point of the bit.
+RING_LEAD_IN_MS = 2600      # how far into the previous line the ring starts
+RING_MAX_MS = 3400          # long rings get cut - nobody needs a full cycle
+RING_FADE_IN_MS = 350       # comes up rather than appearing
+RING_FADE_OUT_MS = 500      # he answers it; it does not just stop
+RING_UNDER_DB = -14         # sits under the voice, not over it
+HANGUP_GAP_MS = 260         # beat between his last word and the beep
+
+
+def lay_in_interruption(prev_audio, bit_audio, standardize, sound="phone"):
+    """
+    Stitch a phone interruption so it sounds like it happened rather than
+    like it was assembled.
+
+    Four things do the work:
+
+      the ring starts BEFORE he stops talking, buried under the end of the
+      previous line, so the listener hears it a moment before he reacts -
+      exactly the order it happens in a real room
+
+      it is trimmed. Ring files run five or ten seconds and a full cycle
+      under a five minute show is interminable
+
+      it fades in and out rather than switching on and off, and it fades
+      DOWN as he starts speaking, because he has answered it
+
+      a hang-up beep closes the bit, since otherwise he simply stops talking
+      and the call never visibly ends
+    """
+    from pydub import AudioSegment
+
+    # Which sound this bit needs. Not every interruption is a phone call -
+    # the baby ones want a crying baby underneath, and a phone ring over
+    # "he's up, we're all up" would make no sense at all.
+    ring = _pick_random_sfx(sound)
+    if ring is None:
+        # No file yet - the bit still works, it just has no phone in it.
+        return prev_audio + AudioSegment.silent(duration=300) + bit_audio
+
+    ring = standardize(ring)
+    if len(ring) > RING_MAX_MS:
+        ring = ring[:RING_MAX_MS]
+    ring = (ring.fade_in(min(RING_FADE_IN_MS, len(ring) // 3))
+                .fade_out(min(RING_FADE_OUT_MS, len(ring) // 2))
+            + RING_UNDER_DB)
+
+    # Where the ring begins, measured back from the end of the line he is
+    # currently speaking. Never more than a third of that line, so it does
+    # not step on a score.
+    lead = min(RING_LEAD_IN_MS, max(0, len(prev_audio) // 3))
+    start = max(0, len(prev_audio) - lead)
+
+    canvas = prev_audio + AudioSegment.silent(duration=260) + bit_audio
+    if start + len(ring) > len(canvas):
+        canvas += AudioSegment.silent(duration=(start + len(ring)) - len(canvas))
+
+    out = canvas.overlay(ring, position=start)
+
+    # Only a phone call gets hung up.
+    hangup = _pick_random_sfx("hangup") if sound == "phone" else None
+    if hangup is not None:
+        clip = standardize(hangup) + RING_UNDER_DB
+        clip = clip.fade_out(min(200, len(clip) // 2))
+        out = out + AudioSegment.silent(duration=HANGUP_GAP_MS) + clip
+
+    return out
+
+
+# Background, not interruption. A dog somewhere, a siren going past, a
+# neighbour mowing at five in the morning - things Smacky never acknowledges
+# and simply talks over. They cost nothing in pacing because nothing stops,
+# and they do more for the sense of a real room than any scripted bit.
+#
+# Deliberately much quieter than a reaction sound. If the listener CONSCIOUSLY
+# notices it, it is too loud - the effect wanted here is "something is off
+# about this room" rather than "a sound effect just played".
+AMBIENT_TYPES = ("dog", "siren", "mower", "carhorn", "baby", "alarm")
+AMBIENT_CHANCE = 0.45          # in an episode, not per segment
+AMBIENT_UNDER_DB = -26
+AMBIENT_FADE_MS = 900
+
+
+def maybe_ambient(spoken, standardize):
+    """
+    Lay a background sound under one segment. Returns the audio unchanged if
+    nothing is available or the roll fails.
+    """
+    import random
+    from pydub import AudioSegment
+
+    if random.random() > AMBIENT_CHANCE:
+        return spoken
+
+    kind = random.choice(AMBIENT_TYPES)
+    bed = _pick_random_sfx(kind)
+    if bed is None:
+        return spoken
+
+    bed = standardize(bed) + AMBIENT_UNDER_DB
+
+    # Continuous sounds get looped to sit under the whole line. One-off
+    # events do not - a car horn repeated on a loop for nine seconds is a
+    # traffic jam, which is a different joke and not a good one.
+    # One-off events rather than continuous washes. Looping a car horn for
+    # nine seconds is a traffic jam; looping a smoke alarm chirp is a fire.
+    # Neither is the joke.
+    ONE_SHOT = ("carhorn", "alarm")
+
+    if kind in ONE_SHOT:
+        # Drop it somewhere in the middle of the line rather than at the
+        # start, so it interrupts rather than announces.
+        import random as _r
+        at = _r.randint(len(spoken) // 4, max(len(spoken) // 4, len(spoken) - len(bed) - 200)) \
+            if len(spoken) > len(bed) + 400 else 0
+        bed = bed.fade_in(80).fade_out(min(400, len(bed) // 2))
+        print(f"[audio] ambient one-shot: {kind}", flush=True)
+        return spoken.overlay(bed, position=at)
+
+    if len(bed) < len(spoken):
+        reps = (len(spoken) // max(1, len(bed))) + 1
+        bed = bed * reps
+    bed = bed[:len(spoken)]
+    bed = (bed.fade_in(min(AMBIENT_FADE_MS, len(bed) // 3))
+              .fade_out(min(AMBIENT_FADE_MS, len(bed) // 3)))
+
+    print(f"[audio] ambient bed: {kind}", flush=True)
+    return spoken.overlay(bed)
