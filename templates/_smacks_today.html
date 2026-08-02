@@ -23,7 +23,9 @@
     width:max-content; max-width:calc(100% - 32px);
     /* Wider than it needs to be, so it reads as a banner rather than a
        label squeezed around its own text. */
-    margin:0 auto 20px; padding:11px 34px;
+    /* Wider, not taller - the padding grows sideways only, so it reads as a
+       banner rather than a pill that has swollen. */
+    margin:0 auto 20px; padding:11px 58px;
     background:rgba(224,27,36,0.10);
     border:1px solid var(--flare,#E01B24);
     border-radius:100px;
@@ -35,8 +37,8 @@
      brand red on a dark background reads as maroon rather than as something
      switched on. */
   .stoday-dot{
-    width:9px; height:9px; border-radius:50%; background:#FF1B2D;
-    flex:0 0 9px; box-shadow:0 0 8px rgba(255,27,45,0.9);
+    width:12px; height:12px; border-radius:50%; background:#FF1B2D;
+    flex:0 0 12px; box-shadow:0 0 10px rgba(255,27,45,0.9);
     animation:stoday-pulse 1.5s ease-in-out infinite;
   }
   @keyframes stoday-pulse{
@@ -47,18 +49,20 @@
     font-family:'Anton', Impact, sans-serif; font-size:19px; line-height:1;
     color:var(--chalk,#F5F5F3); letter-spacing:0.5px;
   }
+  /* Brighter than the brand red and heavier - at 9.5px in mono the old
+     weight disappeared next to the number it was labelling. */
   .stoday-lbl{
-    font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:1.8px;
-    color:var(--flare,#E01B24);
+    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
+    letter-spacing:2px; color:#FF3345;
   }
 
   @media (prefers-reduced-motion:reduce){
     .stoday-dot{animation:none;}
   }
   @media(max-width:520px){
-    .stoday{padding:9px 20px; gap:8px;}
+    .stoday{padding:9px 26px; gap:8px;}
     .stoday-n{font-size:16px;}
-    .stoday-lbl{font-size:8.5px; letter-spacing:1.4px;}
+    .stoday-lbl{font-size:9.5px; letter-spacing:1.5px;}
   }
 </style>
 

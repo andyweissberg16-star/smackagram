@@ -3062,7 +3062,10 @@ def api_ticker():
             })
 
     items.sort(key=lambda x: (0 if x["live"] else (1 if x["upcoming"] else 2)))
-    return jsonify({"count": len(items), "items": items[:24]})
+    # Sixteen rather than twenty-four. At a readable scroll speed the extra
+    # eight push the loop past two minutes, and nobody waits that long to see
+    # the end of a ticker.
+    return jsonify({"count": len(items), "items": items[:16]})
 
 
 @app.route("/api/wall")
@@ -3082,12 +3085,14 @@ def api_wall():
         "handle": r.handle,
         "product": r.product,
         "headline": r.headline,
+        # team_name, not team. The key was set twice here and the second one
+        # won, so every real post resolved to an empty team and rendered as
+        # "SENT TO A MYSTERY FAN".
+        #
+        # The colour is the team's real brand colour, lightened where it
+        # would vanish against a dark card - several are close to black.
         "team": r.team_name,
         "team_color": chat_team_colors.readable_color_for_name(r.team_name),
-        "team": r.team,
-        # The team's real brand colour, lightened where it would vanish
-        # against a dark card - several are close to black.
-        "team_color": chat_team_colors.readable_color_for_name(r.team),
         "when": wall_when(r.created_at),
         # Only ever served when the sender explicitly agreed. A post without
         # consent still appears - it reads rather than plays.

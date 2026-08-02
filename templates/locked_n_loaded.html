@@ -83,6 +83,9 @@
   .progress-bar{display:flex; align-items:center; justify-content:center; margin:0;}
   #lnlConsole .progress-step{width:22px; height:22px; font-size:11px; border-width:1.5px;}
   #lnlConsole .progress-line{width:14px;}
+  /* Only steps already reached invite a click. */
+  .progress-step.is-clickable{cursor:pointer;}
+  .progress-step.is-clickable:hover{border-color:var(--punch); opacity:0.85;}
   .progress-step{
     width:32px; height:32px; border-radius:50%; border:2px solid var(--line-strong);
     display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace;
@@ -588,7 +591,6 @@
 {% if not embed %}
   <picture class="hero-band">
 
-{% include '_smacks_today.html' %}
 
   <source type="image/webp" sizes="100vw"
           srcset="{{ url_for('static', filename='img/locked-hero-780.webp') }} 780w,
@@ -597,6 +599,11 @@
   <img id="heroBanner" src="{{ url_for('static', filename='img/locked-hero-1560.jpg') }}" alt="Locked and Loaded — load it now, let the score do the rest"
        width="1983" height="793" style="width:100%; height:auto; display:block;">
 </picture>
+
+{# Below the hero, not inside it. A regex originally dropped this into the
+   middle of the <picture> tag, so the counter rendered on top of the image. #}
+{% include '_smacks_today.html' %}
+
 {% endif %}
 </div>
 
@@ -1025,6 +1032,9 @@ function updateProgress(step) {
     el.classList.remove('active', 'completed');
     if (s < step) el.classList.add('completed');
     else if (s === step) el.classList.add('active');
+    // Reachable only as far as somebody has actually got - jumping ahead
+    // would skip the validation on the steps in between.
+    el.classList.toggle('is-clickable', s <= (window.lnlFurthest || 0) + 1);
   });
   document.querySelectorAll('.progress-line').forEach((el, i) => {
     el.classList.toggle('completed', (i + 1) < step);
@@ -1440,6 +1450,17 @@ loadVoices();
   };
 
   window.lnlFurthest = 0;
+
+  // The numbered circles double as navigation. Clicking one re-opens that
+  // step and collapses the rest, using the same lnlOpenStep the Next and
+  // Back buttons call rather than duplicating any of it.
+  document.querySelectorAll('.progress-step').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var n = parseInt(el.dataset.step, 10);
+      if (isNaN(n) || (n - 1) > window.lnlFurthest) return;
+      window.lnlOpenStep(n);
+    });
+  });
   window.lnlHasMoved = false;
 
   function advance(from) {

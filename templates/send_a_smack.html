@@ -416,6 +416,10 @@
     font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700;
     color:var(--muted-2); flex-shrink:0; transition:all .2s ease;
   }
+  /* Only steps already reached invite a click. The rest keep the default
+     cursor so nothing suggests a shortcut that is not there. */
+  .progress-step.is-clickable{cursor:pointer;}
+  .progress-step.is-clickable:hover{border-color:var(--punch); opacity:0.85;}
   .progress-step.active{
     border-color:var(--punch); color:#fff; background:var(--punch);
     box-shadow:0 0 14px rgba(224,27,36,0.5);
@@ -711,7 +715,6 @@
 {% if not embed %}
 <picture class="hero-band">
 
-{% include '_smacks_today.html' %}
 
   <source type="image/webp" sizes="100vw"
           srcset="{{ url_for('static', filename='img/hero-mascot-780.webp') }} 780w,
@@ -720,6 +723,11 @@
   <img src="{{ url_for('static', filename='img/hero-mascot-1560.jpg') }}" alt="Send a Smackagram"
        width="1983" height="793" style="width:100%; height:auto; display:block;">
 </picture>
+
+{# Below the hero, not inside it. A regex originally dropped this into the
+   middle of the <picture> tag, so the counter rendered on top of the image. #}
+{% include '_smacks_today.html' %}
+
 {% endif %}
 
 <div class="wrap" style="padding-top:24px;">
@@ -1138,6 +1146,20 @@ document.addEventListener('DOMContentLoaded', () => {
   // the current one collapse to a summary row you can click to reopen.
   var furthest = 0;
 
+  // The numbered circles are navigation, not just an indicator. Clicking one
+  // jumps to that step and collapses the others exactly as the Next and Back
+  // buttons do - it calls the same show() rather than duplicating any of it.
+  //
+  // Gated on `furthest`: a step nobody has reached yet cannot be clicked,
+  // because jumping ahead would skip the validation on everything between.
+  document.querySelectorAll('.progress-step').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var n = parseInt(el.dataset.step, 10) - 1;
+      if (isNaN(n) || n > furthest) return;
+      show(n);
+    });
+  });
+
   function summarise(n) {
     var val = '';
     if (n === 0) {
@@ -1203,6 +1225,10 @@ document.addEventListener('DOMContentLoaded', () => {
       el.classList.remove('active', 'completed');
       if (n < current + 1) el.classList.add('completed');
       else if (n === current + 1) el.classList.add('active');
+      // Reachable only as far as somebody has actually got. Clicking ahead
+      // would skip validation on the steps in between, so a step nobody has
+      // opened yet stays inert rather than being a shortcut past the form.
+      el.classList.toggle('is-clickable', n <= furthest + 1);
     });
     document.querySelectorAll('.progress-line').forEach(function (el, i) {
       el.classList.toggle('completed', (i + 1) < current + 1);

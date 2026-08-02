@@ -57,7 +57,7 @@
          smacks, fantasy recaps. It was reachable only by typing the URL,
          which for the hub of the whole account is not a nav. #}
       <a href="/locker" style="color:inherit; text-decoration:none;">My Locker</a>
-      <a href="/profile" style="color:inherit; text-decoration:none;">My Profile</a>
+      <a href="/profile" style="color:var(--flare,#E01B24); text-decoration:none; font-weight:600;">My Profile</a>
     {% else %}
       <a href="/login" style="color:inherit; text-decoration:none;">Log In</a>
       <a href="/register" style="color:inherit; text-decoration:none;">Register</a>
@@ -92,7 +92,7 @@
   <div class="nav-drawer-auth">
     {% if current_user %}
       <a href="/locker" class="is-gold">My Locker</a>
-      <a href="/profile">My Profile</a>
+      <a href="/profile" style="color:var(--flare,#E01B24); font-weight:600;">My Profile</a>
     {% else %}
       <a href="/login">Log In</a>
       <a href="/register" class="is-flare">Register</a>

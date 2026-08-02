@@ -69,24 +69,11 @@
   /* WCAG 2.2.2 (Pause, Stop, Hide): content that moves automatically for more
      than five seconds needs a way to stop it - for everyone, not only people
      who set the reduced-motion preference. */
-  .ticker-pause{
-    position:absolute; top:0; right:0; bottom:0; width:44px;
-    display:flex; align-items:center; justify-content:center;
-    background:var(--flare); border:0; padding:0; cursor:pointer; color:#fff;
-    box-shadow:-16px 0 16px 10px var(--flare);
-  }
-  .ticker-pause .glyph{
-    display:block; width:12px; height:14px;
-    border-left:4px solid currentColor; border-right:4px solid currentColor;
-  }
-  .ticker-pause.is-paused .glyph{
-    width:0; height:0; border-left:13px solid currentColor; border-right:0;
-    border-top:8px solid transparent; border-bottom:8px solid transparent;
-  }
-  .ticker-pause:hover{color:var(--gold);}
   /* If motion is already off, the control would be a no-op - hide it. */
-  @media(prefers-reduced-motion:reduce){ .ticker-pause{display:none;} }
-  .ticker-track{display:inline-block; animation:scroll 28s linear infinite;}
+  /* Duration is set in JS from the actual track width, so the SPEED stays
+     constant no matter how many games are on. A fixed 28s meant three games
+     crawled and twenty-four flew past unreadably. */
+  .ticker-track{display:inline-block; animation:scroll 90s linear infinite;}
   .ticker-track span{font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:#fff; margin-right:16px; text-transform:uppercase; letter-spacing:0.5px;}
   .ticker-track span.ticker-bolt{margin-right:16px; font-size:13px; color:var(--gold); text-shadow:0 0 6px rgba(255,212,0,0.8); text-transform:none; letter-spacing:0;}
   @keyframes scroll{ from{transform:translateX(0);} to{transform:translateX(-50%);} }
@@ -496,8 +483,6 @@
     <span>EVERY LOSS DESERVES A RING</span><span class="ticker-bolt">⚡</span>
     <span>ONE DOLLAR. A REAL PHONE CALL. THEY NEVER FIND OUT IT WAS YOU</span><span class="ticker-bolt">⚡</span>
   </div>
-  <button class="ticker-pause" id="tickerPause" type="button"
-          aria-pressed="false" aria-label="Pause the ticker"><span class="glyph"></span></button>
 </div>
 
 <div style="width:100%; overflow:hidden; line-height:0; position:relative;">
@@ -522,10 +507,13 @@
          visitor could act on. A real count of calls that went out today
          does the same job and is true. #}
       {% include '_smacks_today.html' %}
-      <p class="league-strip">NFL &middot; NBA &middot; MLB &middot; NHL &middot; WNBA &middot; COLLEGE &middot; ANY TEAM &middot; ANY PLAYER</p>
+      <p class="league-strip">NFL &middot; NBA &middot; MLB &middot; NHL &middot; WNBA &middot; COLLEGE &middot; ANY TEAM</p>
       <h1>Their team lost.<br><span class="flare">Their phone rings.</span></h1>
       <p class="sub" style="max-width:760px; margin-left:auto; margin-right:auto; text-align:center;">I'm Smacky. You tell me who choked &mdash; the team, the quarterback, the guy who bricked two free throws &mdash; and I'll call your buddy and read him the news in my own voice. I already know the score, the record and the losing streak, so I'll use all of it. He never finds out it was you.</p>
-      <p style="margin-top:14px;"><span class="smk-price-stamp">Less than $1 a call</span></p>
+      {# The homepage version is the headline claim, not a footnote - hence
+         its own bigger size. The shared stamp stays as it is everywhere
+         else, where it sits under a heading rather than carrying one. #}
+      <p style="margin-top:22px;"><span class="smk-price-stamp smk-price-hero">Less than $1 a call</span></p>
     </div>
   </section>
 </div>
@@ -577,7 +565,8 @@
 
 <div style="max-width:1100px; margin:0 auto; padding:0 24px;">
   <div class="hero-split" style="display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:8px; text-align:left; width:100%;">
-    <div style="background:var(--ink-2); border:1px solid var(--flare); border-radius:8px; padding:40px; box-shadow:0 0 30px rgba(232,20,44,0.35);">
+    <!-- 2px to match the generator pages, which all use a 2px frame. -->
+    <div style="background:var(--ink-2); border:2px solid var(--flare); border-radius:8px; padding:40px; box-shadow:0 0 30px rgba(232,20,44,0.35);">
       <p style="font-family:'Anton',sans-serif; font-size:32px; letter-spacing:0.5px; margin-bottom:16px; text-transform:uppercase; color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.6); line-height:1.05; text-align:center;">Send a Smackagram</p>
       <p style="font-size:15px; color:var(--chalk-dim); margin-bottom:24px; line-height:1.5; text-align:center;">Pick a team, Smacky writes the roast, and calls your friend with it — live, in his own voice, completely anonymous. The call gets recorded so you can hear their reaction after.</p>
       <input id="heroTeamInput" type="text" placeholder="Team to roast" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:14px;" data-team-search>
@@ -585,8 +574,11 @@
       <button id="heroStartBtn" class="btn btn-flare" style="width:100%; padding:18px 24px; font-size:16px;">Send a Smack</button>
     </div>
 
-    <div style="background:var(--ink-2); border:1px solid var(--flare); border-radius:8px; padding:40px; box-shadow:0 0 30px rgba(232,20,44,0.35);">
-      <p style="font-family:'Anton',sans-serif; font-size:32px; letter-spacing:0.5px; margin-bottom:16px; text-transform:uppercase; color:var(--gold); text-shadow:0 0 24px rgba(255,212,0,0.5); line-height:1.05; text-align:center;">Get Locked &amp; Loaded</p>
+    <!-- Silver, matching the Locked & Loaded page itself, which repaints the
+         site frame silver. A gold heading inside a red box here meant the
+         homepage promised one thing and the page delivered another. -->
+    <div style="background:var(--ink-2); border:2px solid var(--silver,#C3CAD3); border-radius:8px; padding:40px; box-shadow:0 0 30px rgba(190,200,212,0.28);">
+      <p style="font-family:'Anton',sans-serif; font-size:32px; letter-spacing:0.5px; margin-bottom:16px; text-transform:uppercase; color:var(--silver,#C3CAD3); text-shadow:0 0 24px rgba(190,200,212,0.45); line-height:1.05; text-align:center;">Locked &amp; Loaded</p>
       <p style="font-size:15px; color:var(--chalk-dim); margin-bottom:24px; line-height:1.5; text-align:center;">Pick a team, and we watch their next game for you — if they lose, we automatically call your friend with a fresh roast, completely anonymous. If they win, you pay nothing.</p>
       <input id="heroLockedTeamInput" type="text" placeholder="Team to watch" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:14px;" data-team-search>
       <input id="heroLockedRecipientInput" type="text" placeholder="Friend's name" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:20px;">
@@ -596,56 +588,7 @@
 </div>
 
 
-<div class="wrap">
-  <div style="background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:20px 16px; margin:8px 0 32px; display:grid; grid-template-columns:repeat(3,1fr); text-align:center;">
-    <div>
-      <p class="display" style="font-family:'Anton',sans-serif; font-size:34px; color:var(--flare); text-shadow:0 0 16px rgba(232,20,44,0.5);">2,847</p>
-      <p class="mono" style="font-size:11px; color:var(--chalk-dim); letter-spacing:1px; margin-top:2px;">SMACKS SENT THIS WEEK</p>
-    </div>
-    <div style="border-left:1px solid var(--line-strong); border-right:1px solid var(--line-strong);">
-      <p class="display" style="font-family:'Anton',sans-serif; font-size:34px; color:var(--silver); text-shadow:0 0 16px rgba(195,202,211,0.35);">4</p>
-      <p class="mono" style="font-size:11px; color:var(--chalk-dim); letter-spacing:1px; margin-top:2px;">VOICES TO CHOOSE FROM</p>
-    </div>
-    <div>
-      <p class="display" style="font-family:'Anton',sans-serif; font-size:34px; color:var(--cyan);">60s</p>
-      <p class="mono" style="font-size:11px; color:var(--chalk-dim); letter-spacing:1px; margin-top:2px;">FROM TYPE TO DELIVERED</p>
-    </div>
-  </div>
-</div>
 
-<section id="how-it-works" class="halftone" style="background:var(--ink-2); position:relative; overflow:hidden;">
-  <p class="bg-splash" style="top:10%; left:-4%; transform:rotate(-8deg);">SMACK!</p>
-  <div class="wrap" style="position:relative; z-index:1;">
-    <p class="section-title">Four downs to a smack</p>
-    <p class="section-sub">First and goal. Here's the drive.</p>
-    <div class="downs">
-      <div class="down">
-        <div class="jersey">1</div>
-        <p class="down-tag">1ST DOWN</p>
-        <h3>Pick a scenario</h3>
-        <p>Choose from the library, or write your own line and Smacky'll read it.</p>
-      </div>
-      <div class="down">
-        <div class="jersey">2</div>
-        <p class="down-tag">2ND DOWN</p>
-        <h3>Enter their number</h3>
-        <p>You confirm you know them. This isn't for strangers.</p>
-      </div>
-      <div class="down">
-        <div class="jersey">3</div>
-        <p class="down-tag">3RD DOWN</p>
-        <h3>Smacky makes the call</h3>
-        <p>Phone rings, they answer, and Smacky's the one talking.</p>
-      </div>
-      <div class="down">
-        <div class="jersey">4</div>
-        <p class="down-tag">4TH DOWN</p>
-        <h3>You get the tape</h3>
-        <p>Their reaction, recorded and ready to download or share.</p>
-      </div>
-    </div>
-  </div>
-</section>
 
 <div class="home-band">
   <div class="wrap">
@@ -792,17 +735,39 @@ document.getElementById('heroLockedTeamInput').addEventListener('keydown', (e) =
 })();
 
 
+// Ticker speed, set from the actual track width.
+//
+// A fixed duration means the SPEED changes with the amount of content -
+// three games crawl, twenty-four fly past. Setting the duration from the
+// width keeps a constant pixels-per-second no matter what is on.
+//
+// 50px/sec is the happy medium: a game takes about seven seconds to cross,
+// and a full loop is under two minutes. Hovering the bar
+// stops it dead (see .ticker-bar:hover in the CSS), so anything missed is
+// one mouse-move away.
 (function(){
   var track = document.querySelector('.ticker-track');
-  var btn   = document.getElementById('tickerPause');
-  if (!track || !btn) return;
-  btn.addEventListener('click', function(){
-    var nowPaused = track.style.animationPlayState !== 'paused';
-    track.style.animationPlayState = nowPaused ? 'paused' : 'running';
-    btn.classList.toggle('is-paused', nowPaused);
-    btn.setAttribute('aria-pressed', String(nowPaused));
-    btn.setAttribute('aria-label', nowPaused ? 'Resume the ticker' : 'Pause the ticker');
-  });
+  if (!track) return;
+
+  var SPEED = 50;   // pixels per second
+
+  function setSpeed(){
+    // The track holds the content twice over and the animation travels half
+    // its width, so one loop covers scrollWidth / 2.
+    var distance = track.scrollWidth / 2;
+    if (!distance) return;
+    var seconds = Math.max(30, Math.round(distance / SPEED));
+    track.style.animationDuration = seconds + 's';
+  }
+
+  setSpeed();
+  window.addEventListener('resize', setSpeed);
+
+  // The games arrive after the page renders, which changes the width - so
+  // recompute whenever the track's contents change.
+  if ('MutationObserver' in window) {
+    new MutationObserver(setSpeed).observe(track, {childList: true});
+  }
 })();
 </script>
 
