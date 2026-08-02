@@ -403,6 +403,83 @@ def _collapse(d, loser):
     return out
 
 
+def select_facts(detail: dict, max_supporting: int = 3) -> list:
+    """
+    Pick what actually goes in the call, rather than handing over everything.
+
+    Fourteen facts for a 175-word call reads like a stat sheet. Worse, if the
+    same facts are always present in the same order, every Locked & Loaded
+    sounds identical - the analytics line in particular got stale after two
+    listens.
+
+    So: the result is always there, one LEAD is chosen from whichever angle
+    is strongest tonight, and the rest is a random handful of what remains.
+    Different shape every call, same underlying data.
+    """
+    import random
+
+    if not detail:
+        return []
+
+    all_facts = roast_facts(detail)
+    if not all_facts:
+        return []
+
+    # The score line is always first and always present.
+    spine = [all_facts[0]]
+    pool = all_facts[1:]
+
+    def take(pred):
+        for i, f in enumerate(pool):
+            if pred(f):
+                return pool.pop(i)
+        return None
+
+    # The lead - the single worst thing that happened. Ordered by how much
+    # each is worth as an opening, and shuffled among equals so the same
+    # angle does not lead every night.
+    lead_finders = [
+        lambda f: "was shelled" in f,
+        lambda f: "shut out" in f,
+        lambda f: "hit all night" in f or "hits all night" in f,
+        lambda f: "on the season" in f,
+        lambda f: "did not survive" in f,
+        lambda f: "heart of the order" in f,
+        lambda f: "took the loss" in f,
+    ]
+    # Collect every angle that is actually available tonight, then pick one
+    # at random rather than always taking the first. Searching in fixed
+    # order meant a shelled pitcher led every single call - the variety was
+    # only ever in the supporting detail, which is not enough.
+    candidates = []
+    for finder in lead_finders:
+        got = take(finder)
+        if got:
+            candidates.append(got)
+
+    if candidates:
+        lead = random.choice(candidates)
+        spine.append(lead)
+        # The ones not chosen go back in the pool - they are still good
+        # material, just not the opening.
+        pool.extend(c for c in candidates if c is not lead)
+
+    # The analytics jab is good ONCE. Used every call it becomes the thing
+    # people remember instead of the roast, so it appears about a quarter of
+    # the time and is dropped entirely otherwise.
+    analytics = take(lambda f: "analytics people" in f)
+    keep_analytics = analytics and random.random() < 0.25
+
+    # Everything else, shuffled, so the supporting detail differs each time.
+    random.shuffle(pool)
+    supporting = pool[:max_supporting]
+    if keep_analytics:
+        supporting = supporting[:max_supporting - 1] + [analytics]
+        random.shuffle(supporting)
+
+    return spine + supporting
+
+
 def roast_facts(detail: dict) -> list:
     """The fact lines Smacky writes from, ordered by what they are worth."""
     if not detail:

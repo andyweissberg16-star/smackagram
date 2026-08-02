@@ -88,7 +88,13 @@ def check_armed_smackagrams():
                         if espn_id:
                             try:
                                 detail = espn_scores.fetch_game_detail(s.sport, espn_id)
-                                facts = espn_scores.roast_facts(detail)
+                                # select_facts rather than roast_facts: a
+                                # full extraction produces fifteen lines,
+                                # which reads like a stat sheet and makes
+                                # every call sound the same. This picks a
+                                # different lead and a different handful of
+                                # supporting detail each time.
+                                facts = espn_scores.select_facts(detail)
                             except Exception as e:
                                 print(f"[locked] ESPN detail failed for {s.id}: {e}", flush=True)
 
