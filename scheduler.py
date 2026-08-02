@@ -1,6 +1,6 @@
 import os
 import secrets
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from models import db, Smackagram, Scenario, SmackcastSubscription, SmackcastRecap, User
 from services import sports_service, stripe_service, twilio_service, trash_talk_service, call_audio_service, content_moderation, sleeper_service, smackcast_service, elevenlabs_service, espn_service, wallet_service, espn_scores
@@ -69,11 +69,47 @@ def check_armed_smackagrams():
         loser = result["loser"]
         base_url = os.environ["BASE_URL"]
 
+        # Several people can smack the same person about the same game. Left
+        # alone that produces near-identical calls firing simultaneously -
+        # one connects, the rest go to voicemail, and the recipient works out
+        # it is a script. So they are grouped by phone number, numbered, and
+        # spaced out.
+        firing = [s for s in matching if s.target_team == loser]
+        by_phone = {}
+        for s in firing:
+            by_phone.setdefault(s.recipient_phone, []).append(s)
+
+        now = datetime.utcnow()
+        for phone, group in by_phone.items():
+            group.sort(key=lambda x: x.created_at or now)
+            for i, s in enumerate(group):
+                # Set ONCE. This sweep runs every two minutes, and
+                # recalculating send_after each time would push a queued call
+                # three minutes further into the future on every pass - it
+                # would never fire.
+                if s.send_after is not None:
+                    continue
+                s.pile_position = i + 1
+                s.pile_total = len(group)
+                # Three minutes apart. Long enough that the previous call has
+                # finished, short enough that it still reads as a pile-on
+                # rather than a slow drip through the evening.
+                s.send_after = now + timedelta(minutes=3 * i)
+        db.session.commit()
+
+        # Facts already used on this phone, so no two calls to the same
+        # person lean on the same detail.
+        used_facts = {}
+
         for s in matching:
             if s.target_team == loser:
                 # condition met — target team lost, fire the smackagram
                 try:
-                    if s.mode == "auto_summary":
+                    # Already written on an earlier sweep while this call
+                    # sat in the queue. Regenerating would burn a model call
+                    # and change the script out from under a message that was
+                    # already decided.
+                    if s.mode == "auto_summary" and not s.custom_message:
                         # generate the recap roast now, using real facts from
                         # the game that just ended — this is the "set it and
                         # walk away, get a roast grounded in what actually
@@ -94,7 +130,8 @@ def check_armed_smackagrams():
                                 # every call sound the same. This picks a
                                 # different lead and a different handful of
                                 # supporting detail each time.
-                                facts = espn_scores.select_facts(detail)
+                                facts = espn_scores.select_facts(
+                                    detail, avoid=used_facts.get(s.recipient_phone))
                             except Exception as e:
                                 print(f"[locked] ESPN detail failed for {s.id}: {e}", flush=True)
 
@@ -106,12 +143,18 @@ def check_armed_smackagrams():
                             facts = (summary or {}).get("key_facts") or []
                             print(f"[locked] {s.id} using fallback facts", flush=True)
 
+                        # Remember what this call used so the next one to
+                        # the same number reaches for something else.
+                        used_facts.setdefault(s.recipient_phone, []).extend(facts)
+
                         s.custom_message = trash_talk_service.generate_game_recap_roast(
                             team=s.target_team,
                             recipient_name=s.recipient_name,
                             key_facts=facts,
                             sensitivity=s.sensitivity,
                             sport=s.sport,
+                            pile_position=s.pile_position,
+                            pile_total=s.pile_total,
                         )
                     # else mode == "custom" — s.custom_message was already
                     # written by the buyer at arm-time, nothing to generate,
@@ -135,6 +178,19 @@ def check_armed_smackagrams():
                     # No capture step needed - the $1 was already debited
                     # from the wallet at arm time, so the debit simply
                     # stands now that the condition (target team lost) is met.
+                    # Hold the queued ones. Firing five calls to the same
+                    # number at once means one connects and four go straight
+                    # to voicemail - four people paid for a call nobody
+                    # hears live. The script is already generated and stored;
+                    # this run just leaves it armed and the next sweep picks
+                    # it up once its slot arrives.
+                    if s.send_after and datetime.utcnow() < s.send_after:
+                        db.session.commit()
+                        print(f"[locked] {s.id} queued - call {s.pile_position} "
+                              f"of {s.pile_total}, waiting until "
+                              f"{s.send_after:%H:%M:%S}", flush=True)
+                        continue
+
                     audio_urls = call_audio_service.resolve_audio_url(s, base_url)
                     call_audio_service.pending_call_audio[("smackagram", s.id)] = audio_urls
                     s.message_audio_url = audio_urls[0]  # persist for reply-flow "hear it again" replay

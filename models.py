@@ -165,6 +165,16 @@ class Smackagram(db.Model):
     # for the summary endpoint, which is where the player lines and the real
     # score come from - SportsDataIO's game_id will not resolve against it.
     espn_event_id = db.Column(db.String(32), nullable=True)
+    # Where this call sits when several people smacked the same person about
+    # the same game. 1 is the first call, 2 the second, and so on. Baked in
+    # at generation time because the script has to KNOW it is call three -
+    # Smacky celebrates the pile-on rather than pretending not to notice.
+    pile_position = db.Column(db.Integer, nullable=True)
+    pile_total = db.Column(db.Integer, nullable=True)
+    # Do not dial before this. Calls to the same number are spaced three
+    # minutes apart so four of five do not land in voicemail while the first
+    # is still connected.
+    send_after = db.Column(db.DateTime, nullable=True)
     sport = db.Column(db.String(20), nullable=False, default="nfl")  # nfl, nba, mlb, nhl, ncaaf
     home_team = db.Column(db.String(80))
     away_team = db.Column(db.String(80))

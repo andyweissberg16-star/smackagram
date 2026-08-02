@@ -403,7 +403,7 @@ def _collapse(d, loser):
     return out
 
 
-def select_facts(detail: dict, max_supporting: int = 3) -> list:
+def select_facts(detail: dict, max_supporting: int = 3, avoid: list = None) -> list:
     """
     Pick what actually goes in the call, rather than handing over everything.
 
@@ -424,6 +424,20 @@ def select_facts(detail: dict, max_supporting: int = 3) -> list:
     all_facts = roast_facts(detail)
     if not all_facts:
         return []
+
+    # Facts already used on an earlier call to this same person about this
+    # same game. Five people smacking one Cubs fan should produce five
+    # different calls, not the same one five times - so anything already
+    # spent is pushed to the back rather than reused.
+    if avoid:
+        spent = set(avoid)
+        fresh = [f for f in all_facts if f not in spent]
+        stale = [f for f in all_facts if f in spent]
+        # The score line always stays first regardless.
+        if all_facts and all_facts[0] in spent:
+            fresh.insert(0, all_facts[0])
+            stale = [f for f in stale if f != all_facts[0]]
+        all_facts = fresh + stale
 
     # The score line is always first and always present.
     spine = [all_facts[0]]

@@ -238,6 +238,42 @@ def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAU
     return f"{opener} {roast}"
 
 
+def _pile_block(position, total):
+    """
+    Several people smacked the same person about the same game.
+
+    Smacky does NOT hide this and does not pretend it is a coincidence. He
+    celebrates it - the recipient is loved enough that multiple people paid
+    money to have him roasted, which is a compliment delivered as an insult.
+    It also quietly proves the product is real and used by people they know.
+
+    What he never does is distinguish the senders or hint at who any of them
+    are. The VOLUME is public; the identities are not.
+    """
+    if not position or not total or total < 2 or position < 2:
+        return ""
+
+    return (
+        f"\n\nYOU ARE NOT THE FIRST CALL TODAY.\n\n"
+        f"This is call number {position} of {total} to this same person about "
+        f"this same game. Different people sent every one of them.\n\n"
+        f"OPEN BY ACKNOWLEDGING IT, and be delighted. Not confused, not "
+        f"apologetic - delighted. The angle is that he is well loved: "
+        f"{total} separate human beings looked at that result, thought of "
+        f"him specifically, and paid money. That is a life well lived, Dave. "
+        f"Terrible friends, but a life well lived.\n\n"
+        f"Get a joke out of the number itself. Most people manage one. He is "
+        f"on {position}.\n\n"
+        f"NEVER hint at WHO sent any of them, never distinguish one sender "
+        f"from another, and never suggest you know them. The fact that there "
+        f"are several is public. Who they are is not, and that promise is "
+        f"what everybody paid for.\n\n"
+        f"Use DIFFERENT material from the earlier calls - the facts you have "
+        f"been given are already picked to avoid repeating them, so lean on "
+        f"what is in front of you rather than reaching for the obvious.\n\n"
+    )
+
+
 MLB_SLANG = """
 TALK LIKE SOMEBODY WHO WATCHES BASEBALL
 
@@ -347,7 +383,7 @@ LENGTH: about 165 words, which lands around fifty seconds.
 """
 
 
-def generate_game_recap_roast(team: str, recipient_name: str, key_facts: list[str], sensitivity: int = DEFAULT_SENSITIVITY, sport: str = None) -> str:
+def generate_game_recap_roast(team: str, recipient_name: str, key_facts: list[str], sensitivity: int = DEFAULT_SENSITIVITY, sport: str = None, pile_position: int = None, pile_total: int = None) -> str:
     """
     Same personalized-greeting pattern as generate_trash_talk, but the roast
     itself is grounded in real facts pulled from the just-finished game
@@ -372,6 +408,7 @@ def generate_game_recap_roast(team: str, recipient_name: str, key_facts: list[st
             # Baseball vocabulary in a basketball call is worse than no
             # vocabulary at all, so this is gated to the sport.
             + (("\n\n" + MLB_SLANG) if (sport or "").lower() == "mlb" else "")
+            + _pile_block(pile_position, pile_total)
             + "\n\nWrite the call."
         )
     else:
