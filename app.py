@@ -1224,7 +1224,68 @@ def public_smack(share_token):
 @app.route("/locker")
 @login_required
 def locker_page():
-    return render_template("locker.html")
+    """
+    Everything a person owns, in two tabs: the smacks they have sent, and
+    their fantasy recaps.
+
+    The Fantasy tab only exists for subscribers. A tab that opens onto a
+    sales pitch is worse than no tab - it makes the page feel like it is
+    withholding something rather than offering it.
+    """
+    user = get_current_user()
+
+    sub = (SmackcastSubscription.query
+           .filter_by(user_id=user.id)
+           .order_by(SmackcastSubscription.id.desc())
+           .first())
+
+    recaps = []
+    if sub:
+        recaps = (SmackcastRecap.query
+                  .filter_by(subscription_id=sub.id)
+                  .order_by(SmackcastRecap.week_number.desc())
+                  .limit(4).all())
+
+    # --- received -------------------------------------------------------
+    #
+    # Only ever shown for a number this user has PROVEN is theirs. The
+    # public lookup page lets anybody type any number and hear what that
+    # person was sent; this replaces it with something that cannot be
+    # abused, which is the whole reason received smacks belong here.
+    #
+    # Verification needs Twilio A2P registration, which is still pending -
+    # so the gate is built and switched off rather than absent. When
+    # registration lands, VERIFICATION_LIVE flips and this opens up with no
+    # other change.
+    verification_live = os.getenv("VERIFICATION_LIVE", "").lower() in ("1", "true", "yes")
+
+    verified = (VerifiedPhone.query
+                .filter_by(user_id=user.id)
+                .order_by(VerifiedPhone.id.desc())
+                .first())
+
+    received = []
+    if verified and verification_live:
+        rows = (Smackagram.query
+                .filter_by(recipient_phone=verified.phone)
+                .order_by(Smackagram.id.desc())
+                .limit(30).all())
+        for r in rows:
+            received.append({
+                "when": (r.created_at.strftime("%d %B") if getattr(r, "created_at", None) else ""),
+                "audio_url": getattr(r, "audio_url", None),
+            })
+
+    return render_template(
+        "locker.html",
+        has_smackcast=sub is not None,
+        smackcast_league=(sub.league_name if sub else None),
+        recaps=recaps,
+        phone_verified=bool(verified and verification_live),
+        verified_number=(verified.phone if verified else None),
+        verification_available=verification_live,
+        received=received,
+    )
 
 
 @app.route("/api/locker")

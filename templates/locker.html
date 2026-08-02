@@ -109,6 +109,60 @@
   .empty p{color:var(--muted); font-size:15px; margin:0 0 20px;}
   footer{text-align:center; padding:30px 20px; border-top:1px solid var(--line); margin-top:40px;}
   footer a{color:var(--muted-2); text-decoration:none; font-size:12px;}
+
+  /* --- tabs ------------------------------------------------------------- */
+  .tabs{display:flex; gap:6px; margin:22px 0 4px; border-bottom:1px solid rgba(245,245,243,0.10);}
+  .tab{background:transparent; border:none; border-bottom:2px solid transparent;
+    color:#9A9A96; font-family:'JetBrains Mono',monospace; font-size:11px;
+    font-weight:700; letter-spacing:1.6px; text-transform:uppercase;
+    padding:11px 14px; cursor:pointer; margin-bottom:-1px;}
+  .tab:hover{color:#F5F5F3;}
+  .tab.on{color:#F5F5F3; border-bottom-color:#E01B24;}
+
+  /* --- received ---------------------------------------------------------- */
+  .verify-gate{background:#141416; border:2px solid #E01B24; border-radius:8px;
+    padding:20px 20px; margin:22px 0 0;}
+  .vg-kick{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:2px;
+    color:#E01B24; margin:0 0 7px;}
+  .vg-big{font-family:'Anton',sans-serif; font-size:23px; color:#F5F5F3; margin:0 0 8px;}
+  .vg-say{font-size:13.5px; color:#C3CAD3; line-height:1.6; margin:0 0 15px; max-width:440px;}
+  .vg-btn{display:inline-block; background:#E01B24; color:#fff; text-decoration:none;
+    font-size:12.5px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase;
+    padding:12px 20px; border-radius:7px;}
+  .vg-soon{font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:1.2px;
+    color:#9A9A96; margin:0; line-height:1.6;}
+
+  .recv-note{font-size:12.5px; color:#9A9A96; margin:22px 0 12px; line-height:1.55;}
+  .recv{background:#141416; border:2px solid #E01B24; border-radius:8px;
+    padding:15px 17px; margin-bottom:11px;}
+  .recv-when{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:1.2px;
+    color:#7A7575; margin:0 0 10px;}
+  .recv audio{width:100%; height:36px; display:block; margin-bottom:11px;}
+  .recv-back{color:#E01B24; font-size:12.5px; font-weight:700; text-decoration:none;}
+
+  /* --- fantasy pane ----------------------------------------------------- */
+  .cast-cta{display:block; text-decoration:none; background:#141416;
+    border:2px solid #E01B24; border-radius:8px; padding:16px 18px; margin:22px 0 4px;}
+  .cta-kick{display:block; font-family:'JetBrains Mono',monospace; font-size:9.5px;
+    letter-spacing:2px; color:#E01B24; margin-bottom:6px;}
+  .cta-big{display:block; font-family:'Anton',sans-serif; font-size:21px;
+    color:#F5F5F3; margin-bottom:5px;}
+  .cta-say{display:block; font-size:13px; color:#C3CAD3; line-height:1.55;}
+  .cast-second{margin:14px 0 0; font-size:12.5px; color:#9A9A96;}
+  .cast-second a{color:#E01B24;}
+
+  .cast-head{display:flex; align-items:baseline; justify-content:space-between;
+    margin:30px 0 12px; padding-top:20px; border-top:1px solid rgba(245,245,243,0.10);}
+  .cast-league{font-family:'Anton',sans-serif; font-size:17px; color:#F5F5F3; margin:0;}
+  .cast-head a{color:#E01B24; font-size:12.5px; text-decoration:none;}
+
+  .cast-recap{background:#141416; border:2px solid #E01B24; border-radius:8px;
+    padding:15px 17px; margin-bottom:11px;}
+  .cast-wk{font-family:'Anton',sans-serif; font-size:18px; color:#F5F5F3; margin:0 0 6px;}
+  .cast-line{color:#DCDCD9; font-size:13.5px; font-style:italic; line-height:1.5;
+    margin:0 0 11px;}
+  .cast-recap audio{width:100%; height:36px; display:block;}
+  .cast-wait{color:#9A9A96; font-size:13px; margin:0;}
 </style>
 </head>
 <body>
@@ -117,8 +171,21 @@
 
 <div class="wrap">
   <span class="kicker"><span class="pulse"></span> The Smack Vault</span>
-  <h1>Every smack <span class="hit">you&rsquo;ve sent</span></h1>
+  <h1>Your <span class="hit">Locker</span></h1>
   <p class="sub">Smacky keeps receipts. So do you.</p>
+
+  {# Two halves of the same thing. Fantasy only appears for subscribers -
+     a tab that opens onto a sales pitch is worse than no tab. #}
+  <div class="tabs" id="tabs">
+    <button type="button" class="tab on" data-tab="smacks">Sent</button>
+    <button type="button" class="tab" data-tab="received">Received</button>
+    {# Fantasy only for subscribers. A tab that opens onto a sales pitch is
+       worse than no tab - it makes the page feel like it is withholding
+       something rather than offering it. #}
+    {% if has_smackcast %}
+      <button type="button" class="tab" data-tab="fantasy">Fantasy</button>
+    {% endif %}
+  </div>
 
   <div class="vault">
     <div>
@@ -130,6 +197,7 @@
   </div>
 
 
+  <div id="pane-smacks">
   <div class="filters" id="filters" hidden>
     <button class="filter on" data-filter="all" type="button">All</button>
     <button class="filter" data-filter="smackagram" type="button">Smackagrams</button>
@@ -138,6 +206,86 @@
   </div>
 
   <div id="list"></div>
+  </div>
+
+  <div id="pane-received" hidden>
+    {% if not phone_verified %}
+      {# The whole point of putting received smacks here rather than on a
+         public lookup page: you have to prove the number is yours. Anyone
+         being able to type a number and hear what that person received is
+         the exposure this replaces. #}
+      <div class="verify-gate">
+        <p class="vg-kick">VERIFY YOUR NUMBER</p>
+        <p class="vg-big">See what people have sent you.</p>
+        <p class="vg-say">Everything anyone has ever smacked you with, in one
+           place. We just need to know the number is actually yours &mdash;
+           we'll send a code and you type it back.</p>
+        {% if verification_available %}
+          <a class="vg-btn" href="/verify-phone">Verify my number</a>
+        {% else %}
+          <p class="vg-soon">Verification is switched off while we finish
+             carrier registration. This opens up shortly.</p>
+        {% endif %}
+      </div>
+    {% elif received %}
+      <p class="recv-note">Everything sent to {{ verified_number }}.
+         Who sent them stays between them and Smacky.</p>
+      {% for r in received %}
+        <div class="recv">
+          <p class="recv-when">{{ r.when }}</p>
+          {% if r.audio_url %}
+            <audio controls preload="none" src="{{ r.audio_url }}"></audio>
+          {% else %}
+            <p class="cast-wait">No recording kept for this one.</p>
+          {% endif %}
+          <a class="recv-back" href="/send-a-smack">Send one back &rarr;</a>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="cast-wait">Nothing yet. Somebody will get round to it.</p>
+    {% endif %}
+  </div>
+
+  {% if has_smackcast %}
+  <div id="pane-fantasy" hidden>
+
+    <a class="cast-cta" href="/smackcast/this-week">
+      <span class="cta-kick">BEFORE 11:59PM MONDAY</span>
+      <span class="cta-big">Tell Smacky what happened this week &rarr;</span>
+      <span class="cta-say">A bad trade, a brutal loss, whoever will not stop
+        talking in the group chat. Two minutes, and Tuesday's episode is about
+        your league instead of anyone's.</span>
+    </a>
+
+    <p class="cast-second">Season-long details &mdash; who runs it, the
+      rivalries, the punishment for last place &mdash; live on
+      <a href="/smackcast/league-profile">Your League</a>.</p>
+
+    <div class="cast-head">
+      <p class="cast-league">{{ smackcast_league or 'Your league' }}</p>
+      <a href="/smackcast/library">Full library &rarr;</a>
+    </div>
+
+    {% if recaps %}
+      {% for r in recaps %}
+      <div class="cast-recap">
+        <p class="cast-wk">Week {{ r.week_number }}</p>
+        {% if r.best_line %}<p class="cast-line">&ldquo;{{ r.best_line }}&rdquo;</p>{% endif %}
+        {% if r.audio_url %}
+          <audio controls preload="none" src="{{ r.audio_url }}"></audio>
+        {% else %}
+          <p class="cast-wait">Smacky is still recording this one.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="cast-wait">No recaps yet. The first one lands after your
+        league's next week finishes.</p>
+    {% endif %}
+
+  </div>
+  {% endif %}
+
   <audio id="player" style="display:none;"></audio>
 </div>
 
@@ -146,6 +294,29 @@
 </footer>
 
 <script>
+// Tabs. Only present for subscribers - see the template guard above.
+(function () {
+  var tabs = document.getElementById('tabs');
+  if (!tabs) return;
+  tabs.addEventListener('click', function (e) {
+    var b = e.target.closest('.tab');
+    if (!b) return;
+    tabs.querySelectorAll('.tab').forEach(function (t) {
+      t.classList.toggle('on', t === b);
+    });
+    ['smacks', 'received', 'fantasy'].forEach(function (name) {
+      var pane = document.getElementById('pane-' + name);
+      if (pane) pane.hidden = b.dataset.tab !== name;
+    });
+
+    // Anything playing in the other tab stops - otherwise a recap keeps
+    // going while somebody is browsing their sent smacks.
+    document.querySelectorAll('audio').forEach(function (a) {
+      if (!a.paused) { a.pause(); a.currentTime = 0; }
+    });
+  });
+})();
+
 (function () {
   var listEl = document.getElementById('list');
   var player = document.getElementById('player');
