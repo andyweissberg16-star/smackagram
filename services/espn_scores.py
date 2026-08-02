@@ -1879,3 +1879,118 @@ def nba_roast_facts(detail):
         f.append(f"lost at home in front of {att:,}" if att else "lost at home")
 
     return f
+
+
+# ---------------------------------------------------------------------------
+# The Smack Board - live scores
+# ---------------------------------------------------------------------------
+# Everything above reads FINISHED games. The board needs games in progress,
+# which is a different filter on the same endpoint.
+#
+# Cached server-side and shared. A hundred people watching the board must not
+# become a hundred requests to ESPN - that is how an unofficial endpoint
+# stops answering you.
+
+_BOARD_CACHE = {}          # league -> (fetched_at, games)
+BOARD_CACHE_SECONDS = 45   # live scores move; 45s is frequent without hammering
+
+
+def fetch_board(league: str, force: bool = False) -> list:
+    """
+    Every game for a league today - live, finished and upcoming.
+
+    Returns display-ready rows. Anything the endpoint does not give us is
+    absent rather than guessed at, and a failure returns whatever was last
+    cached rather than an empty board.
+    """
+    import time as _t
+
+    lg = (league or "").lower()
+    cfg = LEAGUE_PATHS.get(lg)
+    if not cfg:
+        return []
+
+    cached = _BOARD_CACHE.get(lg)
+    if cached and not force and (_t.time() - cached[0]) < BOARD_CACHE_SECONDS:
+        return cached[1]
+
+    sport_path, league_path = cfg[0], cfg[1]
+    url = f"{BASE}/{sport_path}/{league_path}/scoreboard"
+
+    try:
+        resp = requests.get(url, timeout=12)
+        if resp.status_code != 200:
+            print(f"[board] {lg} -> HTTP {resp.status_code}", flush=True)
+            return cached[1] if cached else []
+        data = resp.json()
+    except Exception as e:
+        print(f"[board] {lg} fetch failed: {e}", flush=True)
+        return cached[1] if cached else []
+
+    games = []
+    for e in (data.get("events") or []):
+        comps = e.get("competitions") or []
+        if not comps:
+            continue
+        c = comps[0]
+        sides = c.get("competitors") or []
+        if len(sides) != 2:
+            continue
+
+        home = next((x for x in sides if x.get("homeAway") == "home"), sides[0])
+        away = next((x for x in sides if x.get("homeAway") == "away"), sides[1])
+
+        st = ((c.get("status") or {}).get("type") or {})
+        state = st.get("state")            # pre | in | post
+
+        def side(x):
+            t = x.get("team") or {}
+            rec = ""
+            for r in (x.get("records") or []):
+                if r.get("type") in ("total", "overall") or not rec:
+                    rec = r.get("summary") or rec
+            colour = t.get("color")
+            return {
+                "nick": t.get("name") or t.get("shortDisplayName") or "",
+                "abbr": t.get("abbreviation") or "",
+                "city": t.get("location") or "",
+                "score": _int(x.get("score")),
+                "record": rec,
+                # ESPN gives colours without the hash.
+                "colour": ("#" + colour) if colour and not colour.startswith("#") else colour,
+                "logo": t.get("logo"),
+            }
+
+        h, a = side(home), side(away)
+
+        # Who is behind right now. This is what the smack button points at,
+        # and it is the whole reason the board exists.
+        losing = None
+        if state in ("in", "post") and h["score"] is not None and a["score"] is not None:
+            if h["score"] < a["score"]:
+                losing = "home"
+            elif a["score"] < h["score"]:
+                losing = "away"
+
+        games.append({
+            "espn_id": e.get("id"),
+            "state": state,
+            "final": state == "post",
+            "live": state == "in",
+            "upcoming": state == "pre",
+            "status": st.get("shortDetail") or st.get("description") or "",
+            "clock": (c.get("status") or {}).get("displayClock"),
+            "period": (c.get("status") or {}).get("period"),
+            "start": e.get("date"),
+            "venue": ((c.get("venue") or {}).get("fullName")),
+            "home": h, "away": a,
+            "losing": losing,
+        })
+
+    # Live first, then upcoming, then finished - what somebody opening the
+    # board actually wants to see in that order.
+    order = {"in": 0, "pre": 1, "post": 2}
+    games.sort(key=lambda g: (order.get(g["state"], 3), g.get("start") or ""))
+
+    _BOARD_CACHE[lg] = (_t.time(), games)
+    return games

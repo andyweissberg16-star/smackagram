@@ -2725,6 +2725,33 @@ def espn_probe():
     })
 
 
+@app.route("/smack-board")
+def smack_board():
+    """Live scores across every league, with a smack button on each game."""
+    return render_template("smack_board.html")
+
+
+@app.route("/api/board/<league>")
+def api_board(league):
+    """
+    One league's games. Cached server-side for 45 seconds, so a room full of
+    people watching the board is still one request to ESPN.
+    """
+    from services import espn_scores
+
+    lg = (league or "").lower()
+    if lg not in espn_scores.LEAGUE_PATHS:
+        return jsonify({"error": "unknown league", "games": []}), 404
+
+    games = espn_scores.fetch_board(lg)
+    return jsonify({
+        "league": lg.upper(),
+        "count": len(games),
+        "live": sum(1 for g in games if g.get("live")),
+        "games": games,
+    })
+
+
 @app.route("/api/battles/live")
 def battles_live():
     """
