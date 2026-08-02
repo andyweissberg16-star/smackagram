@@ -893,17 +893,37 @@ def find_event_id(league: str, home_team: str, away_team: str,
     def norm(x):
         return "".join(ch for ch in str(x or "").lower() if ch.isalnum())
 
-    want = {norm(home_team), norm(away_team)} - {""}
-    if not want:
+    def tokens(x):
+        """
+        Every word in a team name, separately. Matching the whole string
+        fails the moment the two services disagree about format:
+        SportsDataIO may store "Chicago Cubs" while ESPN returns "Cubs" and
+        "Chicago" separately, and "chicagocubs" matches neither. A silent
+        miss means every call quietly falls back to the scrambled scores.
+        """
+        out = set()
+        raw = str(x or "")
+        out.add(norm(raw))
+        for part in raw.replace("-", " ").split():
+            n = norm(part)
+            if len(n) >= 4:
+                out.add(n)
+        return out - {""}
+
+    want_home, want_away = tokens(home_team), tokens(away_team)
+    if not (want_home and want_away):
         return None
 
     for back in range(days_back, days_back + 2):   # allow a day either side
         try:
             for g in fetch_finals(league, days_back=back):
-                got = {norm(g.get("home_nick")), norm(g.get("away_nick")),
-                       norm(g.get("home_city")), norm(g.get("away_city"))} - {""}
-                # Both teams must be recognisable in the same game.
-                if len(want & got) >= 2 and g.get("espn_id"):
+                got = set()
+                for key in ("home_nick", "away_nick", "home_city", "away_city"):
+                    got |= tokens(g.get(key))
+
+                # BOTH teams must be recognisable in the same game - matching
+                # one is how you call somebody about the wrong game.
+                if want_home & got and want_away & got and g.get("espn_id"):
                     return str(g["espn_id"])
         except Exception as e:
             print(f"[espn] event lookup failed ({league}, back={back}): {e}", flush=True)

@@ -121,6 +121,30 @@ def check_armed_smackagrams():
                         # wrong by roughly a 2.5x multiplier.
                         facts = []
                         espn_id = getattr(s, "espn_event_id", None)
+
+                        # Resolve now if we have not already. The two services
+                        # do not share ids - a smackagram stores SportsDataIO's
+                        # GameID, which will never match ESPN - so the bridge
+                        # is teams and date, done at fire time because a game
+                        # armed three days out may not be in ESPN's scoreboard
+                        # yet.
+                        if not espn_id:
+                            try:
+                                espn_id = espn_scores.find_event_id(
+                                    s.sport, s.home_team, s.away_team)
+                                if espn_id:
+                                    s.espn_event_id = espn_id
+                                    db.session.commit()
+                                    print(f"[locked] {s.id} resolved to ESPN "
+                                          f"event {espn_id}", flush=True)
+                                else:
+                                    print(f"[locked] {s.id} no ESPN match for "
+                                          f"{s.away_team} at {s.home_team} "
+                                          f"({s.sport})", flush=True)
+                            except Exception as e:
+                                print(f"[locked] {s.id} event lookup failed: {e}",
+                                      flush=True)
+
                         if espn_id:
                             try:
                                 detail = espn_scores.fetch_game_detail(s.sport, espn_id)
