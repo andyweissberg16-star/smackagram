@@ -1025,7 +1025,10 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
 
         sfx = _pick_random_sfx(seg.get("reaction", "none"))
         if sfx is not None:
-            combined = _lay_in_sfx(combined, sfx, len(spoken))
+            # _standardize is nested inside this function, so it is passed in
+            # rather than reached for - a module-level helper cannot see it,
+            # which is exactly how the first version of this failed.
+            combined = _lay_in_sfx(combined, sfx, len(spoken), _standardize)
 
     if outro and outro_tail:
         # speech_bytes[-2] ends on the word the hit lands on; [-1] is the tail.
@@ -1087,13 +1090,17 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
 # How far INTO the tail of a segment an effect starts. A sound that waits
 # politely for the voice to finish sounds bolted on; one that starts while
 # the last word is still ringing sounds like it is happening in the room.
+# Mirrors the value inside the assembler. Kept here as its own constant
+# because this helper lives at module scope and cannot see the nested one -
+# the third scope mistake in a row while building this.
+SFX_VOLUME_DB = -10
 SFX_OVERLAP_MS = 420
 # Effects that hard-stop sound like files. A fade gives them somewhere to go.
 SFX_FADE_OUT_MS = 600
 SFX_FADE_IN_MS = 40
 
 
-def _lay_in_sfx(combined, sfx, spoken_ms):
+def _lay_in_sfx(combined, sfx, spoken_ms, standardize):
     """
     Place a sound effect so it feels played rather than pasted.
 
@@ -1102,7 +1109,7 @@ def _lay_in_sfx(combined, sfx, spoken_ms):
     and it fades out rather than stopping dead. A hard cut is the single
     biggest tell that something was assembled rather than performed.
     """
-    clip = _standardize(sfx) + SFX_VOLUME_REDUCTION_DB
+    clip = standardize(sfx) + SFX_VOLUME_DB
 
     # A short fade in stops the attack clicking, a longer one out gives it
     # somewhere to land.
@@ -1111,6 +1118,11 @@ def _lay_in_sfx(combined, sfx, spoken_ms):
 
     # Start it inside the tail of the read, but never so early that it steps
     # on words that carry meaning - capped at a third of the segment.
+    # Imported locally: pydub is not available at module scope here, and
+    # reaching for it globally is the same class of mistake as reaching for
+    # _standardize was.
+    from pydub import AudioSegment
+
     overlap = min(SFX_OVERLAP_MS, max(0, spoken_ms // 3))
     if overlap <= 0:
         return combined + AudioSegment.silent(duration=180) + clip
