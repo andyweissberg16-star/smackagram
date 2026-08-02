@@ -2681,7 +2681,13 @@ def espn_probe():
     event_id = request.args.get("event")
 
     if not event_id:
-        finals = espn_scores.fetch_finals(league, days_back=1)
+        # Was hardcoded to 1, which silently ignored the days_back argument -
+        # every probe hit yesterday regardless of what was asked for.
+        try:
+            _db = max(1, int(request.args.get("days_back", 1)))
+        except (TypeError, ValueError):
+            _db = 1
+        finals = espn_scores.fetch_finals(league, days_back=_db)
         if not finals:
             return jsonify({"error": f"no {league} finals yesterday"}), 404
         sample = finals[0]
