@@ -88,15 +88,13 @@
     color:var(--chalk,#F5F5F3); margin:0 0 10px; text-transform:uppercase;}
   .sotw-sub{color:var(--chalk-dim,#9A9A96); font-size:13.5px; line-height:1.6; margin:0;}
 
-  /* Dips to 55% rather than to nothing, and rocks a degree and a half either
-     side of its resting tilt. Slow enough to read as deliberate rather than
-     as a fault. */
-  }
+  /* NOTE: an orphaned "}" and an unclosed @media block sat here - leftover
+     from moving the price stamp into the main stylesheet. Everything after
+     it was swallowed into a reduced-motion query, so on any normal machine
+     none of the layout below applied at all: no flex, no card widths, no
+     player styling. That is what made the wall render as a column of plain
+     text. */
 
-
-  /* Somebody who has asked their system not to animate things means it. */
-  @media (prefers-reduced-motion:reduce){
-  
 
   /* Horizontal rail. Scrolls on its own but stays draggable and swipeable -
      an auto-scroller you cannot grab is infuriating on a phone. */
