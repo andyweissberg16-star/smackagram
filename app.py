@@ -2722,6 +2722,18 @@ def espn_probe():
             "event_id": event_id,
             "stat_groups": _groups,
             "top_level_keys": sorted(_raw.keys()),
+            "leaders": [{
+                "team": ((_t.get("team") or {}).get("displayName")),
+                "categories": [{
+                    "name": _c.get("name"),
+                    "displayName": _c.get("displayName"),
+                    "leaders": [{
+                        "displayValue": _l.get("displayValue"),
+                        "athlete": ((_l.get("athlete") or {}).get("displayName")),
+                        "position": (((_l.get("athlete") or {}).get("position") or {}).get("abbreviation")),
+                    } for _l in (_c.get("leaders") or [])[:2]],
+                } for _c in (_t.get("leaders") or [])],
+            } for _t in (_raw.get("leaders") or [])],
             "drives_present": bool(_raw.get("drives")),
             "drive_count": len((_raw.get("drives") or {}).get("previous") or []),
             "scoring_summary": [{
