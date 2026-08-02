@@ -967,7 +967,7 @@
     <div id="orderError" role="alert" style="display:none;"></div>
 
     <div class="send-block">
-      <p class="send-price"><span class="smk-price-stamp">Less than $1 a call</span></p>
+      <p class="send-price"><span class="smk-price-stamp">LESS THAN $1 A CALL!</span></p>
       <div class="btn-center">
         <button id="orderSubmitBtn" class="btn btn-flare btn-narrow">Send this Smackagram</button>
       </div>
@@ -1116,6 +1116,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fire the same event typing would, so anything watching the field -
     // the gate that enables the generate button - sees the value.
     el.dispatchEvent(new Event('input', {bubbles: true}));
+
+    // Land ON the generator, not at the top of the page. Somebody who
+    // clicked a specific game in the ticker has already decided; making them
+    // scroll past a hero to find the form is a step backwards.
+    //
+    // Deferred to the next frame so the layout has settled - scrolling
+    // before the page has finished sizing lands in the wrong place.
+    requestAnimationFrame(function () {
+      var card = document.getElementById('wizardCard');
+      if (card) card.scrollIntoView({behavior: 'smooth', block: 'center'});
+    });
   })();
   var out = document.getElementById('trashTalkOutput');
   if (out) out.addEventListener('input', refreshOutputState);

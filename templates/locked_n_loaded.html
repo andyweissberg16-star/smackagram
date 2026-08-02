@@ -1161,12 +1161,18 @@ document.getElementById('teamSearchInput').addEventListener('input', (e) => {
   input.value = team;
   searchAllSports(team);
 
-  // Put them at the search results rather than the top of the page - they
-  // have already made the first choice, on the board.
+  // Land ON the generator, not at the top of the page. Somebody who clicked
+  // a specific game has already decided; making them scroll past a hero to
+  // find the form is a step backwards.
+  //
+  // The console rather than the results list - centring the whole generator
+  // shows the step they are on AND what comes next, where the bare list of
+  // games loses that context.
   setTimeout(() => {
-    const list = document.getElementById('gameList');
-    if (list) list.scrollIntoView({behavior: 'smooth', block: 'center'});
-  }, 400);
+    const target = document.getElementById('lnlConsole')
+                || document.getElementById('gameList');
+    if (target) target.scrollIntoView({behavior: 'smooth', block: 'center'});
+  }, 260);
 })();
 
 // Mode switching removed - auto_summary is the only mode.

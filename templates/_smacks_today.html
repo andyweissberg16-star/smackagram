@@ -25,7 +25,12 @@
        label squeezed around its own text. */
     /* Wider, not taller - the padding grows sideways only, so it reads as a
        banner rather than a pill that has swollen. */
-    margin:0 auto 20px; padding:11px 58px;
+    /* The counter owns its own spacing rather than relying on whatever
+       happens to sit above it. On most pages it is inserted straight after
+       the hero image, where it was touching the border; on the homepage it
+       sat inside a padded section. Owning the margin makes the gap identical
+       everywhere. */
+    margin:28px auto 20px; padding:11px 58px;
     background:rgba(224,27,36,0.10);
     border:1px solid var(--flare,#E01B24);
     border-radius:100px;
