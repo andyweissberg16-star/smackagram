@@ -35,6 +35,8 @@ LEAGUE_PATHS = {
     "nhl":  ("hockey", "nhl",         "NHL",  "goals"),
     "ncaaf": ("football", "college-football", "NCAAF", "points"),
     "ncaab": ("basketball", "mens-college-basketball", "NCAAB", "points"),
+    "ncaaw": ("basketball", "womens-college-basketball", "NCAAW", "points"),
+    "ncaabb": ("baseball", "college-baseball", "NCAABB", "runs"),
 }
 
 
@@ -278,12 +280,12 @@ def fetch_game_detail(league: str, event_id: str) -> dict:
     loser_team = (out.get("loser") or {}).get("team")
     out["stakes"] = game_stakes(d, lg, loser_team)
     out["bad_nights"] = _bad_nights(d, loser_team, lg)
-    if lg in ("nba", "wnba"):
+    if lg in ("nba", "wnba", "ncaab", "ncaaw"):
         win_team = (out.get("winner") or {}).get("team")
         out["nba_players"] = nba_players(d, loser_team, win_team)
         out["nba_shooting"] = nba_team_shooting(d, loser_team)
 
-    if lg == "nfl":
+    if lg in ("nfl", "ncaaf"):
         out["stakes"] = game_stakes(d, lg, loser_team)
         win_team = (out.get("winner") or {}).get("team")
         out["nfl_players"] = nfl_skill_players(d, loser_team)
@@ -291,7 +293,7 @@ def fetch_game_detail(league: str, event_id: str) -> dict:
         out["flow"] = nfl_game_flow(d, loser_team, win_team)
         out["leaders"] = nfl_leaders(d, loser_team, win_team)
 
-    if lg == "mlb":
+    if lg in ("mlb", "ncaabb"):
         out["losing_pitcher"] = _losing_pitcher(d, loser_team)
         out["top_order"] = _top_order_collapse(d, loser_team)
         out["team_offense"] = _team_offense(d, loser_team)
@@ -505,7 +507,7 @@ def select_facts(detail: dict, max_supporting: int = 3, avoid: list = None) -> l
     # would get a score and three random details with no lead at all.
     _lg = (detail.get("league") or "").upper()
 
-    if _lg in ("NBA", "WNBA"):
+    if _lg in ("NBA", "WNBA", "NCAAB", "NCAAW"):
         lead_finders = stakes_finders + [
             lambda f: "was still a minus" in f,
             lambda f: "a blowout" in f,
@@ -580,12 +582,12 @@ def roast_facts(detail: dict) -> list:
     # leads, the quarterback always answers for it, and the defence is
     # roasted as a unit. Handled separately rather than bent into the
     # baseball shape.
-    if (detail.get("league") or "").upper() == "NFL":
+    if (detail.get("league") or "").upper() in ("NFL", "NCAAF"):
         return stakes_facts(detail) + nfl_roast_facts(detail)
 
     # Basketball, both leagues. Same box score shape, same
     # hierarchy - WNBA needs no separate path.
-    if (detail.get("league") or "").upper() in ("NBA", "WNBA"):
+    if (detail.get("league") or "").upper() in ("NBA", "WNBA", "NCAAB", "NCAAW"):
         return nba_roast_facts(detail)
     # What the loss COST goes first and outranks the box score. A man
     # who just lost a World Series does not want a pitching line.
