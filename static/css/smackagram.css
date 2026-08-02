@@ -699,33 +699,30 @@ body.smk-plain::after{display:none;}
    into each template and drifting apart.
    ------------------------------------------------------------------------ */
 .smk-price-stamp{
-  /* The burst sits behind the words as a background image on this same
-     element - no extra markup, so every place already using .smk-price-stamp
-     picks it up with nothing to change.
-
-     An inline SVG data URI rather than a file: it is a couple of hundred
-     bytes, needs no request, and cannot 404. */
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 230 120'%3E%3Cpolygon points='115,4 132,30 163,18 158,49 190,50 170,74 196,94 164,98 170,118 140,106 128,118 115,98 102,118 90,106 60,118 66,98 34,94 60,74 40,50 72,49 67,18 98,30' fill='%23FF2233'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;
-  background-position:center;
-  /* Wider than the text and a little taller, so the points show around the
-     words without the whole thing turning into a billboard. */
-  background-size:118% 165%;
-
   display:inline-block;
   font-family:'Anton', Impact, sans-serif;
   font-size:26px;
   line-height:1;
   letter-spacing:0.5px;
-  /* Dark type on the red burst rather than red type outlined in dark - on a
-     filled shape the outline treatment turns to mud. */
-  color:#0D0D0D;
-  padding:16px 34px;
+  color:#FF2233;
+  padding:4px 14px;
   transform:rotate(-6deg);
   animation:smk-price-pulse 2.4s ease-in-out infinite;
   /* Outline drawn with shadows rather than -webkit-text-stroke, which thins
      the letterforms from the inside and makes Anton look frail. */
-  text-shadow:none;
+  /* Outline drawn with shadows rather than -webkit-text-stroke, which thins
+     the letterforms from the inside and makes Anton look frail. */
+  text-shadow:
+    -2px -2px 0 #0D0D0D,  2px -2px 0 #0D0D0D,
+    -2px  2px 0 #0D0D0D,  2px  2px 0 #0D0D0D,
+    -3px  0   0 #0D0D0D,  3px  0   0 #0D0D0D,
+     0   -3px 0 #0D0D0D,  0    3px 0 #0D0D0D,
+     4px  5px 0 rgba(13,13,13,0.55);
+}
+
+/* "$1" in white so the number itself carries against the red. */
+.smk-price-stamp .smk-price-amt{
+  color:#FFFFFF;
 }
 
 /* Dips to 55% rather than blinking out - a price that vanishes is unreadable
