@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tell Smacky about your league — Smackagram</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
+<style>
+  :root{
+    --ink:#0D0D0D; --surface:#141416; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
+    --punch:#E01B24; --silver:#C3CAD3; --hairline:#2A2D32;
+    --line:rgba(245,245,243,0.10); --radius:8px;
+  }
+  .wrap{max-width:720px; margin:0 auto; padding:0 24px 90px;}
+
+  .hd{margin:38px 0 8px;}
+  .hd .strip{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:2.4px;
+    color:var(--chalk-dim); margin:0 0 13px;}
+  .hd h1{font-family:'Anton',sans-serif; font-size:44px; line-height:0.94; margin:0 0 14px;
+    color:var(--chalk); text-transform:uppercase;}
+  .hd h1 span{color:var(--punch);}
+  .hd p{color:var(--silver); font-size:15px; line-height:1.65; margin:0; max-width:560px;}
+
+  .why{background:var(--surface); border:1px solid var(--hairline); border-left:3px solid var(--punch);
+    border-radius:var(--radius); padding:15px 17px; margin:24px 0 10px;}
+  .why p{margin:0; font-size:13.5px; line-height:1.6; color:var(--silver);}
+  .why b{color:var(--chalk);}
+
+  fieldset{border:none; padding:0; margin:30px 0 0;}
+  legend{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:2px;
+    color:var(--punch); text-transform:uppercase; padding:0 0 4px;}
+  .fs-note{color:var(--chalk-dim); font-size:12.5px; line-height:1.55; margin:0 0 16px;}
+
+  .fld{margin-bottom:18px;}
+  label{display:block; font-size:13.5px; font-weight:600; color:var(--chalk); margin-bottom:7px;}
+  .hint{display:block; font-weight:400; color:var(--chalk-dim); font-size:12px; margin-top:2px;}
+  input[type=text], textarea, select{
+    width:100%; background:#0A0A0C; border:1px solid var(--hairline); border-radius:6px;
+    color:var(--chalk); font-family:'Inter',sans-serif; font-size:14px; padding:11px 13px;
+  }
+  textarea{min-height:82px; resize:vertical; line-height:1.55;}
+  input:focus, textarea:focus, select:focus{
+    outline:none; border-color:var(--punch); box-shadow:0 0 0 3px rgba(224,27,36,0.15);
+  }
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+
+  .save{position:sticky; bottom:0; background:linear-gradient(180deg,transparent,#0D0D0D 34%);
+    padding:22px 0 0; margin-top:32px;}
+  .btn{width:100%; background:var(--punch); color:#fff; border:none; border-radius:8px;
+    padding:15px; font-size:14px; font-weight:800; letter-spacing:0.6px; cursor:pointer;
+    text-transform:uppercase; font-family:'Inter',sans-serif;}
+  .btn:hover{background:#c4101f;}
+  .skip{display:block; text-align:center; margin-top:12px; color:var(--chalk-dim);
+    font-size:12.5px; text-decoration:none;}
+  .skip:hover{color:var(--chalk);}
+
+  .saved{background:rgba(224,27,36,0.12); border:1px solid var(--punch); border-radius:6px;
+    padding:11px 14px; color:var(--chalk); font-size:13.5px; margin:20px 0 0;}
+
+  @media(max-width:640px){
+    .hd h1{font-size:32px;}
+    .two{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+{% include '_nav.html' %}
+
+<div class="wrap">
+
+  <header class="hd">
+    <p class="strip">SMACKCAST</p>
+    <h1>Tell Smacky<br><span>about your league.</span></h1>
+    <p>Every league gets the scores. Only yours gets the guy who has finished
+       last four years running and still talks the most.</p>
+  </header>
+
+  <div class="why">
+    <p><b>All of it is optional.</b> Leave the whole thing blank and you still
+       get your recap every week — it will just sound like anyone's. Fill in a
+       few and Smacky has something nobody else does.</p>
+  </div>
+
+  {% if saved %}<p class="saved">Saved. Smacky will use this from the next recap on.</p>{% endif %}
+
+  <form method="post">
+
+    <fieldset>
+      <legend>The league</legend>
+      <p class="fs-note">How it got started and what is actually at stake.</p>
+
+      <div class="fld">
+        <label for="known">How do you all know each other?</label>
+        <select id="known" name="how_they_know_each_other">
+          <option value="">Rather not say</option>
+          {% for v in ["Old friends", "College friends", "Work colleagues",
+                       "Family", "Friends of friends", "Strangers from the internet",
+                       "A mix of everything"] %}
+            <option value="{{ v }}" {% if sub.how_they_know_each_other == v %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="two">
+        <div class="fld">
+          <label for="age">How long has it been running?</label>
+          <select id="age" name="league_age">
+            <option value="">Rather not say</option>
+            {% for v in ["First season", "A couple of years", "Five years or so",
+                         "Ten years plus", "Longer than anyone remembers"] %}
+              <option value="{{ v }}" {% if sub.league_age == v %}selected{% endif %}>{{ v }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="fld">
+          <label for="buyin">Is there money in it?</label>
+          <select id="buyin" name="buy_in">
+            <option value="">Rather not say</option>
+            {% for v in ["No money, just pride", "Small buy-in, under $50",
+                         "Proper money, $50-$200", "Serious money, $200+",
+                         "Enough that people have fallen out over it"] %}
+              <option value="{{ v }}" {% if sub.buy_in == v %}selected{% endif %}>{{ v }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="fld">
+        <label for="trophy">What does the winner get?
+          <span class="hint">A trophy, a belt, a title, bragging rights, cash</span></label>
+        <input type="text" id="trophy" name="trophy" maxlength="200"
+               value="{{ sub.trophy or '' }}" placeholder="ex - a hideous gold cup that gets engraved every year">
+      </div>
+
+      <div class="fld">
+        <label for="punish">What happens to last place?
+          <span class="hint">Usually the funniest thing about a league</span></label>
+        <textarea id="punish" name="last_place_punishment" maxlength="600"
+                  placeholder="ex - has to get a tattoo the winner picks">{{ sub.last_place_punishment or '' }}</textarea>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>The people</legend>
+      <p class="fs-note">First names are plenty. Smacky uses these to needle
+         people about <em>fantasy football</em> — never about anything else.</p>
+
+      <div class="two">
+        <div class="fld">
+          <label for="commish">Who is the commissioner?</label>
+          <input type="text" id="commish" name="commissioner_name" maxlength="80" value="{{ sub.commissioner_name or '' }}">
+        </div>
+        <div class="fld">
+          <label for="winner">Who wins constantly?</label>
+          <input type="text" id="winner" name="perennial_winner" maxlength="80" value="{{ sub.perennial_winner or '' }}">
+        </div>
+        <div class="fld">
+          <label for="loser">Who has never won?</label>
+          <input type="text" id="loser" name="perennial_loser" maxlength="80" value="{{ sub.perennial_loser or '' }}">
+        </div>
+        <div class="fld">
+          <label for="talker">Who talks the most?</label>
+          <input type="text" id="talker" name="biggest_talker" maxlength="80" value="{{ sub.biggest_talker or '' }}">
+        </div>
+      </div>
+
+      <div class="fld">
+        <label for="absent">Who barely pays attention but keeps paying?</label>
+        <input type="text" id="absent" name="most_absent" maxlength="80" value="{{ sub.most_absent or '' }}">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>The history</legend>
+      <p class="fs-note">The stuff that would take an outsider a season to pick up.</p>
+
+      <div class="fld">
+        <label for="jokes">Any running jokes?
+          <span class="hint">The trade everyone still talks about, the nickname that stuck</span></label>
+        <textarea id="jokes" name="running_jokes" maxlength="800"
+                  placeholder="ex - Dave traded away a first-rounder in 2021 and nobody has let it go">{{ sub.running_jokes or '' }}</textarea>
+      </div>
+
+      <div class="fld">
+        <label for="rivals">Any real rivalries?</label>
+        <textarea id="rivals" name="rivalries" maxlength="800"
+                  placeholder="ex - Kyle and Marcus are brothers and it gets genuinely tense">{{ sub.rivalries or '' }}</textarea>
+      </div>
+
+      <div class="fld">
+        <label for="else">Anything else Smacky should know?</label>
+        <textarea id="else" name="anything_else" maxlength="800">{{ sub.anything_else or '' }}</textarea>
+      </div>
+    </fieldset>
+
+    <div class="save">
+      <button type="submit" class="btn">Save it</button>
+      <a class="skip" href="/smackcast/library">Skip for now — I'll do it later</a>
+    </div>
+
+  </form>
+</div>
+
+</body>
+</html>
