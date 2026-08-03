@@ -862,6 +862,46 @@ def sanitize_for_display(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+# Team abbreviations, spelled out as the club a person would actually say.
+#
+# A belt-and-braces pass. The real fix is upstream - the show now hands the
+# writer nicknames rather than ESPN's abbreviation field - but a stray code
+# from any other source would still be read aloud as letters, and "P.I.T."
+# instead of "Pittsburgh" is the kind of thing a listener notices instantly.
+_ABBR_SPOKEN = {
+    "ARI":"Arizona","ATL":"Atlanta","BAL":"Baltimore","BOS":"Boston",
+    "CHC":"the Cubs","CHW":"the White Sox","CIN":"Cincinnati","CLE":"Cleveland",
+    "COL":"Colorado","DET":"Detroit","HOU":"Houston","KC":"Kansas City",
+    "LAA":"the Angels","LAD":"the Dodgers","MIA":"Miami","MIL":"Milwaukee",
+    "MIN":"Minnesota","NYM":"the Mets","NYY":"the Yankees","OAK":"the Athletics",
+    "PHI":"Philadelphia","PIT":"Pittsburgh","SD":"San Diego","SEA":"Seattle",
+    "SF":"San Francisco","STL":"St. Louis","TB":"Tampa Bay","TEX":"Texas",
+    "TOR":"Toronto","WSH":"Washington",
+    # WNBA codes are DELIBERATELY ABSENT.
+    #
+    # They collide with baseball and with ordinary text. "NY" mapped to the
+    # Liberty turned "the NY Yankees" into "the the Liberty Yankees"; IND is
+    # Indiana in four sports and DAL is Dallas in three. A wrong expansion is
+    # far worse than an unexpanded code, because at least a code sounds like
+    # a code.
+    #
+    # The real fix is upstream anyway: winner and loser now carry nicknames
+    # rather than abbreviations, so basketball codes should not reach the
+    # voice at all. This pass is a safety net for baseball, not a translator.
+}
+
+
+def _spell_out_abbreviations(text: str) -> str:
+    """Swap any bare team code for the name a human would say."""
+    import re as _re
+    def _sub(m):
+        return _ABBR_SPOKEN.get(m.group(0).upper().replace(".", ""), m.group(0))
+    # Whole tokens in caps only, and never one immediately followed by
+    # another capitalised word - "NY Yankees" is a team NAME being used
+    # correctly, not a bare code needing expansion.
+    return _re.sub(r"\b[A-Z]{2}[A-Z.]{0,3}\b(?!\s+[A-Z][a-z])", _sub, text or "")
+
+
 def sanitize_for_speech(text: str) -> str:
     """
     Cleans script text before it goes to text-to-speech.
@@ -886,6 +926,9 @@ def sanitize_for_speech(text: str) -> str:
         return text
 
     # Typographic characters the model tends to mirror from the prompt.
+    # Team codes first, before anything else touches the text.
+    text = _spell_out_abbreviations(text)
+
     replacements = {
         "\u2014": ", ",   # em dash
         "\u2013": ", ",   # en dash

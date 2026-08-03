@@ -110,6 +110,56 @@ def fetch_results(league: str, days_back: int = 1) -> list[dict]:
     return games
 
 
+def enrich_with_detail(games, log=print, workers=6):
+    """
+    Pull the deep box score for every game and hang the roast facts on it.
+
+    Without this a segment has only the scoreline, the margin, who lost at
+    home and the loser's record - which is why segments lean so hard on the
+    score. There is nothing else to say.
+
+    With it a slot can carry the starting pitcher by name with his innings and
+    season ERA, team hits, strikeouts, runners left on base, errors, how many
+    of the top order were held hitless, and which opposing hitter did the
+    damage. "The Cardinals got two hits, struck out fourteen times and left
+    nine on base" is a joke. "The Cardinals lost 8-2" is a scoreline.
+
+    Fetched in PARALLEL - nineteen games one after another would add close to
+    a minute to a three-minute render.
+
+    A failure costs that game its detail and nothing more. The show has always
+    worked from the scoreline alone and still can.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    from services import espn_scores
+
+    def _one(g):
+        eid = g.get("espn_id")
+        if not eid:
+            return g
+        try:
+            detail = espn_scores.fetch_game_detail(g.get("league", ""), eid)
+            facts = espn_scores.roast_facts(detail) if detail else []
+            if facts:
+                g["deep_facts"] = facts
+            # The structured detail is kept too. Picking a player of the
+            # NIGHT means comparing performances across every game, and that
+            # cannot be done against prose - it needs the numbers.
+            if detail:
+                g["_detail"] = detail
+        except Exception as e:
+            print(f"[show] no detail for {g.get('espn_id')}: {e}", flush=True)
+        return g
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        games = list(pool.map(_one, games))
+
+    got = sum(1 for g in games if g.get("deep_facts"))
+    log(f"deep detail on {got}/{len(games)} games")
+    return games
+
+
 def build_facts(game: dict) -> list[str]:
     """
     Plain-English facts about one game, ordered most roastable first.
@@ -136,6 +186,17 @@ def build_facts(game: dict) -> list[str]:
     # A bad night is one thing; a bad season is funnier.
     if game.get("loser_record"):
         facts.append(f"{game['loser']} are now {game['loser_record']}")
+
+    # The box score, if it came back.
+    #
+    # These go LAST so the scoreline and the record still lead - they are what
+    # a segment is about. But this is the material that makes a segment
+    # specific: a named pitcher who went four innings, fourteen strikeouts,
+    # nine left on base. Without them the writer only has the score, which is
+    # why segments used to lean on it so hard.
+    for f in (game.get("deep_facts") or [])[:6]:
+        if f and f not in facts:
+            facts.append(f)
 
     # Losing with more hits than the winner: they had the chances and wasted
     # them, which is a specific and funnier kind of failure than being outplayed.
@@ -190,11 +251,26 @@ def _voice_block_for_show(material):
     loser_runs = min(top.get("away_score") or 0, top.get("home_score") or 0)
     errs = (top.get("home_errors") or 0) + (top.get("away_errors") or 0)
 
+    # Read the box score for what actually happened, so the register comes
+    # from the game rather than only the margin. A 3-2 loss with nine men
+    # left on base is a different feeling from a 3-2 loss that was never
+    # close, and until now both looked identical.
+    deep = " ".join(top.get("deep_facts") or []).lower()
+    stranded = 0
+    _m = re.search(r"left (\d+) runners", deep)
+    if _m:
+        stranded = int(_m.group(1))
+    if "errors in the field" in deep:
+        _e = re.search(r"(\d+) errors in the field", deep)
+        if _e:
+            errs = max(errs, int(_e.group(1)))
+
     return smacky_voice.render(game={
         "final": True,
         "loser_score": loser_runs,
         "margin": top.get("margin") or 0,
         "errors": errs,
+        "stranded": stranded,
     })
 
 
@@ -216,8 +292,17 @@ SPOKEN_WORDS_PER_MINUTE = 115
 # Runtime floor and ceiling. Every game that finished gets airtime - nothing
 # is filtered out - so the length is driven by how many there were, held
 # between these two.
-MIN_MINUTES = 5.0
-MAX_MINUTES = 6.0
+# No floor worth the name.
+#
+# A five-minute minimum meant a four-game Monday was PADDED to fill the same
+# air as a fifteen-game Saturday, and padding is more noticeable than
+# brevity. The per-league budgets now scale with the slate, so a light night
+# simply produces a shorter show - which is the honest outcome.
+MIN_MINUTES = 2.0
+# Eight, not six. Baseball at ~5:00 and the WNBA at ~1:30 do not fit under
+# six once the intro, the ad and the close are counted. The cap is a
+# CEILING rather than a target - most nights land well under it.
+MAX_MINUTES = 8.0
 MIN_GAMES = 4    # below this, keep yesterday's show rather than publish thin
 
 # League running order. Baseball opens because it carries the slate; WNBA
@@ -384,7 +469,23 @@ def find_streaks(leagues, days_back: int = 1, lookback: int = 7, minimum: int = 
             streaks.append({"team": team, "losses": run, "league": entries[0][2]})
 
     streaks.sort(key=lambda s: s["losses"], reverse=True)
-    return streaks[:3]
+
+    # THREE PER LEAGUE, not three in total.
+    #
+    # The flat top-three was written when one writer handled every league.
+    # Now that each writer only sees its own league's streaks, a flat cap
+    # means three baseball runs leave the WNBA with none - even when a WNBA
+    # team is on five straight, which is exactly the material that block
+    # needs.
+    per_league = {}
+    out = []
+    for st in streaks:
+        lg = (st.get("league") or "").upper()
+        if per_league.get(lg, 0) >= 3:
+            continue
+        per_league[lg] = per_league.get(lg, 0) + 1
+        out.append(st)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -416,6 +517,48 @@ def write_script(material: dict, only_league: str = None,
 
     if only_league:
         by_league = {k: v for k, v in by_league.items() if k == only_league}
+
+    # THE LAYOUT decides which games go where, in code, before the writer
+    # sees anything. Structure decided by the model is structure that cannot
+    # be relied on.
+    # STREAKS FOR THIS LEAGUE ONLY.
+    #
+    # They were handed to every writer unfiltered, so the WNBA writer received
+    # "Rockies have lost 8 straight (MLB)" as material and duly wrote about
+    # it - producing baseball content inside the WNBA block, after the ad
+    # break, which is exactly what a listener heard.
+    #
+    # Each writer only ever sees streaks from its own league now. If that
+    # leaves none, it simply has none, which is correct.
+    _streak_rows = [x for x in material.get("streaks", [])
+                    if not only_league
+                    or (x.get("league") or "").upper() == only_league.upper()]
+
+    # ONE LAYOUT PER LEAGUE, and they share nothing.
+    #
+    # Every cross-league fault on this show came from something shared that
+    # should not have been - a grouping rule written for a fifteen-game
+    # baseball slate collapsed a four-game WNBA night into a single segment,
+    # and a streak list compiled across all leagues put the Rockies inside
+    # the WNBA block.
+    #
+    # So the layouts are separate modules with separate slots, separate
+    # thresholds and separate awards. Basketball has no innings, no pitchers
+    # and no runners left on base; baseball has no turnovers and no shooting
+    # percentage. Sharing a layout between them was never going to work.
+    LAYOUTS = {"MLB": "show_layout", "WNBA": "wnba_layout"}
+    layout_block = ""
+    _lg = (only_league or "").upper()
+    if _lg in LAYOUTS:
+        try:
+            import importlib
+            mod = importlib.import_module(f"services.{LAYOUTS[_lg]}")
+            _mine = [g for g in material["games"]
+                     if (g.get("league") or "").upper() == _lg]
+            layout_block = mod.prompt_block(_mine, streaks=_streak_rows)
+        except Exception as e:
+            print(f"[show] {_lg} layout unavailable, writer decides: {e}",
+                  flush=True)
 
     blocks = []
     for lg in LEAGUE_ORDER:
@@ -458,7 +601,7 @@ def write_script(material: dict, only_league: str = None,
 
     streaks = "\n".join(
         f"  {s['team']} have lost {s['losses']} straight ({s['league']})"
-        for s in material.get("streaks", [])
+        for s in _streak_rows
     )
 
     d = material["date"] if isinstance(material.get("date"), dict) else _date_context(1)
@@ -585,6 +728,12 @@ def write_script(material: dict, only_league: str = None,
         "who tries to make every game hilarious is exhausting; one who saves "
         "it for the carnage is funny.\n\n"
 
+        # The streaks handed over are now filtered to this writer's own
+        # league. Saying so, because the previous unfiltered list is how
+        # baseball ended up being discussed inside the WNBA block.
+        "  Every streak listed above is from YOUR league. There are no others "
+        "to mention and no other league's teams to bring in.\n\n"
+
         "LOSING STREAKS are your best material. One loss is a bad night. Six "
         "straight is a condition, and you should treat it like a diagnosis.\n\n"        "SWEAR. CONSTANTLY. This is the single most common way this script "
         "comes out wrong: a clean, tidy recap that reads like sports radio. "
@@ -688,6 +837,13 @@ def write_script(material: dict, only_league: str = None,
         "If the running order is scrambled the break lands in the wrong "
         "place, so this has consequences beyond taste.\n\n"
 
+        # The Caitlin Clark bit belongs to the WNBA WRITER ONLY.
+        #
+        # It was in the shared prompt, so a baseball writer with no basketball
+        # games was being told to be visibly bereft about the Fever - nineteen
+        # lines of instruction about a league it is not covering. That is how
+        # a WNBA reference ends up inside a baseball segment.
+        + ((
         "THE WNBA SEGMENT has a running bit. You are a shameless, "
         "unreasonable Caitlin Clark partisan. The league revolves around her, "
         "you think that is correct, and you feel everyone should be more "
@@ -707,6 +863,7 @@ def write_script(material: dict, only_league: str = None,
         "If the Fever are not in tonight's results, that is its own joke - you "
         "are visibly bereft, and the rest of the league is a formality you are "
         "enduring until they play again.\n\n"
+        ) if (only_league or "").upper() in ("", "WNBA") else "")
 
 
         + ((f"  DEAD LEAGUES. These scanned and had nothing: "
@@ -902,6 +1059,8 @@ def write_script(material: dict, only_league: str = None,
         # four games is markedly less listenable than three tight ones at the
         # same duration. The floor raised the time and the structure got
         # worse.
+        + layout_block
+        +
         f"HOW MANY SEGMENTS: aim for about {_target_segments(league_budget)}. "
         "Spread the budget across them rather than writing one long block - "
         "a single segment covering four games is a lecture, and several short "
@@ -1345,6 +1504,11 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
     material = get_show_material(days_back=days_back)
     plan = material["plan"]
     log(f"results in: {material['game_count']} games, planning {plan['minutes']:g} min")
+    # Box scores before writing, not after - the writer needs them.
+    try:
+        material["games"] = enrich_with_detail(material["games"], log)
+    except Exception as e:
+        log(f"deep detail unavailable, using scorelines only: {e}")
 
     if not plan["publish"]:
         # Deliberately does NOT publish something thin. Yesterday's show stays
@@ -2597,6 +2761,43 @@ def _strip_cross_league(by_lg, present, _material_games=None):
                 seg["text"] = " ".join(kept).strip()
 
 
+# The ambient bed behind each kind of distraction.
+#
+# The written bits have always carried a category - "mower", "baby", "phone" -
+# but nothing ever turned that into a sound, so a neighbour with a lawnmower
+# was complained about in total silence. The joke was landing without the
+# thing it was about.
+#
+# Several names per category so a new file can be dropped in without touching
+# code, and so the same recording is not heard every time. A category with no
+# file on disk simply plays dry, exactly as it has been.
+AMBIENT_BEDS = {
+    "mower": ["static/sfx/lawnmower.mp3", "static/sfx/mower.mp3",
+              "static/sfx/lawnmower.wav", "static/audio/lawnmower.mp3"],
+    "baby":  ["static/sfx/baby.mp3", "static/sfx/baby-crying.mp3",
+              "static/sfx/baby.wav"],
+    "traffic": ["static/sfx/traffic.mp3", "static/sfx/traffic.wav",
+                "static/sfx/street.mp3"],
+    "siren": ["static/sfx/siren.mp3", "static/sfx/sirens.mp3",
+              "static/sfx/siren.wav"],
+    "dog": ["static/sfx/dog.mp3", "static/sfx/dog-barking.mp3"],
+    # phone already has its own ring and hangup handling
+    "phone": [],
+}
+
+
+def ambient_bed_for(kind):
+    """The first file that exists for this category, or None."""
+    import os
+    for path in AMBIENT_BEDS.get(kind or "", []):
+        if os.path.exists(path):
+            return path
+    if kind and kind not in ("phone", "") and AMBIENT_BEDS.get(kind):
+        print(f"[show] no audio for '{kind}' bit - playing dry. Expected one "
+              f"of: {', '.join(AMBIENT_BEDS[kind])}", flush=True)
+    return None
+
+
 def maybe_interruption(segments):
     """
     Insert at most one interruption, in a gap between segments.
@@ -2612,17 +2813,27 @@ def maybe_interruption(segments):
     if len(segments) < 4:
         return segments
 
-    # Genuinely in the middle.
+    # Anywhere in the FIRST FOUR MINUTES.
     #
-    # lo was 1, which is the slot straight after the opening - technically
-    # "not first" but effectively at the top of the show, before anything has
-    # been established. An episode logged as "interruption inserted at
-    # segment 1" is one where a listener never noticed the bit at all.
+    # Measured in spoken words rather than segment index, because segments
+    # vary wildly in length - a 19-word sweep line and a 73-word headline are
+    # both "one segment", so counting positions tells you nothing about where
+    # you actually are in the episode.
     #
-    # Start a quarter of the way in instead, so the show has settled before
-    # anything interrupts it, and keep clear of the last two.
-    lo = max(2, len(segments) // 4)
-    hi = max(lo + 1, len(segments) - 2)
+    # Not first, because the show has to establish itself before anything can
+    # interrupt it. Otherwise free: the point of a phone bit is that it
+    # arrives when nobody expects it, and a fixed position is a position a
+    # regular listener learns.
+    CUTOFF_WORDS = 4 * SPOKEN_WORDS_PER_MINUTE      # four minutes in
+    running = 0
+    hi = 1
+    for idx, seg in enumerate(segments):
+        running += len((seg.get("text") or "").split())
+        if running > CUTOFF_WORDS:
+            break
+        hi = idx + 1
+    lo = 1
+    hi = max(lo + 1, min(hi, len(segments) - 1))
     spots = [i for i in range(lo, hi)
              if (segments[i].get("league") or "") not in ("BREAK",)
              and (segments[i - 1].get("league") or "") not in ("BREAK",)]
@@ -2695,6 +2906,18 @@ def maybe_interruption(segments):
 
     bit = {"text": text, "display_text": text, "reaction": "none",
            "league": "", "interruption": True, "interrupt_sound": sound}
+
+    # The ambient bed, at last.
+    #
+    # music_bed is the field the assembler already loops and fades under a
+    # segment - the ad read uses it. Reusing it means the mower runs under the
+    # complaint about the mower, which is the entire joke and has been missing
+    # since the bits were written.
+    bed = ambient_bed_for(sound)
+    if bed:
+        bit["music_bed"] = bed
+        print(f"[show] {sound} bed: {bed}", flush=True)
+
     segments.insert(at, bit)
-    print(f"[show] interruption inserted at segment {at}", flush=True)
+    print(f"[show] interruption inserted at segment {at} ({sound})", flush=True)
     return segments

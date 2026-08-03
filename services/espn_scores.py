@@ -117,7 +117,17 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
         a_nick = a_team.get("shortDisplayName") or a_team.get("name") or ""
         h_city = h_team.get("location") or ""
         a_city = a_team.get("location") or ''
-        winner, loser = (h_name, a_name) if hs > as_ else (a_name, h_name)
+        # SPEAKABLE names, not abbreviations.
+        #
+        # These went out as h_name, which is ESPN's "abbreviation" - so the
+        # writer was handed "PIT" and "BAL" and the voice read them as
+        # letters. A listener heard "P I T" instead of "Pittsburgh".
+        #
+        # The nickname is what a human actually says; the city is the
+        # fallback for the rare team whose short name is missing.
+        h_say = h_nick or h_city or h_name
+        a_say = a_nick or a_city or a_name
+        winner, loser = (h_say, a_say) if hs > as_ else (a_say, h_say)
 
         # Records come through as "58-49" - the loser's gives the show a way
         # to say how bad the season has been, not just the night.
