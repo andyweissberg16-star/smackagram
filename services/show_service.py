@@ -871,11 +871,26 @@ def write_script(material: dict, only_league: str = None,
         "segments. A script covering only baseball when other leagues "
         "played is incomplete.\n\n"
 
-        "  BUDGET YOUR ROOM SO YOU REACH THE END. The most common failure "
-        "is writing a separate segment for every baseball game, spending "
-        "the whole budget, and stopping before the other leagues. GROUP the "
-        "quick games - several one-run games belong in ONE segment, not one "
-        "apiece. Only a genuine beating earns its own.\n\n"
+        "  BUDGET YOUR ROOM SO YOU REACH THE END.\n\n"
+
+        # This used to say "GROUP the quick games - several one-run games
+        # belong in ONE segment". Written when a single writer handled every
+        # league and baseball routinely ate the whole budget before reaching
+        # the rest.
+        #
+        # Each league is now written SEPARATELY with its own budget, so that
+        # failure cannot happen any more - and the instruction had started
+        # causing harm instead. A four-game league read "group them" and
+        # produced one long block, which is exactly why the WNBA kept
+        # arriving as a single segment however much budget it was given.
+        "  Your budget is YOURS and is not shared with any other league, so "
+        "you cannot starve anybody by using it. Spend it across the number of "
+        "segments asked for above.\n\n"
+
+        "  Grouping is still right WITHIN a segment - two forgettable one-run "
+        "games belong together, and only a genuine beating earns a segment to "
+        "itself. But do not collapse everything into one block to play safe: "
+        "several short segments are a show, one long one is a lecture.\n\n"
 
         f"TOTAL LENGTH: about {league_budget} words. This is a timed "
         "segment, so that's a target, not a suggestion.\n\n"
@@ -1267,10 +1282,17 @@ def write_script_per_league(material: dict, log=None) -> dict:
         _segs = (by_lg.get(_lg) or {}).get("segments") or []
         _words = sum(len((x.get("text") or "").split()) for x in _segs)
         _want = _target_segments(_words) if _words else 0
-        if _segs and len(_segs) < _want - 1:
-            log(f"WARNING: {_lg} wrote {len(_segs)} segment(s) for {_words} "
-                f"words - asked for about {_want}. One long block reads as a "
-                f"lecture.")
+        # Always log the shape, warn on any shortfall.
+        #
+        # The threshold was "< want - 1", which meant one segment against a
+        # target of two never fired - so an episode where the WNBA wrote a
+        # single block looked clean in the log.
+        log(f"{_lg}: {len(_segs)} segment(s), {_words} words "
+            f"(target ~{_want})")
+        if _segs and len(_segs) < _want:
+            log(f"WARNING: {_lg} under-spread - {len(_segs)} segment(s) for "
+                f"{_words} words, asked for about {_want}. One long block "
+                f"reads as a lecture.")
     frame = by_lg.get(present[0]) or {}
 
     segments = []
