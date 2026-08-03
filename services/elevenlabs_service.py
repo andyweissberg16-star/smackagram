@@ -174,6 +174,72 @@ def generate_speech_bytes(text: str, voice_id: str = None) -> bytes:
     return resp.content
 
 
+def generate_performance_url(message: str, voice_id: str = None) -> str:
+    """
+    Audio for something PERFORMED rather than spoken - the famous-moment
+    calls, where somebody is losing their mind in a booth.
+
+    Separate from generate_audio_url on purpose. A prank call is one person
+    talking down a phone, and the settings that make that sound natural and
+    controlled make a shouted call sound like a man reading a shopping list.
+
+    Three differences, and all three matter:
+
+      MODEL - eleven_multilingual_v2 rather than turbo. Turbo is half the
+      credits and fine for a fifteen-second line, but it has the least
+      emotional range in the family, which is exactly what this needs most.
+
+      STABILITY 0.22 - low stability lets the delivery vary wildly between
+      sentences, which is the entire point. At 0.4 every sentence comes out
+      at the same pitch and pace, which is what "sounds like a script" is.
+
+      STYLE 0.65 - exaggerates whatever emotion the punctuation implies.
+      Unusable for a normal read; correct for this.
+    """
+    import hashlib
+
+    if voice_id is None:
+        voice_id = os.environ["ELEVENLABS_VOICE_ID"]
+
+    key = "calls/" + hashlib.sha256(
+        (voice_id + "|perf|" + message).encode()
+    ).hexdigest()[:32] + ".mp3"
+
+    s3_bucket = os.environ["AUDIO_S3_BUCKET"]
+    s3_region = os.environ.get("AWS_REGION", "us-east-1")
+
+    resp = requests.post(
+        f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}",
+        headers={
+            "xi-api-key": os.environ["ELEVENLABS_API_KEY"],
+            "Content-Type": "application/json",
+        },
+        json={
+            "text": message,
+            "model_id": "eleven_multilingual_v2",
+            "voice_settings": {
+                "stability": 0.22,
+                "similarity_boost": 0.75,
+                "style": 0.65,
+                "use_speaker_boost": True,
+            },
+        },
+        # Longer than the prank-call timeout: a full call is far more text
+        # than one line, and multilingual_v2 is slower than turbo.
+        timeout=90,
+    )
+    resp.raise_for_status()
+
+    audio = normalize_loudness(resp.content)
+
+    import boto3
+    boto3.client("s3", region_name=s3_region).put_object(
+        Bucket=s3_bucket, Key=key, Body=audio,
+        ContentType="audio/mpeg",
+    )
+    return f"https://{s3_bucket}.s3.{s3_region}.amazonaws.com/{key}"
+
+
 def generate_audio_url(message: str, voice_id: str = None) -> str:
     """
     Sends a custom message to ElevenLabs, gets back an mp3, uploads it to S3,

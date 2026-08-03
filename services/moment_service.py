@@ -258,21 +258,97 @@ ROAST: <one or two sentences at the losing side, normal case>
     return call, followup, roast
 
 
+# Words that must stay capitalised through the lowercasing. Everything else
+# in a call is either a sentence start or ordinary speech.
+PROPER_NOUNS = {
+    "yankees", "dodgers", "giants", "cubs", "cardinals", "mets", "phillies",
+    "red", "sox", "braves", "pirates", "reds", "indians", "athletics",
+    "rangers", "astros", "padres", "tigers", "royals", "mariners",
+    "diamondbacks", "brooklyn", "boston", "cleveland", "pittsburgh",
+    "cincinnati", "houston", "oakland", "texas", "arizona", "chicago",
+    "atlanta", "york", "angeles", "louis", "diego", "francisco",
+    "world", "series", "october", "november", "america",
+}
+
+
+ACRONYMS = {"MVP", "RBI", "NL", "AL", "ERA", "MLB", "NFL", "NBA", "NHL", "USA"}
+
+
+def _for_the_voice(text, names=()):
+    """
+    Rewrite a written call into something a TTS engine can perform.
+
+    ALL CAPS DOES NOT MEAN LOUD to a speech model. Some flatten it, some read
+    runs of capitals as initialisms and spell them out. What actually drives
+    inflection is PUNCTUATION - a short sentence ending in an exclamation
+    mark gets attacked; the same words in capitals with a comma get read.
+
+    So: sentence case, with the emphasis carried by punctuation instead.
+
+    `names` are the people and teams from the moment's own facts, which is
+    more reliable than trying to guess a proper noun out of shouted text
+    where every word looks the same.
+    """
+    import re as _re
+
+    t = text
+
+    # Comma-spliced runs become separate sentences. A comma is a small
+    # breath; a full stop is a real one, and this is a man out of breath.
+    t = _re.sub(r",\s+(?=[A-Z]{2,})", ". ", t)
+
+    # Everything down to lowercase except real acronyms.
+    def _word(m):
+        w = m.group(0)
+        return w if w.upper() in ACRONYMS else w.lower()
+    t = _re.sub(r"\b[A-Za-z']+\b", _word, t)
+
+    # Names back up. Longest first, so "Red Sox" is not half-fixed by "Red".
+    for n in sorted({p for n in names if n for p in str(n).split()}, key=len, reverse=True):
+        if len(n) < 3:
+            continue
+        t = _re.sub(rf"\b{_re.escape(n.lower())}\b", n.capitalize(), t)
+
+    # Capital at the start of every sentence, and "I".
+    t = _re.sub(r"(^|[.!?]\s+)([a-z])", lambda m: m.group(1) + m.group(2).upper(), t)
+    t = _re.sub(r"\bi\b", "I", t)
+
+    # A sentence that was shouted ends in an exclamation, not a stop. The
+    # engine attacks an exclamation and reads a full stop flat.
+    t = _re.sub(r"(?<![.!?])\.(\s|$)", r"!\1", t)
+
+    # Ellipses where a dash was - the pause before the reveal is the moment.
+    t = t.replace(" -- ", "... ").replace(" \u2014 ", "... ")
+
+    return t
+
+
 def generate_audio(moment):
     """
     Turn a written call into audio and return the URL.
 
-    Reuses the same ElevenLabs path as everything else on the site, so this
-    sounds like the same Smacky rather than a second voice - which is the
-    entire point of a character.
+    Uses a DIFFERENT voice configuration from the prank calls - see
+    elevenlabs_service.generate_performance_url. A prank call is one person
+    talking down a phone; this is somebody losing their mind in a booth, and
+    the settings that make the first sound natural make the second sound like
+    a man reading a shopping list.
     """
     from services import elevenlabs_service
 
     if not (moment.call_text and moment.followup_text and moment.roast_text):
         raise ValueError(f"{moment.slug} has no written call yet")
 
-    return elevenlabs_service.generate_audio_url(
-        spoken_text(moment.call_text, moment.followup_text, moment.roast_text)
+    # The moment's own facts are the name list - far more reliable than
+    # trying to spot a proper noun inside shouted text where every word looks
+    # identical.
+    names = [moment.hero, moment.goat, moment.losing_team, moment.teams]
+
+    return elevenlabs_service.generate_performance_url(
+        spoken_text(
+            _for_the_voice(moment.call_text, names),
+            moment.followup_text,
+            moment.roast_text,
+        )
     )
 
 
