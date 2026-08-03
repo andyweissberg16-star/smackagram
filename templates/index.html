@@ -454,6 +454,31 @@
   /* Held still while somebody reads it, so a link can be clicked without
      waiting for it to come round again. */
   .ticker-bar:hover .ticker-track{animation-play-state:paused;}
+
+  /* The embedded generators.
+     
+     Each frame is the real page at ?embed=1, so it arrives already carrying
+     that generator's own styling - red for Smackagram, silver for Locked &
+     Loaded. Nothing here restyles the contents; this only frames them. */
+  .home-gen{
+    background:var(--ink-2);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  .home-gen-title{
+    font-family:'Anton',sans-serif; font-size:26px; letter-spacing:0.5px;
+    text-transform:uppercase; text-align:center; line-height:1.05;
+    margin:0; padding:22px 20px 6px;
+  }
+  .home-gen-title--smack{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.45);}
+  .home-gen-title--locked{color:var(--silver,#C3CAD3); text-shadow:0 0 24px rgba(190,200,212,0.4);}
+
+  /* An iframe has no intrinsic height, and this content grows and shrinks as
+     steps open and close - so the frame reports its height and the listener
+     at the bottom of the page sets it. This is only the starting value. */
+  .home-gen-frame{
+    width:100%; border:0; display:block; height:720px;
+  }
 </style>
 </head>
 <body>
@@ -557,23 +582,25 @@
 <div style="max-width:1100px; margin:0 auto; padding:0 24px;">
   <div class="hero-split" style="display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:8px; text-align:left; width:100%;">
     <!-- 2px to match the generator pages, which all use a 2px frame. -->
-    <div style="background:var(--ink-2); border:2px solid var(--flare); border-radius:8px; padding:40px; box-shadow:0 0 30px rgba(232,20,44,0.35);">
-      <p style="font-family:'Anton',sans-serif; font-size:32px; letter-spacing:0.5px; margin-bottom:16px; text-transform:uppercase; color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.6); line-height:1.05; text-align:center;">Send a Smackagram</p>
-      <p style="font-size:15px; color:var(--chalk-dim); margin-bottom:24px; line-height:1.5; text-align:center;">Pick a team, Smacky writes the roast, and calls your friend with it — live, in his own voice, completely anonymous. The call gets recorded so you can hear their reaction after.</p>
-      <input id="heroTeamInput" type="text" placeholder="Team to roast" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:14px;" data-team-search>
-      <input id="heroRecipientInput" type="text" placeholder="Friend's name" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:20px;">
-      <button id="heroStartBtn" class="btn btn-flare" style="width:100%; padding:18px 24px; font-size:16px;">Send a Smack</button>
+    <!-- The REAL generators, not copies.
+         
+         Both pages already render a bare version at ?embed=1 and post their
+         height back to the parent - the same mechanism the tab switcher on
+         each generator page uses. Embedding them means there is exactly one
+         implementation of each flow: fix a bug once and it is fixed on the
+         homepage too, which a rebuilt copy could never promise. -->
+    <div class="home-gen">
+      <p class="home-gen-title home-gen-title--smack">Send a Smackagram</p>
+      <iframe class="home-gen-frame" id="homeSmackFrame"
+              src="/send-a-smack?embed=1" title="Send a Smackagram"
+              loading="lazy" scrolling="no"></iframe>
     </div>
 
-    <!-- Silver, matching the Locked & Loaded page itself, which repaints the
-         site frame silver. A gold heading inside a red box here meant the
-         homepage promised one thing and the page delivered another. -->
-    <div style="background:var(--ink-2); border:2px solid var(--silver,#C3CAD3); border-radius:8px; padding:40px; box-shadow:0 0 30px rgba(190,200,212,0.28);">
-      <p style="font-family:'Anton',sans-serif; font-size:32px; letter-spacing:0.5px; margin-bottom:16px; text-transform:uppercase; color:var(--silver,#C3CAD3); text-shadow:0 0 24px rgba(190,200,212,0.45); line-height:1.05; text-align:center;">Locked &amp; Loaded</p>
-      <p style="font-size:15px; color:var(--chalk-dim); margin-bottom:24px; line-height:1.5; text-align:center;">Pick a team, and we watch their next game for you — if they lose, we automatically call your friend with a fresh roast, completely anonymous. If they win, you pay nothing.</p>
-      <input id="heroLockedTeamInput" type="text" placeholder="Team to watch" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:14px;" data-team-search>
-      <input id="heroLockedRecipientInput" type="text" placeholder="Friend's name" style="width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk); padding:16px 18px; font-family:'Inter',sans-serif; font-size:16px; border-radius:4px; margin-bottom:20px;">
-      <button id="heroLockedBtn" class="btn btn-flare" style="width:100%; padding:18px 24px; font-size:16px;">Arm a Smack</button>
+    <div class="home-gen">
+      <p class="home-gen-title home-gen-title--locked">Locked &amp; Loaded</p>
+      <iframe class="home-gen-frame" id="homeLockedFrame"
+              src="/locked-n-loaded?embed=1" title="Locked and Loaded"
+              loading="lazy" scrolling="no"></iframe>
     </div>
   </div>
 </div>
@@ -588,45 +615,23 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 
-// Hero "Send a Smack" mini card — hands off to the dedicated generator
-// page with team/recipient pre-filled, rather than duplicating the full
-// generator's logic in a second place on this page.
-document.getElementById('heroStartBtn').addEventListener('click', () => {
-  const team = document.getElementById('heroTeamInput').value.trim();
-  const recipient = document.getElementById('heroRecipientInput').value.trim();
-  const params = new URLSearchParams();
-  if (team) params.set('team', team);
-  if (recipient) params.set('recipient_name', recipient);
-  const query = params.toString();
-  window.location.href = query ? `/send-a-smack?${query}` : '/send-a-smack';
-});
+// The generators are embedded directly now, so there is no teaser to wire
+// up. Each frame reports its own height back to this page; the listener
+// below sizes them.
+(function () {
+  var frames = {
+    'send-a-smack':     document.getElementById('homeSmackFrame'),
+    'locked-n-loaded':  document.getElementById('homeLockedFrame')
+  };
+  window.addEventListener('message', function (e) {
+    if (!e.data || !e.data.smkFrameHeight) return;
+    // Both frames post to the same window, so the src tag decides which one
+    // is talking - without it, whichever posted last would resize both.
+    var frame = frames[e.data.src];
+    if (frame) frame.style.height = e.data.smkFrameHeight + 'px';
+  });
+})();
 
-// Hero "Locked & Loaded" mini card — hands off to the real Locked & Loaded
-// page with the team pre-filled, rather than rebuilding real-game search
-// in a second, smaller place.
-document.getElementById('heroLockedBtn').addEventListener('click', () => {
-  const team = document.getElementById('heroLockedTeamInput').value.trim();
-  const recipient = document.getElementById('heroLockedRecipientInput').value.trim();
-  const params = new URLSearchParams();
-  if (team) params.set('team', team);
-  if (recipient) params.set('recipient_name', recipient);
-  const query = params.toString();
-  window.location.href = query ? `/locked-n-loaded?${query}` : '/locked-n-loaded';
-});
-
-document.getElementById('heroLockedRecipientInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('heroLockedBtn').click();
-});
-
-document.getElementById('heroTeamInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('heroStartBtn').click();
-});
-document.getElementById('heroRecipientInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('heroStartBtn').click();
-});
-document.getElementById('heroLockedTeamInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('heroLockedBtn').click();
-});
 
 
 }); // end DOMContentLoaded

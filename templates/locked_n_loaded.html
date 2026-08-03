@@ -870,6 +870,19 @@ function showError(msg) {
   const box = document.getElementById('errorBox');
   box.textContent = msg;
   box.style.display = 'block';
+
+  // Bring it to them.
+  //
+  // The box sits near the top of the page and the Lock It In button is at
+  // the bottom - so a failed validation printed a message 200 lines above
+  // where somebody was looking, and the button appeared to do nothing at
+  // all. Scrolling to the message is the difference between "broken" and
+  // "you missed a field".
+  try {
+    box.scrollIntoView({behavior: 'smooth', block: 'center'});
+  } catch (e) {
+    box.scrollIntoView();
+  }
 }
 function hideError() {
   document.getElementById('errorBox').style.display = 'none';
@@ -1449,9 +1462,18 @@ loadVoices();
     // Same reasoning as the other generator: never scroll on first paint,
     // or the nav ends up above the viewport before anyone has touched
     // anything.
-    var target = el(STEPS[n].card);
-    if (window.lnlHasMoved && target) {
-      setTimeout(function(){ target.scrollIntoView({block:'start'}); }, 40);
+    // Hold the GENERATOR still rather than pulling each step to the top.
+    // Steps are different heights, so scrolling the step card moved the page
+    // a different amount each time and could leave the console off-screen
+    // above you. Nothing moves now unless the console has actually scrolled
+    // out of view.
+    var frame = document.getElementById('lnlConsole') || el(STEPS[n].card);
+    if (window.lnlHasMoved && frame) {
+      setTimeout(function () {
+        var box = frame.getBoundingClientRect();
+        var offScreen = box.top < 0 || box.top > (window.innerHeight * 0.6);
+        if (offScreen) frame.scrollIntoView({behavior: 'smooth', block: 'start'});
+      }, 40);
     }
   };
 

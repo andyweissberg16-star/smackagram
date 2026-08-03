@@ -1254,9 +1254,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Next here would be a second, competing call to action.
     if (nextBtn) nextBtn.style.display = current === steps.length - 1 ? 'none' : '';
 
-    // Scroll the frame back to the top - without this, moving from a long
-    // step to a short one leaves you halfway down a page of whitespace.
-    if (hasMoved && card) card.scrollIntoView({block: 'start'});
+    // Hold the GENERATOR still rather than yanking each step to the top of
+    // the viewport.
+    //
+    // Scrolling the step card meant every Next moved the page, and because
+    // steps are different heights it moved a different amount each time -
+    // so pressing Next could dump you at the bottom of a long page with the
+    // generator off-screen above you.
+    //
+    // Now nothing moves unless the generator has actually left the viewport,
+    // and when it has, it comes back to the same place every time.
+    if (hasMoved) {
+      var frame = document.getElementById('wizardCard') || card;
+      if (frame) {
+        var box = frame.getBoundingClientRect();
+        var offScreen = box.top < 0 || box.top > (window.innerHeight * 0.6);
+        if (offScreen) frame.scrollIntoView({behavior: 'smooth', block: 'start'});
+      }
+    }
 
     // Carry the recipient's name from step 1 into step 3, so it's obvious
     // WHOSE number is being asked for. Falls back to neutral wording when the
