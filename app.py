@@ -14,7 +14,7 @@ import requests
 from dotenv import load_dotenv
 
 from models import SmackcastWeeklyNote
-from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode, WallPost
+from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode, WallPost, OptOut
 from services import news_service, show_service, admin_service, settings_service, show_service
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service, revenge_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
@@ -560,6 +560,17 @@ def _execute_send_smack(user, data: dict) -> dict:
     caller - this function only creates the order and fires the call.
     Returns {"order_id": ..., "redirect": ...} on success.
     """
+    # Refuse BEFORE anything is charged.
+    #
+    # The dial itself is also guarded, but that is too late - by then the
+    # wallet has been debited and somebody has to be refunded for a call
+    # that was never going to be allowed. Checking here means the person
+    # sending gets a plain answer and keeps their money.
+    if is_opted_out(data.get("recipient_phone")):
+        raise ValueError(
+            "That number has asked not to receive Smackagrams. "
+            "We cannot send to it.")
+
     order = Order(
         # Attributed so it can be listed back in the sender's locker. Minted
         # with a share token at creation rather than on first share, so every
@@ -648,7 +659,23 @@ def create_order():
         redirect = _store_pending_action(user, "send_smack", data)
         return jsonify({"error": "insufficient_balance", "redirect": redirect}), 402
 
-    result = _execute_send_smack(user, data)
+    try:
+        result = _execute_send_smack(user, data)
+    except ValueError as e:
+        # Deliberate refusals - an opted-out number, most importantly. These
+        # were escaping as 500s, so the browser could not read the reason and
+        # fell back to a generic message. The wallet was debited above, so it
+        # goes back before returning.
+        try:
+            wallet_service.credit_wallet(
+                user, wallet_service.SMACK_COST_CENTS, "smack_refund",
+                description="Refused - " + str(e)[:80],
+            )
+            db.session.commit()
+        except Exception as refund_err:
+            print(f"[send] refund after refusal failed: {refund_err}", flush=True)
+        return jsonify({"error": str(e)}), 400
+
     return jsonify(result)
 
 
@@ -3111,6 +3138,91 @@ def api_ticker():
     return jsonify({"count": len(items), "items": items[:16]})
 
 
+def _digits(phone):
+    """Just the digits, so formatting cannot hide a match."""
+    return "".join(ch for ch in str(phone or "") if ch.isdigit())
+
+
+def is_opted_out(phone):
+    """
+    Has this number asked never to be called?
+
+    Compares on digits only - "+1 (727) 555-0100" and "7275550100" are the
+    same person, and a formatting difference letting a call through would
+    defeat the whole point.
+
+    Never raises. If the check itself fails, the call is BLOCKED rather than
+    allowed: a smack that does not arrive is a refund, a smack that arrives
+    after somebody opted out is a complaint.
+    """
+    d = _digits(phone)
+    if not d:
+        return False
+    try:
+        # Last ten digits, so a stored +1 and an entered bare number match.
+        tail = d[-10:]
+        return db.session.query(
+            OptOut.query.filter(OptOut.phone.endswith(tail)).exists()
+        ).scalar()
+    except Exception as e:
+        print(f"[optout] check failed, blocking to be safe: {e}", flush=True)
+        return True
+
+
+@app.route("/api/check-optout")
+def api_check_optout():
+    """
+    Is this number opted out?
+
+    Lets a generator warn while somebody is still typing, rather than at the
+    final button after they have filled in everything else. Returns only a
+    boolean - it never confirms whether a number exists on the system, only
+    whether this specific one has asked to be left alone.
+    """
+    return jsonify({"opted_out": is_opted_out(request.args.get("phone"))})
+
+
+@app.route("/opt-out", methods=["GET", "POST"])
+def opt_out_page():
+    """
+    Stop the calls.
+
+    No account required, deliberately. The person opting out is the
+    recipient, who has no reason to have one - asking them to register in
+    order to be left alone would be the same as having no opt-out at all.
+    """
+    done = False
+    error = None
+    number = ""
+
+    if request.method == "POST":
+        number = (request.form.get("phone") or "").strip()
+        d = _digits(number)
+        if len(d) < 10:
+            error = "That does not look like a full phone number. Include the area code."
+        else:
+            try:
+                tail = d[-10:]
+                existing = OptOut.query.filter(OptOut.phone.endswith(tail)).first()
+                if not existing:
+                    db.session.add(OptOut(
+                        phone=tail,
+                        reason=(request.form.get("reason") or "").strip()[:200] or None,
+                        source="web",
+                    ))
+                    db.session.commit()
+                done = True
+            except Exception as e:
+                print(f"[optout] save failed: {e}", flush=True)
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
+                error = "Something went wrong saving that. Try again, or contact us and we will do it by hand."
+
+    return render_template("opt_out.html", done=done, error=error, number=number)
+
+
 @app.route("/api/wall")
 def api_wall():
     """
@@ -3787,6 +3899,12 @@ def _execute_arm_smackagram(user, data: dict) -> dict:
     the wallet has ALREADY been debited by the caller. Raises ValueError
     with a user-facing message if the game is no longer valid to arm.
     """
+    # Refuse before the wallet is touched - same reasoning as Send a Smack.
+    if is_opted_out(data.get("recipient_phone")):
+        raise ValueError(
+            "That number has asked not to receive Smackagrams. "
+            "We cannot arm one against it.")
+
     # A game in progress is still armable, and deliberately so - the whole
     # premise is that the call fires when the target loses, and a game that
     # has kicked off has not been lost yet. Arming at 2-0 down in the third
@@ -4858,6 +4976,18 @@ with app.app_context():
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS user_id INTEGER"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id INTEGER"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS team VARCHAR(80)"))
+
+            # Numbers that must never be called again. Checked before every
+            # dial - see is_opted_out().
+            conn.execute(db.text("""CREATE TABLE IF NOT EXISTS opt_outs (
+                id SERIAL PRIMARY KEY,
+                phone VARCHAR(20) UNIQUE NOT NULL,
+                reason VARCHAR(200),
+                source VARCHAR(20) DEFAULT 'web',
+                created_at TIMESTAMP
+            )"""))
+            conn.execute(db.text(
+                "CREATE INDEX IF NOT EXISTS ix_opt_outs_phone ON opt_outs (phone)"))
 
             # What makes a league THIS league. All optional - a commissioner
             # who fills in nothing still gets recaps, just more generic ones.

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stop the calls — Smackagram</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
+<style>
+  :root{
+    --ink:#000000; --surface:#141414; --line:#3A1416; --punch:#E01B24;
+    --ivory:#FFFFFF; --muted:#B5B0B0; --muted-2:#7A7575; --radius:14px;
+  }
+  body{
+    background:var(--ink); color:var(--ivory);
+    font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; margin:0;
+  }
+  .oo-wrap{max-width:600px; margin:0 auto; padding:0 24px 80px;}
+
+  .oo-head{padding:54px 0 0; text-align:center;}
+  .oo-kick{
+    font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:2.4px;
+    text-transform:uppercase; color:var(--muted-2); margin:0 0 16px;
+  }
+  .oo-head h1{
+    font-family:'Anton',sans-serif; font-weight:400; text-transform:uppercase;
+    font-size:clamp(34px,6.4vw,58px); line-height:0.94; letter-spacing:0.5px;
+    margin:0 0 16px;
+  }
+  .oo-head h1 .hit{color:var(--punch);}
+  .oo-lede{color:var(--muted); font-size:15px; line-height:1.65; margin:0 auto; max-width:460px;}
+
+  form{margin:34px 0 0;}
+  label{
+    display:block; font-size:13.5px; font-weight:600; margin-bottom:8px;
+  }
+  .hint{display:block; font-weight:400; color:var(--muted-2); font-size:12.5px; margin-top:3px;}
+  input[type=tel], textarea{
+    width:100%; box-sizing:border-box;
+    background:#0A0A0A; border:1px solid rgba(195,202,211,0.20); border-radius:10px;
+    color:var(--ivory); font-family:'Inter',sans-serif; font-size:16px; padding:15px 16px;
+  }
+  /* 16px on the input specifically - anything smaller makes iOS zoom the
+     page when it is focused, which on a form this short feels broken. */
+  textarea{min-height:78px; resize:vertical; font-size:14px; line-height:1.55; margin-top:6px;}
+  input:focus, textarea:focus{
+    outline:none; border-color:var(--punch); box-shadow:0 0 0 3px rgba(224,27,36,0.18);
+  }
+  .field{margin-bottom:20px;}
+
+  button{
+    width:100%; background:var(--punch); color:#fff; border:none; border-radius:10px;
+    padding:17px; font-family:'Inter',sans-serif; font-size:14px; font-weight:800;
+    letter-spacing:0.6px; text-transform:uppercase; cursor:pointer;
+    -webkit-appearance:none; appearance:none;
+  }
+  button:hover{background:#c4101f;}
+
+  .oo-note{
+    background:var(--surface); border:1px solid rgba(195,202,211,0.14);
+    border-radius:var(--radius); padding:18px 20px; margin:26px 0 0;
+    color:var(--muted); font-size:13.5px; line-height:1.62;
+  }
+  .oo-note strong{color:var(--ivory); font-weight:600;}
+
+  .oo-error{
+    background:rgba(224,27,36,0.12); border:1px solid var(--punch); border-radius:10px;
+    padding:13px 16px; font-size:13.5px; margin:0 0 20px;
+  }
+
+  /* Confirmation */
+  .oo-done{text-align:center; padding:20px 0 0;}
+  .oo-done .tick{
+    width:64px; height:64px; border-radius:50%; background:var(--punch);
+    display:inline-flex; align-items:center; justify-content:center; margin-bottom:20px;
+  }
+  .oo-done h2{
+    font-family:'Anton',sans-serif; font-weight:400; text-transform:uppercase;
+    font-size:34px; line-height:1; margin:0 0 12px;
+  }
+  .oo-done p{color:var(--muted); font-size:14.5px; line-height:1.65; margin:0 auto; max-width:420px;}
+
+  .oo-foot{
+    margin-top:40px; padding-top:22px; border-top:1px solid rgba(195,202,211,0.12);
+    text-align:center; font-size:13px;
+  }
+  .oo-foot a{color:var(--muted-2); text-decoration:none;}
+  .oo-foot a:hover{color:var(--ivory);}
+
+  @media(max-width:560px){ .oo-head{padding-top:36px;} }
+</style>
+</head>
+<body>
+
+{% include '_nav.html' %}
+
+<div class="oo-wrap">
+
+  {% if done %}
+    <div class="oo-head">
+      <div class="oo-done">
+        <span class="tick" aria-hidden="true">
+          <svg width="28" height="22" viewBox="0 0 28 22"><path d="M2 11l8 8L26 3"
+            stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <h2>That&rsquo;s it. You&rsquo;re off the list.</h2>
+        <p>We will not call that number again. Nothing else is needed from you,
+           and you do not have to tell us who you are.</p>
+      </div>
+    </div>
+
+    <div class="oo-note">
+      <strong>If a call still comes through</strong>, it would only be one
+      already in flight when you opted out. Anything after that is a mistake
+      and we want to know &mdash; there is a contact link below.
+    </div>
+
+    <div class="oo-note">
+      <strong>You can still send them.</strong> This only stops calls
+      <em>to</em> your number. If you ever want to send one yourself, nothing
+      is stopping you.
+    </div>
+
+    {# Changing your mind is deliberately NOT a form.
+       
+       An open "put your number in to start receiving again" box would let
+       anybody remove any number from this list, which would make the list
+       worthless - the one thing it exists to prevent. Proving you control
+       the number is the only safe way, and that needs the phone
+       verification that is waiting on carrier registration. Until then it
+       is a manual request, which is slower but cannot be abused. #}
+    <div class="oo-note">
+      <strong>Changed your mind?</strong> Getting a number taken back off
+      this list means proving it is yours, so it is not something we let a
+      form do &mdash; anybody could put in a number that was not theirs.
+      <a href="/contact" style="color:var(--punch); text-decoration:none;">Send
+      us a message</a> and we will sort it out.
+    </div>
+
+  {% else %}
+    <header class="oo-head">
+      <p class="oo-kick">OPT OUT</p>
+      <h1>Stop the <span class="hit">calls.</span></h1>
+      <p class="oo-lede">Put your number in and we will never ring it again.
+         No account, no sign-up, no questions.</p>
+    </header>
+
+    {% if error %}<p class="oo-error">{{ error }}</p>{% endif %}
+
+    <form method="post">
+      <div class="field">
+        <label for="phone">Your phone number
+          <span class="hint">The number receiving the calls. Any format is fine.</span></label>
+        <input type="tel" id="phone" name="phone" inputmode="tel"
+               autocomplete="tel" required
+               value="{{ number or '' }}" placeholder="(727) 555-0100">
+      </div>
+
+      <div class="field">
+        <label for="reason">Anything you want to tell us? <span class="hint">Optional</span></label>
+        <textarea id="reason" name="reason" maxlength="200"></textarea>
+      </div>
+
+      <button type="submit">Stop calling this number</button>
+    </form>
+
+    <div class="oo-note">
+      <strong>This takes effect immediately.</strong> We do not need to know
+      who you are, and we will not use the number for anything except keeping
+      it off our list.
+    </div>
+
+    {# The distinction matters. Somebody annoyed by one call may not want to
+       lose the product entirely, and plenty of people who receive a smack go
+       on to send one. Saying only "we will stop calling you" makes it sound
+       like the door closes both ways. #}
+    <div class="oo-note">
+      <strong>You can still send them.</strong> This only stops calls
+      <em>to</em> this number. Your account, if you have one, is untouched and
+      you can keep smacking whoever you like.
+    </div>
+  {% endif %}
+
+  <p class="oo-foot">
+    Need something else? <a href="/contact">Contact us</a>
+  </p>
+</div>
+
+</body>
+</html>

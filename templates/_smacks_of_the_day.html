@@ -1,5 +1,5 @@
 {# ===========================================================================
-   Smacks of the Week
+   Smacks of the Day
    ===========================================================================
    Named for the day rather than the week because at any real volume the
    rolling fifty turns over in hours - a wall labelled "this week" would be
@@ -18,7 +18,7 @@
    "great site, five stars" never does.
 
    Included on the homepage and both generator pages. Loads its own data, so
-   dropping {% include '_smacks_of_the_week.html' %} into any page is all
+   dropping {% include '_smacks_of_the_day.html' %} into any page is all
    that is needed.
    ======================================================================== #}
 <section class="sotw" id="smacksOfTheWeek" hidden>
@@ -26,9 +26,9 @@
     {# The section name IS the headline. It was set as a small red eyebrow
        above a separate heading, which buried the one thing a visitor needs
        to read to know what they are looking at. #}
-    <h2>Smacks of the Week</h2>
-    <p class="sotw-sub">Every one of these rang somebody&rsquo;s phone. Press play
-       &mdash; that is exactly what they heard.</p>
+    <h2>Smacks of the Day</h2>
+    <p class="sotw-sub">Real calls. Real trash talk. Sent today to the biggest
+       fans in sports.</p>
     {# The price sits with the proof. Somebody who has just heard what a smack
        sounds like is the person most likely to want one, and this is the only
        number that matters. #}
@@ -128,10 +128,6 @@
   .sotw-arrow:hover{background:var(--flare,#E01B24);}
   .sotw-prev{left:10px;}
   .sotw-next{right:10px;}
-  /* Greyed out at either end rather than hidden - a button that vanishes
-     makes the row jump. */
-  .sotw-arrow[disabled]{opacity:0.28; cursor:default;}
-  .sotw-arrow[disabled]:hover{background:rgba(13,13,13,0.88);}
 
   /* No arrows on touch. A thumb does this better and the buttons would sit
      on top of a card. */
@@ -346,12 +342,6 @@
 
     track.innerHTML = d.items.map(card).join('');
     sect.hidden = false;
-    requestAnimationFrame(function () {
-      var n = document.getElementById('sotwNext');
-      var p = document.getElementById('sotwPrev');
-      if (p) p.disabled = true;
-      if (n) n.disabled = rail.scrollWidth <= rail.clientWidth + 2;
-    });
 
 
     // Drive the custom players.
@@ -429,25 +419,17 @@
       return card ? card.getBoundingClientRect().width + 14 : 300;
     }
 
-    // Only touch the DOM when the state actually CHANGES.
+    // No enable/disable state at all.
     //
-    // Rubber-band scrolling keeps firing scroll events at either end and
-    // scrollLeft oscillates around the boundary, so writing .disabled on
-    // every event flipped the button on and off several times a second -
-    // which reads as the arrow pulsing or loading.
+    // Toggling a button's `disabled` attribute against a scroll position is
+    // a fight that keeps being lost: rubber-band scrolling oscillates around
+    // the boundary, sub-pixel rounding leaves scrollLeft a fraction short,
+    // and a disabled button picks up platform styling of its own. Two
+    // separate flicker bugs came out of it.
     //
-    // The 8px tolerance is deliberately wider than the 2px it was: sub-pixel
-    // rounding on a scaled viewport can leave scrollLeft a fraction short of
-    // the true end forever.
-    var wasStart = null, wasEnd = null;
-
-    function refreshArrows() {
-      if (!prev || !next) return;
-      var atStart = rail.scrollLeft <= 8;
-      var atEnd = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 8;
-      if (atStart !== wasStart) { prev.disabled = atStart; wasStart = atStart; }
-      if (atEnd !== wasEnd) { next.disabled = atEnd; wasEnd = atEnd; }
-    }
+    // Both arrows now stay live permanently. Pressing left at the start
+    // scrolls by nothing, which is exactly what "disabled" was trying to
+    // achieve - without any state to get wrong.
 
     if (prev && next) {
       prev.addEventListener('click', function () {
@@ -456,17 +438,6 @@
       next.addEventListener('click', function () {
         rail.scrollBy({left: step(), behavior: 'smooth'});
       });
-      // Throttled to one check per frame. A trackpad fires scroll events far
-      // faster than the screen refreshes, and there is no value in checking
-      // more often than the browser can paint.
-      var queued = false;
-      rail.addEventListener('scroll', function () {
-        if (queued) return;
-        queued = true;
-        requestAnimationFrame(function () { queued = false; refreshArrows(); });
-      }, {passive: true});
-      window.addEventListener('resize', refreshArrows);
-      refreshArrows();
     }
 
     // No auto-scroll.

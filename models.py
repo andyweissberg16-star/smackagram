@@ -920,6 +920,32 @@ class SmackcastRecap(db.Model):
     __table_args__ = (db.UniqueConstraint("subscription_id", "week_number", "season_year", name="one_recap_per_week_per_subscription"),)
 
 
+class OptOut(db.Model):
+    """
+    Numbers that must never be called again.
+
+    A service that places unsolicited calls needs a way for the person on the
+    receiving end to stop them, and "email support" is not good enough for
+    somebody who wants to be left alone right now. This is checked before
+    every dial.
+
+    Deliberately NOT tied to an account. The person opting out is the
+    recipient, who almost certainly has no account and no reason to make one
+    - requiring a login to stop being called would be the same as having no
+    opt-out at all.
+
+    Numbers are stored normalised to digits so "+1 (727) 555-0100" and
+    "7275550100" cannot both be on file with only one of them matching.
+    """
+    __tablename__ = "opt_outs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    phone = db.Column(db.String(20), unique=True, nullable=False, index=True)
+    reason = db.Column(db.String(200), nullable=True)
+    source = db.Column(db.String(20), default="web")   # web | sms | support
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class VerifiedPhone(db.Model):
     """
     Proof that a logged-in user actually controls a given phone number -

@@ -104,6 +104,22 @@ def place_prank_call(record_type: str, record_id: int, recipient_phone: str, rec
     to_number = _to_e164(recipient_phone)
     from_number = _to_e164(os.environ["TWILIO_PHONE_NUMBER"])
 
+    # Last line of defence before dialling.
+    #
+    # Checked HERE rather than at each of the three call sites, because a
+    # fourth will be added eventually and whoever adds it will not remember.
+    # The one place every call funnels through is the only place this cannot
+    # be forgotten.
+    try:
+        from app import is_opted_out
+        if is_opted_out(to_number):
+            print(f"[twilio] BLOCKED - {to_number!r} has opted out", flush=True)
+            raise ValueError("This number has opted out of Smackagram calls.")
+    except ValueError:
+        raise
+    except Exception as _e:
+        print(f"[twilio] opt-out check unavailable: {_e}", flush=True)
+
     print(f"[twilio] Placing call — to={to_number!r} from={from_number!r} record_type={record_type!r} record_id={record_id!r}")
 
     call = _get_client().calls.create(

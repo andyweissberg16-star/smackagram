@@ -826,11 +826,14 @@
 </div>
 
 {% if not embed %}
-{% include '_smacks_of_the_week.html' %}
+{% include '_smacks_of_the_day.html' %}
 
 <footer>
   <p>Games can only be locked in within 48 hours of kickoff. Holds not captured within 7 days are released automatically.</p>
-  <p style="margin-top:12px;"><a href="/terms" style="color:var(--chalk-dim); text-decoration:none;">Terms</a> &middot; <a href="/contact" style="color:var(--chalk-dim); text-decoration:none;">Contact</a></p>
+  <div class="flinks">
+    <a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/opt-out">Opt Out</a><a href="/contact">Support</a>
+  </div>
+  <span>&copy; 2026 Smackagram</span>
 </footer>
 {% endif %}
 
@@ -1640,5 +1643,60 @@ loadVoices();
   if (new URLSearchParams(location.search).get('gen') === 'smack') show('smack');
 })();
 </script>
+
+<script>
+// Warn about an opted-out number while somebody is still typing.
+//
+// The send and arm endpoints both refuse these outright, but finding out at
+// the final button after filling in everything else is a poor way to learn
+// it. This asks as soon as a complete number is entered.
+(function () {
+  var input = document.getElementById('recipientPhoneLL');
+  if (!input) return;
+
+  var warn = document.createElement('p');
+  warn.className = 'optout-warn';
+  warn.hidden = true;
+  warn.setAttribute('role', 'alert');
+  warn.innerHTML = 'This number has asked not to receive Smackagrams. '
+                 + 'We cannot send to it.';
+  input.insertAdjacentElement('afterend', warn);
+
+  var timer = null;
+  var lastChecked = '';
+
+  function digits(v) { return String(v || '').replace(/\D/g, ''); }
+
+  function check() {
+    var d = digits(input.value);
+    if (d.length < 10) { warn.hidden = true; return; }
+    if (d === lastChecked) return;
+    lastChecked = d;
+    fetch('/api/check-optout?phone=' + encodeURIComponent(d))
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        warn.hidden = !res.opted_out;
+      })
+      .catch(function () { /* the server refuses anyway */ });
+  }
+
+  input.addEventListener('input', function () {
+    warn.hidden = true;               // clear while they are still editing
+    clearTimeout(timer);
+    timer = setTimeout(check, 400);   // not on every keystroke
+  });
+  input.addEventListener('blur', check);
+})();
+</script>
+
+<style>
+  .optout-warn{
+    margin:9px 0 0; padding:10px 13px;
+    background:rgba(224,27,36,0.12);
+    border:1px solid var(--flare,#E01B24); border-radius:7px;
+    color:var(--chalk,#F5F5F3); font-size:13px; line-height:1.5;
+  }
+</style>
+
 </body>
 </html>
