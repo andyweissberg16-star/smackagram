@@ -2994,6 +2994,33 @@ def wall_headline(record, product):
     return f"SENT TO A {team.upper()} FAN"
 
 
+def _stitch_wall_audio_later(post_id, message_url, base_url):
+    """
+    Swap a wall post's audio for the full package, in the background.
+
+    Stitching downloads two files, runs ffmpeg and uploads - ten seconds or
+    so. publish_to_wall is called from inside order creation, so doing it
+    inline would put that squarely in the middle of somebody's checkout.
+
+    The post goes up immediately with the message-only audio and this
+    upgrades it a moment later. Worst case it stays as it was, which is what
+    the wall has been playing all along.
+    """
+    def run():
+        with app.app_context():
+            try:
+                full = call_audio_service.stitch_full_call(message_url, base_url)
+                if full and full != message_url:
+                    post = WallPost.query.get(post_id)
+                    if post:
+                        post.audio_url = full
+                        db.session.commit()
+            except Exception as e:
+                print(f"[wall] stitch failed for post {post_id}: {e}", flush=True)
+
+    threading.Thread(target=run, daemon=True).start()
+
+
 def publish_to_wall(record, product, audio_url=None):
     """
     Put a smack on the wall as it is created.
@@ -3024,7 +3051,7 @@ def publish_to_wall(record, product, audio_url=None):
 
         handle = (getattr(user, "screen_name", None) or "anonymous").strip()
 
-        db.session.add(WallPost(
+        post = WallPost(
             user_id=getattr(record, "user_id", None),
             handle=handle,
             body=body,
@@ -3035,11 +3062,22 @@ def publish_to_wall(record, product, audio_url=None):
                 or getattr(record, "team", None)),
             team=((getattr(record, "target_team", None)
                    or getattr(record, "team", None) or "").strip() or None),
+            # Goes up with the plain message immediately; the stitched
+            # version replaces it a few seconds later - see below.
             audio_url=audio_url,
             approved=True,
             is_sample=False,
-        ))
+        )
+        db.session.add(post)
         db.session.commit()
+
+        # Upgrade the audio to the full package in the background - the post
+        # is already live with the message-only version, which is what the
+        # wall has always played.
+        if audio_url:
+            _stitch_wall_audio_later(
+                post.id, audio_url, os.environ.get("BASE_URL", "")
+            )
         prune_wall()
     except Exception as e:
         print(f"[wall] could not publish: {e}", flush=True)

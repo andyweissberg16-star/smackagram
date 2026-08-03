@@ -42,3 +42,86 @@ def resolve_audio_url(record, base_url: str):
 
     outro_url = get_outro_url(base_url)
     return [message_url, outro_url]
+
+
+def stitch_full_call(message_url: str, base_url: str) -> str:
+    """
+    Message + slap + tagline as ONE file, for listening on the site.
+
+    The phone call plays the message and the outro as two separate clips
+    back to back, which Twilio handles fine. A browser cannot - the wall
+    player is given one URL, so it played the message and stopped dead
+    before the slap. Somebody listening on the site heard a different, worse
+    thing than the person who was actually called.
+
+    Returns the stitched URL, or the original message URL if anything fails.
+    A wall post with the plain message is far better than one with no audio.
+    """
+    import hashlib
+    import os
+    import subprocess
+    import tempfile
+
+    import requests
+
+    if not message_url:
+        return message_url
+
+    try:
+        import boto3
+
+        bucket = os.environ["AUDIO_S3_BUCKET"]
+        region = os.environ.get("AWS_REGION", "us-east-1")
+
+        # Hashed key: the same call stitched twice reuses the object rather
+        # than leaving a duplicate behind on every republish.
+        key = "tts/full-" + hashlib.sha256(
+            message_url.encode()
+        ).hexdigest()[:32] + ".mp3"
+        url = f"https://{bucket}.s3.{region}.amazonaws.com/{key}"
+
+        s3 = boto3.client("s3", region_name=region)
+        try:
+            s3.head_object(Bucket=bucket, Key=key)
+            return url                      # already stitched
+        except Exception:
+            pass
+
+        outro_url = get_outro_url(base_url)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = []
+            for i, src in enumerate((message_url, outro_url)):
+                p = os.path.join(tmp, f"{i}.mp3")
+                r = requests.get(src, timeout=30)
+                r.raise_for_status()
+                with open(p, "wb") as fh:
+                    fh.write(r.content)
+                paths.append(p)
+
+            # Re-encoded rather than concat-copied. The message comes from
+            # ElevenLabs and the outro is a hand-made file; if their sample
+            # rates differ, a stream copy produces a file that plays at the
+            # wrong speed after the join - the same bug that hit the daily
+            # show.
+            listing = os.path.join(tmp, "list.txt")
+            with open(listing, "w") as fh:
+                for p in paths:
+                    fh.write(f"file '{p}'\n")
+
+            out = os.path.join(tmp, "full.mp3")
+            subprocess.run(
+                ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", listing,
+                 "-ar", "44100", "-ac", "1", "-b:a", "128k", out],
+                check=True, capture_output=True, timeout=90,
+            )
+
+            with open(out, "rb") as fh:
+                s3.put_object(Bucket=bucket, Key=key, Body=fh.read(),
+                              ContentType="audio/mpeg")
+
+        return url
+
+    except Exception as e:
+        print(f"[audio] stitch failed, using message only: {e}", flush=True)
+        return message_url
