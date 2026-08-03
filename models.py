@@ -964,6 +964,41 @@ class FamousMoment(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class CallTiming(db.Model):
+    """
+    How long AMD took, per call.
+
+    Answering-machine detection holds the line until it believes the greeting
+    has ended, and only then does Twilio fetch our TwiML. On a voicemail the
+    mailbox starts recording at the beep, so every second AMD spends deciding
+    after that beep becomes dead air at the FRONT of the recording - and
+    mailboxes commonly stop at sixty seconds, so that silence can push the
+    end of the message off the tape.
+
+    Nothing measured this. One row per call, so tuning is done against real
+    numbers rather than one remembered call.
+    """
+    __tablename__ = "call_timings"
+
+    id = db.Column(db.Integer, primary_key=True)
+    record_type = db.Column(db.String(20))          # order | smackagram
+    record_id = db.Column(db.Integer)
+    call_sid = db.Column(db.String(64), index=True)
+
+    dialed_at = db.Column(db.DateTime)              # when we asked Twilio to call
+    instructions_at = db.Column(db.DateTime)        # when Twilio came back for TwiML
+
+    # The number that matters: seconds between dialling and the message
+    # being able to start. On a voicemail this is roughly ring time plus
+    # greeting plus AMD's deliberation.
+    gap_seconds = db.Column(db.Float)
+
+    answered_by = db.Column(db.String(30))
+    call_status = db.Column(db.String(30))
+    duration_seconds = db.Column(db.Integer)        # from Twilio's status callback
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class OptOut(db.Model):
     """
     Numbers that must never be called again.

@@ -62,6 +62,12 @@ def place_smackcast_call(recap_id: int, recipient_phone: str) -> str:
     to_number = _to_e164(recipient_phone)
     from_number = _to_e164(os.environ["TWILIO_PHONE_NUMBER"])
 
+    # Stamped the moment we ask Twilio to dial, so the gap to Twilio coming
+    # back for TwiML can be measured. See CallTiming - that gap is dead air
+    # at the front of a voicemail recording.
+    from datetime import datetime as _dt, timezone as _tz
+    _dialed_at = _dt.now(_tz.utc)
+
     call = _get_client().calls.create(
         to=to_number,
         from_=from_number,
@@ -145,6 +151,20 @@ def place_prank_call(record_type: str, record_id: int, recipient_phone: str, rec
         status_callback_event=["completed"],
         status_callback_method="POST",
     )
+    # One row per call, written here so nothing downstream has to remember to.
+    try:
+        from models import db, CallTiming
+        db.session.add(CallTiming(
+            record_type=record_type,
+            record_id=record_id,
+            call_sid=call.sid,
+            dialed_at=_dialed_at,
+        ))
+        db.session.commit()
+    except Exception as e:
+        # Never let measurement break a call somebody paid for.
+        print(f'[timing] could not record dial time: {e}', flush=True)
+
     return call.sid
 
 
@@ -175,8 +195,17 @@ def build_twiml(audio_urls, record: bool = True, record_callback_url: str = None
 
     response = VoiceResponse()
     if record:
+        # "is being", not "may be" - it always IS at this point, since this
+        # line only plays when <Record> is in the TwiML. Hedging about
+        # something known for certain is the wrong footing for a notice that
+        # exists to satisfy a two-party consent statute.
+        #
+        # Deliberately NOT Smacky. A legal notice in the same voice that is
+        # about to roast somebody reads as part of the joke rather than as a
+        # real notice - which is precisely the wrong impression if it is ever
+        # scrutinised. A neutral voice makes it unmistakably genuine.
         response.say(
-            "Heads up — this call may be recorded. Here's your message.",
+            "This call is being recorded.",
             voice="Polly.Matthew",
         )
     for url in audio_urls:

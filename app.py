@@ -14,7 +14,7 @@ import requests
 from dotenv import load_dotenv
 
 from models import SmackcastWeeklyNote
-from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode, WallPost, OptOut, FamousMoment
+from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode, WallPost, OptOut, FamousMoment, CallTiming
 from services import news_service, show_service, admin_service, settings_service, show_service
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service, revenge_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
@@ -1148,6 +1148,31 @@ def _call_instructions_handler(record_type, record_id):
     if order:
         order.answered_by = answered_by
         db.session.commit()
+
+    # Close the timing loop.
+    #
+    # Twilio only requests this URL once AMD has decided, so the gap from
+    # dialling to here is ring time plus greeting plus AMD's deliberation -
+    # and on a voicemail every second of it after the beep is dead air at the
+    # front of the recording.
+    try:
+        sid = request.values.get("CallSid")
+        if sid:
+            t = CallTiming.query.filter_by(call_sid=sid).first()
+            if t:
+                now = datetime.now(timezone.utc)
+                t.instructions_at = now
+                if t.dialed_at:
+                    started = t.dialed_at
+                    if started.tzinfo is None:
+                        started = started.replace(tzinfo=timezone.utc)
+                    t.gap_seconds = round((now - started).total_seconds(), 2)
+                t.answered_by = answered_by
+                db.session.commit()
+                print(f"[timing] {record_type}:{record_id} answered_by={answered_by!r} "
+                      f"gap={t.gap_seconds}s", flush=True)
+    except Exception as e:
+        print(f"[timing] could not record instruction time: {e}", flush=True)
 
     base_url = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
     if record_type:
@@ -3236,6 +3261,45 @@ def smacky_makes_the_call():
     return render_template("smacky_calls.html", moments=moments)
 
 
+@app.route("/api/admin/call-timings")
+def admin_call_timings():
+    """
+    The last fifty calls with their timing, newest first.
+
+    gap_seconds is the number that matters: dial to the message being able to
+    start. On a voicemail everything after the beep in that window is dead
+    air at the front of the recording.
+    """
+    if request.args.get("key") != os.environ.get("CRON_KEY", "smack2026secure99xyz"):
+        return jsonify({"error": "nope"}), 403
+
+    rows = (CallTiming.query
+            .order_by(CallTiming.id.desc())
+            .limit(50).all())
+
+    out = [{
+        "when": t.dialed_at.isoformat() if t.dialed_at else None,
+        "product": "Locked & Loaded" if t.record_type == "smackagram" else "Smackagram",
+        "answered_by": t.answered_by,
+        "status": t.call_status,
+        "gap_to_message_s": t.gap_seconds,
+        "call_length_s": t.duration_seconds,
+        # What actually reached the mailbox, roughly.
+        "message_time_s": (round(t.duration_seconds - t.gap_seconds, 1)
+                           if (t.duration_seconds and t.gap_seconds) else None),
+    } for t in rows]
+
+    machines = [r for r in out if (r["answered_by"] or "").startswith("machine")]
+    gaps = [r["gap_to_message_s"] for r in machines if r["gap_to_message_s"]]
+
+    return jsonify({
+        "calls": out,
+        "voicemail_count": len(machines),
+        "avg_gap_on_voicemail_s": round(sum(gaps) / len(gaps), 1) if gaps else None,
+        "worst_gap_on_voicemail_s": max(gaps) if gaps else None,
+    })
+
+
 @app.route("/api/admin/seed-moments")
 def admin_seed_moments():
     """
@@ -4238,6 +4302,25 @@ def call_status(record_type, record_id):
     if record:
         record.call_status = status
         db.session.commit()
+
+    # Duration closes the picture: with gap_seconds you can see how much of
+    # the call was AMD deliberating versus the message actually playing, and
+    # a voicemail that stops at a suspiciously round number - 30s, 60s - is
+    # the mailbox's own limit rather than anything on our side.
+    try:
+        sid = request.form.get('CallSid')
+        if sid:
+            t = CallTiming.query.filter_by(call_sid=sid).first()
+            if t:
+                t.call_status = status
+                dur = request.form.get('CallDuration')
+                if dur and str(dur).isdigit():
+                    t.duration_seconds = int(dur)
+                db.session.commit()
+                print(f'[timing] {record_type}:{record_id} status={status} '
+                      f'duration={t.duration_seconds}s gap={t.gap_seconds}s', flush=True)
+    except Exception as e:
+        print(f'[timing] could not record duration: {e}', flush=True)
     return "", 204
 
 
@@ -5218,6 +5301,22 @@ with app.app_context():
                 published BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP
             )"""))
+
+            conn.execute(db.text("""CREATE TABLE IF NOT EXISTS call_timings (
+                id SERIAL PRIMARY KEY,
+                record_type VARCHAR(20),
+                record_id INTEGER,
+                call_sid VARCHAR(64),
+                dialed_at TIMESTAMP,
+                instructions_at TIMESTAMP,
+                gap_seconds DOUBLE PRECISION,
+                answered_by VARCHAR(30),
+                call_status VARCHAR(30),
+                duration_seconds INTEGER,
+                created_at TIMESTAMP
+            )"""))
+            conn.execute(db.text(
+                "CREATE INDEX IF NOT EXISTS ix_call_timings_sid ON call_timings (call_sid)"))
 
             conn.execute(db.text("""CREATE TABLE IF NOT EXISTS opt_outs (
                 id SERIAL PRIMARY KEY,
