@@ -536,14 +536,26 @@
   .prod p strong{color:var(--chalk); font-weight:600;}
   .prod-quiet{color:#7A7575 !important; font-size:11.5px !important;}
 
+  /* Anton rather than mono.
+     
+     That is what lets the label be genuinely large - mono at 22px would be
+     enormously wide, and a condensed face fits "GET THE SEASON" comfortably
+     in a button narrower than the card. It also matches the titles and
+     prices above it.
+     
+     min-width keeps the three roughly aligned despite the labels being
+     different lengths - without it "Arm one" would be a much smaller button
+     than "Get the season". */
   .prod-cta{
-    margin-top:auto; display:block; border-radius:6px; padding:12px;
-    font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:1.2px;
-    font-weight:700; text-decoration:none;
+    margin:0 auto; display:block; width:fit-content; min-width:64%;
+    border-radius:8px; padding:15px 26px;
+    font-family:'Anton',sans-serif; font-size:22px; line-height:1;
+    letter-spacing:1.2px; text-transform:uppercase; text-decoration:none;
   }
-  .prod--smack .prod-cta{background:var(--flare); color:#fff;}
-  .prod--locked .prod-cta{background:var(--silver,#C3CAD3); color:#0D0D0D;}
-  .prod--cast .prod-cta{background:#FFB612; color:#0D0D0D;}
+  /* Colour is set once further down - all three buttons are red so the
+     border carries each product's identity. The per-product rules that used
+     to live here included a yellow left over from when Smackcast was blue,
+     which would have overridden it. */
   .prod-cta:hover{filter:brightness(1.1);}
 
   /* Section headings shared by everything below the three. */
@@ -665,6 +677,7 @@
   .prod--smack .prod-cta,
   .prod--locked .prod-cta,
   .prod--cast .prod-cta{background:var(--flare); color:#fff;}
+  .prod-cta:hover{filter:brightness(1.12);}
 
   /* Titles scale forward and back in their own colour, staggered to match
      each card's border so the two movements are in step rather than
@@ -687,9 +700,13 @@
      the same job without anything on the page shifting. */
   /* Flat colour, no glow at all. The movement is what makes them stand out;
      a halo behind moving type just smears. */
-  .prod--smack h2, .prod--cast h2{color:#FF3B4E; text-shadow:none;}
-  .prod--locked h2{color:#EFF3F7; text-shadow:none;}
-  .prod--locked h2 .t2{color:#FF3B4E; text-shadow:none;}
+  /* Two-tone, matching the nav wordmark.
+     
+     The base word is white and the second half is --flare - the SAME red as
+     every border on the site, rather than the brighter #FF3B4E the titles
+     had drifted to. */
+  .prod h2{color:var(--chalk); text-shadow:none;}
+  .prod h2 .t2{color:var(--flare);}
 
   /* All three on one timer with no delay on any of them, so they move as a
      single beat rather than three cards running at their own pace. */
@@ -824,7 +841,7 @@
         </button>
       </div>
 
-      <a href="/send-a-smack" class="prod-cta">SEND ONE &rarr;</a>
+      <a href="/send-a-smack" class="prod-cta">Send one &rarr;</a>
     </div>
 
     <div class="prod prod--locked">
@@ -849,7 +866,7 @@
         </button>
       </div>
 
-      <a href="/locked-n-loaded" class="prod-cta">ARM ONE &rarr;</a>
+      <a href="/locked-n-loaded" class="prod-cta">Arm one &rarr;</a>
     </div>
 
     <div class="prod prod--cast">
@@ -871,7 +888,7 @@
         </button>
       </div>
 
-      <a href="/smackcast" class="prod-cta">GET THE SEASON &rarr;</a>
+      <a href="/smackcast" class="prod-cta">Get the season &rarr;</a>
     </div>
 
   </div>
