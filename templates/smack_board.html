@@ -35,7 +35,11 @@
   .bh{margin-top:40px; margin-bottom:22px; text-align:center;}
   .bh-strip{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:2.4px;
     color:var(--silver-deep); margin:0 0 14px;}
-  .bh h1{font-family:'Anton',sans-serif; font-size:52px; line-height:0.92; margin:0 0 12px;
+  /* 0.92 pulled the two lines almost into each other - Anton has tall caps
+     with very little built-in leading, so a line-height under 1 makes
+     "EVERY GAME." and "EVERY LOSER." touch. 1.06 separates them without
+     opening a gap. */
+  .bh h1{font-family:'Anton',sans-serif; font-size:52px; line-height:1.06; margin:0 0 14px;
     color:var(--chalk); text-transform:uppercase;}
   .bh h1 span{color:var(--flare);}
   .bh p{color:var(--silver); font-size:15px; line-height:1.6; margin:0; max-width:560px; margin-left:auto; margin-right:auto;}
@@ -165,19 +169,36 @@
   /* Smacky's line. Gold when somebody is getting beaten, grey when nothing
      has happened yet - so the eye finds the games worth acting on without
      reading every card. */
+  /* Inter Extrabold, not Anton.
+     
+     Anton is a condensed display face - at 11px the letterforms are narrow
+     enough that DESTROYED and DISMANTLED are hard to tell apart at a glance.
+     Inter is a text face built to be read small, carries the same weight,
+     and is already loaded on every page.
+     
+     Gold stays: the score carries the facts and this is the only line with a
+     voice, so it should read as a remark rather than another row of data. */
   .g-quip{
-    padding:6px 12px; border-top:1px solid rgba(195,202,211,0.07);
-    font-family:'Anton',sans-serif; font-size:11.5px; letter-spacing:1.3px;
-    color:#FFB612; text-transform:uppercase; text-align:center; line-height:1.2;
+    padding:7px 12px; border-top:1px solid rgba(195,202,211,0.07);
+    font-family:'Inter',sans-serif; font-weight:800; font-size:12px;
+    letter-spacing:0.6px; color:#FFB612; text-transform:uppercase;
+    text-align:center; line-height:1.3;
   }
   .g-quip.cool{color:#7A7575;}
 
   /* Solid red, split by a black line, white text - the divider is the card
      background showing through the gap. */
-  .g-act{margin-top:auto; display:flex; gap:2px; background:#0D0D0D;
-    border-top:2px solid #0D0D0D;}
-  .g-act > *{flex:1; border-radius:0 !important; margin:0 !important;}
-  .g-act .btn-smack, .g-act .btn-arm{border-radius:0 !important; margin:0 !important;}
+  /* Padded, not edge to edge.
+     
+     Running the button to the card's edges made it read as a red band at the
+     bottom of a red-bordered card rather than as a button - especially on a
+     final, where there is only one and nothing beside it for contrast. A
+     margin lets the dark background show around it, and rounded corners
+     finish the job. */
+  .g-act{margin-top:auto; display:flex; gap:8px; background:transparent;
+    border-top:1px solid rgba(195,202,211,0.10); padding:10px;}
+  .g-act > *{flex:1; margin:0 !important;}
+  .g-act .btn-smack, .g-act .btn-arm{border-radius:6px !important; margin:0 !important;}
   .g-act .hint{font-family:'JetBrains Mono',monospace; font-size:9px;
     color:#3A3D42; letter-spacing:1px;}
   .btn-smack{background:var(--flare); color:#FFFFFF; font-size:9px; font-weight:800;
@@ -193,7 +214,7 @@
   /* The buttons live inside a nested .actions div, so making THAT fill the
      card is not enough - the buttons inside it have to stretch too. Without
      this they sat at their natural width with dead space beside them. */
-  .g-act .actions{display:flex; gap:2px; width:100%;}
+  .g-act .actions{display:flex; gap:8px; width:100%;}
   .g-act .actions > *{flex:1 1 0; min-width:0;}
   /* Always visible, never on hover. A button somebody has to discover is a
      button most people never press - and on touch there is no hover at all,
@@ -257,7 +278,10 @@
 
   <div class="meta-row">
     <span id="summary">Loading…</span>
-    <span class="fresh" id="fresh"></span>
+    {# The "updated 9:41" stamp is gone. The board refreshes itself every 15
+       seconds, so a timestamp only ever tells somebody what they already
+       assume - and a clock that ticks in the corner invites doubt about
+       whether the rest is current. #}
   </div>
 
   <div class="board" id="board">
@@ -381,7 +405,7 @@ function render(data){
       <p>Nothing on today.</p>
       <p class="sub">No ${esc(data.league)} games scheduled. Try another league.</p>
     </div>`;
-    document.getElementById("summary").textContent = "NO GAMES TODAY";
+    document.getElementById("summary").textContent = "NOTHING SCHEDULED";
     return;
   }
 
@@ -437,11 +461,18 @@ function render(data){
     return head + `<div class="board-grid">${list.map(card).join("")}</div>`;
   }).join("");
 
+  // "TODAY" only when the games ARE today.
+  //
+  // Out of season the board falls back to the next fortnight, and calling
+  // an August 6th fixture "1 GAME TODAY" on August 3rd is just wrong.
   const liveCount = data.live || 0;
+  const isFuture = games.length > 0 && games.every(g => g.future);
   document.getElementById("summary").textContent =
-    liveCount ? `${liveCount} LIVE · ${games.length} TODAY` : `${games.length} GAMES TODAY`;
-  document.getElementById("fresh").textContent =
-    "UPDATED " + new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+    isFuture
+      ? `NEXT UP · ${games.length} GAME${games.length === 1 ? "" : "S"}`
+      : (liveCount
+          ? `${liveCount} LIVE · ${games.length} TODAY`
+          : `${games.length} GAME${games.length === 1 ? "" : "S"} TODAY`);
 }
 
 async function load(lg){

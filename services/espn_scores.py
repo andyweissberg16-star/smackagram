@@ -1901,38 +1901,14 @@ _BOARD_CACHE = {}          # league -> (fetched_at, games)
 BOARD_CACHE_SECONDS = 15
 
 
-def fetch_board(league: str, force: bool = False) -> list:
+def _rows_from_payload(data, lg):
     """
-    Every game for a league today - live, finished and upcoming.
+    Turn one ESPN scoreboard payload into display rows.
 
-    Returns display-ready rows. Anything the endpoint does not give us is
-    absent rather than guessed at, and a failure returns whatever was last
-    cached rather than an empty board.
+    Pulled out of fetch_board so the same parsing serves both today's games
+    and the forward look-ahead when today is empty - two copies of this
+    would drift apart the first time either was touched.
     """
-    import time as _t
-
-    lg = (league or "").lower()
-    cfg = LEAGUE_PATHS.get(lg)
-    if not cfg:
-        return []
-
-    cached = _BOARD_CACHE.get(lg)
-    if cached and not force and (_t.time() - cached[0]) < BOARD_CACHE_SECONDS:
-        return cached[1]
-
-    sport_path, league_path = cfg[0], cfg[1]
-    url = f"{BASE}/{sport_path}/{league_path}/scoreboard"
-
-    try:
-        resp = requests.get(url, timeout=12)
-        if resp.status_code != 200:
-            print(f"[board] {lg} -> HTTP {resp.status_code}", flush=True)
-            return cached[1] if cached else []
-        data = resp.json()
-    except Exception as e:
-        print(f"[board] {lg} fetch failed: {e}", flush=True)
-        return cached[1] if cached else []
-
     games = []
     for e in (data.get("events") or []):
         comps = e.get("competitions") or []
@@ -1995,8 +1971,63 @@ def fetch_board(league: str, force: bool = False) -> list:
 
     # Live first, then upcoming, then finished - what somebody opening the
     # board actually wants to see in that order.
+    return games
+
+
+def fetch_board(league: str, force: bool = False) -> list:
+    """
+    Every game for a league today - live, finished and upcoming.
+
+    Returns display-ready rows. Anything the endpoint does not give us is
+    absent rather than guessed at, and a failure returns whatever was last
+    cached rather than an empty board.
+    """
+    import time as _t
+
+    lg = (league or "").lower()
+    cfg = LEAGUE_PATHS.get(lg)
+    if not cfg:
+        return []
+
+    cached = _BOARD_CACHE.get(lg)
+    if cached and not force and (_t.time() - cached[0]) < BOARD_CACHE_SECONDS:
+        return cached[1]
+
+    sport_path, league_path = cfg[0], cfg[1]
+    url = f"{BASE}/{sport_path}/{league_path}/scoreboard"
+
+    try:
+        resp = requests.get(url, timeout=12)
+        if resp.status_code != 200:
+            print(f"[board] {lg} -> HTTP {resp.status_code}", flush=True)
+            return cached[1] if cached else []
+        data = resp.json()
+    except Exception as e:
+        print(f"[board] {lg} fetch failed: {e}", flush=True)
+        return cached[1] if cached else []
+
+    games = _rows_from_payload(data, lg)
     order = {"in": 0, "pre": 1, "post": 2}
     games.sort(key=lambda g: (order.get(g["state"], 3), g.get("start") or ""))
+
+    # Nothing on today? Look forward a fortnight.
+    #
+    # ESPN's scoreboard defaults to today, and out of season that means an
+    # empty board - or worse, for the NFL it quietly returns next week's
+    # fixtures which then get labelled "today". A league with no game for
+    # three days should show what is coming rather than nothing at all.
+    if not games and fallback_url:
+        try:
+            r2 = requests.get(fallback_url, timeout=12)
+            r2.raise_for_status()
+            games = _rows_from_payload(r2.json(), lg)
+            games.sort(key=lambda g: g.get('start') or '')
+            for g in games:
+                # Flagged so the page can say UPCOMING rather than TODAY.
+                g['future'] = True
+        except Exception as e:
+            print(f'[board] {lg} upcoming lookup failed: {e}', flush=True)
+            games = []
 
     _BOARD_CACHE[lg] = (_t.time(), games)
     return games
