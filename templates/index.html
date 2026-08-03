@@ -459,16 +459,22 @@
      a wrapped title makes the card below it start at a different height
      from its neighbours. Locked & Loaded is the longest, so it takes the
      smaller size rather than wrapping. */
+  /* 44px.
+     
+     "LOCKED & LOADED" is the constraint at fifteen characters and caps out
+     around 51px on a 1240px container, so 44 leaves headroom without any of
+     the three needing to be smaller than the others. */
   .prod h2{
-    font-family:'Anton',sans-serif; font-weight:400; font-size:34px;
+    font-family:'Anton',sans-serif; font-weight:400; font-size:44px;
     text-transform:uppercase; letter-spacing:0.5px; line-height:1;
-    margin:0 0 14px; color:var(--chalk); white-space:nowrap;
+    margin:0 0 17px; color:var(--chalk); white-space:nowrap;
   }
-  .prod--locked h2{font-size:26px;}
-  @media(max-width:1100px){
-    .prod h2{font-size:27px;}
-    .prod--locked h2{font-size:21px;}
-  }
+  /* All three the same size. "LOCKED & LOADED" was dropped to 26px out of
+     caution, but Anton is condensed enough that it fits on one line at 34px
+     with room to spare - and three titles at three sizes looked accidental
+     rather than deliberate. */
+  @media(max-width:1100px){ .prod h2{font-size:27px;} }
+  @media(max-width:980px){ .prod h2{font-size:23px;} }
   /* The price uses the same stamp as everywhere else on the site, so all
      three read as the offer rather than a spec line. */
   /* The price is boxed and the NUMBER is the biggest thing in the card -
@@ -480,16 +486,39 @@
      a <p> - so it was quietly picking up the left alignment and rendering
      hard against the edge of its box. Declared here so a future change to
      the description cannot drag the price with it. */
-  .prod-price{border-radius:8px; padding:11px 8px 12px; margin:0 0 6px;
-    text-align:center;}
+  /* One line, not stacked. Baseline-aligned so the words sit on the same
+     line the number stands on, which is how a price reads naturally. */
+  .prod-price{border-radius:8px; padding:13px 9px; margin:0 0 7px;
+    display:flex; align-items:baseline; justify-content:center;
+    gap:8px; white-space:nowrap;}
   .prod--smack .prod-price{background:rgba(224,27,36,0.12); border:1px solid rgba(224,27,36,0.40);}
   .prod--locked .prod-price{background:rgba(195,202,211,0.10); border:1px solid rgba(195,202,211,0.35);}
   .prod--cast .prod-price{background:rgba(224,27,36,0.12); border:1px solid rgba(224,27,36,0.40);}
-  .prod-stamp{
-    display:block; font-family:'Anton',sans-serif; font-size:14px; line-height:1.15;
+  .prod-word{
+    font-family:'Anton',sans-serif; font-size:16px; line-height:1;
     color:#FFFFFF; text-transform:uppercase; letter-spacing:0.5px;
   }
-  .prod-stamp .big{display:block; font-size:40px; line-height:1; margin:1px 0;}
+  /* The condition IS the offer on Locked & Loaded, so the whole phrase
+     carries the line rather than one word of it. */
+  .prod-word u{
+    text-decoration:underline; text-decoration-thickness:2px;
+    text-underline-offset:4px; text-decoration-color:#FF2233;
+  }
+  /* The number pumps like the titles, offset half a beat so the price peaks
+     as the title dips - the card breathes rather than throbbing all at once. */
+  .prod-price .big{
+    font-family:'Anton',sans-serif; font-size:44px; line-height:1;
+    display:inline-block; transform-origin:center;
+    animation:prod-pump 3.4s ease-in-out infinite;
+  }
+  .prod--smack .big{animation-delay:0.55s;}
+  .prod--locked .big{animation-delay:1.65s;}
+  .prod--cast .big{animation-delay:2.75s;}
+  @keyframes prod-pump{
+    0%,100%{transform:scale(1);   text-shadow:0 0 26px rgba(255,34,51,0.80);}
+    50%    {transform:scale(0.90); text-shadow:0 0 5px rgba(255,34,51,0.20);}
+  }
+  @media (prefers-reduced-motion:reduce){ .prod-price .big{animation:none;} }
   /* Every amount red - the number is the argument on all three. */
   .prod--smack .big, .prod--locked .big, .prod--cast .big{color:#FF2233;}
   .prod-ctx{
@@ -654,12 +683,18 @@
      and down with it, and a price that will not hold still is worse than a
      title that does not move at all. */
   .prod h2{transform-origin:center;}
-  .prod--smack h2{color:#FF2233; animation:prod-title-red 3.4s ease-in-out infinite;}
+  /* Two-tone titles: the base word carries the site's chalk, the second half
+     carries the red. The glow follows the base colour, so the red half sits
+     brighter against it rather than competing. */
+  .prod h2 .t2{color:#FF2233;}
+  .prod--locked h2 .t2{color:#FF2233;}
+
+  .prod--smack h2{color:var(--chalk); animation:prod-title-white 3.4s ease-in-out infinite;}
   .prod--locked h2{color:var(--silver,#C3CAD3); animation:prod-title-silver 3.4s ease-in-out infinite; animation-delay:1.1s;}
-  .prod--cast h2{color:#FF2233; animation:prod-title-red 3.4s ease-in-out infinite; animation-delay:2.2s;}
-  @keyframes prod-title-red{
-    0%,100%{transform:scale(1);    text-shadow:0 0 26px rgba(255,34,51,0.75);}
-    50%    {transform:scale(0.93); text-shadow:0 0 6px rgba(255,34,51,0.20);}
+  .prod--cast h2{color:var(--chalk); animation:prod-title-white 3.4s ease-in-out infinite; animation-delay:2.2s;}
+  @keyframes prod-title-white{
+    0%,100%{transform:scale(1);    text-shadow:0 0 26px rgba(245,245,243,0.55);}
+    50%    {transform:scale(0.93); text-shadow:0 0 6px rgba(245,245,243,0.15);}
   }
   @keyframes prod-title-silver{
     0%,100%{transform:scale(1);    text-shadow:0 0 26px rgba(195,202,211,0.65);}
@@ -737,12 +772,12 @@
      was shown a game-search box with no idea why.
      Three cards, three prices, three explanations. The generators are one
      click away and load faster on their own pages. -->
-<div style="max-width:1100px; margin:0 auto; padding:0 24px;">
+<div style="max-width:1240px; margin:0 auto; padding:0 24px;">
   <div class="prod-three">
 
     <div class="prod prod--smack">
-      <h2>Smackagrams</h2>
-      <p class="prod-price"><span class="prod-stamp">Less than<span class="big">$1</span>a call!</span></p>
+      <h2>Smack<span class="t2">agram</span></h2>
+      <p class="prod-price"><span class="prod-word">Less than</span><span class="big">$1</span><span class="prod-word">a call!</span></p>
       <span class="prod-ctx">CHEAPER THAN THE COFFEE YOU&rsquo;RE HOLDING</span>
 
       {# The samples sit ABOVE the copy on purpose. The product is a sound and
@@ -770,8 +805,8 @@
     </div>
 
     <div class="prod prod--locked">
-      <h2>Locked &amp; Loaded</h2>
-      <p class="prod-price"><span class="prod-stamp">Only<span class="big">$2</span>if they lose!</span></p>
+      <h2>Locked <span class="t2">&amp;</span> Loaded</h2>
+      <p class="prod-price"><span class="prod-word">Less than</span><span class="big">$1</span><span class="prod-word"><u>only if they lose!</u></span></p>
       <span class="prod-ctx">THEY WIN, YOU PAY NOTHING</span>
 
       <p><strong>Set it on the Cowboys tonight.</strong> The second they lose,
@@ -795,8 +830,8 @@
     </div>
 
     <div class="prod prod--cast">
-      <h2>Smackcast</h2>
-      <p class="prod-price"><span class="prod-stamp">Just<span class="big">$39.99</span>a season!</span></p>
+      <h2>Smack<span class="t2">cast</span></h2>
+      <p class="prod-price"><span class="prod-word">Just</span><span class="big">$39.99</span><span class="prod-word">a season!</span></p>
       {# The only line on the page that turns 39.99 from a real price into a
          trivial one, and it is true. #}
       <span class="prod-ctx">SPLIT TWELVE WAYS THAT&rsquo;S $3 EACH</span>
