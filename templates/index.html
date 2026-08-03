@@ -509,17 +509,10 @@
   .prod-price .big{
     font-family:'Anton',sans-serif; font-size:44px; line-height:1;
     display:inline-block; transform-origin:center;
-    animation:prod-pump 3.4s ease-in-out infinite;
-    animation-delay:1.7s;
+    /* Still. The number is already the largest thing in the card and the
+       only red in a box of grey text - it does not need movement to be
+       found. */
   }
-  /* All three prices together too, and half a beat behind the titles so the
-     price peaks as the title dips. One rhythm, two parts - not six things
-     moving independently. */
-  @keyframes prod-pump{
-    0%,100%{transform:scale(1);}
-    50%    {transform:scale(0.90);}
-  }
-  @media (prefers-reduced-motion:reduce){ .prod-price .big{animation:none;} }
   /* Every amount red - the number is the argument on all three. */
   .prod--smack .big, .prod--locked .big, .prod--cast .big{color:#FF2233;}
   .prod-ctx{
@@ -690,27 +683,32 @@
   /* Two-tone titles: the base word carries the site's chalk, the second half
      carries the red. The glow follows the base colour, so the red half sits
      brighter against it rather than competing. */
-  .prod h2 .t2{color:#FF2233;}
-  .prod--locked h2 .t2{color:#FF2233;}
-
-  /* All three in step - no delay on any of them.
+  /* Neon, not flashing.
      
-     Staggering them meant three titles moving at what looked like three
-     different speeds, which read as chaos rather than rhythm. One movement
-     across all three is a heartbeat. */
-  .prod--smack h2{color:var(--chalk);}
-  .prod--locked h2{color:var(--silver,#C3CAD3);}
-  .prod--cast h2{color:var(--chalk);}
-  .prod h2{animation:prod-title-move 3.4s ease-in-out infinite;}
-  /* No text-shadow at all. The white halo behind the letters muddied them
-     and fought the two-tone colouring - the words just come forward and
-     back. */
-  @keyframes prod-title-move{
-    0%,100%{transform:scale(1);}
-    50%    {transform:scale(0.93);}
+     A tight inner halo plus a wide soft one is what makes type read as LIT
+     rather than as type with a shadow behind it - a single large blur just
+     looks blurry.
+     
+     Static: the movement was doing the standing-out, and a steady neon does
+     the same job without anything on the page shifting. */
+  .prod--smack h2, .prod--cast h2{
+    color:#FF3B4E;
+    text-shadow:0 0 7px rgba(255,59,78,0.95),
+                0 0 22px rgba(255,34,51,0.75),
+                0 0 46px rgba(224,27,36,0.45);
   }
-  @media (prefers-reduced-motion:reduce){
-    .prod--smack h2, .prod--locked h2, .prod--cast h2{animation:none;}
+  .prod--locked h2{
+    color:#EFF3F7;
+    text-shadow:0 0 7px rgba(239,243,247,0.95),
+                0 0 22px rgba(195,202,211,0.75),
+                0 0 46px rgba(160,172,186,0.45);
+  }
+  /* The ampersand stays red on the silver title, so it still matches the
+     nav wordmark. */
+  .prod--locked h2 .t2{
+    color:#FF3B4E;
+    text-shadow:0 0 7px rgba(255,59,78,0.95),
+                0 0 22px rgba(255,34,51,0.70);
   }
 
   /* A divider above the samples so they read as their own block rather than
@@ -725,9 +723,16 @@
      than as another product colour. */
   .prod{position:relative; overflow:hidden;}
   .prod-badge{
-    position:absolute; top:18px; right:-42px; width:170px;
+    position:absolute; top:20px; right:-46px; width:184px;
     transform:rotate(45deg);
-    background:#FFB612; color:#0D0D0D; text-align:center; padding:6px 0;
+    /* padding-left nudges the centred text along the band.
+       
+       The band runs corner to corner and both ends are clipped by the card,
+       so its geometric centre is NOT the centre of the visible strip -
+       centred text lands left of where it looks like it should, which put
+       "MOST" hard against the card edge. */
+    background:#FFB612; color:#0D0D0D; text-align:center;
+    padding:6px 0 6px 26px;
     font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:1.5px;
     font-weight:700; box-shadow:0 2px 10px rgba(0,0,0,0.5);
     pointer-events:none; z-index:2;

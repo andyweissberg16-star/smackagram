@@ -790,7 +790,14 @@ body.smk-plain::after{display:none;}
   font-size:62px;
   letter-spacing:1px;
   padding:8px 22px;
-  transform:rotate(-5deg);
+  /* Still, and straight.
+     
+     At 62px the pulse was the largest moving thing on the page and it sat
+     directly above three cards that are themselves animated - something had
+     to stop moving, and the biggest element is the one that reads as
+     restless rather than alive. */
+  animation:none;
+  transform:none;
   /* Thicker outline to match the larger type - a 3px edge that reads right
      at 26px looks like a hairline at 62px. */
   text-shadow:
