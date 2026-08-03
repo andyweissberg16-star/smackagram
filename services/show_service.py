@@ -33,6 +33,11 @@ def _now_eastern():
 
 # Only leagues whose GamesByDate shape is known good. Expandable, but each
 # addition needs its score fields checked - they differ per sport.
+# Roughly 90 seconds spoken. Enough for a real presence rather than a
+# mention. Any league that played gets at least this, whatever its slate.
+LEAGUE_FLOOR_WORDS = 225
+
+
 LEAGUES = {
     "mlb":  {"label": "MLB",  "unit": "runs",   "period": "Inning"},
     "wnba": {"label": "WNBA", "unit": "points", "period": "Quarter"},
@@ -416,7 +421,23 @@ def write_script(material: dict, only_league: str = None,
     total_games = max(1, len(material["games"]))
     if only_league:
         mine = sum(1 for g in material["games"] if g["league"] == only_league)
-        league_budget = max(60, int(plan["word_budget"] * mine / total_games))
+        share = int(plan["word_budget"] * mine / total_games)
+        # A FLOOR, not pure proportion.
+        #
+        # Nobody listens to this for results - they listen for Smacky. In that
+        # frame 45 seconds is not a fair share, it is too little to be worth
+        # showing up for if the WNBA is why you came.
+        #
+        # The asymmetry is the argument: MLB losing twenty seconds off a
+        # three-minute block is unnoticeable, while a small league going from
+        # 45 seconds to 90 doubles the reason to listen. Same words, very
+        # different effect.
+        #
+        # And baseball's slate will always crush everything else - fifteen
+        # games a night against four - so pure proportion permanently
+        # relegates every other league. Come October football does the same
+        # thing in reverse.
+        league_budget = max(LEAGUE_FLOOR_WORDS, share)
     else:
         league_budget = plan["word_budget"]
 
@@ -1400,8 +1421,25 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
 
         leagues_played = {(g.get("league") or "").upper()
                           for g in material.get("games", []) if g.get("league")}
+        # The TAG first, and the prose only as a fallback.
+        #
+        # This warned that the WNBA was missing from an episode it was
+        # actually in - three segments, correctly tagged, present in the
+        # audio. Coverage was being decided purely by hunting for nicknames
+        # in the prose, and that fails in two ways at once: nicknames under
+        # four characters are deliberately dropped (Sky and Sun both are), and
+        # a segment can legitimately talk about a game without naming either
+        # club.
+        #
+        # The segments already carry a league tag - the same one the break
+        # placement uses successfully. It is authoritative. Prose matching is
+        # only needed for segments that arrive untagged.
         covered = set()
         for seg in segments:
+            tag = (seg.get("league") or "").strip().upper()
+            if tag and tag not in ("BREAK",):
+                covered.add(tag)
+                continue
             body = (seg.get("text") or "").lower()
             for lg in leagues_played:
                 names = _teams_for(lg)
