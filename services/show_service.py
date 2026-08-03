@@ -37,6 +37,15 @@ def _now_eastern():
 # mention. Any league that played gets at least this, whatever its slate.
 LEAGUE_FLOOR_WORDS = 225
 
+# Words in a comfortable segment. Long enough to land a joke, short enough
+# that the next one arrives before attention drifts.
+WORDS_PER_SEGMENT = 75
+
+
+def _target_segments(budget):
+    """How many segments a budget should become. At least two, at most six."""
+    return max(2, min(6, round(budget / WORDS_PER_SEGMENT)))
+
 
 LEAGUES = {
     "mlb":  {"label": "MLB",  "unit": "runs",   "period": "Inning"},
@@ -755,6 +764,14 @@ def write_script(material: dict, only_league: str = None,
         # Naming what to do INSTEAD, rather than only what not to do.
         # "Vary the joke shape" is abstract and has been ignored three times;
         # a list of concrete shapes gives the model somewhere to go.
+        # An episode covered the same game twice, in different words, either
+        # side of a hand-off. Saying it plainly, because the writer does not
+        # otherwise know it is a risk.
+        "  ONE GAME, ONE SEGMENT. Do not come back to a game you have already "
+        "covered. An episode described the same shutout twice in different "
+        "words and it sounded like a mistake, because it was one. If a game "
+        "deserves more, give it more THE FIRST TIME.\n\n"
+
         "  REACH FOR THESE INSTEAD - eight shapes, all of which land as hard "
         "and none of which is that one:\n"
         "    1. Comparison to something mundane: \"I've seen folding chairs "
@@ -862,6 +879,19 @@ def write_script(material: dict, only_league: str = None,
 
         f"TOTAL LENGTH: about {league_budget} words. This is a timed "
         "segment, so that's a target, not a suggestion.\n\n"
+
+        # A SEGMENT count as well as a word count.
+        #
+        # Budget alone is not enough: given 225 words the writer produced ONE
+        # segment of 225 rather than three of 75, and one long block covering
+        # four games is markedly less listenable than three tight ones at the
+        # same duration. The floor raised the time and the structure got
+        # worse.
+        f"HOW MANY SEGMENTS: aim for about {_target_segments(league_budget)}. "
+        "Spread the budget across them rather than writing one long block - "
+        "a single segment covering four games is a lecture, and several short "
+        "ones are a show. Short segments may cover more than one quick game; "
+        "that is the intended way to fit them.\n\n"
 
         "THE OPENING - three beats, in this order, before a single result.\n\n"
 
@@ -1221,7 +1251,26 @@ def write_script_per_league(material: dict, log=None) -> dict:
     #
     # Only break_out is allowed to mention another league. Everything else
     # gets the hand-off cut out of it.
-    _strip_cross_league(by_lg, present)
+    _strip_cross_league(by_lg, present, material.get("games"))
+
+    # Did each league actually spread its budget?
+    #
+    # The segment target is a PROMPT instruction, and prompt instructions have
+    # been ignored three times on this project - so this logs the miss rather
+    # than assuming it held. Not corrected in code: splitting prose on
+    # sentence boundaries would produce two halves of a joke, which is worse
+    # than one long segment.
+    #
+    # If this warns repeatedly the answer is a second writing pass for that
+    # league, not a mechanical split.
+    for _lg in present:
+        _segs = (by_lg.get(_lg) or {}).get("segments") or []
+        _words = sum(len((x.get("text") or "").split()) for x in _segs)
+        _want = _target_segments(_words) if _words else 0
+        if _segs and len(_segs) < _want - 1:
+            log(f"WARNING: {_lg} wrote {len(_segs)} segment(s) for {_words} "
+                f"words - asked for about {_want}. One long block reads as a "
+                f"lecture.")
     frame = by_lg.get(present[0]) or {}
 
     segments = []
@@ -1555,6 +1604,7 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
             flags=re.IGNORECASE)) for x in segments)
         if _tnt:
             log(f"\"that's not a...\" construction used {_tnt} time(s)")
+        _flag_repeats(segments, log)
         if _tnt > TNT_MAX_PER_EPISODE:
             _capped = _cap_construction(segments, TNT_MAX_PER_EPISODE)
             log(f"capped it to {TNT_MAX_PER_EPISODE} - rewrote {_capped}")
@@ -2357,6 +2407,49 @@ def enforce_length(segments, plan, log=None):
 TNT_MAX_PER_EPISODE = 1
 
 
+def _flag_repeats(segments, log):
+    """
+    Find segments that say the same thing twice.
+
+    An episode repeated a baseball line after the WNBA hand-off. Nothing in
+    assembly duplicated it - the segment counts add up exactly - so the writer
+    said it twice, which is the failure mode a phrase bank makes MORE likely,
+    not less.
+
+    Compared on CONTENT WORDS rather than whole strings. A model repeating
+    itself rarely repeats verbatim; it rewords the same observation about the
+    same game, and an exact-match check would miss every real case.
+
+    Flagged, not deleted. Cutting the second occurrence can remove the better
+    version, and can leave the segment before it pointing at something that no
+    longer follows.
+    """
+    import re as _re
+
+    STOP = {"the","a","an","and","but","that","this","it","was","were","is",
+            "are","to","of","in","on","for","with","they","them","their",
+            "you","your","he","his","just","not","got","had","have","been",
+            "one","two","all","out","up","off","at","by","from","so","as"}
+
+    def bag(text):
+        words = _re.findall(r"[a-z']{3,}", (text or "").lower())
+        return {w for w in words if w not in STOP}
+
+    bags = [(i, bag(s.get("text"))) for i, s in enumerate(segments)]
+    for a_i, a_b in bags:
+        if len(a_b) < 8:
+            continue
+        for b_i, b_b in bags:
+            if b_i <= a_i or len(b_b) < 8:
+                continue
+            shared = a_b & b_b
+            overlap = len(shared) / min(len(a_b), len(b_b))
+            if overlap >= 0.55:
+                log(f"WARNING: segments {a_i} and {b_i} are {overlap:.0%} the "
+                    f"same - the writer repeated itself. Shared: "
+                    f"{', '.join(sorted(shared)[:8])}")
+
+
 def _cap_construction(segments, keep=1):
     """
     Rewrite the surplus "that's not a X, that's a Y" lines.
@@ -2408,7 +2501,7 @@ def _cap_construction(segments, keep=1):
     return rewritten
 
 
-def _strip_cross_league(by_lg, present):
+def _strip_cross_league(by_lg, present, _material_games=None):
     """
     Remove any sentence in which one league's writer announces another's.
 
@@ -2423,6 +2516,25 @@ def _strip_cross_league(by_lg, present):
     others = {lg.upper() for lg in present}
     if len(others) < 2:
         return
+
+    # TEAM NAMES TOO, not just league names.
+    #
+    # The first version only looked for "WNBA" and "MLB", so a tease naming
+    # the CLUBS walked straight through - "now over to the Fever and the
+    # Aces" contains no league name at all. That is how a WNBA hand-off
+    # survived into an episode after this function was supposedly stopping
+    # them.
+    by_team = {}
+    for lg in present:
+        names = set()
+        for g in (_material_games or []):
+            if (g.get("league") or "").upper() != lg.upper():
+                continue
+            for key in ("home_nick", "away_nick"):
+                nm = (g.get(key) or "").strip().lower()
+                if len(nm) >= 4:           # short ones hit ordinary words
+                    names.add(nm)
+        by_team[lg.upper()] = names
 
     # "now to the WNBA", "coming up, the NBA", "let's get to some hockey"
     TEASE = _re.compile(
@@ -2442,8 +2554,17 @@ def _strip_cross_league(by_lg, present):
 
             kept = []
             for sentence in _re.split(r"(?<=[.!?])\s+", text):
-                names = {w.upper() for w in _re.findall(r"\b[A-Za-z]{3,5}\b", sentence)}
-                mentions_other = bool((names & others) - {lg.upper()})
+                low = sentence.lower()
+                toks = {w.upper() for w in _re.findall(r"\b[A-Za-z]{3,5}\b", sentence)}
+                mentions_other = bool((toks & others) - {lg.upper()})
+                if not mentions_other:
+                    for other_lg, team_names in by_team.items():
+                        if other_lg == lg.upper():
+                            continue
+                        if any(_re.search(r"\b" + _re.escape(t) + r"\b", low)
+                               for t in team_names):
+                            mentions_other = True
+                            break
                 if mentions_other and TEASE.search(sentence):
                     print(f"[show] stripped cross-league tease from {lg}: "
                           f"{sentence[:70]!r}", flush=True)
