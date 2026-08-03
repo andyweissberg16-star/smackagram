@@ -706,7 +706,9 @@ body.smk-plain::after{display:none;}
   letter-spacing:0.5px;
   color:#FF2233;
   padding:4px 14px;
-  transform:rotate(-6deg);
+  /* Straight, not tilted. A rocking gentle pulse is enough motion - a
+     permanently skewed block of type fights every straight line around it. */
+  transform:none;
   animation:smk-price-pulse 2.4s ease-in-out infinite;
   /* Outline drawn with shadows rather than -webkit-text-stroke, which thins
      the letterforms from the inside and makes Anton look frail. */
@@ -728,8 +730,8 @@ body.smk-plain::after{display:none;}
 /* Dips to 55% rather than blinking out - a price that vanishes is unreadable
    half the time, which on a page somebody is reading is just irritating. */
 @keyframes smk-price-pulse{
-  0%,100%{opacity:1;    transform:rotate(-6deg)   scale(1);}
-  50%    {opacity:0.55; transform:rotate(-4.5deg) scale(0.97);}
+  0%,100%{opacity:1;    transform:scale(1);}
+  50%    {opacity:0.62; transform:scale(0.975);}
 }
 
 @media (prefers-reduced-motion:reduce){

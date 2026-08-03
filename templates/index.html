@@ -438,20 +438,48 @@
   }
   @media(prefers-reduced-motion:reduce){ .ds-sign{animation:none;} }
 
-  /* Ticker items are links. The whole item is the target rather than a small
-     button inside it - chasing a moving button is miserable, and close to
-     impossible on a phone. */
-  .ticker-track a{color:inherit; text-decoration:none; display:inline-flex;
-    align-items:center; gap:9px; padding:2px 0; margin-right:16px;}
-  .ticker-track a:hover{text-decoration:underline;}
-  .tk-live{font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.2px;
-    background:rgba(13,13,13,0.35); padding:2px 6px; border-radius:3px;}
-  .tk-score{font-family:'Anton',sans-serif; font-size:15px;}
-  .tk-tag{font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.2px;
-    color:rgba(255,255,255,0.72);}
-  .tk-go{font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.4px;
-    border:1px solid rgba(255,255,255,0.55); padding:2px 7px; border-radius:3px;}
-  /* Held still while somebody reads it, so a link can be clicked without
+  /* Each game is a black card on the red bar.
+     
+     Everything used to run together as one stream of white text on red, so
+     there was no telling where one game ended and the next began. A card
+     makes each game one object, and it reads as clickable - which it is. */
+  .ticker-track a{
+    display:inline-flex; align-items:center; gap:9px;
+    background:#0D0D0D; color:#fff; text-decoration:none;
+    padding:7px 15px; border-radius:5px; margin:0 8px;
+    font-size:12.5px; vertical-align:middle;
+  }
+  .ticker-track a:hover{background:#151518;}
+
+  .tk-live{
+    font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:1.1px;
+    color:var(--silver,#C3CAD3); display:inline-flex; align-items:center; gap:5px;
+  }
+  /* Only games actually in progress get a dot. Everything else takes grey
+     status text, so "live" means something rather than every game pulsing. */
+  .tk-dot{
+    width:7px; height:7px; border-radius:50%; background:#FF1B2D; flex:0 0 7px;
+    box-shadow:0 0 7px rgba(255,27,45,0.9);
+    animation:tk-blink 1.4s ease-in-out infinite;
+  }
+  @keyframes tk-blink{
+    0%,100%{opacity:1; transform:scale(1);}
+    50%{opacity:0.3; transform:scale(0.75);}
+  }
+  @media (prefers-reduced-motion:reduce){ .tk-dot{animation:none;} }
+
+  .tk-teams{color:var(--chalk,#F5F5F3);}
+  .tk-at{color:#7A7575;}
+  .tk-score{font-family:'Anton',sans-serif; font-size:15px; color:#FF2233;}
+  .tk-tag{font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:1.1px;
+    color:var(--chalk-dim,#9A9A96);}
+  .tk-go{
+    font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:1.3px;
+    border:1px solid #FF2233; color:#FF2233; padding:3px 8px; border-radius:3px;
+  }
+  .tk-done{color:#5A5E64;}
+
+  /* Held still while somebody reads it, so a card can be clicked without
      waiting for it to come round again. */
   .ticker-bar:hover .ticker-track{animation-play-state:paused;}
 
@@ -460,18 +488,25 @@
      Each frame is the real page at ?embed=1, so it arrives already carrying
      that generator's own styling - red for Smackagram, silver for Locked &
      Loaded. Nothing here restyles the contents; this only frames them. */
+  /* The frame comes from HERE, not from the embedded page.
+     
+     ?embed=1 deliberately strips each generator's own border so it does not
+     double up inside a container - which left the homepage embeds with no
+     frame at all. These match what each page paints on itself when visited
+     directly: red for Smackagram, silver for Locked & Loaded, 2px both. */
   .home-gen{
     background:var(--ink-2);
     border-radius:8px;
     overflow:hidden;
   }
-  .home-gen-title{
-    font-family:'Anton',sans-serif; font-size:26px; letter-spacing:0.5px;
-    text-transform:uppercase; text-align:center; line-height:1.05;
-    margin:0; padding:22px 20px 6px;
+  .home-gen--smack{
+    border:2px solid var(--flare,#E01B24);
+    box-shadow:0 0 30px rgba(232,20,44,0.30);
   }
-  .home-gen-title--smack{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.45);}
-  .home-gen-title--locked{color:var(--silver,#C3CAD3); text-shadow:0 0 24px rgba(190,200,212,0.4);}
+  .home-gen--locked{
+    border:2px solid var(--silver,#C3CAD3);
+    box-shadow:0 0 26px rgba(190,200,212,0.25);
+  }
 
   /* An iframe has no intrinsic height, and this content grows and shrinks as
      steps open and close - so the frame reports its height and the listener
@@ -589,15 +624,13 @@
          each generator page uses. Embedding them means there is exactly one
          implementation of each flow: fix a bug once and it is fixed on the
          homepage too, which a rebuilt copy could never promise. -->
-    <div class="home-gen">
-      <p class="home-gen-title home-gen-title--smack">Send a Smackagram</p>
+    <div class="home-gen home-gen--smack">
       <iframe class="home-gen-frame" id="homeSmackFrame"
               src="/send-a-smack?embed=1" title="Send a Smackagram"
               loading="lazy" scrolling="no"></iframe>
     </div>
 
-    <div class="home-gen">
-      <p class="home-gen-title home-gen-title--locked">Locked &amp; Loaded</p>
+    <div class="home-gen home-gen--locked">
       <iframe class="home-gen-frame" id="homeLockedFrame"
               src="/locked-n-loaded?embed=1" title="Locked and Loaded"
               loading="lazy" scrolling="no"></iframe>
@@ -671,21 +704,28 @@ document.addEventListener('DOMContentLoaded', () => {
       ? '/locked-n-loaded?team=' + encodeURIComponent(g.target)
       : '/send-a-smack?team=' + encodeURIComponent(g.target);
 
-    var status = g.live ? '\u25CF ' + esc(g.status)
-                        : (g.final ? 'FINAL' : esc(g.status));
-    var score  = (g.away_score == null || g.home_score == null)
-      ? '' : '<span class="tk-score">' + g.away_score + '\u2013' + g.home_score + '</span>';
+    // Only a game in progress gets the blinking dot. A finished or upcoming
+    // one takes plain grey status text, so the dot actually means something.
+    var status = g.live
+      ? '<span class="tk-live"><span class="tk-dot"></span>' + esc(g.status) + '</span>'
+      : '<span class="tk-live tk-done">' + (g.final ? 'FINAL' : esc(g.status)) + '</span>';
+
+    var score = (g.away_score == null || g.home_score == null)
+      ? ''
+      : '<span class="tk-score">' + g.away_score + '\u2013' + g.home_score + '</span>';
+
     var action = g.upcoming
       ? 'ARM IT'
       : 'SMACK A ' + esc(String(g.target || '').toUpperCase()) + ' FAN';
 
     return '<a href="' + href + '">'
-      + '<span class="tk-live">' + status + '</span>'
-      + '<span>' + esc(g.away) + ' at ' + esc(g.home) + '</span>'
+      + status
+      + '<span class="tk-teams">' + esc(g.away)
+      +   ' <span class="tk-at">at</span> ' + esc(g.home) + '</span>'
       + score
       + '<span class="tk-tag">' + esc(g.tag) + '</span>'
       + '<span class="tk-go">' + action + '</span>'
-      + '</a><span class="ticker-bolt">\u26A1</span>';
+      + '</a>';
   }
 
   fetch('/api/ticker').then(function(r){ return r.json(); }).then(function(d){
