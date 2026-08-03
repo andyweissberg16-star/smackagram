@@ -999,6 +999,31 @@ class CallTiming(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class PageStat(db.Model):
+    """
+    Traffic, counted rather than logged.
+
+    ONE ROW PER PATH PER DAY, incremented - not one row per request. A busy
+    day would otherwise write tens of thousands of rows onto a Postgres
+    instance that is also serving the site, to answer a question ("how many
+    people came") that a counter answers just as well.
+
+    No IP address, no user agent, no fingerprint. Visitors are counted by a
+    rotating daily hash so returning visitors are not tracked across days,
+    which keeps this a traffic counter rather than a surveillance record.
+    """
+    __tablename__ = "page_stats"
+
+    id = db.Column(db.Integer, primary_key=True)
+    day = db.Column(db.Date, index=True)
+    path = db.Column(db.String(120), index=True)
+    views = db.Column(db.Integer, default=0)
+    visitors = db.Column(db.Integer, default=0)     # distinct, that day only
+    logged_in = db.Column(db.Integer, default=0)    # of those views
+
+    __table_args__ = (db.UniqueConstraint("day", "path", name="uq_day_path"),)
+
+
 class OptOut(db.Model):
     """
     Numbers that must never be called again.

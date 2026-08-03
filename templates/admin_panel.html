@@ -106,6 +106,7 @@
 
   <div class="tabs">
     <button class="tab on" data-view="dash">Dashboard</button>
+    <button class="tab" data-view="traffic">Traffic</button>
     <button class="tab" data-view="customers">Customers</button>
     <button class="tab" data-view="settings">Settings</button>
   </div>
@@ -125,6 +126,26 @@
   </div>
 
   <!-- ---------- CUSTOMERS ---------- -->
+  <div id="view-traffic" class="hide">
+    <h2>Traffic</h2>
+    <div class="cards" id="trafCards"><p class="empty">Loading&hellip;</p></div>
+
+    {# The funnel, not just the totals.
+       Revenue alone cannot tell you whether a quiet day was fewer visitors
+       or worse conversion, and those need opposite responses - one is a
+       marketing problem, the other is a product problem. #}
+    <h2>Where people stop</h2>
+    <div class="cards" id="funnelCards"></div>
+
+    <h2>Pages</h2>
+    <div class="table-wrap"><table id="pagesTable"></table></div>
+
+    <h2>By day</h2>
+    <div class="table-wrap"><table id="daysTable"></table></div>
+
+    <p class="empty" id="trafNote" style="margin-top:14px;"></p>
+  </div>
+
   <div id="view-customers" class="hide">
     <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap;">
       <input id="q" type="text" placeholder="Name, email, phone or customer number" style="flex:1; min-width:240px;">
@@ -223,7 +244,7 @@
   }
 
   // ---- tabs ----
-  var views = {dash:'view-dash', customers:'view-customers', settings:'view-settings'};
+  var views = {dash:'view-dash', customers:'view-customers', settings:'view-settings', traffic:'view-traffic'};
   document.querySelectorAll('.tab').forEach(function (t) {
     t.addEventListener('click', function () {
       document.querySelectorAll('.tab').forEach(function (x) { x.classList.remove('on'); });
@@ -495,6 +516,76 @@
       .finally(function () { btn.disabled = false; });
   }
 })();
+
+  // ---- traffic ----
+  //
+  // Loaded on first view rather than on page load: most visits to this page
+  // are to check revenue, and a query nobody asked for is a query worth not
+  // running.
+  var trafficLoaded = false;
+
+  function card(label, value, sub) {
+    return '<div class="card"><p class="lab">' + label + '</p>'
+         + '<p class="val">' + value + '</p>'
+         + (sub ? '<p class="sub">' + sub + '</p>' : '') + '</div>';
+  }
+
+  function loadTraffic() {
+    if (trafficLoaded) return;
+    trafficLoaded = true;
+
+    fetch('/api/admin/analytics?days=7')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var t = d.totals || {};
+        document.getElementById('trafCards').innerHTML =
+            card('Visitors', (t.visitors || 0).toLocaleString(), 'last 7 days')
+          + card('Page views', (t.views || 0).toLocaleString(), 'last 7 days')
+          + card('Views per visitor',
+                 t.visitors ? (t.views / t.visitors).toFixed(1) : '0', '');
+
+        var f = d.funnel || {};
+        // Each step as a share of the one BEFORE it. Totals hide where the
+        // drop actually is.
+        document.getElementById('funnelCards').innerHTML =
+            card('Landed on home', f.home_visitors || 0, '')
+          + card('Opened a generator', f.reached_a_generator || 0,
+                 f.home_to_generator_pct != null
+                   ? f.home_to_generator_pct + '% of home' : '')
+          + card('Signed up', f.signed_up || 0, '')
+          + card('Ordered', f.ordered || 0,
+                 f.generator_to_order_pct != null
+                   ? f.generator_to_order_pct + '% of generator opens' : '');
+
+        var rows = ['<tr><th>Page</th><th>Visitors</th><th>Views</th>'
+                  + '<th>Logged in</th></tr>'];
+        (d.pages || []).forEach(function (p) {
+          rows.push('<tr><td>' + p.name + '</td><td>' + p.visitors + '</td><td>'
+                  + p.views + '</td><td>' + p.logged_in + '</td></tr>');
+        });
+        document.getElementById('pagesTable').innerHTML =
+          (d.pages || []).length ? rows.join('')
+            : '<tr><td>Nothing recorded yet - counting starts from this deploy.</td></tr>';
+
+        var drows = ['<tr><th>Day</th><th>Visitors</th><th>Views</th></tr>'];
+        (d.daily || []).forEach(function (x) {
+          drows.push('<tr><td>' + x.day + '</td><td>' + x.visitors + '</td><td>'
+                   + x.views + '</td></tr>');
+        });
+        document.getElementById('daysTable').innerHTML =
+          (d.daily || []).length ? drows.join('') : '';
+
+        document.getElementById('trafNote').textContent = d.note || '';
+      })
+      .catch(function () {
+        document.getElementById('trafCards').innerHTML =
+          '<p class="empty">Could not load traffic.</p>';
+      });
+  }
+
+  document.querySelectorAll('.tab').forEach(function (t) {
+    if (t.dataset.view === 'traffic') t.addEventListener('click', loadTraffic);
+  });
 </script>
 
 </body>

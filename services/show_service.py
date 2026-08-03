@@ -556,6 +556,12 @@ def write_script(material: dict, only_league: str = None,
             _mine = [g for g in material["games"]
                      if (g.get("league") or "").upper() == _lg]
             layout_block = mod.prompt_block(_mine, streaks=_streak_rows)
+            # Record what the layout actually allocated, so the length check
+            # measures against the briefs the writer was given rather than the
+            # planner's independent estimate.
+            _lay = mod.build(_mine, log=lambda m: None, streaks=_streak_rows)
+            material.setdefault("_layout_budgets", {})[_lg] = sum(
+                x["words"] for x in _lay["slots"])
         except Exception as e:
             print(f"[show] {_lg} layout unavailable, writer decides: {e}",
                   flush=True)
@@ -1797,7 +1803,12 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
     except Exception:
         pass
 
-    segments = enforce_length(segments, plan, log)
+    # Hand the length check the layouts' own total, so it measures against
+    # what the writers were told rather than the planner's separate estimate.
+    _lb = sum((material.get("_layout_budgets") or {}).values())
+    if _lb:
+        plan = {**plan, "layout_budget": _lb}
+        segments = enforce_length(segments, plan, log)
 
     segments = maybe_interruption(segments)
 
@@ -2558,6 +2569,20 @@ def enforce_length(segments, plan, log=None):
     # So this only fires on genuine runaway: sixty percent over budget is
     # far outside normal variation and means something has actually gone
     # wrong. Below that the script is left exactly as written.
+    # The budget the LAYOUTS actually handed out, not the planner's estimate.
+    #
+    # Two systems were disagreeing. plan_runtime allocated 641 words for the
+    # whole show while the layouts allocated 555 for baseball and 168 for the
+    # WNBA - so a script that fitted its own briefs perfectly still read as
+    # 80% over, and the trim cut two segments that were never surplus. On a
+    # night when an award falls at the end, that trim removes the award.
+    #
+    # The layouts are authoritative: they are what the writer was actually
+    # told to write to.
+    laid_out = plan.get("layout_budget") or 0
+    if laid_out:
+        budget = max(budget, laid_out)
+
     ceiling = int(budget * 1.6)
 
     def words(seg):

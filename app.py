@@ -14,9 +14,9 @@ import requests
 from dotenv import load_dotenv
 
 from models import SmackcastWeeklyNote
-from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode, WallPost, OptOut, FamousMoment, CallTiming
+from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode, WallPost, OptOut, FamousMoment, CallTiming, PageStat
 from services import news_service, show_service, admin_service, settings_service, show_service
-from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service, revenge_service
+from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service, revenge_service, analytics_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
 
 load_dotenv()
@@ -1492,6 +1492,41 @@ def admin_home():
     if err:
         return "Not found.", 404
     return render_template("admin_panel.html")
+
+
+@app.after_request
+def _count_page_view(response):
+    """
+    Count a page view after the response is built.
+
+    AFTER, not before, so a page that errored is not counted as a visit -
+    and so nothing analytics does can delay or break the response itself.
+    Only real page loads: no assets, no API calls, no bot probes.
+    """
+    try:
+        if (request.method == "GET"
+                and response.status_code == 200
+                and not request.path.startswith(("/static", "/api"))):
+            analytics_service.record(
+                request,
+                is_logged_in=bool(getattr(current_user, "is_authenticated", False)))
+    except Exception:
+        pass
+    return response
+
+
+@app.route("/api/admin/analytics")
+@login_required
+def api_admin_analytics():
+    """Traffic and the funnel, for the admin page."""
+    user, err = _require_admin()
+    if err:
+        return err
+    try:
+        days = min(int(request.args.get("days", 7)), 90)
+    except (TypeError, ValueError):
+        days = 7
+    return jsonify(analytics_service.summary(days=days))
 
 
 @app.route("/api/admin/summary")
@@ -5301,6 +5336,18 @@ with app.app_context():
                 published BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP
             )"""))
+
+            conn.execute(db.text("""CREATE TABLE IF NOT EXISTS page_stats (
+                id SERIAL PRIMARY KEY,
+                day DATE,
+                path VARCHAR(120),
+                views INTEGER DEFAULT 0,
+                visitors INTEGER DEFAULT 0,
+                logged_in INTEGER DEFAULT 0,
+                CONSTRAINT uq_day_path UNIQUE (day, path)
+            )"""))
+            conn.execute(db.text(
+                "CREATE INDEX IF NOT EXISTS ix_page_stats_day ON page_stats (day)"))
 
             conn.execute(db.text("""CREATE TABLE IF NOT EXISTS call_timings (
                 id SERIAL PRIMARY KEY,
