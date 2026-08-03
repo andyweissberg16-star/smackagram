@@ -1892,7 +1892,13 @@ def nba_roast_facts(detail):
 # stops answering you.
 
 _BOARD_CACHE = {}          # league -> (fetched_at, games)
-BOARD_CACHE_SECONDS = 45   # live scores move; 45s is frequent without hammering
+# 15s. The board is where somebody sits watching a close finish waiting to
+# fire the moment it ends, and 45s made that feel broken - stacked with the
+# client poll it was up to 90s behind.
+#
+# The cache is per-league, so this is one call to ESPN every 15 seconds no
+# matter how many people are watching, not one per visitor.
+BOARD_CACHE_SECONDS = 15
 
 
 def fetch_board(league: str, force: bool = False) -> list:

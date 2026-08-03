@@ -61,18 +61,31 @@
   /* Red on the frame, silver between the rows. Red dividers would compete
      with the live dots and the buttons, which are the two things that
      actually need to catch the eye. */
-  .board{background:#0A0A0C; border:2px solid var(--flare);
-    border-radius:10px; overflow:hidden;}
+  /* Three across on a desktop.
 
-  .game{display:flex; align-items:center; padding:15px 18px;
-    border-bottom:1px solid rgba(195,202,211,0.16); position:relative;
-    transition:background 0.14s;}
-  .game:last-child{border-bottom:none;}
-  .game:hover{background:#141416;}
+     The old rows put teams hard left and buttons hard right with a canyon
+     between, so on a wide screen the two halves of one game looked
+     unrelated. Three keeps the full button text readable - at four,
+     "SMACK A CARDINALS FAN" has to be shortened, and naming the losing team
+     is the whole point of that button. */
+  .board{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
+    background:none; border:none; border-radius:0; overflow:visible;}
+  @media(min-width:1500px){ .board{grid-template-columns:repeat(4,1fr);} }
+  @media(max-width:1000px){ .board{grid-template-columns:repeat(2,1fr);} }
+  @media(max-width:640px){ .board{grid-template-columns:1fr;} }
+
+  .game{display:flex; flex-direction:column; padding:0;
+    background:#141416; border:2px solid var(--flare);
+    border-radius:9px; overflow:hidden; position:relative;
+    transition:box-shadow 0.14s;}
+  .game:hover{box-shadow:0 0 18px rgba(224,27,36,0.32);}
   .game.is-live{cursor:pointer;}
-  .game.is-live:hover{background:#1A0509; border-left:3px solid var(--flare);
-    padding-left:15px;}
 
+  .g-head{display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:8px 13px; border-bottom:1px solid rgba(195,202,211,0.14);
+    font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.1px;}
+  .g-venue{color:#4A4E54; font-size:8px; white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; max-width:52%;}
   .g-status{flex:0 0 76px; font-family:'JetBrains Mono',monospace; font-size:9px;
     letter-spacing:0.6px; line-height:1.5;}
   .g-status .live{color:var(--flare);}
@@ -81,15 +94,21 @@
   .g-status .sub{color:#4A4E54; font-size:8.5px; margin-top:2px;}
 
   .g-teams{flex:1; min-width:0;}
-  .g-team{display:flex; align-items:center; gap:9px; padding:2px 0;}
+  /* Score on the same line as its team, so the eye reads one team per row
+     rather than two columns that have to be matched up. */
+  .g-team{display:flex; align-items:center; gap:9px; padding:10px 13px;
+    justify-content:space-between;}
+  .g-team + .g-team{border-top:1px solid rgba(195,202,211,0.08);}
   .g-bar{width:3px; height:15px; border-radius:1px; flex:0 0 3px;}
   .g-name{font-size:14px; color:var(--chalk); white-space:nowrap; overflow:hidden;
     text-overflow:ellipsis;}
   .g-name.dim{color:#6B7178;}
   .g-rec{font-family:'JetBrains Mono',monospace; font-size:9.5px; color:#5A5E64;}
 
-  .g-score{flex:0 0 42px; text-align:right; font-family:'Anton',sans-serif;
-    font-size:19px; line-height:1.32; color:var(--chalk);}
+  .g-team-left{display:flex; align-items:center; gap:9px; min-width:0;}
+  .g-score{font-family:'Anton',sans-serif; font-size:21px; line-height:1;
+    color:var(--chalk); flex:0 0 auto;}
+  .g-score.dim{color:#6B7178;}
   .g-score .dim{color:#6B7178;}
   .g-score .up{color:var(--flare);}
 
@@ -102,11 +121,16 @@
   .g-heat.cool{color:#4A4E54;}
   .g-heat .n{font-family:'Anton',sans-serif; font-size:13px;}
 
-  .g-act{flex:0 0 auto; padding-left:16px; display:flex; gap:7px; align-items:center;}
+  /* Full width across the foot of the card. This is the thing that fixes the
+     original complaint - the buttons were stranded at the far right of a wide
+     row, miles from the game they belonged to. */
+  .g-act{margin-top:auto; display:flex; gap:1px; background:rgba(195,202,211,0.14);
+    border-top:1px solid rgba(195,202,211,0.14);}
+  .g-act > *{flex:1; border-radius:0 !important; margin:0 !important;}
   .g-act .hint{font-family:'JetBrains Mono',monospace; font-size:9px;
     color:#3A3D42; letter-spacing:1px;}
-  .btn-smack{background:var(--flare); color:#fff; font-size:10.5px; font-weight:800;
-    letter-spacing:0.7px; padding:8px 14px; border-radius:5px; border:none;
+  .btn-smack{background:var(--flare); color:#fff; font-size:10px; font-weight:800;
+    letter-spacing:0.7px; padding:12px 8px; border-radius:5px; border:none;
     cursor:pointer; white-space:nowrap; font-family:'Inter',sans-serif;}
   .btn-arm{background:transparent; color:var(--silver); font-size:10.5px;
     font-weight:800; letter-spacing:0.7px; padding:8px 14px; border-radius:5px;
@@ -150,6 +174,13 @@
 <body>
 
 {% include '_nav.html' %}
+
+{# Same hero-band treatment as every other page: full bleed with the red
+   band top and bottom. Sits above the counter, which is where the counter
+   lives on every page that has a hero. #}
+<img src="{{ url_for('static', filename='img/smack-board-hero-1560.png') }}"
+     class="hero-band" alt="The Smack Board &mdash; live scores across every league"
+     style="width:100%; height:auto; display:block;">
 
 <div class="wrap">
 
@@ -218,11 +249,17 @@ function teamRow(t, isLosing, gameOver){
   // reads at a glance without anybody having to compare two numbers.
   const dim = (gameOver || isLosing) && isLosing ? " dim" : "";
   const colour = t.colour || "#3A3D42";
+  // The score now sits on the team's own row rather than in a separate
+  // column, so one line is one team and nothing has to be matched up.
+  const score = (t.score === null || t.score === undefined) ? "&mdash;" : t.score;
   return `
     <div class="g-team">
-      <span class="g-bar" style="background:${esc(colour)};"></span>
-      <span class="g-name${dim}">${esc(t.nick || t.abbr)}</span>
-      ${t.record ? `<span class="g-rec">${esc(t.record)}</span>` : ""}
+      <span class="g-team-left">
+        <span class="g-bar" style="background:${esc(colour)};"></span>
+        <span class="g-name${dim}">${esc(t.nick || t.abbr)}</span>
+        ${t.record ? `<span class="g-rec">${esc(t.record)}</span>` : ""}
+      </span>
+      <span class="g-score${dim}">${score}</span>
     </div>`;
 }
 
@@ -296,14 +333,21 @@ function render(data){
         <div class="${homeUp ? "up" : (g.losing === "home" ? "dim" : "")}">${g.home.score ?? ""}</div>
       </div>`;
 
+    // A card, not a row.
+    //
+    // The row layout put the teams hard left and the buttons hard right with
+    // a canyon between them, so a wide screen made the two halves of a game
+    // feel unrelated. A card keeps a game as one object and lets the actions
+    // run full width across its foot, where they are easy to hit.
     return `<div class="game ${g.live ? "is-live" : ""}">
-      <div class="g-status">${statusCell(g)}
-        ${g.venue ? `<div class="sub">${esc(g.venue)}</div>` : ""}</div>
+      <div class="g-head">
+        ${statusCell(g)}
+        ${g.venue ? `<span class="g-venue">${esc(g.venue)}</span>` : ""}
+      </div>
       <div class="g-teams">
         ${teamRow(g.away, g.losing === "away", g.final)}
         ${teamRow(g.home, g.losing === "home", g.final)}
       </div>
-      ${shown}
       ${heat(g)}
       <div class="g-act">${actions(g)}</div>
     </div>`;
@@ -361,10 +405,11 @@ try{
 select(start);
 
 // Refresh while the tab is visible. Polling a hidden tab wastes requests on
-// somebody who is not looking, and the server cache is 45 seconds anyway.
+// somebody who is not looking. Matched to the 15s server cache, so worst
+// case is about 30 seconds behind ESPN rather than 90.
 timer = setInterval(() => {
   if (!document.hidden && current) load(current);
-}, 45000);
+}, 15000);
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && current) load(current);
 });
