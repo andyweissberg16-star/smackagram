@@ -34,7 +34,7 @@
      of the product, not a bare player. */
   :root{
     --ink:#000000; --ink-2:#0C0C0C; --line:#3A1416;
-    --punch:#E01B24; --amber:#FFB800; --muted:#B5B0B0; --muted-2:#7A7575;
+    --punch:var(--flare); --amber:#FFB800; --muted:#B5B0B0; --muted-2:#7A7575;
   }
   body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif;}
   .wrap{max-width:520px; margin:0 auto; padding:40px 20px 60px; text-align:center;}
@@ -68,12 +68,13 @@
   footer a{color:var(--chalk-dim); text-decoration:none; font-size:12px;}
   .share-btn{
     display:block; width:100%; margin-top:14px; padding:13px;
-    background:var(--flare, #E01B24); border:none; color:#fff;
+    background:var(--flare, var(--flare)); border:none; color:#fff;
     border-radius:8px; font-family:'Inter',sans-serif; font-size:14.5px;
     font-weight:700; cursor:pointer;
   }
   .share-btn:hover{transform:translateY(-1px);}
 </style>
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 </head>
 <body>
 
@@ -115,12 +116,7 @@
   <p style="margin-top:12px;"><span class="smk-price-stamp">LESS THAN <span class="smk-price-amt">$1</span> A CALL!</span></p>
 </div>
 
-<footer>
-  <div class="flinks">
-    <a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/opt-out">Opt Out</a><a href="/contact">Support</a>
-  </div>
-  <span>&copy; 2026 Smackagram</span>
-</footer>
+{% include '_footer.html' %}
 
 <script src="{{ url_for('static', filename='js/share.js') }}"></script>
 </body>

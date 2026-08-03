@@ -15,7 +15,7 @@
     --surface:#141414;
     --surface-2:#1C1C1C;
     --hairline:#3A1416;
-    --punch:#E01B24;
+    --punch:var(--flare);
     --ivory:#FFFFFF;
     --muted:#B5B0B0;
     --muted-2:#7A7575;
@@ -140,6 +140,13 @@
     font-size:13px; color:var(--chalk-dim); line-height:1.6;
   }
 </style>
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+
+  <meta property="og:title" content="Smackcast">
+  <meta property="og:description" content="Your fantasy league, roasted every week by Smacky.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ url_for('static', filename='img/hero-mascot-1672.webp', _external=True) }}">
+  <meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
 
@@ -158,9 +165,9 @@
 
   {# Findable from the page a commissioner already visits every week. #}
   <p style="margin:18px 0 0; font-size:13px; color:#9A9A96;">
-    <a href="/smackcast/this-week" style="color:#E01B24; font-weight:600;">This Week</a>
+    <a href="/smackcast/this-week" style="color:var(--flare); font-weight:600;">This Week</a>
     &mdash; tell Smacky what happened before Monday night, and
-    <a href="/smackcast/league-profile" style="color:#E01B24; font-weight:600;">Your League</a>
+    <a href="/smackcast/league-profile" style="color:var(--flare); font-weight:600;">Your League</a>
     for the season-long stuff.
   </p>
 
@@ -308,5 +315,6 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
 });
 </script>
 
+{% include '_footer.html' %}
 </body>
 </html>

@@ -22,7 +22,7 @@
 <style>
   :root{
     --ink:#000; --ink-2:#141414; --surface-2:#1C1C1C; --line:#2A2A2A;
-    --flare:#E01B24; --chalk:#F5F5F3; --chalk-dim:#B5B0B0; --muted-2:#7A7575;
+    --flare:var(--flare); --chalk:#F5F5F3; --chalk-dim:#B5B0B0; --muted-2:#7A7575;
   }
   *{box-sizing:border-box;}
   body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif;}
@@ -137,6 +137,7 @@
   .ep-meta{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted-2); white-space:nowrap;}
   @media(prefers-reduced-motion:reduce){ .ds-sign{animation:none;} }
 </style>
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 </head>
 <body>
 
@@ -433,5 +434,6 @@
 <script src="{{ url_for('static', filename='js/share.js') }}"></script>
 {% include '_smacks_of_the_day.html' %}
 
+{% include '_footer.html' %}
 </body>
 </html>

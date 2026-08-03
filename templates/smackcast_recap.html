@@ -40,7 +40,7 @@
      press play without spending the joke before they hear it delivered. */
   .best-line{
     font-size:16px; color:#DCDCD9; line-height:1.6; font-style:italic;
-    margin:18px 0 0; padding-left:14px; border-left:2px solid #E01B24;
+    margin:18px 0 0; padding-left:14px; border-left:2px solid var(--flare);
   }
   .footer-note{text-align:center; font-size:12px; color:var(--chalk-dim); margin-top:24px;}
   .footer-note a{color:var(--gold); text-decoration:none;}
@@ -75,5 +75,6 @@
 </div>
 
 <script src="{{ url_for('static', filename='js/share.js') }}"></script>
+{% include '_footer.html' %}
 </body>
 </html>

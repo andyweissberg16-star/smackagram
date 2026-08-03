@@ -299,7 +299,7 @@
   /* Red rather than amber: "armed" is a warning state, and red is what that
      reads as - the rest of the page stays amber. */
   .lnl-led{
-    width:8px; height:8px; border-radius:50%; background:#E01B24;
+    width:8px; height:8px; border-radius:50%; background:var(--flare);
     flex-shrink:0; animation:lnlPulse 1.8s ease-in-out infinite;
     box-shadow:0 0 8px rgba(224,27,36,0.7);
   }
@@ -307,7 +307,7 @@
   @media(prefers-reduced-motion:reduce){ .lnl-led{animation:none;} }
   .lnl-status{
     font-size:11px; font-weight:700; letter-spacing:2px;
-    text-transform:uppercase; color:#E01B24;
+    text-transform:uppercase; color:var(--flare);
   }
   .lnl-spacer{flex:1;}
 
@@ -377,7 +377,7 @@
   #tabLockedLL.is-active{background:linear-gradient(180deg,#F4F6F9,#C3CAD3 45%,#98A0AA 55%,#E4E9EE);}
   #tabLockedLL.is-active .gen-tab-kicker{color:rgba(13,13,13,0.65);}
   #tabLockedLL.is-active .gen-tab-name{color:#0D0D0D;}
-  #tabSmackLL.is-active{background:#E01B24;}
+  #tabSmackLL.is-active{background:var(--flare);}
   #tabSmackLL.is-active .gen-tab-kicker{color:rgba(255,255,255,0.78);}
   #tabSmackLL.is-active .gen-tab-name{color:#fff;}
   /* The inactive tab reads as OFF, not just unhighlighted - dimmed panel and
@@ -392,13 +392,13 @@
   .gen-tab:not(.is-active) .gen-tab-kicker{color:#44484E;}
   #tabSmackLL:not(.is-active):hover{background:#1A0507;}
   #tabSmackLL:not(.is-active):hover .gen-tab-name,
-  #tabSmackLL:not(.is-active):hover .gen-tab-kicker{color:#E01B24;}
+  #tabSmackLL:not(.is-active):hover .gen-tab-kicker{color:var(--flare);}
   #tabLockedLL:not(.is-active):hover{background:#15171A;}
   #tabLockedLL:not(.is-active):hover .gen-tab-name,
   #tabLockedLL:not(.is-active):hover .gen-tab-kicker{color:#C3CAD3;}
   .gen-tab-alt:hover{background:rgba(224,27,36,0.12);}
   .gen-tab-alt:hover .gen-tab-name,
-  .gen-tab-alt:hover .gen-tab-kicker{color:#E01B24;}
+  .gen-tab-alt:hover .gen-tab-kicker{color:var(--flare);}
 
   /* The intensity fader, lifted verbatim from the Smackagram generator so
      the two controls are identical rather than merely similar. The
@@ -406,7 +406,7 @@
      pages - it reads as heat, not as page branding, so recolouring it amber
      here would break the metaphor. Tokens below map this page's names onto
      the ones the fader expects. */
-  .fader{--ivory:#FFFFFF; --hairline:var(--amber-hairline); --punch:#E01B24;}
+  .fader{--ivory:#FFFFFF; --hairline:var(--amber-hairline); --punch:var(--flare);}
   /* INTENSITY FADER - a physical control instead of tickboxes. */
   .fader{padding:4px 0 0;}
   .fader-scale{display:flex; justify-content:space-between; margin-bottom:10px;}
@@ -424,7 +424,7 @@
     -webkit-appearance:none; appearance:none; width:100%; height:8px;
     border-radius:4px; margin:0 0 14px; cursor:pointer;
     background:linear-gradient(to right,
-      #E01B24 0%, #F03A18 22%, #FF6B14 45%, #FF9F0A 72%, #FFD400 100%);
+      var(--flare) 0%, #F03A18 22%, #FF6B14 45%, #FF9F0A 72%, #FFD400 100%);
   }
   .fader-input::-webkit-slider-thumb{
     -webkit-appearance:none; appearance:none;
@@ -472,16 +472,16 @@
   .step-instructions li{margin-bottom:7px; padding-left:3px;}
   .step-instructions li::marker{color:var(--amber); font-weight:700;}
   .step-instructions strong{color:var(--chalk); font-weight:600;}
-  .step-instructions .smacky{color:#E01B24; font-weight:700;}
+  .step-instructions .smacky{color:var(--flare); font-weight:700;}
   /* Same aside treatment as the Smackagram generator. */
   .fld-num{color:var(--amber); font-weight:700;}
   .field-hint{font-size:11px; color:var(--chalk-dim); margin:-8px 0 14px; line-height:1.4;}
-  .field-missing{border-color:#E01B24 !important;}
+  .field-missing{border-color:var(--flare) !important;}
   .heading-aside{
     font-size:12.5px; color:var(--muted-2); font-style:italic;
     margin:-2px 0 8px;
   }
-  h3 .smacky{color:#E01B24;}
+  h3 .smacky{color:var(--flare);}
 
   /* The site-wide frame in smackagram.css is red. This page is silver, so
      override it here - and repaint red only while the Smackagram generator is
@@ -489,13 +489,13 @@
      ones in different colours. */
   html body{border-color:#C3CAD3 !important; box-shadow:0 0 26px rgba(190,200,212,0.25) !important;}
 
-  body.gen-smack{border-color:#E01B24 !important; box-shadow:0 0 26px rgba(224,27,36,0.3) !important;}
-  body.gen-smack .gen-eyebrow{color:#E01B24;}
-  body.gen-smack .gen-headline em{color:#E01B24;}
+  body.gen-smack{border-color:var(--flare) !important; box-shadow:0 0 26px rgba(224,27,36,0.3) !important;}
+  body.gen-smack .gen-eyebrow{color:var(--flare);}
+  body.gen-smack .gen-headline em{color:var(--flare);}
 
   #smackShell{
     position:relative; background:var(--surface);
-    border:5px solid #E01B24; border-radius:var(--radius);
+    border:5px solid var(--flare); border-radius:var(--radius);
     box-shadow:0 0 22px rgba(224,27,36,0.28);
     margin-bottom:24px;
   }
@@ -829,13 +829,7 @@
 {% if not embed %}
 {% include '_smacks_of_the_day.html' %}
 
-<footer>
-  <p>Games can only be locked in within 48 hours of kickoff. Holds not captured within 7 days are released automatically.</p>
-  <div class="flinks">
-    <a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/opt-out">Opt Out</a><a href="/contact">Support</a>
-  </div>
-  <span>&copy; 2026 Smackagram</span>
-</footer>
+{% include '_footer.html' %}
 {% endif %}
 
 <script>
@@ -1372,12 +1366,12 @@ async function loadSensitivityLevelsLL() {
       });
       // Thumb, glow, lit label and readout all take the temperature at that
       // point, sampled to match the track gradient.
-      var HEAT = {4: '#E01B24', 3: '#FF6B14', 2: '#FF9F0A', 1: '#FFD400'};
+      var HEAT = {4: 'var(--flare)', 3: '#FF6B14', 2: '#FF9F0A', 1: '#FFD400'};
       var GLOW = {4: 'rgba(224,27,36,0.55)', 3: 'rgba(255,107,20,0.5)',
                   2: 'rgba(255,159,10,0.45)', 1: 'rgba(255,212,0,0.4)'};
-      fader.style.setProperty('--heat', HEAT[selectedSensitivityLL] || '#E01B24');
+      fader.style.setProperty('--heat', HEAT[selectedSensitivityLL] || 'var(--flare)');
       fader.style.setProperty('--heat-glow', GLOW[selectedSensitivityLL] || 'rgba(224,27,36,0.55)');
-      range.style.setProperty('--heat', HEAT[selectedSensitivityLL] || '#E01B24');
+      range.style.setProperty('--heat', HEAT[selectedSensitivityLL] || 'var(--flare)');
       range.style.setProperty('--heat-glow', GLOW[selectedSensitivityLL] || 'rgba(224,27,36,0.55)');
       updateAgeCheckboxVisibility();
       if (typeof updateModeSummary === 'function') updateModeSummary();
@@ -1694,7 +1688,7 @@ loadVoices();
   .optout-warn{
     margin:9px 0 0; padding:10px 13px;
     background:rgba(224,27,36,0.12);
-    border:1px solid var(--flare,#E01B24); border-radius:7px;
+    border:1px solid var(--flare,var(--flare)); border-radius:7px;
     color:var(--chalk,#F5F5F3); font-size:13px; line-height:1.5;
   }
 </style>

@@ -10,7 +10,7 @@
 <style>
   :root{
     --ink:#0D0D0D; --surface:#141416; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
-    --punch:#E01B24; --silver:#C3CAD3; --hairline:#2A2D32;
+    --punch:var(--flare); --silver:#C3CAD3; --hairline:#2A2D32;
     --line:rgba(245,245,243,0.10); --radius:8px;
   }
   body{
@@ -75,6 +75,13 @@
 
   @media(max-width:640px){ .hd h1{font-size:33px;} }
 </style>
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+
+  <meta property="og:title" content="This week on Smackcast">
+  <meta property="og:description" content="Smacky read the standings so you don't have to.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ url_for('static', filename='img/hero-mascot-1672.webp', _external=True) }}">
+  <meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
 
@@ -160,5 +167,6 @@
 
 </div>
 
+{% include '_footer.html' %}
 </body>
 </html>

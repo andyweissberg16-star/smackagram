@@ -8,7 +8,7 @@
 <style>
   :root{
     --ink:#000; --surface:#141414; --surface-2:#1C1C1C; --line:#2A2A2A;
-    --punch:#E01B24; --go:#2FBF6B; --warn:#FFB800; --muted:#B5B0B0; --muted-2:#7A7575;
+    --punch:var(--flare); --go:#2FBF6B; --warn:#FFB800; --muted:#B5B0B0; --muted-2:#7A7575;
   }
   *{box-sizing:border-box;}
   body{background:var(--ink); color:#fff; font-family:'Inter',sans-serif;}
@@ -68,6 +68,7 @@
     font-size:12.5px; color:var(--muted); line-height:1.6;
   }
 </style>
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 </head>
 <body>
 

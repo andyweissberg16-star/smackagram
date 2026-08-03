@@ -1944,10 +1944,17 @@ def conversation_data(reply_id):
     })
 
 
-@app.route("/smack-chat")
-@login_required
-def smack_chat_page():
-    return render_template("smack_chat.html")
+# OFF THE SITE, not deleted.
+#
+# Nothing linked to it, so it was reachable only by typing the URL - an
+# unreachable page still has to be maintained, and still shows up in a
+# search index. The template, the models and the API routes are all intact,
+# so relinking is one line whenever it earns a place.
+#
+# @app.route("/smack-chat")
+# @login_required
+# def smack_chat_page():
+#     return render_template("smack_chat.html")
 
 
 @app.route("/api/chat/teams")
@@ -3280,8 +3287,12 @@ def api_check_optout():
     return jsonify({"opted_out": is_opted_out(request.args.get("phone"))})
 
 
-@app.route("/smacky-makes-the-call")
-def smacky_makes_the_call():
+# OFF THE SITE, not deleted. See the note on /smack-chat above.
+#
+# Removed from the homepage during the redesign and never relinked. The 20
+# loaded moments, their generated audio and the admin endpoints all still
+# work - only the public page is closed.
+def _smacky_makes_the_call_disabled():
     """
     Smacky calls the most famous moments in sports history.
 

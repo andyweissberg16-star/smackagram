@@ -34,7 +34,7 @@
        declared both and used both, putting two different reds on screen.
        Aliasing is safer than rewriting every usage. --gold was declared but
        never used, so it's gone. */
-    --flare:#E01B24;
+    --flare:var(--flare);
     --flare-dim:#3A1416;
     --turf:#39FF6A;
     --cyan:#F5F5F3;
@@ -68,7 +68,7 @@
     --surface:#141414;
     --surface-2:#1C1C1C;
     --hairline:#3A1416;
-    --punch:#E01B24;
+    --punch:var(--flare);
     --ivory:#FFFFFF;
     --muted:#B5B0B0;
     --muted-2:#7A7575;
@@ -293,7 +293,7 @@
   .gen-tab:not(.is-active) .gen-tab-kicker{color:#44484E;}
   #tabSmack:not(.is-active):hover{background:#1A0507;}
   #tabSmack:not(.is-active):hover .gen-tab-name,
-  #tabSmack:not(.is-active):hover .gen-tab-kicker{color:#E01B24;}
+  #tabSmack:not(.is-active):hover .gen-tab-kicker{color:var(--flare);}
   #tabLocked:not(.is-active):hover{background:#15171A;}
   #tabLocked:not(.is-active):hover .gen-tab-name,
   #tabLocked:not(.is-active):hover .gen-tab-kicker{color:#C3CAD3;}
@@ -382,7 +382,7 @@
     -webkit-appearance:none; appearance:none; width:100%; height:8px;
     border-radius:4px; margin:0 0 14px; cursor:pointer;
     background:linear-gradient(to right,
-      #E01B24 0%, #F03A18 22%, #FF6B14 45%, #FF9F0A 72%, #FFD400 100%);
+      var(--flare) 0%, #F03A18 22%, #FF6B14 45%, #FF9F0A 72%, #FFD400 100%);
   }
   .fader-input::-webkit-slider-thumb{
     -webkit-appearance:none; appearance:none;
@@ -990,12 +990,7 @@
 {% if not embed %}
 {% include '_smacks_of_the_day.html' %}
 
-<footer>
-  <div class="flinks">
-    <a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/opt-out">Opt Out</a><a href="/contact">Support</a>
-  </div>
-  <span>&copy; 2026 Smackagram</span>
-</footer>
+{% include '_footer.html' %}
 {% endif %}
 
 
@@ -1457,13 +1452,13 @@ async function loadSensitivityLevels() {
       // Temperature for the thumb, the lit label and the readout. Sampled to
       // match the track gradient at that point, so the handle looks like it
       // picked up the colour it is sitting on.
-      var HEAT = {4: '#E01B24', 3: '#FF6B14', 2: '#FF9F0A', 1: '#FFD400'};
+      var HEAT = {4: 'var(--flare)', 3: '#FF6B14', 2: '#FF9F0A', 1: '#FFD400'};
       var GLOW = {4: 'rgba(224,27,36,0.55)', 3: 'rgba(255,107,20,0.5)',
                   2: 'rgba(255,159,10,0.45)', 1: 'rgba(255,212,0,0.4)'};
       var fader = range.closest('.fader') || range.parentNode;
-      fader.style.setProperty('--heat', HEAT[selectedSensitivity] || '#E01B24');
+      fader.style.setProperty('--heat', HEAT[selectedSensitivity] || 'var(--flare)');
       fader.style.setProperty('--heat-glow', GLOW[selectedSensitivity] || 'rgba(224,27,36,0.55)');
-      range.style.setProperty('--heat', HEAT[selectedSensitivity] || '#E01B24');
+      range.style.setProperty('--heat', HEAT[selectedSensitivity] || 'var(--flare)');
       range.style.setProperty('--heat-glow', GLOW[selectedSensitivity] || 'rgba(224,27,36,0.55)');
 
       // Anything above Clean needs an age acknowledgement. Reset it whenever
@@ -1946,7 +1941,7 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
   .optout-warn{
     margin:9px 0 0; padding:10px 13px;
     background:rgba(224,27,36,0.12);
-    border:1px solid var(--flare,#E01B24); border-radius:7px;
+    border:1px solid var(--flare,var(--flare)); border-radius:7px;
     color:var(--chalk,#F5F5F3); font-size:13px; line-height:1.5;
   }
 </style>

@@ -20,7 +20,7 @@
     --surface:#141414;
     --surface-2:#1C1C1C;
     --hairline:#3A1416;
-    --punch:#E01B24;
+    --punch:var(--flare);
     --ivory:#FFFFFF;
     --muted:#B5B0B0;
     --muted-2:#7A7575;
@@ -256,13 +256,14 @@
     font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:1.4px;
     text-transform:uppercase; color:#7A7575; margin-right:auto;
   }
-  .sub-bar a{color:var(--flare,#E01B24); text-decoration:none; font-weight:600;}
+  .sub-bar a{color:var(--flare,var(--flare)); text-decoration:none; font-weight:600;}
   .sub-bar a:hover{text-decoration:underline;}
   @media(max-width:600px){
     .sub-bar{gap:13px; padding:10px 16px 0; flex-wrap:wrap; justify-content:flex-start;}
     .sub-bar .sub-league{flex:0 0 100%; margin:0 0 6px;}
   }
 </style>
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 </head>
 <body>
 
@@ -532,5 +533,6 @@
 
 {% include '_smacks_of_the_day.html' %}
 
+{% include '_footer.html' %}
 </body>
 </html>

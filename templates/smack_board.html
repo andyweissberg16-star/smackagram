@@ -249,6 +249,7 @@
     .game.is-live:hover{padding-left:14px;}
   }
 </style>
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 </head>
 <body>
 
@@ -536,5 +537,6 @@ document.addEventListener("visibilitychange", () => {
 
 {% include '_smacks_of_the_day.html' %}
 
+{% include '_footer.html' %}
 </body>
 </html>

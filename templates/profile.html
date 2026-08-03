@@ -244,7 +244,7 @@ loadProfile();
     document.getElementById('vaultActivity').innerHTML = items.map(function (it) {
       var armed = it.pending;
       var locked = it.kind === 'locked';
-      var color = armed ? '#FFB800' : (locked ? '#FFB800' : '#E01B24');
+      var color = armed ? '#FFB800' : (locked ? '#FFB800' : 'var(--flare)');
       var sub = armed ? 'Armed, waiting on the final'
               : (locked && it.team ? esc(it.team) + ' lost' : 'Smackagram sent');
       return '<a class="vault-item" href="/locker">' +
@@ -257,5 +257,6 @@ loadProfile();
   }).catch(function () {});
 })();
 </script>
+{% include '_footer.html' %}
 </body>
 </html>

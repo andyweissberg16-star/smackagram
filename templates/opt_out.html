@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
   :root{
-    --ink:#000000; --surface:#141414; --line:#3A1416; --punch:#E01B24;
+    --ink:#000000; --surface:#141414; --line:#3A1416; --punch:var(--flare);
     --ivory:#FFFFFF; --muted:#B5B0B0; --muted-2:#7A7575; --radius:14px;
   }
   body{
@@ -91,6 +91,13 @@
 
   @media(max-width:560px){ .oo-head{padding-top:36px;} }
 </style>
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+
+  <meta property="og:title" content="Opt out of Smackagram calls">
+  <meta property="og:description" content="Enter your number and we'll stop calling. No account needed.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ url_for('static', filename='img/hero-mascot-1672.webp', _external=True) }}">
+  <meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
 
@@ -188,5 +195,6 @@
   </p>
 </div>
 
+{% include '_footer.html' %}
 </body>
 </html>

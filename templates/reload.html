@@ -16,8 +16,8 @@
     --surface:#141414;
     --surface-2:#1C1C1C;
     --line:#3A1416;
-    --punch:#E01B24;
-    --free:#E01B24;
+    --punch:var(--flare);
+    --free:var(--flare);
     --ivory:#FFFFFF;
     --muted:#B5B0B0;
     --muted-2:#7A7575;
@@ -129,6 +129,13 @@
     .secure{order:2}
   }
 </style>
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+
+  <meta property="og:title" content="Top up your Smackagram balance">
+  <meta property="og:description" content="Load up once. Smack whenever the scoreboard gives you a reason.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ url_for('static', filename='img/hero-mascot-1672.webp', _external=True) }}">
+  <meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
 {% include '_nav.html' %}
@@ -295,7 +302,7 @@ async function initPaymentForPack(packKey) {
       return;
     }
 
-    elements = stripe.elements({clientSecret: data.client_secret, appearance: {theme: 'night', variables: {colorPrimary: '#E01B24', colorBackground: '#141414', colorText: '#FFFFFF'}}});
+    elements = stripe.elements({clientSecret: data.client_secret, appearance: {theme: 'night', variables: {colorPrimary: 'var(--flare)', colorBackground: '#141414', colorText: '#FFFFFF'}}});
 
     paymentElementInstance = elements.create('payment');
     paymentElementInstance.mount('#payment-element');
@@ -437,5 +444,6 @@ window.addEventListener('unhandledrejection', function(event) {
 // Initialize with the default pre-selected pack on page load.
 initPaymentForPack(currentPack);
 </script>
+{% include '_footer.html' %}
 </body>
 </html>

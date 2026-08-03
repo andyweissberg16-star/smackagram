@@ -91,6 +91,7 @@
     .smc-call{font-size:14px;}
   }
 </style>
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 </head>
 <body>
 
@@ -183,7 +184,7 @@
     var bar = row.querySelector('.smc-bar');
     var total = row.querySelectorAll('.smc-t')[1];
     var fill = document.createElement('i');
-    fill.style.cssText = 'display:block;height:3px;width:0;background:#E01B24;border-radius:2px;';
+    fill.style.cssText = 'display:block;height:3px;width:0;background:var(--flare);border-radius:2px;';
     bar.appendChild(fill);
 
     // preload="metadata" so the length shows before anybody presses play - a
@@ -241,5 +242,6 @@
 })();
 </script>
 
+{% include '_footer.html' %}
 </body>
 </html>

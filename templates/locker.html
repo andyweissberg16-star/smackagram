@@ -12,7 +12,7 @@
   :root{
     --ink:#000000; --ink-2:#0C0C0C;
     --surface:#141414; --surface-2:#1C1C1C;
-    --line:#3A1416; --punch:#E01B24; --amber:#FFB800;
+    --line:#3A1416; --punch:var(--flare); --amber:#FFB800;
     --ivory:#FFFFFF; --muted:#B5B0B0; --muted-2:#7A7575;
     --radius:14px;
   }
@@ -117,46 +117,46 @@
     font-weight:700; letter-spacing:1.6px; text-transform:uppercase;
     padding:11px 14px; cursor:pointer; margin-bottom:-1px;}
   .tab:hover{color:#F5F5F3;}
-  .tab.on{color:#F5F5F3; border-bottom-color:#E01B24;}
+  .tab.on{color:#F5F5F3; border-bottom-color:var(--flare);}
 
   /* --- received ---------------------------------------------------------- */
-  .verify-gate{background:#141416; border:2px solid #E01B24; border-radius:8px;
+  .verify-gate{background:#141416; border:2px solid var(--flare); border-radius:8px;
     padding:20px 20px; margin:22px 0 0;}
   .vg-kick{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:2px;
-    color:#E01B24; margin:0 0 7px;}
+    color:var(--flare); margin:0 0 7px;}
   .vg-big{font-family:'Anton',sans-serif; font-size:23px; color:#F5F5F3; margin:0 0 8px;}
   .vg-say{font-size:13.5px; color:#C3CAD3; line-height:1.6; margin:0 0 15px; max-width:440px;}
-  .vg-btn{display:inline-block; background:#E01B24; color:#fff; text-decoration:none;
+  .vg-btn{display:inline-block; background:var(--flare); color:#fff; text-decoration:none;
     font-size:12.5px; font-weight:800; letter-spacing:0.6px; text-transform:uppercase;
     padding:12px 20px; border-radius:7px;}
   .vg-soon{font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:1.2px;
     color:#9A9A96; margin:0; line-height:1.6;}
 
   .recv-note{font-size:12.5px; color:#9A9A96; margin:22px 0 12px; line-height:1.55;}
-  .recv{background:#141416; border:2px solid #E01B24; border-radius:8px;
+  .recv{background:#141416; border:2px solid var(--flare); border-radius:8px;
     padding:15px 17px; margin-bottom:11px;}
   .recv-when{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:1.2px;
     color:#7A7575; margin:0 0 10px;}
   .recv audio{width:100%; height:36px; display:block; margin-bottom:11px;}
-  .recv-back{color:#E01B24; font-size:12.5px; font-weight:700; text-decoration:none;}
+  .recv-back{color:var(--flare); font-size:12.5px; font-weight:700; text-decoration:none;}
 
   /* --- fantasy pane ----------------------------------------------------- */
   .cast-cta{display:block; text-decoration:none; background:#141416;
-    border:2px solid #E01B24; border-radius:8px; padding:16px 18px; margin:22px 0 4px;}
+    border:2px solid var(--flare); border-radius:8px; padding:16px 18px; margin:22px 0 4px;}
   .cta-kick{display:block; font-family:'JetBrains Mono',monospace; font-size:9.5px;
-    letter-spacing:2px; color:#E01B24; margin-bottom:6px;}
+    letter-spacing:2px; color:var(--flare); margin-bottom:6px;}
   .cta-big{display:block; font-family:'Anton',sans-serif; font-size:21px;
     color:#F5F5F3; margin-bottom:5px;}
   .cta-say{display:block; font-size:13px; color:#C3CAD3; line-height:1.55;}
   .cast-second{margin:14px 0 0; font-size:12.5px; color:#9A9A96;}
-  .cast-second a{color:#E01B24;}
+  .cast-second a{color:var(--flare);}
 
   .cast-head{display:flex; align-items:baseline; justify-content:space-between;
     margin:30px 0 12px; padding-top:20px; border-top:1px solid rgba(245,245,243,0.10);}
   .cast-league{font-family:'Anton',sans-serif; font-size:17px; color:#F5F5F3; margin:0;}
-  .cast-head a{color:#E01B24; font-size:12.5px; text-decoration:none;}
+  .cast-head a{color:var(--flare); font-size:12.5px; text-decoration:none;}
 
-  .cast-recap{background:#141416; border:2px solid #E01B24; border-radius:8px;
+  .cast-recap{background:#141416; border:2px solid var(--flare); border-radius:8px;
     padding:15px 17px; margin-bottom:11px;}
   .cast-wk{font-family:'Anton',sans-serif; font-size:18px; color:#F5F5F3; margin:0 0 6px;}
   .cast-line{color:#DCDCD9; font-size:13.5px; font-style:italic; line-height:1.5;
@@ -188,6 +188,13 @@
      that job, so the date sits beside it rather than fighting for the slot. */
   .item-outcome + .item-when{margin-left:10px;}
 </style>
+<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
+
+  <meta property="og:title" content="Your Smack Locker">
+  <meta property="og:description" content="Every smack you've sent, and whether they picked up.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="{{ url_for('static', filename='img/hero-mascot-1672.webp', _external=True) }}">
+  <meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
 
@@ -248,7 +255,7 @@
            place. We just need to know the number is actually yours &mdash;
            we'll send a code and you type it back.</p>
         {% if verification_available %}
-          <a class="vg-btn" href="/verify-phone">Verify my number</a>
+          <a class="vg-btn" href="/verify">Verify my number</a>
         {% else %}
           <p class="vg-soon">Verification is switched off while we finish
              carrier registration. This opens up shortly.</p>
@@ -316,12 +323,7 @@
   <audio id="player" style="display:none;"></audio>
 </div>
 
-<footer>
-  <div class="flinks">
-    <a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/opt-out">Opt Out</a><a href="/contact">Support</a>
-  </div>
-  <span>&copy; 2026 Smackagram</span>
-</footer>
+{% include '_footer.html' %}
 
 <script>
 // Tabs. Only present for subscribers - see the template guard above.

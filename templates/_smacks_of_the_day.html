@@ -79,7 +79,7 @@
     margin:56px 0 56px calc(50% - min(40vw, 750px));
     padding:34px 0 30px;
     background:rgba(20,20,22,0.55);
-    border:2px solid var(--flare,#E01B24);
+    border:2px solid var(--flare,var(--flare));
     border-radius:12px;
     overflow:hidden;
   }
@@ -91,7 +91,7 @@
     font-size:clamp(32px,4.4vw,52px);
     line-height:0.96;
     letter-spacing:0.5px;
-    color:var(--flare,#E01B24);
+    color:var(--flare,var(--flare));
     margin:0 0 12px;
     text-transform:uppercase;
   }
@@ -120,12 +120,12 @@
   .sotw-arrow{
     position:absolute; top:50%; transform:translateY(-50%); z-index:3;
     width:38px; height:38px; border-radius:50%;
-    background:rgba(13,13,13,0.88); border:1px solid var(--flare,#E01B24);
+    background:rgba(13,13,13,0.88); border:1px solid var(--flare,var(--flare));
     color:var(--chalk,#F5F5F3); font-size:20px; line-height:1; cursor:pointer;
     display:flex; align-items:center; justify-content:center;
     transition:opacity .15s, background .15s;
   }
-  .sotw-arrow:hover{background:var(--flare,#E01B24);}
+  .sotw-arrow:hover{background:var(--flare,var(--flare));}
   .sotw-prev{left:10px;}
   .sotw-next{right:10px;}
 
@@ -200,7 +200,7 @@
        platforms and quietly ignores background-color, which rendered this
        block black instead of red. */
     -webkit-appearance:none; appearance:none;
-    background-color:#E01B24; background-image:none;
+    background-color:var(--flare); background-image:none;
     /* Black outline so the red block reads as its own object against the red
        card border rather than blending into it. */
     border:3px solid #0D0D0D; cursor:pointer;
@@ -226,7 +226,7 @@
   .sotw-line{display:flex; align-items:center; gap:9px; margin-top:14px;}
   .sotw-t{font-family:'JetBrains Mono',monospace; font-size:9px; color:#7A7575; flex:0 0 auto;}
   .sotw-bar{flex:1; height:3px; background:#2A2D32; border-radius:2px; overflow:hidden;}
-  .sotw-bar i{display:block; height:3px; width:0; background:var(--flare,#E01B24); border-radius:2px;}
+  .sotw-bar i{display:block; height:3px; width:0; background:var(--flare,var(--flare)); border-radius:2px;}
   .sotw-line.is-empty{opacity:0.4;}
   /* Inert version of the play block - same shape, no glow, no pointer.
      A card with no audio keeps the rail's shape instead of collapsing into
