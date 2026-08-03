@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smacky Makes the Call — Smackagram</title>
+<meta name="description" content="The biggest moments in sports history, called by a phone in a backwards hat.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Smackagram">
+<meta property="og:title" content="Smacky Makes the Call">
+<meta property="og:description" content="The biggest moments in sports history, called by a phone in a backwards hat.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
+<style>
+  .smc-wrap{max-width:900px; margin:0 auto; padding:0 24px 70px;}
+
+  .smc-head{text-align:center; padding:44px 0 26px;}
+  .smc-kick{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:2.4px;
+    text-transform:uppercase; color:var(--silver-deep,#7A7575); margin:0 0 14px;}
+  .smc-head h1{font-family:'Anton',sans-serif; font-weight:400; text-transform:uppercase;
+    font-size:clamp(36px,7vw,62px);
+    /* Anton has tall caps and almost no built-in leading, so anything under 1
+       makes two lines touch. */
+    line-height:1.06; letter-spacing:0.5px; margin:0 0 14px; color:var(--chalk);}
+  .smc-head h1 .hit{color:var(--flare);}
+  .smc-lede{color:var(--chalk-dim,#9A9A96); font-size:15px; line-height:1.65;
+    margin:0 auto; max-width:520px;}
+
+  .smc-card{
+    background:var(--ink-2,#141416);
+    border:2px solid var(--flare);
+    border-radius:10px; overflow:hidden; margin-bottom:16px;
+  }
+  .smc-top{
+    padding:12px 18px; border-bottom:1px solid rgba(195,202,211,0.14);
+    display:flex; justify-content:space-between; align-items:baseline;
+    gap:12px; flex-wrap:wrap;
+  }
+  .smc-top h2{font-family:'Anton',sans-serif; font-weight:400; font-size:21px;
+    margin:0; text-transform:uppercase; letter-spacing:0.5px; color:var(--chalk);}
+  .smc-date{font-family:'JetBrains Mono',monospace; font-size:8.5px;
+    letter-spacing:1.2px; color:var(--silver-deep,#7A7575); white-space:nowrap;}
+
+  /* The facts, shown openly. Part of the appeal is seeing the situation and
+     then hearing what he does with it. */
+  .smc-facts{
+    padding:11px 18px; border-bottom:1px solid rgba(195,202,211,0.08);
+    font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:0.6px;
+    color:var(--chalk-dim,#9A9A96); line-height:1.75;
+  }
+
+  .smc-body{padding:15px 18px;}
+  .smc-lbl{font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:1.4px;
+    color:var(--flare); margin:0 0 6px;}
+
+  /* Inter rather than Anton - this is a paragraph of shouting, and condensed
+     display type is unreadable at length. */
+  .smc-call{
+    font-family:'Inter',sans-serif; font-weight:800; font-size:15px;
+    line-height:1.55; margin:0 0 18px; color:var(--chalk);
+  }
+  .smc-sub, .smc-roast{margin:0 0 16px;}
+  .smc-sub p, .smc-roast p{
+    margin:0; font-size:13.5px; line-height:1.62;
+    color:var(--chalk-dim,#B5B0B0); font-style:italic;
+  }
+  .smc-roast p{color:#C3CAD3;}
+
+  .smc-play{
+    display:flex; align-items:center; gap:12px;
+    padding:12px 18px; border-top:1px solid rgba(195,202,211,0.10);
+  }
+  .smc-btn{
+    width:52px; height:52px; border-radius:10px; -webkit-appearance:none; appearance:none;
+    background-color:var(--flare); border:3px solid #0D0D0D; padding:0; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center;
+    box-shadow:0 0 16px rgba(245,245,243,0.45);
+  }
+  .smc-btn.is-empty{background-color:#2A2D32; box-shadow:none; opacity:0.5; cursor:default;}
+  .smc-bar{flex:1; height:3px; background:#2A2D32; border-radius:2px;}
+  .smc-t{font-family:'JetBrains Mono',monospace; font-size:9px; color:#7A7575;}
+
+  .smc-empty{
+    text-align:center; padding:50px 20px; color:var(--chalk-dim,#9A9A96);
+    border:1px dashed rgba(195,202,211,0.20); border-radius:10px;
+  }
+
+  @media(max-width:560px){
+    .smc-head{padding-top:30px;}
+    .smc-call{font-size:14px;}
+  }
+</style>
+</head>
+<body>
+
+{% include '_nav.html' %}
+
+{% include '_smacks_today.html' %}
+
+<div class="smc-wrap">
+  <header class="smc-head">
+    <p class="smc-kick">SMACKY MAKES THE CALL</p>
+    <h1>The greatest moments<br>in sports. <span class="hit">Ruined.</span></h1>
+    <p class="smc-lede">Somebody had to call these. Unfortunately it was a phone
+       in a backwards hat who has never once been impartial.</p>
+  </header>
+
+  {% for m in moments %}
+    <article class="smc-card">
+      <div class="smc-top">
+        <h2>{{ m.title }}</h2>
+        <span class="smc-date">{{ m.moment_date or '' }}</span>
+      </div>
+
+      <div class="smc-facts">
+        {{ m.teams }}{% if m.game %} &middot; {{ m.game }}{% endif %}<br>
+        {% for row in (m.situation or '').splitlines() %}
+          {% if row.strip() %}{{ row.strip() }}{% if not loop.last %} &middot; {% endif %}{% endif %}
+        {% endfor %}
+      </div>
+
+      {% if m.call_text %}
+        <div class="smc-body">
+          <p class="smc-lbl">THE CALL</p>
+          <p class="smc-call">{{ m.call_text }}</p>
+
+          {% if m.followup_text %}
+            <div class="smc-sub">
+              <p class="smc-lbl">AND THEN</p>
+              <p>{{ m.followup_text }}</p>
+            </div>
+          {% endif %}
+
+          {% if m.roast_text %}
+            <div class="smc-roast">
+              <p class="smc-lbl">{% if m.losing_team %}THE ROAST &mdash; {{ m.losing_team|upper }}{% else %}THE ROAST{% endif %}</p>
+              <p>{{ m.roast_text }}</p>
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="smc-play">
+          {% if m.audio_url %}
+            <button class="smc-btn" data-audio="{{ m.audio_url }}" aria-label="Play the call">
+              <svg width="17" height="19" viewBox="0 0 17 19" aria-hidden="true">
+                <path d="M1 1l15 8.5L1 18z" fill="#0D0D0D"/></svg>
+            </button>
+          {% else %}
+            <span class="smc-btn is-empty" aria-hidden="true">
+              <svg width="17" height="19" viewBox="0 0 17 19">
+                <path d="M1 1l15 8.5L1 18z" fill="#0D0D0D"/></svg>
+            </span>
+          {% endif %}
+          <span class="smc-t">0:00</span>
+          <span class="smc-bar"></span>
+          <span class="smc-t">{% if m.audio_url %}&mdash;&mdash;{% else %}NO AUDIO YET{% endif %}</span>
+        </div>
+      {% else %}
+        <div class="smc-body">
+          <p class="smc-lede" style="text-align:left;">Smacky hasn&rsquo;t called this one yet.</p>
+        </div>
+      {% endif %}
+    </article>
+  {% else %}
+    <div class="smc-empty">
+      <p>No moments loaded yet.</p>
+    </div>
+  {% endfor %}
+</div>
+
+<script>
+// One at a time, same as the wall.
+(function () {
+  var current = null;
+  document.querySelectorAll('.smc-btn[data-audio]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      if (current) { current.pause(); current = null; }
+      var a = new Audio(btn.dataset.audio);
+      current = a;
+      a.play().catch(function () {});
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

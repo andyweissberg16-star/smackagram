@@ -14,7 +14,7 @@ import requests
 from dotenv import load_dotenv
 
 from models import SmackcastWeeklyNote
-from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode, WallPost, OptOut
+from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode, WallPost, OptOut, FamousMoment
 from services import news_service, show_service, admin_service, settings_service, show_service
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service, revenge_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
@@ -3182,6 +3182,97 @@ def api_check_optout():
     return jsonify({"opted_out": is_opted_out(request.args.get("phone"))})
 
 
+@app.route("/smacky-makes-the-call")
+def smacky_makes_the_call():
+    """
+    Smacky calls the most famous moments in sports history.
+
+    Reads from cached text rather than generating per visit - fifty moments
+    would be fifty Claude calls on every page load. Regenerated deliberately
+    via the admin endpoint below.
+    """
+    moments = (FamousMoment.query
+               .filter_by(published=True)
+               .order_by(FamousMoment.sort_order, FamousMoment.id)
+               .all())
+    return render_template("smacky_calls.html", moments=moments)
+
+
+@app.route("/api/admin/seed-moments")
+def admin_seed_moments():
+    """
+    Load data/famous_moments.json into the table.
+
+    Safe to hit repeatedly - existing rows are UPDATED by slug rather than
+    duplicated, and any call text already generated is left alone so
+    re-seeding to fix a typo in the facts does not wipe fifty calls.
+    """
+    if request.args.get("key") != os.environ.get("CRON_KEY", "smack2026secure99xyz"):
+        return jsonify({"error": "nope"}), 403
+
+    import json
+    path = os.path.join(os.path.dirname(__file__), "data", "famous_moments.json")
+    try:
+        rows = json.load(open(path))
+    except Exception as e:
+        return jsonify({"error": f"could not read {path}: {e}"}), 500
+
+    added = updated = 0
+    for r in rows:
+        m = FamousMoment.query.filter_by(slug=r["slug"]).first()
+        if not m:
+            m = FamousMoment(slug=r["slug"])
+            db.session.add(m)
+            added += 1
+        else:
+            updated += 1
+        for field in ("title", "sport", "moment_date", "game", "teams",
+                      "losing_team", "hero", "goat", "situation", "stakes",
+                      "broadcast_style", "sort_order"):
+            if field in r:
+                setattr(m, field, r[field])
+    db.session.commit()
+    return jsonify({"added": added, "updated": updated, "total": len(rows)})
+
+
+@app.route("/api/admin/generate-call/<slug>")
+def admin_generate_call(slug):
+    """
+    Write (or rewrite) one moment's call. Admin only.
+
+    One at a time on purpose - fifty in a loop would take several minutes and
+    time out, and you want to hear the first one before spending fifty calls
+    finding out the prompt is wrong.
+    """
+    if request.args.get("key") != os.environ.get("CRON_KEY", "smack2026secure99xyz"):
+        return jsonify({"error": "nope"}), 403
+
+    from services import moment_service
+
+    m = FamousMoment.query.filter_by(slug=slug).first()
+    if not m:
+        return jsonify({"error": f"no moment with slug {slug}"}), 404
+
+    try:
+        call, followup, roast = moment_service.generate_call(m)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    m.call_text = call
+    m.followup_text = followup
+    m.roast_text = roast
+    m.generated_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+    return jsonify({
+        "slug": m.slug,
+        "title": m.title,
+        "call": call,
+        "followup": followup,
+        "roast": roast,
+    })
+
+
 @app.route("/opt-out", methods=["GET", "POST"])
 def opt_out_page():
     """
@@ -5021,6 +5112,30 @@ with app.app_context():
 
             # Numbers that must never be called again. Checked before every
             # dial - see is_opted_out().
+            conn.execute(db.text("""CREATE TABLE IF NOT EXISTS famous_moments (
+                id SERIAL PRIMARY KEY,
+                slug VARCHAR(80) UNIQUE NOT NULL,
+                title VARCHAR(120) NOT NULL,
+                sport VARCHAR(20) DEFAULT 'mlb',
+                moment_date VARCHAR(40),
+                game VARCHAR(160),
+                teams VARCHAR(160),
+                losing_team VARCHAR(80),
+                hero VARCHAR(80),
+                goat VARCHAR(80),
+                situation TEXT,
+                stakes TEXT,
+                broadcast_style TEXT,
+                call_text TEXT,
+                followup_text TEXT,
+                roast_text TEXT,
+                audio_url VARCHAR(400),
+                generated_at TIMESTAMP,
+                sort_order INTEGER DEFAULT 0,
+                published BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP
+            )"""))
+
             conn.execute(db.text("""CREATE TABLE IF NOT EXISTS opt_outs (
                 id SERIAL PRIMARY KEY,
                 phone VARCHAR(20) UNIQUE NOT NULL,

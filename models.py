@@ -920,6 +920,50 @@ class SmackcastRecap(db.Model):
     __table_args__ = (db.UniqueConstraint("subscription_id", "week_number", "season_year", name="one_recap_per_week_per_subscription"),)
 
 
+class FamousMoment(db.Model):
+    """
+    A famous sports moment, stored as FACTS.
+
+    Deliberately no transcript field. The original commentary is somebody
+    else's copyrighted work, and putting it in the prompt would pull the
+    model straight towards the phrases that ARE the moment. Everything here
+    is fact - score, clock, who did what, what was at stake - which nobody
+    owns, plus a DESCRIPTION of how the broadcast felt.
+
+    Smacky writes from the facts, so the call is entirely his.
+    """
+    __tablename__ = "famous_moments"
+
+    id = db.Column(db.Integer, primary_key=True)
+    slug = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    title = db.Column(db.String(120), nullable=False)
+    sport = db.Column(db.String(20), default="mlb")
+    moment_date = db.Column(db.String(40))          # "October 3, 1951"
+    game = db.Column(db.String(160))                # "NL Playoff - Game 3"
+    teams = db.Column(db.String(160))               # "Giants vs Dodgers"
+
+    # The losing side, so the roast has a target. Nullable - some moments
+    # (a perfect game, a record) have no clean loser to aim at.
+    losing_team = db.Column(db.String(80))
+    hero = db.Column(db.String(80))                 # Bobby Thomson
+    goat = db.Column(db.String(80))                 # Ralph Branca - nullable
+
+    situation = db.Column(db.Text)                  # bullets, one per line
+    stakes = db.Column(db.Text)                     # why it mattered
+    broadcast_style = db.Column(db.Text)            # DESCRIBED, never quoted
+
+    # Cached output so a page load is not fifty Claude calls.
+    call_text = db.Column(db.Text)
+    followup_text = db.Column(db.Text)
+    roast_text = db.Column(db.Text)
+    audio_url = db.Column(db.String(400))
+    generated_at = db.Column(db.DateTime)
+
+    sort_order = db.Column(db.Integer, default=0)
+    published = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class OptOut(db.Model):
     """
     Numbers that must never be called again.
