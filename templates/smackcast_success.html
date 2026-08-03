@@ -11,16 +11,17 @@
 
 {% block panel %}
 <div class="sx-panel">
-  <strong>First recap drops this coming Tuesday</strong>, once the current
-  week&rsquo;s games are final. Nothing else needs setting up.
+  <strong>One thing left: connect your league.</strong> Smackcast needs to
+  see your scores to roast anybody, so this takes about a minute and then you
+  are done. First recap drops the following Tuesday.
 </div>
 {% endblock %}
 
 {% block actions %}
-  {# There IS one more thing worth doing, and this is the only moment a new
-     subscriber is guaranteed to be paying attention. Five minutes here is the
-     difference between recaps that could belong to any league and recaps that
-     could only belong to theirs. #}
-  <a href="/smackcast/league-profile" class="sx-btn">Tell Smacky about your league</a>
-  <span class="sx-alt"><a href="/locker">Skip for now &mdash; take me to my locker</a></span>
+  {# Connecting the league comes FIRST. Without it there is no data to build
+     a recap from, so no amount of personalisation produces anything - and
+     this is the only moment a new subscriber is guaranteed to be paying
+     attention. #}
+  <a href="/smackcast/connect" class="sx-btn">Connect your league</a>
+  <span class="sx-alt"><a href="/locker">I'll do it later &mdash; take me to my locker</a></span>
 {% endblock %}

@@ -4534,6 +4534,32 @@ def smackcast_league_profile():
                            sub=sub, saved=saved, preview=preview)
 
 
+@app.route("/smackcast/connect")
+@login_required
+def smackcast_connect_page():
+    """
+    Connect a fantasy league to a Smackcast subscription.
+
+    The template and all three APIs it calls have existed for a while; the
+    route never did. Three pages linked to /smackcast/connect and every one
+    of them 404'd - so anybody who paid for Smackcast had no way to attach a
+    league, and no recap could ever be generated for them.
+    """
+    user = get_current_user()
+
+    # If they already have one connected, show it rather than starting over.
+    existing = (SmackcastSubscription.query
+                .filter_by(user_id=user.id)
+                .order_by(SmackcastSubscription.id.desc())
+                .first())
+
+    return render_template(
+        "smackcast_connect.html",
+        existing=existing,
+        stripe_publishable_key=os.environ.get("STRIPE_PUBLISHABLE_KEY", ""),
+    )
+
+
 @app.route("/smackcast/library")
 @login_required
 def smackcast_library_page():
