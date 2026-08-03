@@ -732,7 +732,12 @@
 
 <div class="wrap" style="padding-top:24px;">
 
-  <div class="intro">
+  {# Landing point for the homepage button.
+     
+     scroll-margin-top is only 18px because the nav here SCROLLS AWAY rather
+     than sticking - a nav-height offset would leave an empty band at the top
+     instead of putting the heading where the eye lands. #}
+  <div class="intro" id="start" style="scroll-margin-top:18px;">
     <p class="eyebrow">Send a Smackagram</p>
     <h1>Roast your rival.<br>Stay <em>anonymous</em>.</h1>
     <p class="lede">A Smackagram is a <b>real phone call</b> to a friend, delivered by Smacky. He roasts their team &mdash; by name, with real trash talk &mdash; and they never find out it came from you. Their reaction gets recorded so you can hear the whole thing back.</p>
