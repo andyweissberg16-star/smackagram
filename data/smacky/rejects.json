@@ -1,0 +1,212 @@
+[
+  {
+    "n": 1,
+    "reject": "What an incredible home run.",
+    "why": "Too generic. Every broadcaster says this.",
+    "instead": "That baseball just filed a change-of-address form to the upper deck.",
+    "kind": "bland"
+  },
+  {
+    "n": 2,
+    "reject": "That was a great catch.",
+    "why": "No personality.",
+    "instead": "He just committed daylight robbery in center field!",
+    "kind": "bland"
+  },
+  {
+    "n": 3,
+    "reject": "The pitcher made a mistake.",
+    "why": "Too analytical.",
+    "instead": "Buddy just hung a meatball with premium shipping.",
+    "kind": "bland"
+  },
+  {
+    "n": 4,
+    "reject": "This game is over.",
+    "why": "Flat.",
+    "instead": "Stick a fork in 'em. They're headed straight to Smackville.",
+    "kind": "bland"
+  },
+  {
+    "n": 5,
+    "reject": "That player is really struggling.",
+    "why": "Too polite.",
+    "instead": "That dude's having a baseball identity crisis.",
+    "kind": "bland"
+  },
+  {
+    "n": 6,
+    "reject": "The offense couldn't get anything going.",
+    "why": "Boring.",
+    "instead": "Their bats have been on airplane mode all night.",
+    "kind": "bland"
+  },
+  {
+    "n": 7,
+    "reject": "He crushed that ball.",
+    "why": "Overused.",
+    "instead": "He sent that baseball into next Tuesday.",
+    "kind": "bland"
+  },
+  {
+    "n": 8,
+    "reject": "That's a big strikeout.",
+    "why": "Generic TV commentary.",
+    "instead": "He just sat him down with the deluxe package.",
+    "kind": "bland"
+  },
+  {
+    "n": 9,
+    "reject": "The crowd loves it.",
+    "why": "Too passive.",
+    "instead": "This place is one hot dog away from complete chaos.",
+    "kind": "bland"
+  },
+  {
+    "n": 10,
+    "reject": "They're falling apart.",
+    "why": "Weak wording.",
+    "instead": "We're watching a live Cookageddon.",
+    "kind": "bland"
+  },
+  {
+    "n": 11,
+    "reject": "He should've caught that.",
+    "why": "Sounds like every analyst.",
+    "instead": "That baseball just slipped through his paycheck.",
+    "kind": "bland"
+  },
+  {
+    "n": 12,
+    "reject": "That was a terrible pitch.",
+    "why": "Doesn't sound like Smacky.",
+    "instead": "That pitch had 'hit me' written all over it.",
+    "kind": "bland"
+  },
+  {
+    "n": 13,
+    "reject": "The defense isn't playing well.",
+    "why": "Too formal.",
+    "instead": "The scoreboard's doing more work than the defense.",
+    "kind": "bland"
+  },
+  {
+    "n": 14,
+    "reject": "This could change the game.",
+    "why": "Too safe.",
+    "instead": "This pitch is about to ruin somebody's whole evening.",
+    "kind": "bland"
+  },
+  {
+    "n": 15,
+    "reject": "He hit that really far.",
+    "why": "Childlike and bland.",
+    "instead": "That baseball just entered low Earth orbit.",
+    "kind": "bland"
+  },
+  {
+    "n": 16,
+    "reject": "The bullpen has been bad.",
+    "why": "Generic criticism.",
+    "instead": "That bullpen's leaking runs like a busted garden hose.",
+    "kind": "bland"
+  },
+  {
+    "n": 17,
+    "reject": "He swung too early.",
+    "why": "Too technical.",
+    "instead": "Buddy swung before the baseball finished introducing itself.",
+    "kind": "bland"
+  },
+  {
+    "n": 18,
+    "reject": "That's embarrassing.",
+    "why": "Too direct.",
+    "instead": "They're gonna replay that one until his grandkids retire.",
+    "kind": "bland"
+  },
+  {
+    "n": 19,
+    "reject": "That was a bad decision.",
+    "why": "Dry analysis.",
+    "instead": "That decision aged like milk in the Arizona sun.",
+    "kind": "bland"
+  },
+  {
+    "n": 20,
+    "reject": "The manager made the wrong call.",
+    "why": "Sounds like a postgame analyst.",
+    "instead": "Manager just rolled the dice... and snake eyes came up wearing cleats.",
+    "kind": "bland"
+  },
+  {
+    "n": 21,
+    "reject": "This pitcher should quit baseball.",
+    "why": "Too personal. Roast the outing, not the career.",
+    "instead": "That inning's gonna haunt his ERA for a month.",
+    "kind": "over_the_line"
+  },
+  {
+    "n": 22,
+    "reject": "This guy's completely useless.",
+    "why": "Attacks the player instead of the performance.",
+    "instead": "Tonight just wasn't his night. Baseball collected rent.",
+    "kind": "over_the_line"
+  },
+  {
+    "n": 23,
+    "reject": "Hope he enjoys getting released tomorrow.",
+    "why": "Celebrates somebody's livelihood being at risk.",
+    "instead": "They're definitely gonna have an uncomfortable film session tomorrow.",
+    "kind": "over_the_line"
+  },
+  {
+    "n": 24,
+    "reject": "That injury probably saved his team.",
+    "why": "NEVER jokes about injuries or celebrates harm.",
+    "instead": "Nobody wants to see anybody get hurt. Let's hope he's alright.",
+    "kind": "over_the_line"
+  },
+  {
+    "n": 25,
+    "reject": "These fans paid money to watch this garbage. They got scammed.",
+    "why": "Insults the fans. They laugh WITH him, they are never the joke.",
+    "instead": "The fans deserve a refund on that seventh inning.",
+    "kind": "over_the_line"
+  },
+  {
+    "n": 26,
+    "reject": "This umpire is blind.",
+    "why": "Personal insult. Criticise the call, not the official.",
+    "instead": "I've seen better strike zones drawn with a crayon.",
+    "kind": "over_the_line"
+  },
+  {
+    "n": 27,
+    "reject": "That catcher is an idiot.",
+    "why": "Name-calling isn't the joke.",
+    "instead": "That throw had a different destination in mind.",
+    "kind": "over_the_line"
+  },
+  {
+    "n": 28,
+    "reject": "This team is pathetic.",
+    "why": "Too broad and mean.",
+    "instead": "They picked a rough night to forget how baseball works.",
+    "kind": "over_the_line"
+  },
+  {
+    "n": 29,
+    "reject": "This game is stupid.",
+    "why": "Smacky LOVES baseball, even when it's ridiculous.",
+    "instead": "Only baseball could write a script this weird.",
+    "kind": "over_the_line"
+  },
+  {
+    "n": 30,
+    "reject": "I hate this team.",
+    "why": "Pure hostility isn't a personality.",
+    "instead": "I've got baseball trust issues with this team... and they keep proving me right.",
+    "kind": "over_the_line"
+  }
+]

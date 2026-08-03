@@ -1,0 +1,219 @@
+{
+  "tense_late": {
+    "when": "Close game, late innings. The quiet register - level 20 to 35.",
+    "intensity": 25,
+    "lines": [
+      "We're one swing away from absolute chaos.",
+      "Nobody breathe.",
+      "This place is about to explode.",
+      "Everything changes right here.",
+      "One pitch writes tomorrow's headline.",
+      "This is baseball at its absolute best.",
+      "Buddy... this ain't pressure. This is history knocking.",
+      "This stadium is holding its breath.",
+      "Nobody move.",
+      "You can feel it.",
+      "One pitch.",
+      "He knows it. The pitcher knows it. Thirty thousand people know it."
+    ]
+  },
+  "home_run": {
+    "when": "Ball leaves the yard. Full explosion - level 120.",
+    "intensity": 110,
+    "lines": [
+      "Buddy... that baseball just filed a change-of-address form to the upper deck!",
+      "That pitcher just donated another souvenir to the bleachers!",
+      "Holy hell! That baseball left the stadium before the outfielder even blinked!",
+      "You can kiss that baseball goodbye!",
+      "That baseball's got frequent-flyer miles now!",
+      "He hit that ball so hard it owes air traffic control an apology!",
+      "That baseball is applying for citizenship in the parking lot!",
+      "That wasn't batting... that was aggravated assault on a baseball!",
+      "That baseball got hit so hard even the pigeons ducked!",
+      "That baseball's gonna need a passport after that ride!",
+      "Good LORD... somebody call NASA!",
+      "That baseball just entered witness protection!",
+      "He just hit that baseball into next Tuesday!",
+      "That swing just committed a baseball felony!",
+      "The catcher didn't catch that one... he watched it leave the county!",
+      "That baseball just paid tolls leaving the stadium!",
+      "That baseball's orbiting the moon!",
+      "That baseball got absolutely vaporized!",
+      "That baseball just entered low Earth orbit!",
+      "I've seen fireworks with a softer launch than that!",
+      "That baseball just entered the Smack Hall of Fame!",
+      "MOON MISSILE!"
+    ]
+  },
+  "pitcher_shelled": {
+    "when": "Pitcher getting hit hard, hanging pitches, bullpen leaking.",
+    "intensity": 85,
+    "lines": [
+      "That fastball had all the stopping power of wet toilet paper.",
+      "Buddy just threw premium batting practice.",
+      "That pitcher just turned into a full-time souvenir supplier!",
+      "That pitch had one destination... getting absolutely murdered!",
+      "You can't throw cookies to hungry hitters!",
+      "I've seen bowling balls break more than that breaking ball!",
+      "That curveball curved directly into unemployment!",
+      "That pitcher is serving meatballs with extra gravy!",
+      "This pitcher's getting shelled like free peanuts at a ballpark!",
+      "That's what happens when you leave steak in the strike zone!",
+      "That pitch was hanging like grandma's laundry!",
+      "That bullpen's leaking runs like a busted garden hose.",
+      "Buddy just hung a meatball with premium shipping.",
+      "That pitch had 'hit me' written all over it.",
+      "That inning's gonna haunt his ERA for a month."
+    ]
+  },
+  "shut_out": {
+    "when": "Losing side scored nothing, or close to it. No offence at all.",
+    "intensity": 70,
+    "lines": [
+      "That team couldn't hit water if they fell out of a boat.",
+      "Their bats were on airplane mode all night.",
+      "That lineup swung like they were blindfolded.",
+      "That team couldn't buy a hit with Monopoly money.",
+      "Somebody call animal control... those bats are extinct.",
+      "Their bats were colder than a January toilet seat.",
+      "That lineup had less life than a dead phone battery.",
+      "You can't win games scoring imaginary runs.",
+      "That team looked like they were allergic to home plate.",
+      "That offense couldn't start a lawn mower.",
+      "I've seen batting cages with tougher competition.",
+      "Somebody put milk cartons on that offense... they're missing.",
+      "Nine innings and not a single run. That's a goose egg with a bow on it.",
+      "Somebody check that lineup card... half of it never left the dugout."
+    ]
+  },
+  "collapse": {
+    "when": "Blew a lead, fell apart, lost one they had won.",
+    "intensity": 90,
+    "lines": [
+      "Buddy... y'all just invented a new way to lose.",
+      "They didn't lose... they got evicted from the game.",
+      "Their comeback had the lifespan of a soap bubble.",
+      "That wasn't a collapse... that was a demolition project.",
+      "That team got folded like a cheap lawn chair.",
+      "They got steamrolled, backtracked, and gift-wrapped.",
+      "Folks... we're witnessing a live Cookageddon!",
+      "Hope they bought Smack Insurance...",
+      "They picked a rough night to forget how baseball works."
+    ]
+  },
+  "blown_save": {
+    "when": "Closer gave it away. A specific, quieter kind of disaster.",
+    "intensity": 75,
+    "lines": [
+      "The closer just became the opener for tomorrow's sports radio.",
+      "They had one job.",
+      "The champagne's back in the fridge.",
+      "That's gonna haunt him.",
+      "Hope they bought Smack Insurance..."
+    ]
+  },
+  "walk_off": {
+    "when": "Game ends on the last swing. Build then explode.",
+    "intensity": 120,
+    "lines": [
+      "Oh no...",
+      "That ball's got a chance...",
+      "Back...",
+      "GONE!",
+      "HOLY HELL!!",
+      "BALLGAME!",
+      "Somebody call the bus driver because they're going home CRYING!",
+      "Somebody tell the bus driver to leave the engine running."
+    ]
+  },
+  "strikeout": {
+    "when": "Batter goes down. Worse if looking, worse still with runners on.",
+    "intensity": 80,
+    "lines": [
+      "He just sat him down with the deluxe package.",
+      "Struck out looking. On national television. With the tying run on third.",
+      "Buddy swung before the baseball finished introducing itself.",
+      "That bat never left the shoulder. Framed it like a photograph.",
+      "Three pitches. Three swings. Three different area codes.",
+      "He got rung up so loud the dugout felt it."
+    ]
+  },
+  "error": {
+    "when": "A dropped ball, a wild throw, a misplayed grounder.",
+    "intensity": 85,
+    "lines": [
+      "That baseball just slipped through his paycheck.",
+      "That throw had a different destination in mind.",
+      "He just signed a lease on tomorrow's blooper reel.",
+      "The scoreboard's doing more work than the defense.",
+      "That defense had more holes than Swiss cheese.",
+      "The outfield was playing hide-and-seek... and forgot to seek."
+    ]
+  },
+  "stranded": {
+    "when": "Bases loaded and nothing to show for it.",
+    "intensity": 80,
+    "lines": [
+      "They left more runners stranded than a deserted island.",
+      "Left 'em loaded twice. That's not bad luck, that's a lifestyle.",
+      "Y'all had bases juiced and came away with a handshake.",
+      "The only rally they had was walking back to the dugout.",
+      "That double play ended the inning, the rally, and probably somebody's career."
+    ]
+  },
+  "great_play": {
+    "when": "The WINNING side does something brilliant. He celebrates them.",
+    "intensity": 100,
+    "lines": [
+      "He just committed daylight robbery in center field!",
+      "That's not a catch... that's a baseball felony!",
+      "Somebody put a reward out for that baseball!",
+      "That was baseball robbery in broad daylight."
+    ]
+  },
+  "benches_clear": {
+    "when": "Everybody comes out. Nothing actually happens.",
+    "intensity": 95,
+    "lines": [
+      "OHHHH HERE WE GO!!",
+      "Everybody's pretending they're gonna fight.",
+      "That's the bullpen's fastest sprint all year.",
+      "Nobody's throwing punches... everybody's throwing opinions."
+    ]
+  },
+  "position_player_pitching": {
+    "when": "It is so far gone the shortstop is on the mound.",
+    "intensity": 90,
+    "lines": [
+      "Oh they've officially waved the white flag.",
+      "Well... here comes Steve from accounting.",
+      "They're down so bad the shortstop's pitching."
+    ]
+  },
+  "injury": {
+    "when": "SOMEBODY IS HURT. The act stops. No slang, no jokes, no exceptions.",
+    "intensity": 10,
+    "lines": [
+      "Nobody wants to see anybody get hurt. Let's hope he's alright.",
+      "Everybody's taking a knee. That's all that matters right now.",
+      "Let's give him a minute. Baseball can wait."
+    ]
+  },
+  "closers": {
+    "when": "Sign-off. One per segment, never more.",
+    "intensity": 100,
+    "lines": [
+      "Welcome to Smackville. Population: the losing team.",
+      "Punch your ticket to L City, baby!",
+      "Y'all just got Cookageddon'd.",
+      "That's a certified Smackastrophe.",
+      "Somebody call cleanup... there's highlights all over the field.",
+      "That was premium-grade embarrassment.",
+      "The scoreboard just earned Player of the Game.",
+      "That's gonna leave a mark until next season.",
+      "Close the curtains... the show's over.",
+      "And that's today's lesson in getting Smackified.",
+      "They'll be replaying that one until his grandkids retire."
+    ]
+  }
+}
