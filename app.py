@@ -494,6 +494,10 @@ def api_pending_action_status(pending_action_id):
         "status": pending.status,
         "redirect": pending.result_redirect,
         "error_message": pending.error_message,
+        # Which generator this came from. Without it the top-up page had no
+        # way to know, so it sent everybody back to Send a Smack - including
+        # people who were part-way through arming a Locked & Loaded.
+        "action_type": pending.action_type,
     })
 
 

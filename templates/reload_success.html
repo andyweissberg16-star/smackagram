@@ -41,6 +41,8 @@
 <div>
   <h1 id="statusHeading">Reload confirmed.</h1>
   <p id="statusMessage">Your Smackagram balance has been topped up. It'll show up in your account in just a moment.</p>
+  {# Defaults to Send a Smack; the script repoints it as soon as it learns
+     which generator the pending action came from. #}
   <a href="/send-a-smack" class="cta-btn" id="continueBtn">Continue</a>
 </div>
 </div>
@@ -66,6 +68,12 @@ const pendingActionId = new URLSearchParams(window.location.search).get('pending
     fetch('/api/wallet/pending-action-status/' + pendingActionId)
       .then(function(resp) { return resp.json(); })
       .then(function(data) {
+        // Point Continue at the right generator as soon as we know which one
+        // this was, so it is correct even if somebody clicks it before the
+        // action finishes processing.
+        if (btn && data.action_type === 'locked_n_loaded') {
+          btn.href = '/locked-n-loaded';
+        }
         if (data.status === 'completed') {
           heading.textContent = 'All set!';
           message.textContent = "Your smack is on its way.";
@@ -77,7 +85,11 @@ const pendingActionId = new URLSearchParams(window.location.search).get('pending
           heading.textContent = "Reload worked, but something went wrong.";
           message.textContent = data.error_message || "Your balance was topped up, but we couldn't complete your original request. Please try again.";
           btn.textContent = 'Try again';
-          btn.href = '/send-a-smack';
+          // Back to whichever generator they were actually using. This was
+          // hardcoded to Send a Smack, so somebody part-way through arming a
+          // Locked & Loaded topped up and landed on the wrong product.
+          btn.href = (data.action_type === 'locked_n_loaded')
+            ? '/locked-n-loaded' : '/send-a-smack';
           btn.style.display = 'inline-block';
           return;
         }
