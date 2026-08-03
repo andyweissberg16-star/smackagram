@@ -502,26 +502,121 @@
      double up inside a container - which left the homepage embeds with no
      frame at all. These match what each page paints on itself when visited
      directly: red for Smackagram, silver for Locked & Loaded, 2px both. */
-  .home-gen{
-    background:var(--ink-2);
-    border-radius:8px;
-    overflow:hidden;
+
+
+  /* ---------------------------------------------------------------------
+     The three that make money
+     --------------------------------------------------------------------- */
+  .prod-three{display:grid; grid-template-columns:repeat(3,1fr); gap:14px;
+    align-items:stretch; margin-bottom:8px;}
+  .prod{
+    background:var(--ink-2,#141416); border-radius:10px;
+    padding:22px 18px 18px; display:flex; flex-direction:column; text-align:center;
   }
-  .home-gen--smack{
-    border:2px solid var(--flare,#E01B24);
-    box-shadow:0 0 30px rgba(232,20,44,0.30);
+  /* A border colour per revenue model - one-off, conditional, subscription.
+     Three prices that work three different ways should not look identical. */
+  .prod--smack{border:2px solid var(--flare);}
+  .prod--locked{border:2px solid var(--silver,#C3CAD3);}
+  .prod--cast{border:2px solid #FFB612;}
+
+  .prod h2{
+    font-family:'Anton',sans-serif; font-weight:400; font-size:21px;
+    text-transform:uppercase; letter-spacing:0.5px; line-height:1.05;
+    margin:0 0 13px; color:var(--chalk);
   }
-  .home-gen--locked{
-    border:2px solid var(--silver,#C3CAD3);
-    box-shadow:0 0 26px rgba(190,200,212,0.25);
+  /* The price uses the same stamp as everywhere else on the site, so all
+     three read as the offer rather than a spec line. */
+  .prod-price{margin:0 0 14px;}
+  .prod-price .smk-price-stamp{font-size:22px;}
+
+  .prod p{color:var(--chalk-dim,#B5B0B0); font-size:12.5px; line-height:1.65;
+    margin:0 0 10px; text-align:left;}
+  .prod p strong{color:var(--chalk); font-weight:600;}
+  .prod-quiet{color:#7A7575 !important; font-size:11.5px !important;}
+
+  .prod-cta{
+    margin-top:auto; display:block; border-radius:6px; padding:12px;
+    font-family:'JetBrains Mono',monospace; font-size:8.5px; letter-spacing:1.2px;
+    font-weight:700; text-decoration:none;
+  }
+  .prod--smack .prod-cta{background:var(--flare); color:#fff;}
+  .prod--locked .prod-cta{background:var(--silver,#C3CAD3); color:#0D0D0D;}
+  .prod--cast .prod-cta{background:#FFB612; color:#0D0D0D;}
+  .prod-cta:hover{filter:brightness(1.1);}
+
+  /* Section headings shared by everything below the three. */
+  .home-divh{display:flex; align-items:center; gap:14px; margin:34px 0 13px;}
+  .home-divh h3{font-family:'Anton',sans-serif; font-weight:400; font-size:19px;
+    color:var(--silver,#C3CAD3); margin:0; text-transform:uppercase;
+    letter-spacing:2px; white-space:nowrap;}
+  .home-divh .ln{flex:1; height:1px; background:rgba(195,202,211,0.18);}
+  .home-divh .sub{font-family:'JetBrains Mono',monospace; font-size:8px;
+    letter-spacing:1.2px; color:#5A5E64; white-space:nowrap;}
+
+  /* Board preview */
+  .home-board{border:2px solid var(--silver,#C3CAD3); border-radius:10px; overflow:hidden;}
+  .home-board-top{padding:14px 18px; display:flex; justify-content:space-between;
+    align-items:center; gap:14px; flex-wrap:wrap; border-bottom:1px solid #2A2D32;}
+  .home-board-top h4{font-family:'Anton',sans-serif; font-weight:400; font-size:21px;
+    margin:0; text-transform:uppercase; letter-spacing:0.5px; color:var(--silver,#C3CAD3);}
+  .home-board-top p{color:#7A7575; font-size:11.5px; margin:4px 0 0;}
+  .home-board-live{font-family:'JetBrains Mono',monospace; font-size:9px;
+    letter-spacing:1.3px; color:#FF1B2D; display:inline-flex; align-items:center;
+    gap:6px; white-space:nowrap;}
+  .home-board-dot{width:7px; height:7px; border-radius:50%; background:#FF1B2D;
+    box-shadow:0 0 8px rgba(255,27,45,0.95); animation:home-blink 1.3s ease-in-out infinite;}
+  @keyframes home-blink{0%,100%{opacity:1;}50%{opacity:0.3;}}
+  @media (prefers-reduced-motion:reduce){ .home-board-dot{animation:none;} }
+  .home-mini{display:grid; grid-template-columns:repeat(3,1fr); gap:9px; padding:13px 15px;}
+
+  /* Free tiles - deliberately quieter than everything above, so they read as
+     "there is more here" rather than competing with the paid three. */
+  .home-free{display:grid; grid-template-columns:repeat(4,1fr); gap:11px;}
+  .home-free a{background:#111; border:1px solid #3A3D42; border-radius:9px;
+    padding:14px 15px; text-decoration:none; display:block;}
+  .home-free a:hover{border-color:var(--silver,#C3CAD3);}
+  .home-free h4{font-family:'Anton',sans-serif; font-weight:400; font-size:14px;
+    margin:0 0 5px; color:var(--chalk); text-transform:uppercase; letter-spacing:0.5px;}
+  .home-free p{color:#7A7575; font-size:11px; line-height:1.55; margin:0;}
+
+  /* How it works */
+  .home-steps{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+  .home-step{text-align:center;}
+  .home-step .n{font-family:'Anton',sans-serif; font-size:36px; color:var(--flare);
+    line-height:1; display:block;}
+  .home-step h4{font-family:'Anton',sans-serif; font-weight:400; font-size:14px;
+    margin:8px 0 5px; text-transform:uppercase; color:var(--chalk); letter-spacing:0.5px;}
+  .home-step p{color:#7A7575; font-size:11.5px; line-height:1.6; margin:0;}
+
+  /* Closer */
+  .home-closer{text-align:center; padding:38px 20px 10px;}
+  .home-closer h3{font-family:'Anton',sans-serif; font-weight:400; font-size:32px;
+    margin:0 0 9px; text-transform:uppercase; line-height:1.08; color:var(--chalk);}
+  .home-closer h3 .hit{color:var(--flare);}
+  .home-closer p{color:#9A9A96; font-size:13px; margin:0 0 18px;}
+
+  @media(max-width:900px){
+    .prod-three{grid-template-columns:1fr;}
+    .home-free{grid-template-columns:repeat(2,1fr);}
+    .home-mini{grid-template-columns:1fr;}
+    .home-steps{grid-template-columns:1fr; gap:22px;}
   }
 
-  /* An iframe has no intrinsic height, and this content grows and shrinks as
-     steps open and close - so the frame reports its height and the listener
-     at the bottom of the page sets it. This is only the starting value. */
-  .home-gen-frame{
-    width:100%; border:0; display:block; height:720px;
-  }
+  .mg{background:var(--ink-2,#141416); border:2px solid var(--flare);
+    border-radius:8px; overflow:hidden;}
+  .mg-r{display:flex; justify-content:space-between; align-items:center;
+    padding:6px 11px; font-size:12px; color:var(--chalk);}
+  .mg-r + .mg-r{border-top:1px solid rgba(195,202,211,0.07);}
+  .mg-r.is-down{color:#6B7178;}
+  .mg-r b{font-family:'Anton',sans-serif; font-weight:400; font-size:15px;}
+  .mg-q{padding:5px 11px; border-top:1px solid rgba(195,202,211,0.07);
+    font-weight:800; font-size:10px; color:#FFB612; text-align:center;
+    letter-spacing:0.4px;}
+  .mg-go{display:block; margin:8px; background:var(--flare); color:#fff;
+    text-align:center; border-radius:5px; padding:8px 4px; text-decoration:none;
+    font-family:'JetBrains Mono',monospace; font-size:7.5px; letter-spacing:1px;
+    font-weight:700;}
+  .mg-go:hover{background:#FF2233;}
 </style>
 </head>
 <body>
@@ -622,63 +717,148 @@
   </div>
 </div>
 
+<!-- =====================================================================
+     THE THREE THAT MAKE MONEY
+     =====================================================================
+     Replaces the two embedded generators. Full generators in iframes meant
+     the homepage pulled two entire pages on every visit, and neither one
+     explained what it was - somebody who has never heard of Locked & Loaded
+     was shown a game-search box with no idea why.
+     Three cards, three prices, three explanations. The generators are one
+     click away and load faster on their own pages. -->
 <div style="max-width:1100px; margin:0 auto; padding:0 24px;">
-  <div class="hero-split" style="display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:8px; text-align:left; width:100%;">
-    <!-- 2px to match the generator pages, which all use a 2px frame. -->
-    <!-- The REAL generators, not copies.
-         
-         Both pages already render a bare version at ?embed=1 and post their
-         height back to the parent - the same mechanism the tab switcher on
-         each generator page uses. Embedding them means there is exactly one
-         implementation of each flow: fix a bug once and it is fixed on the
-         homepage too, which a rebuilt copy could never promise. -->
-    <div class="home-gen home-gen--smack">
-      <iframe class="home-gen-frame" id="homeSmackFrame"
-              src="/send-a-smack?embed=1" title="Send a Smackagram"
-              loading="lazy" scrolling="no"></iframe>
+  <div class="prod-three">
+
+    <div class="prod prod--smack">
+      <h2>Send a<br>Smackagram</h2>
+      <p class="prod-price"><span class="smk-price-stamp">LESS THAN <span class="smk-price-amt">$1</span> A CALL!</span></p>
+      <p><strong>One call, sent now.</strong> Pick the target, the team and how
+         hard Smacky goes. He writes it, calls their phone and roasts them
+         about a real result.</p>
+      <p class="prod-quiet">Anonymous. They never find out.</p>
+      <a href="/send-a-smack" class="prod-cta">SEND ONE &rarr;</a>
     </div>
 
-    <div class="home-gen home-gen--locked">
-      <iframe class="home-gen-frame" id="homeLockedFrame"
-              src="/locked-n-loaded?embed=1" title="Locked and Loaded"
-              loading="lazy" scrolling="no"></iframe>
+    <div class="prod prod--locked">
+      <h2>Locked &amp;<br>Loaded</h2>
+      <p class="prod-price"><span class="smk-price-stamp">ONLY <span class="smk-price-amt">$2</span> IF THEY LOSE!</span></p>
+      <p><strong>Set the trap and walk away.</strong> Pick any game and pick who
+         has to lose. Smacky calls them the second it goes final, with the
+         actual score in his mouth.</p>
+      <p class="prod-quiet">They win, you&rsquo;re refunded.</p>
+      <a href="/locked-n-loaded" class="prod-cta">ARM ONE &rarr;</a>
     </div>
+
+    <div class="prod prod--cast">
+      <h2>Smackcast</h2>
+      <p class="prod-price"><span class="smk-price-stamp"><span class="smk-price-amt">$39.99</span> A SEASON!</span></p>
+      <p><strong>Your fantasy league, roasted weekly.</strong> Connect your league
+         and every Tuesday Smacky reads the real scores and goes after your
+         managers by name.</p>
+      <p class="prod-quiet">One commissioner buys. The league listens.</p>
+      <a href="/smackcast" class="prod-cta">GET THE SEASON &rarr;</a>
+    </div>
+
   </div>
 </div>
 
+<!-- =====================================================================
+     BELOW THE THREE
+     =====================================================================
+     Order matters. The Daily Smack comes first because it is the fastest way
+     to understand the whole site - somebody hears Smacky without spending
+     anything. The board second, because it is the only thing that changes
+     daily and is therefore the reason to come back. Proof third, once they
+     know what it sounds like. Then how it works, then the free pages.
+     ================================================================== -->
 
+<div style="max-width:1100px; margin:0 auto; padding:0 24px;">
 
+  <div class="home-divh">
+    <h3>Find somebody losing</h3><span class="ln"></span>
+    <span class="sub">LIVE &middot; FREE</span>
+  </div>
+  <div class="home-board">
+    <div class="home-board-top">
+      <div>
+        <h4>The Smack Board</h4>
+        <p>Every game, every league, live. Smack any loser straight off the board.</p>
+      </div>
+      <span class="home-board-live" id="homeBoardLive" hidden>
+        <span class="home-board-dot"></span><span id="homeBoardCount">0</span> LIVE NOW
+      </span>
+    </div>
+    {# Filled from /api/board/mlb, so these are real games rather than a
+       picture of some. Hidden entirely if the fetch fails - a broken preview
+       is worse than none. #}
+    <div class="home-mini" id="homeMini"></div>
+    <div style="padding:0 15px 15px;">
+      <a href="/smack-board" class="prod-cta" style="background:var(--silver,#C3CAD3); color:#0D0D0D; max-width:260px; margin:0 auto;">OPEN THE BOARD &rarr;</a>
+    </div>
+  </div>
 
-
-
-
-
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-
-// The generators are embedded directly now, so there is no teaser to wire
-// up. Each frame reports its own height back to this page; the listener
-// below sizes them.
-(function () {
-  var frames = {
-    'send-a-smack':     document.getElementById('homeSmackFrame'),
-    'locked-n-loaded':  document.getElementById('homeLockedFrame')
-  };
-  window.addEventListener('message', function (e) {
-    if (!e.data || !e.data.smkFrameHeight) return;
-    // Both frames post to the same window, so the src tag decides which one
-    // is talking - without it, whichever posted last would resize both.
-    var frame = frames[e.data.src];
-    if (frame) frame.style.height = e.data.smkFrameHeight + 'px';
-  });
-})();
-
-
-
-}); // end DOMContentLoaded
-</script>
+  <div class="home-divh">
+    <h3>Hear one that landed</h3><span class="ln"></span>
+  </div>
+</div>
 
 {% include '_smacks_of_the_day.html' %}
+
+<div style="max-width:1100px; margin:0 auto; padding:0 24px;">
+
+  <div class="home-divh">
+    <h3>How it works</h3><span class="ln"></span>
+    <span class="sub">UNDER A MINUTE</span>
+  </div>
+  <div class="home-steps">
+    <div class="home-step">
+      <span class="n">1</span>
+      <h4>Pick your target</h4>
+      <p>Their name, their number, and the team they&rsquo;d defend in an argument.</p>
+    </div>
+    <div class="home-step">
+      <span class="n">2</span>
+      <h4>Choose the damage</h4>
+      <p>Smacky&rsquo;s voice and how hard he goes. Clean to savage.</p>
+    </div>
+    <div class="home-step">
+      <span class="n">3</span>
+      <h4>Their phone rings</h4>
+      <p>A real call about a real result. They never find out it was you.</p>
+    </div>
+  </div>
+
+  <div class="home-divh">
+    <h3>Also free</h3><span class="ln"></span>
+  </div>
+  <div class="home-free">
+    <a href="/did-you-get-smacked">
+      <h4>Smack Back</h4>
+      <p>Think somebody smacked you? Find out, and return fire.</p>
+    </a>
+    <a href="/smack-lab">
+      <h4>Smack Lab</h4>
+      <p>Write your own line. Smacky rates it, then does it better.</p>
+    </a>
+    <a href="/smack-battle">
+      <h4>Smack Battle</h4>
+      <p>Two people, one argument. Smacky picks a winner.</p>
+    </a>
+    <a href="/meet-smacky">
+      <h4>Meet Smacky</h4>
+      <p>The phone doing all this. Backwards hat, no manners.</p>
+    </a>
+  </div>
+
+  <div class="home-closer">
+    <h3>Somebody you know<br><span class="hit">lost today.</span></h3>
+    <p>They know it. You know it. The only question is whether their phone
+       rings about it.</p>
+    <a href="/send-a-smack" class="prod-cta"
+       style="background:var(--flare); color:#fff; max-width:280px; margin:0 auto; font-size:11px; padding:15px;">SEND A SMACKAGRAM &rarr;</a>
+  </div>
+
+</div>
 
 <footer>
   <span>© 2026 Smackagram</span>
@@ -936,5 +1116,69 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 <script src="{{ url_for('static', filename='js/share.js') }}"></script>
+
+<script>
+// Three real games in the board preview.
+//
+// Real rather than a picture of some, because a fake scoreboard on a site
+// whose whole promise is live results would be the worst possible first
+// impression. If the fetch fails the section hides itself - a broken preview
+// is worse than none.
+(function () {
+  var box = document.getElementById('homeMini');
+  if (!box) return;
+
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function row(t, losing) {
+    return '<div class="mg-r' + (losing ? ' is-down' : '') + '">'
+      + '<span>' + esc(t.nick || t.abbr || '') + '</span>'
+      + '<b>' + (t.score == null ? '\u2014' : t.score) + '</b></div>';
+  }
+
+  function hide() {
+    var sec = box.closest('.home-board');
+    if (sec) sec.hidden = true;
+    var head = sec && sec.previousElementSibling;
+    if (head && head.classList.contains('home-divh')) head.hidden = true;
+  }
+
+  fetch('/api/board/mlb')
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var games = (d.games || []).filter(function (g) { return !g.upcoming; });
+      if (!games.length) { hide(); return; }
+
+      // Live first - a game in progress is a better prompt than one that
+      // finished hours ago.
+      games.sort(function (a, b) { return (b.live ? 1 : 0) - (a.live ? 1 : 0); });
+
+      box.innerHTML = games.slice(0, 3).map(function (g) {
+        var loser = g.losing === 'home' ? g.home : (g.losing === 'away' ? g.away : null);
+        var name = loser ? (loser.nick || loser.abbr || '') : '';
+        return '<div class="mg">'
+          + row(g.away, g.losing === 'away')
+          + row(g.home, g.losing === 'home')
+          + (g.quip ? '<div class="mg-q">' + esc(g.quip) + '</div>' : '')
+          + (name
+              ? '<a class="mg-go" href="/send-a-smack?team=' + encodeURIComponent(name) + '">'
+                + 'SMACK A ' + esc(name.toUpperCase()) + ' FAN</a>'
+              : '')
+          + '</div>';
+      }).join('');
+
+      var live = d.live || 0;
+      if (live) {
+        document.getElementById('homeBoardCount').textContent = live;
+        document.getElementById('homeBoardLive').hidden = false;
+      }
+    })
+    .catch(hide);
+})();
+</script>
 </body>
 </html>
