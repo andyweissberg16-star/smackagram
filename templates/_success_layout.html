@@ -1,0 +1,133 @@
+{# ===========================================================================
+   Shared success layout
+   ===========================================================================
+   Every checkout on the site ended somewhere slightly different - four pages
+   with four sets of type, spacing and colour, none of them matching the
+   checkout somebody had just come from. The moment after paying is the worst
+   possible place for the site to look like a different site.
+
+   This carries the checkout page's own language: the same palette, Anton
+   headline, silver hairlines and red accent, so paying and being told it
+   worked look like one continuous thing.
+
+   Used with Jinja's `extends`. A page sets:
+
+     {% extends '_success_layout.html' %}
+     {% block kicker %}HOLD CONFIRMED{% endblock %}
+     {% block heading %}Locked &amp; <span class="hit">Loaded.</span>{% endblock %}
+     {% block body %}...{% endblock %}
+     {% block actions %}...{% endblock %}
+   ======================================================================== #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Confirmed — Smackagram{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
+<style>
+  /* Lifted from the checkout page so the two read as one flow. */
+  :root{
+    --ink:#000000; --ink-2:#0C0C0C; --surface:#141414; --surface-2:#1C1C1C;
+    --line:#3A1416; --punch:#E01B24; --ivory:#FFFFFF;
+    --muted:#B5B0B0; --muted-2:#7A7575; --radius:14px;
+  }
+  body{
+    background:var(--ink); color:var(--ivory);
+    font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; margin:0;
+  }
+  .sx-wrap{max-width:760px; margin:0 auto; padding:0 24px 80px;}
+
+  .sx-head{padding:54px 0 0; text-align:center;}
+  .sx-kicker{
+    display:inline-flex; align-items:center; gap:9px;
+    font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:2.4px;
+    text-transform:uppercase; color:var(--punch); margin:0 0 18px;
+  }
+  /* A live dot rather than a tick - the site's own signal for "this is
+     happening", already used on the counter. */
+  .sx-dot{
+    width:9px; height:9px; border-radius:50%; background:#FF1B2D; flex:0 0 9px;
+    box-shadow:0 0 10px rgba(255,27,45,0.85);
+    animation:sx-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes sx-pulse{
+    0%,100%{opacity:1; transform:scale(1);}
+    50%{opacity:0.42; transform:scale(0.8);}
+  }
+  @media (prefers-reduced-motion:reduce){ .sx-dot{animation:none;} }
+
+  .sx-head h1{
+    font-family:'Anton',sans-serif; font-weight:400; text-transform:uppercase;
+    font-size:clamp(34px,6.4vw,62px); line-height:0.94; letter-spacing:0.5px;
+    margin:0 0 16px; color:var(--ivory);
+  }
+  .sx-head h1 .hit{color:var(--punch);}
+
+  .sx-lede{
+    color:var(--muted); font-size:15px; line-height:1.65;
+    margin:0 auto; max-width:520px;
+  }
+
+  /* The detail panel - same surface and radius as a checkout pack. */
+  .sx-panel{
+    background:var(--surface); border:1px solid rgba(195,202,211,0.14);
+    border-radius:var(--radius); padding:20px 22px; margin:30px 0 0;
+    color:var(--muted); font-size:14px; line-height:1.6;
+  }
+  .sx-panel strong{color:var(--ivory); font-weight:600;}
+
+  .sx-actions{margin:32px 0 0; text-align:center;}
+  .sx-btn{
+    display:inline-block; background:var(--punch); color:#fff; text-decoration:none;
+    font-family:'Inter',sans-serif; font-size:14px; font-weight:800;
+    letter-spacing:0.6px; text-transform:uppercase;
+    padding:16px 34px; border-radius:10px;
+    transition:background .14s, transform .12s;
+  }
+  .sx-btn:hover{background:#c4101f; transform:translateY(-1px);}
+  .sx-alt{display:block; margin-top:16px; font-size:13px;}
+  .sx-alt a{color:var(--muted-2); text-decoration:none;}
+  .sx-alt a:hover{color:var(--ivory);}
+
+  .sx-foot{
+    margin-top:44px; padding-top:22px;
+    border-top:1px solid rgba(195,202,211,0.12);
+    text-align:center;
+    font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:1.6px;
+    color:var(--muted-2); text-transform:uppercase;
+  }
+
+  @media(max-width:560px){
+    .sx-head{padding-top:38px;}
+    .sx-wrap{padding-bottom:56px;}
+    .sx-btn{width:100%; padding:16px 20px;}
+  }
+</style>
+</head>
+<body>
+
+{% include '_nav.html' %}
+
+<div class="sx-wrap">
+  <header class="sx-head">
+    <p class="sx-kicker"><span class="sx-dot" aria-hidden="true"></span>{% block kicker %}CONFIRMED{% endblock %}</p>
+    <h1>{% block heading %}Done.{% endblock %}</h1>
+    <p class="sx-lede">{% block body %}{% endblock %}</p>
+  </header>
+
+  {% block panel %}{% endblock %}
+
+  <div class="sx-actions">
+    {% block actions %}{% endblock %}
+  </div>
+
+  <p class="sx-foot">{% block foot %}Smackagram &middot; every loss deserves a ring{% endblock %}</p>
+</div>
+
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

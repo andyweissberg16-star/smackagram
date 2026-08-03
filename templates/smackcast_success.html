@@ -1,73 +1,26 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>You're In — Smackcast</title>
-<meta name="description" content="Your league's weekly recap is set up.">
-<meta name="robots" content="noindex">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Smackagram">
-<meta property="og:title" content="Smackcast is live — Smackagram">
-<meta property="og:description" content="Your league's weekly recap is set up.">
-<meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:url" content="{{ request.base_url }}">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Smackcast is live — Smackagram">
-<meta name="twitter:description" content="Your league's weekly recap is set up.">
-<meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
-<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
-<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
-<meta name="theme-color" content="#0D0D0D">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
-<style>
-  :root{
-    --ink:#0D0D0D; --ink-2:#1A1A1A; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
-    --flare:#E8142C; --gold:#FFD400; --line:rgba(245,245,243,0.10); --line-strong:rgba(245,245,243,0.24);
-  }
-  body{background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif; line-height:1.5; -webkit-font-smoothing:antialiased;}
-  .wrap{max-width:480px; margin:0 auto; padding:0 24px 60px; text-align:center;}
-  nav a{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
-  .hero{padding:60px 0 20px;}
-  .checkmark{font-size:48px; color:var(--gold);}
-  .hero h1{font-family:'Anton',sans-serif; font-size:var(--h1-page); text-transform:uppercase; letter-spacing:0.5px; margin-top:16px;}
-  .hero p{color:var(--chalk-dim); font-size:14px; margin-top:14px; line-height:1.6;}
-  .card{background:var(--ink-2); border:1px solid var(--line-strong); border-radius:6px; padding:24px; margin-top:28px; text-align:left; font-size:13px; color:var(--chalk-dim); line-height:1.6;}
-  .btn{
-    display:inline-block; font-weight:700; font-size:14px; padding:14px 28px; border-radius:4px; text-decoration:none;
-    text-transform:uppercase; letter-spacing:0.5px; margin-top:24px; background:var(--flare); color:#fff;
-    box-shadow:0 0 20px rgba(232,20,44,0.4);
-  }
-</style>
-</head>
-<body>
+{% extends '_success_layout.html' %}
 
-{% include '_nav.html' %}
+{% block title %}You're in — Smackcast{% endblock %}
+{% block kicker %}SUBSCRIPTION ACTIVE{% endblock %}
+{% block heading %}Your league is<br><span class="hit">on the clock.</span>{% endblock %}
 
-<div class="wrap">
-  <div class="hero">
-    <p class="checkmark">🔥</p>
-    <h1>You're Locked In</h1>
-    <p>Your league is officially on the clock. Every Tuesday at 9AM, Smackcast pulls the week's real scores and roasts your whole league — delivered exactly how you set it up.</p>
-  </div>
+{% block body %}
+  Every Tuesday, Smackcast pulls the week&rsquo;s real scores and roasts your
+  whole league by name, in Smacky&rsquo;s own voice.
+{% endblock %}
 
-  <div class="card">
-    First recap drops this coming Tuesday, once the current week's games are final. No further setup needed — just wait for the destruction to arrive.
-  </div>
-
-  {# There IS one more thing worth doing, and this is the only moment
-     somebody is guaranteed to be paying attention. Five minutes here is the
-     difference between recaps that could belong to any league and recaps
-     that could only belong to theirs. #}
-  <a href="/smackcast/league-profile" class="btn">Tell Smacky about your league &rarr;</a>
-  <p style="margin-top:16px; font-size:13px;">
-    <a href="/locker" style="color:var(--chalk-dim,#9A9A96); text-decoration:none;">Skip for now &mdash; take me to my locker</a>
-  </p>
+{% block panel %}
+<div class="sx-panel">
+  <strong>First recap drops this coming Tuesday</strong>, once the current
+  week&rsquo;s games are final. Nothing else needs setting up.
 </div>
+{% endblock %}
 
-</body>
-</html>
+{% block actions %}
+  {# There IS one more thing worth doing, and this is the only moment a new
+     subscriber is guaranteed to be paying attention. Five minutes here is the
+     difference between recaps that could belong to any league and recaps that
+     could only belong to theirs. #}
+  <a href="/smackcast/league-profile" class="sx-btn">Tell Smacky about your league</a>
+  <span class="sx-alt"><a href="/locker">Skip for now &mdash; take me to my locker</a></span>
+{% endblock %}

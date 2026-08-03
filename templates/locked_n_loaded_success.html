@@ -1,81 +1,23 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Locked in — Smackagram</title>
-<meta name="description" content="Your roast is armed and waiting on the game.">
-<meta name="robots" content="noindex">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Smackagram">
-<meta property="og:title" content="Locked in — Smackagram">
-<meta property="og:description" content="Your roast is armed and waiting on the game.">
-<meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-<meta property="og:url" content="{{ request.base_url }}">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Locked in — Smackagram">
-<meta name="twitter:description" content="Your roast is armed and waiting on the game.">
-<meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
-<link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
-<link rel="apple-touch-icon" href="{{ url_for('static', filename='img/apple-touch-icon.png') }}">
-<meta name="theme-color" content="#0D0D0D">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
-<style>
-  :root{
-    --ink:#0D0D0D; --ink-2:#1A1A1A; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
-    --flare:#E8142C; --gold:#FFD400; --line:rgba(245,245,243,0.10);
-  }
-  body{
-    background:var(--ink); color:var(--chalk); font-family:'Inter',sans-serif;
-    min-height:100dvh;
-  }
-  .center-wrap{
-    min-height:calc(100dvh - var(--nav-h)); display:flex; align-items:center; justify-content:center;
-    text-align:center; padding:24px;
-  }
-  .halftone-bg{
-    position:fixed; inset:0; z-index:0;
-    background-image: radial-gradient(rgba(245,245,243,0.08) 1.5px, transparent 1.5px);
-    background-size: 9px 9px;
-  }
-  .content{position:relative; z-index:1; max-width:480px;}
-  .live-dot{
-    display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--flare);
-    box-shadow:0 0 8px var(--flare); animation:pulse 1.3s ease-in-out infinite; margin-right:8px;
-  }
-  @keyframes pulse{0%,100%{opacity:1; transform:scale(1);} 50%{opacity:0.4; transform:scale(1.3);}}
-  .eyebrow{
-    color:var(--gold); font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700;
-    letter-spacing:1px; text-transform:uppercase; margin-bottom:16px; text-shadow:0 0 8px rgba(255,212,0,0.6);
-  }
-  h1{font-family:'Anton',sans-serif; font-size:var(--h1-page); margin-bottom:20px; text-transform:uppercase; text-shadow:3px 3px 0 var(--flare);}
-  p{color:var(--chalk-dim); font-size:16px; margin-bottom:14px; line-height:1.6;}
-  .cta-btn{
-    display:inline-block; background:var(--flare); color:#fff; text-decoration:none;
-    padding:12px 28px; font-weight:600; border-radius:2px; margin-top:16px;
-    box-shadow:0 0 20px rgba(232,20,44,0.5), 4px 4px 0 var(--ink);
-    border:2px solid #fff; outline:2px solid var(--ink); outline-offset:-1px;
-    text-transform:uppercase; letter-spacing:0.5px; font-size:14px;
-    transition:transform 0.12s ease;
-  }
-  .cta-btn:hover{transform:scale(1.04) rotate(-0.5deg);}
-</style>
-</head>
-<body>
-{% include '_nav.html' %}
-<div class="center-wrap">
-<div class="halftone-bg"></div>
-<div class="content">
-  <p class="eyebrow"><span class="live-dot"></span>Hold confirmed</p>
-  <h1>Locked & Loaded.</h1>
-  <p>Your card is authorized — nothing's charged yet. We're watching the game, and the second it's official, we'll either fire the call or release the hold automatically.</p>
-  <p>No need to do anything else. We've got it from here.</p>
-  <a href="/locked-n-loaded" class="cta-btn">Load another one</a>
+{% extends '_success_layout.html' %}
+
+{% block title %}Locked &amp; Loaded — Smackagram{% endblock %}
+{% block kicker %}HOLD CONFIRMED{% endblock %}
+{% block heading %}Locked &amp; <span class="hit">Loaded.</span>{% endblock %}
+
+{% block body %}
+  Nothing is charged yet. We are watching the game, and the second they lose,
+  the phone rings.
+{% endblock %}
+
+{% block panel %}
+<div class="sx-panel">
+  <strong>Nothing else to do.</strong> If the game goes the other way the hold
+  is released and the money comes straight back to your balance. You do not
+  need to be watching, and you do not need to tell us anything.
 </div>
-</div>
-</body>
-</html>
+{% endblock %}
+
+{% block actions %}
+  <a href="/locked-n-loaded" class="sx-btn">Load another one</a>
+  <span class="sx-alt"><a href="/locker">See it in your locker &rarr;</a></span>
+{% endblock %}

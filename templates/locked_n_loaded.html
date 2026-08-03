@@ -1433,6 +1433,13 @@ loadVoices();
 
   window.lnlOpenStep = function (n) {
     if (n === 3) refreshRecipientLabels();
+    // Refresh the voice/intensity summary before collapsing anything.
+    //
+    // It was only written when somebody CHANGED the voice or moved the
+    // slider - so leaving both at their defaults and pressing Next collapsed
+    // step 3 to an empty row, which reads as the step not having collapsed
+    // at all.
+    if (typeof updateModeSummary === 'function') updateModeSummary();
     STEPS.forEach(function (st, i) {
       var card = el(st.card), content = el(st.content), summary = el(st.summary);
       if (!card) return;
