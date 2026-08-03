@@ -451,9 +451,20 @@
   }
   /* A border colour per revenue model - one-off, conditional, subscription.
      Three prices that work three different ways should not look identical. */
+  /* Static, and the site's own colours.
+     
+     --flare is #E8142C, the red used on every border across the site. The
+     cards were on #E01B24 and the pulse dimmed them through a dark maroon,
+     which is what read as pink halfway through the fade.
+     
+     Silver is the same #C3CAD3 the Locked & Loaded generator uses. */
   .prod--smack{border:2px solid var(--flare);}
   .prod--locked{border:2px solid var(--silver,#C3CAD3);}
   .prod--cast{border:2px solid var(--flare);}
+  /* A steady glow rather than a pulsing one - the cards still lift off the
+     black background without anything moving. */
+  .prod--smack, .prod--cast{box-shadow:0 0 24px rgba(232,20,44,0.30);}
+  .prod--locked{box-shadow:0 0 24px rgba(195,202,211,0.26);}
 
   /* Big enough to read as the headline of its own card, and on ONE line -
      a wrapped title makes the card below it start at a different height
@@ -612,24 +623,7 @@
   /* Breathing borders. Each fades to a dimmed version of its own colour and
      back - staggered a second apart so all three do not pulse together,
      which reads as an error state rather than as alive. */
-  .prod--smack{animation:prod-breathe-red 3.4s ease-in-out infinite;}
-  /* Borders in step with each other too. Staggered, the three cards looked
-     like they were running at different speeds; together they read as one
-     thing breathing. */
-  .prod--locked{animation:prod-breathe-silver 3.4s ease-in-out infinite;}
-  .prod--cast{animation:prod-breathe-red 3.4s ease-in-out infinite;}
-  @keyframes prod-breathe-red{
-    0%,100%{border-color:#E01B24; box-shadow:0 0 22px rgba(224,27,36,0.30);}
-    50%    {border-color:#6B1218; box-shadow:0 0 0 rgba(224,27,36,0);}
-  }
-  @keyframes prod-breathe-silver{
-    0%,100%{border-color:#C3CAD3; box-shadow:0 0 22px rgba(190,200,212,0.26);}
-    50%    {border-color:#5A6068; box-shadow:0 0 0 rgba(190,200,212,0);}
-  }
 
-  @media (prefers-reduced-motion:reduce){
-    .prod--smack, .prod--locked, .prod--cast{animation:none;}
-  }
 
   /* Sample players.
      
