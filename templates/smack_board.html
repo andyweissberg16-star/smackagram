@@ -29,17 +29,22 @@
   }
   .wrap{max-width:960px; margin:0 auto; padding:0 24px 80px;}
 
-  .bh{margin-top:40px; margin-bottom:26px;}
+  /* Centred. The title, the line under it, the league tabs and the live
+     count all sit on the page's centre line rather than hard left with the
+     rest of the width empty. */
+  .bh{margin-top:40px; margin-bottom:22px; text-align:center;}
   .bh-strip{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:2.4px;
     color:var(--silver-deep); margin:0 0 14px;}
   .bh h1{font-family:'Anton',sans-serif; font-size:52px; line-height:0.92; margin:0 0 12px;
     color:var(--chalk); text-transform:uppercase;}
   .bh h1 span{color:var(--flare);}
-  .bh p{color:var(--silver); font-size:15px; line-height:1.6; margin:0; max-width:560px;}
+  .bh p{color:var(--silver); font-size:15px; line-height:1.6; margin:0; max-width:560px; margin-left:auto; margin-right:auto;}
 
   /* league tabs */
+  /* justify-content only takes effect when the tabs fit; on a narrow screen
+     the row still scrolls horizontally rather than wrapping into a block. */
   .tabs{display:flex; gap:6px; margin:0 0 4px; overflow-x:auto; padding-bottom:6px;
-    -webkit-overflow-scrolling:touch;}
+    -webkit-overflow-scrolling:touch; justify-content:center;}
   .tabs::-webkit-scrollbar{display:none;}
   .tab{flex:0 0 auto; background:transparent; border:1px solid var(--silver-hairline);
     color:var(--silver-deep); font-family:'JetBrains Mono',monospace; font-size:11px;
@@ -52,7 +57,7 @@
     background:var(--flare); margin-right:6px; vertical-align:middle;}
   .tab.on .dot{background:#fff;}
 
-  .meta-row{display:flex; align-items:center; justify-content:space-between;
+  .meta-row{display:flex; align-items:center; justify-content:center; gap:16px;
     margin:14px 0 10px; font-family:'JetBrains Mono',monospace; font-size:9.5px;
     letter-spacing:1.4px; color:var(--silver-deep);}
   .meta-row .fresh{color:#5A5E64;}
@@ -69,15 +74,27 @@
      "SMACK A CARDINALS FAN" has to be shortened, and naming the losing team
      is the whole point of that button. */
   .board{background:none; border:none; border-radius:0; overflow:visible;}
-  .board-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:11px;}
+  /* align-items:start so each card is only as tall as its own contents.
+     
+     A grid row stretches every cell to match the tallest by default, and
+     since .g-act is pushed down with margin-top:auto, the shorter cards
+     ended up with a hole between the quip and the buttons. Letting them size
+     to content removes the hole entirely - rows are very slightly ragged at
+     the foot, which is far less noticeable than a gap inside every card. */
+  .board-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:11px;
+    align-items:start;}
   @media(min-width:1500px){ .board-grid{grid-template-columns:repeat(4,1fr);} }
   @media(max-width:1000px){ .board-grid{grid-template-columns:repeat(2,1fr);} }
   @media(max-width:640px){ .board-grid{grid-template-columns:1fr;} }
 
   .div-head{display:flex; align-items:center; gap:12px; margin:20px 0 10px;}
   .div-head:first-child{margin-top:2px;}
-  .div-head h3{font-family:'Anton',sans-serif; font-size:17px; color:var(--chalk);
-    margin:0; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap;}
+  /* Anton is condensed, so at 17px with tight tracking the letters crowded
+     each other and "American League" was genuinely hard to read. Bigger with
+     real letter-spacing opens it up; silver rather than chalk so it reads as
+     a divider rather than competing with the page title. */
+  .div-head h3{font-family:'Anton',sans-serif; font-size:22px; color:var(--silver,#C3CAD3);
+    margin:0; text-transform:uppercase; letter-spacing:2px; white-space:nowrap;}
   .div-line{flex:1; height:1px; background:rgba(195,202,211,0.18);}
   .div-count{font-family:'JetBrains Mono',monospace; font-size:8.5px;
     color:#5A5E64; letter-spacing:1.2px; white-space:nowrap;}
@@ -115,7 +132,7 @@
   .g-teams{flex:1; min-width:0;}
   /* Score on the same line as its team, so the eye reads one team per row
      rather than two columns that have to be matched up. */
-  .g-team{display:flex; align-items:center; gap:9px; padding:10px 13px;
+  .g-team{display:flex; align-items:center; gap:9px; padding:7px 13px;
     justify-content:space-between;}
   .g-team + .g-team{border-top:1px solid rgba(195,202,211,0.08);}
   .g-bar{width:3px; height:15px; border-radius:1px; flex:0 0 3px;}
@@ -135,8 +152,10 @@
   /* Hidden entirely below the threshold. A row reading "0 SMACKS" is
      worse than no number at all - zero social proof is negative proof -
      so this only appears once a team is genuinely carrying armed calls. */
-  .g-heat{flex:0 0 74px; text-align:right; font-family:'JetBrains Mono',monospace;
-    font-size:9px; letter-spacing:0.8px; color:var(--flare); white-space:nowrap;}
+  /* Was flex:0 0 74px from the old row layout - inside a column card that
+     became a fixed block of dead height. */
+  .g-heat{padding:0 12px 6px; text-align:center; font-family:'JetBrains Mono',monospace;
+    font-size:8.5px; letter-spacing:0.8px; color:var(--flare); white-space:nowrap;}
   .g-heat.cool{color:#4A4E54;}
   .g-heat .n{font-family:'Anton',sans-serif; font-size:13px;}
 
@@ -147,9 +166,9 @@
      has happened yet - so the eye finds the games worth acting on without
      reading every card. */
   .g-quip{
-    padding:7px 12px; border-top:1px solid rgba(195,202,211,0.07);
-    font-family:'Anton',sans-serif; font-size:12px; letter-spacing:1.4px;
-    color:#FFB612; text-transform:uppercase; text-align:center;
+    padding:6px 12px; border-top:1px solid rgba(195,202,211,0.07);
+    font-family:'Anton',sans-serif; font-size:11.5px; letter-spacing:1.3px;
+    color:#FFB612; text-transform:uppercase; text-align:center; line-height:1.2;
   }
   .g-quip.cool{color:#7A7575;}
 
@@ -158,6 +177,7 @@
   .g-act{margin-top:auto; display:flex; gap:2px; background:#0D0D0D;
     border-top:2px solid #0D0D0D;}
   .g-act > *{flex:1; border-radius:0 !important; margin:0 !important;}
+  .g-act .btn-smack, .g-act .btn-arm{border-radius:0 !important; margin:0 !important;}
   .g-act .hint{font-family:'JetBrains Mono',monospace; font-size:9px;
     color:#3A3D42; letter-spacing:1px;}
   .btn-smack{background:var(--flare); color:#FFFFFF; font-size:9px; font-weight:800;
@@ -170,7 +190,11 @@
   .btn-smack:hover{background:#c4101f;}
   .btn-arm:hover{background:rgba(195,202,211,0.1);}
 
-  .g-act .actions{display:none; gap:7px;}
+  /* The buttons live inside a nested .actions div, so making THAT fill the
+     card is not enough - the buttons inside it have to stretch too. Without
+     this they sat at their natural width with dead space beside them. */
+  .g-act .actions{display:flex; gap:2px; width:100%;}
+  .g-act .actions > *{flex:1 1 0; min-width:0;}
   /* Always visible, never on hover. A button somebody has to discover is a
      button most people never press - and on touch there is no hover at all,
      so half the audience could not reach them. */

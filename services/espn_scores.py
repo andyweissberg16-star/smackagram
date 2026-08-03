@@ -2240,10 +2240,114 @@ def board_quips(games, league):
     out = []
     for g in games:
         bucket = _quip_bucket(g, league)
-        pool = [q for q in _QUIPS.get(bucket, []) if q not in used]
-        if not pool:                       # bucket exhausted - allow reuse
-            pool = _QUIPS.get(bucket, ["—"])
-        pick = random.choice(pool)
+
+        # Who is losing, by nickname. Upcoming games have no loser, and a
+        # tie has no single one either - both fall back to generic.
+        loser = None
+        if g.get("losing") == "home":
+            loser = (g.get("home") or {}).get("nick")
+        elif g.get("losing") == "away":
+            loser = (g.get("away") or {}).get("nick")
+
+        # Mixed rather than replaced. Every card naming a team reads like a
+        # template; roughly half and half keeps it varied while still telling
+        # somebody scanning the board WHICH fan is having a bad night.
+        named = _team_quip_pool(bucket, loser)
+        generic = _QUIPS.get(bucket, [])
+        pool = (named + generic) if (named and random.random() < 0.55) else (generic + named)
+
+        fresh = [q for q in pool if q not in used]
+        if not fresh:                      # exhausted - allow reuse
+            fresh = pool or ["\u2014"]
+        pick = random.choice(fresh)
         used.add(pick)
         out.append(pick)
     return out
+
+
+# ---------------------------------------------------------------------------
+# Quips that name the losing team
+# ---------------------------------------------------------------------------
+# "CARDINALS GOT DESTROYED" says more than "HUMILIATING" - it tells somebody
+# scanning the board which fan is having a bad night, which is the whole
+# reason they are looking.
+#
+# Mixed with the generic pool rather than replacing it. Every card naming a
+# team reads like a template; roughly half and half keeps it varied.
+#
+# {t} is the losing side's nickname, already stripped of the city.
+
+_TEAM_QUIPS = {
+    "shutout_final": [
+        "{t} SCORED NOTHING.", "{t} GOT BLANKED.", "NOT ONE FOR {t}.",
+        "{t} FORGOT TO SCORE.", "{t}: A BIG FAT ZERO.",
+        "{t} NEVER SHOWED UP.", "SHUT OUT: {t}.",
+        "{t} BROUGHT NOTHING.", "{t} GOT SHUT DOWN.",
+        "A GOOSE EGG FOR {t}.", "{t} MANAGED ZERO.", "{t} DREW A BLANK.",
+    ],
+    "shutout_live": [
+        "{t} STILL ON ZERO.", "NOTHING FROM {t} YET.",
+        "{t} CANNOT BUY ONE.", "STILL NOTHING FOR {t}.",
+        "{t} ARE INVISIBLE.", "NO SIGN OF {t}.",
+        "{t} HAVE NOT STARTED.", "{t}: STILL BLANK.",
+        "SOMEBODY WAKE {t} UP.", "{t} ARE NOT TROUBLING ANYONE.",
+        "{t} STILL WAITING.", "NOT A ONE FROM {t}.",
+    ],
+    "blowout_live": [
+        "{t} GETTING DESTROYED.", "{t} ARE COOKED.",
+        "SOMEBODY STOP THIS FOR {t}.", "{t} HAVE GIVEN UP.",
+        "{t} ARE BEING DISMANTLED.", "MERCY ON {t}.",
+        "{t} ARE OUT OF THEIR DEPTH.", "{t} HAVE COLLAPSED.",
+        "IT IS OVER FOR {t}.", "{t} ARE TAKING A BEATING.",
+        "{t} SHOULD GO HOME.", "{t} ARE GETTING RUN OVER.",
+    ],
+    "comfortable_live": [
+        "{t} ARE SLIPPING.", "TROUBLE FOR {t}.",
+        "{t} ARE FADING.", "GETTING AWAY FROM {t}.",
+        "{t} ARE IN BOTHER.", "{t} LOSING THE THREAD.",
+        "NOT LOOKING GOOD FOR {t}.", "{t} ARE DRIFTING.",
+        "{t} ARE BEHIND AND SINKING.", "{t} NEED SOMETHING.",
+        "{t} ARE LOOKING SHAKY.", "{t} ARE CHASING IT.",
+    ],
+    "close_live": [
+        "{t} ARE STILL IN IT.", "TOO CLOSE TO CALL ON {t}.",
+        "{t} HANGING ON.", "NOT OVER FOR {t} YET.",
+        "{t} ARE RIGHT THERE.", "GIVE {t} A MINUTE.",
+        "{t} COULD STILL DO IT.", "HOLD OFF ON {t}.",
+        "{t} ARE NOT DONE.", "{t} ARE CLINGING ON.",
+        "STILL ANYONE'S, {t} INCLUDED.", "WAIT ON {t}.",
+    ],
+    "blowout_final": [
+        "{t} GOT DESTROYED.", "{t} GOT TAKEN APART.",
+        "{t} NEVER STOOD A CHANCE.", "{t} GOT HUMILIATED.",
+        "{t} WERE NOWHERE NEAR IT.", "{t} GOT ROLLED.",
+        "{t} GOT DISMANTLED.", "{t} WERE OUTCLASSED.",
+        "SOMEBODY CHECK ON {t}.", "{t} GOT WIPED OUT.",
+        "{t} LOST IT BADLY.", "A MASSACRE FOR {t}.",
+    ],
+    "close_final": [
+        "{t} LOST IT LATE.", "{t} WILL FEEL THAT ONE.",
+        "{t} CAME UP SHORT.", "{t} HAD IT AND LOST IT.",
+        "CRUEL ON {t}.", "{t} FELL A SCORE SHORT.",
+        "{t} WERE INCHES AWAY.", "{t} LOST BY A WHISKER.",
+        "AGONISING FOR {t}.", "{t} SO NEARLY HAD IT.",
+        "{t} LOST THE TIGHT ONE.", "THAT ONE HURTS {t}.",
+    ],
+    "final": [
+        "{t} LOST.", "{t} GOT BEATEN.", "{t} ARE QUIET TONIGHT.",
+        "BAD NIGHT FOR {t}.", "{t} WENT DOWN.",
+        "{t} HAVE NO ARGUMENT.", "IT IS ON THE RECORD: {t} LOST.",
+        "{t} GOT DONE.", "{t} FANS WILL NOT WANT TO TALK.",
+        "{t} CAME SECOND.", "{t} LOST. FACT.", "NOTHING FOR {t}.",
+    ],
+}
+
+
+def _team_quip_pool(bucket, loser_nick):
+    """Team-named phrases for this bucket, filled in, or empty if unusable."""
+    if not loser_nick:
+        return []
+    nick = str(loser_nick).strip().upper()
+    if not nick or len(nick) > 16:      # long names wrap and ruin the card
+        return []
+    return [q.replace("{t}", nick) for q in _TEAM_QUIPS.get(bucket, [])]
