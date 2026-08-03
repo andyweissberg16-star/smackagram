@@ -691,25 +691,23 @@
      
      Static: the movement was doing the standing-out, and a steady neon does
      the same job without anything on the page shifting. */
-  .prod--smack h2, .prod--cast h2{
-    color:#FF3B4E;
-    text-shadow:0 0 7px rgba(255,59,78,0.95),
-                0 0 22px rgba(255,34,51,0.75),
-                0 0 46px rgba(224,27,36,0.45);
+  /* Flat colour, no glow at all. The movement is what makes them stand out;
+     a halo behind moving type just smears. */
+  .prod--smack h2, .prod--cast h2{color:#FF3B4E; text-shadow:none;}
+  .prod--locked h2{color:#EFF3F7; text-shadow:none;}
+  .prod--locked h2 .t2{color:#FF3B4E; text-shadow:none;}
+
+  /* All three on one timer with no delay on any of them, so they move as a
+     single beat rather than three cards running at their own pace. */
+  .prod h2{
+    animation:prod-title-move 3.4s ease-in-out infinite;
+    transform-origin:center;
   }
-  .prod--locked h2{
-    color:#EFF3F7;
-    text-shadow:0 0 7px rgba(239,243,247,0.95),
-                0 0 22px rgba(195,202,211,0.75),
-                0 0 46px rgba(160,172,186,0.45);
+  @keyframes prod-title-move{
+    0%,100%{transform:scale(1);}
+    50%    {transform:scale(0.92);}
   }
-  /* The ampersand stays red on the silver title, so it still matches the
-     nav wordmark. */
-  .prod--locked h2 .t2{
-    color:#FF3B4E;
-    text-shadow:0 0 7px rgba(255,59,78,0.95),
-                0 0 22px rgba(255,34,51,0.70);
-  }
+  @media (prefers-reduced-motion:reduce){ .prod h2{animation:none;} }
 
   /* A divider above the samples so they read as their own block rather than
      trailing off the end of the description. */
