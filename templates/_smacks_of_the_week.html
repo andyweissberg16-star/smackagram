@@ -23,8 +23,10 @@
    ======================================================================== #}
 <section class="sotw" id="smacksOfTheWeek" hidden>
   <div class="sotw-head">
-    <p class="sotw-kick">SMACKS OF THE WEEK</p>
-    <h2>Fresh off the phone.</h2>
+    {# The section name IS the headline. It was set as a small red eyebrow
+       above a separate heading, which buried the one thing a visitor needs
+       to read to know what they are looking at. #}
+    <h2>Smacks of the Week</h2>
     <p class="sotw-sub">Every one of these rang somebody&rsquo;s phone. Press play
        &mdash; that is exactly what they heard.</p>
     {# The price sits with the proof. Somebody who has just heard what a smack
@@ -82,10 +84,17 @@
     overflow:hidden;
   }
   .sotw-head{max-width:760px; margin:0 auto 24px; padding:0 32px; text-align:center;}
-  .sotw-kick{font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:2.4px;
-    color:var(--flare,#E01B24); margin:0 0 10px;}
-  .sotw-head h2{font-family:'Anton',sans-serif; font-size:32px; line-height:1;
-    color:var(--chalk,#F5F5F3); margin:0 0 10px; text-transform:uppercase;}
+
+  /* Big and red - it is the title of the whole section, not a caption. */
+  .sotw-head h2{
+    font-family:'Anton',sans-serif;
+    font-size:clamp(32px,4.4vw,52px);
+    line-height:0.96;
+    letter-spacing:0.5px;
+    color:var(--flare,#E01B24);
+    margin:0 0 12px;
+    text-transform:uppercase;
+  }
   .sotw-sub{color:var(--chalk-dim,#9A9A96); font-size:13.5px; line-height:1.6; margin:0;}
 
   /* NOTE: an orphaned "}" and an unclosed @media block sat here - leftover
@@ -212,13 +221,17 @@
   }
   .sotw-play svg{display:block;}
 
-  /* Hidden until it is playing - a progress bar sitting at zero on every
-     card is clutter that says nothing. */
-  .sotw-line{display:none; align-items:center; gap:9px; margin-top:14px;}
-  .sotw-line.is-on{display:flex;}
+  /* Always visible, not revealed on play.
+     
+     Hidden, it gave no sign there was anything to hear - the card looked
+     like a headline with a decorative button. A track sitting there with a
+     duration on it says "this is audio" before anybody presses anything,
+     which is the whole reason the wall exists. */
+  .sotw-line{display:flex; align-items:center; gap:9px; margin-top:14px;}
   .sotw-t{font-family:'JetBrains Mono',monospace; font-size:9px; color:#7A7575; flex:0 0 auto;}
   .sotw-bar{flex:1; height:3px; background:#2A2D32; border-radius:2px; overflow:hidden;}
   .sotw-bar i{display:block; height:3px; width:0; background:var(--flare,#E01B24); border-radius:2px;}
+  .sotw-line.is-empty{opacity:0.4;}
   /* Inert version of the play block - same shape, no glow, no pointer.
      A card with no audio keeps the rail's shape instead of collapsing into
      a line of type, which is what made twelve placeholder cards read as a
@@ -285,7 +298,11 @@
         +   '<svg width="23" height="26" viewBox="0 0 17 19" aria-hidden="true">'
         +     '<path d="M1 1l15 8.5L1 18z" fill="#0D0D0D"/></svg>'
         + '</button>'
-        + '<audio preload="none" src="' + esc(it.audio_url) + '"></audio>'
+        // "metadata" rather than "none" - the duration cannot be shown before
+        // playback without it, and a track reading 0:00 defeats the point of
+        // showing the track at all. Metadata is a few hundred bytes, not the
+        // audio itself.
+        + '<audio preload="metadata" src="' + esc(it.audio_url) + '"></audio>' 
         + '</div>'
         + '<div class="sotw-line">'
         +   '<span class="sotw-t sotw-now">0:00</span>'
@@ -299,6 +316,13 @@
         +   '<svg width="23" height="26" viewBox="0 0 17 19">'
         +     '<path d="M1 1l15 8.5L1 18z" fill="#0D0D0D"/></svg>'
         + '</span>'
+        + '</div>'
+        // An inert track too, so a card with no recording is the same shape
+        // as the ones beside it rather than visibly shorter.
+        + '<div class="sotw-line is-empty">'
+        +   '<span class="sotw-t">&mdash;&mdash;</span>'
+        +   '<span class="sotw-bar"></span>'
+        +   '<span class="sotw-t">&mdash;&mdash;</span>'
         + '</div>';
     return '<div class="sotw-card">'
       // No username. It told a visitor nothing and added a second line of
@@ -364,7 +388,7 @@
       a.addEventListener('play', function () {
         btn.innerHTML = PAUSE;
         btn.setAttribute('aria-label', 'Pause');
-        line.classList.add('is-on');
+        // The line is always shown now; nothing to reveal on play.
       });
       a.addEventListener('pause', function () {
         btn.innerHTML = PLAY;
@@ -381,7 +405,7 @@
       });
       a.addEventListener('ended', function () {
         btn.innerHTML = PLAY;
-        line.classList.remove('is-on');
+
         if (fill) fill.style.width = '0';
         if (now) now.textContent = '0:00';
       });

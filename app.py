@@ -2901,6 +2901,44 @@ def wall_when(dt):
         return None
 
 
+# Cities are noise on a card this small. "Sent to a New York Yankees fan"
+# wastes the width and reads worse than "Sent to a Yankees fan" - the
+# nickname is what a fan calls themselves.
+_CITY_WORDS = {
+    "new", "york", "los", "angeles", "san", "francisco", "diego", "jose",
+    "kansas", "city", "tampa", "bay", "green", "golden", "state", "oklahoma",
+    "st", "st.", "saint", "louis", "las", "vegas", "salt", "lake", "north",
+    "south", "east", "west", "fort", "worth", "chicago", "boston", "dallas",
+    "miami", "denver", "detroit", "houston", "phoenix", "seattle", "atlanta",
+    "baltimore", "buffalo", "carolina", "cincinnati", "cleveland", "columbus",
+    "indianapolis", "jacksonville", "memphis", "milwaukee", "minnesota",
+    "nashville", "orlando", "philadelphia", "pittsburgh", "portland",
+    "sacramento", "toronto", "utah", "washington", "arizona", "brooklyn",
+    "charlotte", "anaheim", "oakland", "colorado", "texas", "tennessee",
+    "vancouver", "calgary", "edmonton", "montreal", "ottawa", "winnipeg",
+    "florida", "vegas", "jersey", "england", "orleans", "antonio",
+}
+
+
+def _nickname_only(name):
+    """
+    "New York Yankees" -> "Yankees". "Cowboys" -> "Cowboys".
+
+    Strips leading city words rather than taking the last word, because
+    plenty of nicknames are two words - Red Sox, Blue Jays, White Sox,
+    Trail Blazers - and the last word alone would give "Sox" and "Jays".
+    """
+    if not name:
+        return None
+    parts = str(name).strip().split()
+    if not parts:
+        return None
+    # Drop city words from the FRONT only, and never all of them.
+    while len(parts) > 1 and parts[0].lower().strip(".") in _CITY_WORDS:
+        parts.pop(0)
+    return " ".join(parts) or None
+
+
 def wall_headline(record, product):
     """
     Three or four words saying what this smack was about.
@@ -2965,8 +3003,9 @@ def publish_to_wall(record, product, audio_url=None):
             body=body,
             product=product,
             headline=wall_headline(record, product),
-            team_name=((getattr(record, "target_team", None)
-                        or getattr(record, "team", None) or "").strip() or None),
+            team_name=_nickname_only(
+                getattr(record, "target_team", None)
+                or getattr(record, "team", None)),
             team=((getattr(record, "target_team", None)
                    or getattr(record, "team", None) or "").strip() or None),
             audio_url=audio_url,
@@ -3095,7 +3134,9 @@ def api_wall():
         #
         # The colour is the team's real brand colour, lightened where it
         # would vanish against a dark card - several are close to black.
-        "team": r.team_name,
+        # Stripped on the way out too, so posts written before this change
+        # still render as "Yankees" rather than "New York Yankees".
+        "team": _nickname_only(r.team_name),
         "team_color": chat_team_colors.readable_color_for_name(r.team_name),
         "when": wall_when(r.created_at),
         # Only ever served when the sender explicitly agreed. A post without

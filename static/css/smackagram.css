@@ -30,13 +30,16 @@
    the page. */
 
 nav{display:flex; justify-content:space-between; align-items:center; padding:20px 24px; border-bottom:1px solid var(--line);}
-.nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+/* Silver across the nav rather than the dim grey. The top-level items are
+   the site's own signposts and were sitting quieter than the body copy
+   beneath them. */
+.nav-links{display:flex; gap:32px; align-items:center; font-size:14px; color:var(--silver,#C3CAD3);}
 
 /* --- Grouped nav dropdowns --- */
 .nav-group{position:relative;}
 .nav-group-btn{
   background:none; border:0; padding:0; cursor:pointer;
-  font-family:inherit; font-size:14px; color:var(--chalk-dim);
+  font-family:inherit; font-size:14px; color:var(--silver,#C3CAD3);
   display:inline-flex; align-items:center; gap:5px;
 }
 .nav-group-btn:hover, .nav-group.is-open .nav-group-btn{color:var(--chalk);}
@@ -70,7 +73,7 @@ nav{display:flex; justify-content:space-between; align-items:center; padding:20p
   margin:18px 0 6px; padding:0 2px; opacity:0.75;
 }
 .nav-drawer-head:first-of-type{margin-top:6px;}
-.auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--chalk-dim);}
+.auth-links{display:flex; gap:20px; align-items:center; font-size:14px; color:var(--silver,#C3CAD3);}
 
 /* MOBILE / TABLET NAV
    The desktop link row needs ~1250px to sit on one line. Below that it wrapped
@@ -139,8 +142,49 @@ body.nav-open{overflow:hidden;}
 /* Footer links: contact.html had a completely unstyled <a>, which rendered as
    default browser blue (#0000EE) on black - 2.07:1. Also brings the tap target
    up from ~33x14 to the 44px minimum. */
-footer a{display:inline-block; padding:13px 6px; color:var(--chalk-dim); text-decoration:none;}
-footer a:hover{color:var(--flare-text);}
+/* ---------------------------------------------------------------------------
+   Footer - one rule for the whole site
+   ---------------------------------------------------------------------------
+   Every page defined its own footer inline, so the layout differed page to
+   page: some pushed the copyright and links to opposite ends, others centred
+   everything. These rules are scoped to `html body footer` so they outrank a
+   page's own inline <style> without needing all fifteen edited.
+   ------------------------------------------------------------------------ */
+html body footer{
+  display:flex !important;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  text-align:center;
+  padding:34px 24px;
+}
+html body footer .flinks{
+  display:flex; flex-wrap:wrap; justify-content:center; gap:4px 22px;
+}
+/* Anton and a size up. At 12px in body text these read as fine print on a
+   site whose whole voice is loud - and they are the links somebody hunts for
+   when they want to opt out, which is the worst place to be quiet. */
+html body footer a{
+  display:inline-block; padding:11px 4px;
+  font-family:'Anton', Impact, sans-serif;
+  font-size:15px; letter-spacing:1px; text-transform:uppercase;
+  color:var(--silver,#C3CAD3); text-decoration:none;
+}
+html body footer a:hover{color:var(--flare-text,#FF3B4E);}
+
+/* The copyright stays small and quiet - it is not a link and nobody is
+   looking for it. */
+html body footer > span{
+  font-family:'JetBrains Mono',monospace;
+  font-size:10px; letter-spacing:1.6px; text-transform:uppercase;
+  color:var(--muted-2,#7A7575);
+}
+
+@media(max-width:520px){
+  html body footer a{font-size:13.5px; letter-spacing:0.8px;}
+  html body footer .flinks{gap:2px 14px;}
+}
 
 /* The logo link was 51x34 on all 19 pages. The nav is 75px tall regardless, so
    growing the hit area to 44px costs no layout. */
@@ -704,7 +748,9 @@ body.smk-plain::after{display:none;}
   font-size:26px;
   line-height:1;
   letter-spacing:0.5px;
-  color:#FF2233;
+  /* The words are white and only the PRICE is red - the number is the
+     argument, and colouring the whole phrase red made none of it stand out. */
+  color:#FFFFFF;
   padding:4px 14px;
   /* Straight, not tilted. A rocking gentle pulse is enough motion - a
      permanently skewed block of type fights every straight line around it. */
@@ -722,9 +768,9 @@ body.smk-plain::after{display:none;}
      4px  5px 0 rgba(13,13,13,0.55);
 }
 
-/* "$1" in white so the number itself carries against the red. */
+/* Only the amount carries colour. */
 .smk-price-stamp .smk-price-amt{
-  color:#FFFFFF;
+  color:#FF2233;
 }
 
 /* Dips to 55% rather than blinking out - a price that vanishes is unreadable

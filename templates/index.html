@@ -65,7 +65,15 @@
   .btn-ghost{background:transparent; color:var(--chalk); border:1px solid var(--line-strong);}
 
   /* TICKER */
-  .ticker-bar{background:var(--flare); overflow:hidden; white-space:nowrap; padding:8px 0; position:relative;}
+  /* Silver hairlines top and bottom. Red against the hero's red band had no
+     edge to it - the two ran together and the ticker read as part of the
+     image rather than as its own strip. */
+  .ticker-bar{
+    background:var(--flare); overflow:hidden; white-space:nowrap;
+    padding:8px 0; position:relative;
+    border-top:1px solid var(--silver,#C3CAD3);
+    border-bottom:1px solid var(--silver,#C3CAD3);
+  }
   /* WCAG 2.2.2 (Pause, Stop, Hide): content that moves automatically for more
      than five seconds needs a way to stop it - for everyone, not only people
      who set the reduced-motion preference. */
