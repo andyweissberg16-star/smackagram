@@ -3778,7 +3778,6 @@ def _execute_arm_smackagram(user, data: dict) -> dict:
         sensitivity=data.get("sensitivity", trash_talk_service.DEFAULT_SENSITIVITY),
         custom_message=data.get("custom_message") if mode == "custom" else None,
         voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
-        team=(data.get("team") or "").strip() or None,
         recipient_name=data["recipient_name"],
         recipient_phone=data["recipient_phone"],
         consent_confirmed=True,
