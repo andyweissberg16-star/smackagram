@@ -547,7 +547,13 @@
      different lengths - without it "Arm one" would be a much smaller button
      than "Get the season". */
   .prod-cta{
-    margin:0 auto; display:block; width:fit-content; min-width:64%;
+    /* margin-top:auto is what pins the button to the BOTTOM of the card.
+       
+       Writing "margin:0 auto" to centre it horizontally silently killed
+       that, so Smackcast's button floated up - it has one sample row where
+       the others have two, so its content is shorter. "auto auto 0" centres
+       horizontally AND still pushes down. */
+    margin:auto auto 0; display:block; width:fit-content; min-width:64%;
     border-radius:8px; padding:15px 26px;
     font-family:'Anton',sans-serif; font-size:22px; line-height:1;
     letter-spacing:1.2px; text-transform:uppercase; text-decoration:none;
@@ -707,6 +713,9 @@
      had drifted to. */
   .prod h2{color:var(--chalk); text-shadow:none;}
   .prod h2 .t2{color:var(--flare);}
+  /* LOCKED and LOADED in the silver its own generator uses; the ampersand
+     stays red. */
+  .prod--locked h2{color:var(--silver,#C3CAD3);}
 
   /* All three on one timer with no delay on any of them, so they move as a
      single beat rather than three cards running at their own pace. */
