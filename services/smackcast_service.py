@@ -1035,6 +1035,67 @@ def _trim_trailing_silence(seg, silence_thresh_db: float = -45.0, chunk_ms: int 
     return seg[: len(seg) - trim] if trim else seg
 
 
+# Reaction tag -> the file that actually exists.
+#
+# The writer is asked for burn / laugh / shock / groan, and only ONE of those
+# had a matching file in static/sfx. The other three resolved to nothing, so
+# even once playback worked they would have been silent. Mapped explicitly
+# rather than assuming the names line up.
+_REACTION_FILES = {
+    "burn":    ["boo.mp3", "smackcast-boo-1.mp3"],
+    "laugh":   ["smackcast-laugh-1.mp3", "smackcast-laugh-2.mp3"],
+    "shock":   ["smackcast-gasp-1.mp3", "smackcast-boom-1.wav"],
+    "groan":   ["smackcast-aww-1.mp3", "smackcast-aww-2.mp3"],
+    "boo":     ["boo.mp3", "smackcast-boo-1.mp3"],
+    "cheer":   ["cheer.mp3"],
+    "gasp":    ["smackcast-gasp-1.mp3"],
+    "trombone":["smackcast-trombone-1.mp3"],
+}
+
+_SFX_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "sfx")
+
+# Long enough to land, short enough not to become a pause in the show.
+REACTION_MAX_MS = 1200
+
+
+def _reaction_audio(tag):
+    """
+    The sound for a reaction tag, or None.
+
+    Returns None for anything unrecognised or missing rather than raising -
+    a missing sound effect should cost a sound effect, not an episode.
+    """
+    import random as _r
+    # Imported here rather than at module scope: pydub is a heavy import and
+    # the rest of this module is used by paths that never touch audio.
+    from pydub import AudioSegment
+
+    if not tag or str(tag).lower() in ("none", "burn_none", ""):
+        return None
+    names = _REACTION_FILES.get(str(tag).lower().strip())
+    if not names:
+        return None
+    existing = [n for n in names if os.path.exists(os.path.join(_SFX_DIR, n))]
+    if not existing:
+        print(f"[audio] no file on disk for reaction {tag!r}", flush=True)
+        return None
+    try:
+        sfx = AudioSegment.from_file(os.path.join(_SFX_DIR, _r.choice(existing)))
+    except Exception as e:
+        print(f"[audio] could not load reaction {tag!r}: {e}", flush=True)
+        return None
+
+    # TRIMMED HARD. These files run four to five seconds each, and nineteen
+    # segments of that is well over a minute of the show spent on sound
+    # effects - a five-second cheer after every line stops being a punchline
+    # and becomes a wait.
+    #
+    # A punch of about a second is the joke; the rest is the file's tail.
+    if len(sfx) > REACTION_MAX_MS:
+        sfx = sfx[:REACTION_MAX_MS].fade_out(180)
+    return sfx
+
+
 def assemble_recap_audio(intro: str, segments: list, outro: str,
                          outro_tail: str = None, hit_sfx_path: str = None,
                          hit_lead_ms: int = 120, hit_beat_ms: int = 350,
@@ -1284,6 +1345,19 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
                                  kind=seg.get("reaction"))
 
         piece = (lead_gap + spoken) if lead_gap is not None else spoken
+
+        # The reaction, at last.
+        #
+        # Every episode so far has had these tagged by the writer, stored by
+        # the parser, and then silently dropped - the docstring above promised
+        # them, nothing played them. Appended AFTER the speech with a short
+        # beat, so it reads as a response to the line rather than talking over
+        # it.
+        _rx = _reaction_audio(seg.get("reaction"))
+        if _rx is not None:
+            piece = piece + AudioSegment.silent(duration=180) + _standardize(_rx) - 3
+            print(f"[audio] reaction {seg.get('reaction')!r} after segment {i}",
+                  flush=True)
 
         # The previous piece is safe to write now: nothing after it needs to
         # reach back into it.

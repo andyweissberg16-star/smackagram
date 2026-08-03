@@ -731,6 +731,24 @@ def write_script(material: dict, only_league: str = None,
         "  YOU MAY USE IT ONCE. Not once per segment - ONCE, in everything "
         "you write here, and preferably not at all.\n\n"
 
+        # Naming what to do INSTEAD, rather than only what not to do.
+        # "Vary the joke shape" is abstract and has been ignored three times;
+        # a list of concrete shapes gives the model somewhere to go.
+        "  REACH FOR THESE INSTEAD - eight shapes, all of which land as hard "
+        "and none of which is that one:\n"
+        "    1. Comparison to something mundane: \"I've seen folding chairs "
+        "put up more resistance.\"\n"
+        "    2. Absurd consequence: \"That baseball is applying for "
+        "citizenship in the parking lot.\"\n"
+        "    3. Understatement: \"They had a rough one.\" (after describing "
+        "a nine-run beating)\n"
+        "    4. Direct address: \"Buddy. Buddy, look at me.\"\n"
+        "    5. Bureaucratic language for chaos: \"Somebody file the "
+        "paperwork on that inning.\"\n"
+        "    6. A number doing the work alone: \"Six pitchers. Six.\"\n"
+        "    7. Mock sympathy: \"Bless them. They tried.\"\n"
+        "    8. Escalating list: \"Cooked. Seasoned. Plated. Served.\"\n\n"
+
         "  This is stricter than it sounds because YOU ARE NOT WRITING THE "
         "WHOLE SHOW. Each league is written separately and at the same time, "
         "and the other writer cannot see what you are doing. A real episode "
@@ -1171,6 +1189,18 @@ def write_script_per_league(material: dict, log=None) -> dict:
         results = list(pool.map(_one, present))
 
     by_lg = dict(results)
+
+    # STRIP cross-league hand-offs, rather than asking for them not to happen.
+    #
+    # The prompt already forbids this in detail and even cites the episode it
+    # broke. It was ignored anyway - the third prompt-level rule on this
+    # project to be. Parallel writers cannot see each other, so a writer
+    # announcing what follows is guessing, and the guess lands in the wrong
+    # segment.
+    #
+    # Only break_out is allowed to mention another league. Everything else
+    # gets the hand-off cut out of it.
+    _strip_cross_league(by_lg, present)
     frame = by_lg.get(present[0]) or {}
 
     segments = []
@@ -1487,6 +1517,9 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
             flags=re.IGNORECASE)) for x in segments)
         if _tnt:
             log(f"\"that's not a...\" construction used {_tnt} time(s)")
+        if _tnt > TNT_MAX_PER_EPISODE:
+            _capped = _cap_construction(segments, TNT_MAX_PER_EPISODE)
+            log(f"capped it to {TNT_MAX_PER_EPISODE} - rewrote {_capped}")
     except Exception:
         pass
 
@@ -2280,6 +2313,109 @@ def enforce_length(segments, plan, log=None):
     return kept
 
 
+# One per episode, at most. It is a good construction the first time and a
+# tic by the third - and with parallel league writers each believing it has
+# its own budget, "twice per episode" has come out four times.
+TNT_MAX_PER_EPISODE = 1
+
+
+def _cap_construction(segments, keep=1):
+    """
+    Rewrite the surplus "that's not a X, that's a Y" lines.
+
+    The negation is the disposable half. "That's not a loss, that's an
+    eviction notice" becomes "That's an eviction notice" - which is shorter,
+    hits sooner, and loses nothing except the formula.
+
+    Rewritten rather than deleted: the second half usually carries the actual
+    joke, and cutting the sentence would throw the joke away with the tic.
+
+    In code because the prompt cap has been ignored twice.
+    """
+    import re as _re
+
+    # "That's not a loss, that's an eviction notice."
+    # "This isn't football - it's community service."
+    # Two shapes of the same tic:
+    #   "that's NOT a loss, that's an eviction notice"
+    #   "this ISN'T football - it's community service"
+    # The second hides its negation inside the contraction, so a pattern
+    # looking for a following "not" misses it entirely.
+    PAT = _re.compile(
+        r"\b(?:that|this|it)"
+        r"(?:(?:'s|s| is| was)\s+not|(?:\s*isn'?t|\s*ain'?t|\s*wasn'?t))\s+"
+        r"(?:a |an |the )?[^,.;!?-]{1,40}[,.;:\u2014-]+\s*"
+        r"(?:that|this|it)(?:'s| is| was)\s+",
+        _re.IGNORECASE)
+
+    seen = 0
+    rewritten = 0
+    for seg in segments:
+        text = seg.get("text") or ""
+        if not text:
+            continue
+        out = text
+        for m in list(PAT.finditer(text)):
+            seen += 1
+            if seen <= keep:
+                continue          # the first one earns its place
+            # Keep the payoff, drop the set-up.
+            out = out.replace(m.group(0), "That's ", 1)
+            rewritten += 1
+        if out != text:
+            seg["text"] = out
+            # display_text is what the transcript shows; keep them in step.
+            if seg.get("display_text"):
+                seg["display_text"] = out
+    return rewritten
+
+
+def _strip_cross_league(by_lg, present):
+    """
+    Remove any sentence in which one league's writer announces another's.
+
+    Cuts whole SENTENCES, not phrases. Removing "now to the WNBA" from the
+    middle of a line leaves a fragment that reads worse than the fault did;
+    the sentence is the smallest unit that can be taken out cleanly.
+
+    break_out is left alone - that segment exists precisely to hand over.
+    """
+    import re as _re
+
+    others = {lg.upper() for lg in present}
+    if len(others) < 2:
+        return
+
+    # "now to the WNBA", "coming up, the NBA", "let's get to some hockey"
+    TEASE = _re.compile(
+        r"(now (?:to|for)|coming up|next up|let'?s get to|over to|stay (?:tuned|with)"
+        r"|after (?:the break|this)|when we come back|later on|we'?ll get to)",
+        _re.IGNORECASE)
+
+    for lg, res in by_lg.items():
+        for seg in (res or {}).get("segments") or []:
+            if (seg.get("league") or "").upper() == "BREAK":
+                continue
+            if seg.get("kind") in ("break_in", "break_out"):
+                continue
+            text = seg.get("text") or ""
+            if not text:
+                continue
+
+            kept = []
+            for sentence in _re.split(r"(?<=[.!?])\s+", text):
+                names = {w.upper() for w in _re.findall(r"\b[A-Za-z]{3,5}\b", sentence)}
+                mentions_other = bool((names & others) - {lg.upper()})
+                if mentions_other and TEASE.search(sentence):
+                    print(f"[show] stripped cross-league tease from {lg}: "
+                          f"{sentence[:70]!r}", flush=True)
+                    continue
+                kept.append(sentence)
+
+            if kept and len(kept) != len(_re.split(r"(?<=[.!?])\s+", text)):
+                seg["text"] = " ".join(kept).strip()
+
+
 def maybe_interruption(segments):
     """
     Insert at most one interruption, in a gap between segments.
@@ -2295,9 +2431,17 @@ def maybe_interruption(segments):
     if len(segments) < 4:
         return segments
 
-    # Somewhere in the middle. Not the opening, not the close, and not
-    # immediately either side of the commercial break.
-    lo, hi = 1, len(segments) - 1
+    # Genuinely in the middle.
+    #
+    # lo was 1, which is the slot straight after the opening - technically
+    # "not first" but effectively at the top of the show, before anything has
+    # been established. An episode logged as "interruption inserted at
+    # segment 1" is one where a listener never noticed the bit at all.
+    #
+    # Start a quarter of the way in instead, so the show has settled before
+    # anything interrupts it, and keep clear of the last two.
+    lo = max(2, len(segments) // 4)
+    hi = max(lo + 1, len(segments) - 2)
     spots = [i for i in range(lo, hi)
              if (segments[i].get("league") or "") not in ("BREAK",)
              and (segments[i - 1].get("league") or "") not in ("BREAK",)]
