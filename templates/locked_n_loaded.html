@@ -205,7 +205,10 @@
     font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:1.2px;
     text-transform:uppercase; color:var(--chalk-dim,#9A9A96);
   }
-  .live-now-cta strong{color:var(--flare,#E01B24); font-weight:700;}
+  .live-now-cta a{color:var(--flare,#E01B24); font-weight:700; text-decoration:none;}
+  .live-now-cta a:hover{text-decoration:underline;}
+  /* The row itself does nothing, so nothing about it should invite a click. */
+  .game-option.is-live-now{cursor:default;}
   .game-option{
     border:1px solid var(--line-strong); border-radius:2px; padding:12px 14px; cursor:pointer;
     display:flex; justify-content:space-between; align-items:center; transition:all 0.15s ease;
@@ -941,12 +944,16 @@ function renderGameOption(g) {
   if (g.is_live) {
     el.classList.add('is-live-now');
     const team = (g.home_score < g.away_score) ? g.home_team : g.away_team;
+    // An explicit LINK, not a click handler on the whole row.
+    //
+    // Hijacking the row meant selecting a game silently threw you onto
+    // another page - which reads as the generator redirecting you rather
+    // than as an offer. The row stays inert; the link is the only thing
+    // that navigates, and only if somebody chooses it.
     el.insertAdjacentHTML('beforeend',
-      '<div class="live-now-cta">Already started &mdash; ' +
-      '<strong>smack them now &rarr;</strong></div>');
-    el.addEventListener('click', () => {
-      window.location.href = '/send-a-smack?team=' + encodeURIComponent(team || '');
-    });
+      '<div class="live-now-cta">Already started, so it cannot be armed &mdash; ' +
+      '<a href="/send-a-smack?team=' + encodeURIComponent(team || '') + '">' +
+      'smack them now &rarr;</a></div>');
   } else {
     el.addEventListener('click', () => selectGame(g, el));
   }
