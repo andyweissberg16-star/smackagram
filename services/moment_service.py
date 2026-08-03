@@ -158,6 +158,9 @@ WHAT WILL RUIN IT
 - Being nice about the losing team. That is not this product.
 - Starting with anything other than the opener you were assigned.
 - Anything in the present tense about a real person's life today.
+- Any peek into the future. "They will be hearing about this for years" is
+  something only somebody who already knows would say. You do not know. The
+  furthest ahead you can see is the drive home tonight.
 - One enormous run-on sentence. Short bursts. Breath between them.
 """.strip()
 
@@ -253,6 +256,24 @@ ROAST: <one or two sentences at the losing side, normal case>
         raise ValueError(f"incomplete call for {moment.slug}: {text[:200]}")
 
     return call, followup, roast
+
+
+def generate_audio(moment):
+    """
+    Turn a written call into audio and return the URL.
+
+    Reuses the same ElevenLabs path as everything else on the site, so this
+    sounds like the same Smacky rather than a second voice - which is the
+    entire point of a character.
+    """
+    from services import elevenlabs_service
+
+    if not (moment.call_text and moment.followup_text and moment.roast_text):
+        raise ValueError(f"{moment.slug} has no written call yet")
+
+    return elevenlabs_service.generate_audio_url(
+        spoken_text(moment.call_text, moment.followup_text, moment.roast_text)
+    )
 
 
 def spoken_text(call, followup, roast):

@@ -3264,13 +3264,58 @@ def admin_generate_call(slug):
     m.generated_at = datetime.now(timezone.utc)
     db.session.commit()
 
+    # Audio unless told otherwise. ?audio=0 writes the text only, which is
+    # what you want while the prompt is still being tuned - no sense paying
+    # for a voice on a call you are about to throw away.
+    audio_url = None
+    audio_error = None
+    if request.args.get("audio") != "0":
+        try:
+            audio_url = moment_service.generate_audio(m)
+            m.audio_url = audio_url
+            db.session.commit()
+        except Exception as e:
+            # The text is already saved and is the valuable part, so a voice
+            # failure is reported rather than thrown - losing a good call
+            # because S3 hiccuped would be daft.
+            audio_error = str(e)
+            print(f"[calls] audio failed for {m.slug}: {e}", flush=True)
+
     return jsonify({
         "slug": m.slug,
         "title": m.title,
         "call": call,
         "followup": followup,
         "roast": roast,
+        "audio_url": audio_url,
+        "audio_error": audio_error,
     })
+
+
+@app.route("/api/admin/voice-call/<slug>")
+def admin_voice_call(slug):
+    """
+    Audio only, for a call whose text is already written and good.
+
+    Separate from generation so a call you are happy with can be voiced
+    without rewriting it - and re-voiced if the first take is off.
+    """
+    if request.args.get("key") != os.environ.get("CRON_KEY", "smack2026secure99xyz"):
+        return jsonify({"error": "nope"}), 403
+
+    from services import moment_service
+
+    m = FamousMoment.query.filter_by(slug=slug).first()
+    if not m:
+        return jsonify({"error": f"no moment with slug {slug}"}), 404
+
+    try:
+        m.audio_url = moment_service.generate_audio(m)
+        db.session.commit()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"slug": m.slug, "audio_url": m.audio_url})
 
 
 @app.route("/opt-out", methods=["GET", "POST"])

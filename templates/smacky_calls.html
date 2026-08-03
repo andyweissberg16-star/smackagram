@@ -170,15 +170,72 @@
 </div>
 
 <script>
-// One at a time, same as the wall.
 (function () {
-  var current = null;
-  document.querySelectorAll('.smc-btn[data-audio]').forEach(function (btn) {
+  // One at a time. Two calls shouting over each other is unusable, and on a
+  // page of twenty it would happen constantly.
+  var playing = null;
+
+  document.querySelectorAll('.smc-play').forEach(function (row) {
+    var btn = row.querySelector('.smc-btn[data-audio]');
+    if (!btn) return;
+
+    var elapsed = row.querySelector('.smc-t');
+    var bar = row.querySelector('.smc-bar');
+    var total = row.querySelectorAll('.smc-t')[1];
+    var fill = document.createElement('i');
+    fill.style.cssText = 'display:block;height:3px;width:0;background:#E01B24;border-radius:2px;';
+    bar.appendChild(fill);
+
+    // preload="metadata" so the length shows before anybody presses play - a
+    // track reading 0:00 tells you nothing about whether it is worth 30
+    // seconds of your time.
+    var audio = new Audio();
+    audio.preload = 'metadata';
+    audio.src = btn.dataset.audio;
+
+    function clock(s) {
+      if (!isFinite(s)) return '--';
+      var m = Math.floor(s / 60), r = Math.floor(s % 60);
+      return m + ':' + (r < 10 ? '0' : '') + r;
+    }
+
+    audio.addEventListener('loadedmetadata', function () {
+      if (total) total.textContent = clock(audio.duration);
+    });
+    audio.addEventListener('timeupdate', function () {
+      if (elapsed) elapsed.textContent = clock(audio.currentTime);
+      if (audio.duration) fill.style.width = (audio.currentTime / audio.duration * 100) + '%';
+    });
+    audio.addEventListener('ended', function () {
+      fill.style.width = '0';
+      if (elapsed) elapsed.textContent = '0:00';
+      icon(false);
+      playing = null;
+    });
+
+    function icon(isPlaying) {
+      btn.innerHTML = isPlaying
+        ? '<svg width="15" height="17" viewBox="0 0 15 17" aria-hidden="true">' +
+          '<rect x="1" y="1" width="4.5" height="15" fill="#0D0D0D"/>' +
+          '<rect x="9.5" y="1" width="4.5" height="15" fill="#0D0D0D"/></svg>'
+        : '<svg width="17" height="19" viewBox="0 0 17 19" aria-hidden="true">' +
+          '<path d="M1 1l15 8.5L1 18z" fill="#0D0D0D"/></svg>';
+    }
+
     btn.addEventListener('click', function () {
-      if (current) { current.pause(); current = null; }
-      var a = new Audio(btn.dataset.audio);
-      current = a;
-      a.play().catch(function () {});
+      if (playing && playing.audio !== audio) {
+        playing.audio.pause();
+        playing.icon(false);
+      }
+      if (audio.paused) {
+        audio.play().catch(function () {});
+        icon(true);
+        playing = {audio: audio, icon: icon};
+      } else {
+        audio.pause();
+        icon(false);
+        playing = null;
+      }
     });
   });
 })();
