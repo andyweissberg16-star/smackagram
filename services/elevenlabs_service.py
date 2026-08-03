@@ -201,7 +201,14 @@ def generate_performance_url(message: str, voice_id: str = None) -> str:
     if voice_id is None:
         voice_id = os.environ["ELEVENLABS_VOICE_ID"]
 
-    key = "calls/" + hashlib.sha256(
+    # MUST live under tts/ - the bucket policy grants public read on that
+    # prefix only, so anything uploaded elsewhere saves fine and then returns
+    # 403 to anybody trying to play it. That is what an uploaded file that
+    # will not play looks like.
+    #
+    # Hashed rather than a uuid so re-voicing identical text reuses the same
+    # object instead of leaving orphans behind on every retry.
+    key = "tts/calls-" + hashlib.sha256(
         (voice_id + "|perf|" + message).encode()
     ).hexdigest()[:32] + ".mp3"
 
