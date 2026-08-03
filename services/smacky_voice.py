@@ -92,7 +92,17 @@ def classify(game):
     if g.get("loser_pitching_hit"):
         return "pitcher_shelled"
 
-    return "collapse" if (margin or 0) >= 6 else "shut_out"
+    # A final with runs on both sides. Margin decides the register:
+    # a one-run loss is agonising, a rout is embarrassing, and the middle is
+    # neither - it is just a loss, which is its own kind of quiet.
+    m = margin or 0
+    if final:
+        if m <= 2:
+            return "close_final"
+        if m >= 7:
+            return "collapse"
+        return "routine_loss"
+    return "routine_loss"
 
 
 # ---------------------------------------------------------------------------

@@ -74,7 +74,7 @@ deciding whether one should own it — Smackville is the strongest.
 
 ---
 
-## AN OPEN QUESTION FOR ANDY
+## REGISTER, NOT CONTENT — CONFIRMED BY ANDY
 
 Reject #3 rules out *"the pitcher made a mistake"* as too analytical. But
 the Locked & Loaded prompt deliberately requires analytics jabs in plain
@@ -84,4 +84,6 @@ These pull against each other. The working assumption in the code is that
 the rule is about **register, not content** — Smacky can know the pitcher
 hung a slider, he just cannot say it the way a broadcast analyst would.
 
-If that reading is wrong, the generators need changing.
+**Confirmed.** Smacky can know the pitcher hung a slider or the top of the
+order collapsed — he simply cannot say it the way a broadcast analyst would.
+The facts are his; the phrasing is not.

@@ -147,6 +147,43 @@ def build_facts(game: dict) -> list[str]:
     return facts
 
 
+def _voice_block_for_show(material):
+    """
+    One voice block for the night, built from the real games.
+
+    Taken from the MOST DRAMATIC game rather than averaged across all of them
+    - an episode has one emotional register, and it should be set by the game
+    people will actually talk about.
+    """
+    from services import smacky_voice
+
+    games = []
+    by_league = material.get("by_league") or {}
+    for league_games in by_league.values():
+        games.extend(league_games or [])
+    if not games:
+        games = material.get("games") or []
+    if not games:
+        return smacky_voice.render(situation="shut_out")
+
+    def drama(g):
+        # Nil beats a blowout beats a one-run game. A shutout is the funniest
+        # scoreline available and should set the tone when there is one.
+        loser_runs = min(g.get("away_score") or 0, g.get("home_score") or 0)
+        return 100 if loser_runs == 0 else (g.get("margin") or 0)
+
+    top = max(games, key=drama)
+    loser_runs = min(top.get("away_score") or 0, top.get("home_score") or 0)
+    errs = (top.get("home_errors") or 0) + (top.get("away_errors") or 0)
+
+    return smacky_voice.render(game={
+        "final": True,
+        "loser_score": loser_runs,
+        "margin": top.get("margin") or 0,
+        "errors": errs,
+    })
+
+
 def _score_game(game: dict) -> int:
     """How roastable a result is. Margin dominates; sloppiness adds to it."""
     s = game["margin"] * 2
@@ -397,6 +434,21 @@ def write_script(material: dict, only_league: str = None,
     d = material["date"] if isinstance(material.get("date"), dict) else _date_context(1)
 
     system = smackology.render(level=4, context="recap")
+
+    # The situation-aware voice layer on top.
+    #
+    # smackology supplies the vocabulary; this supplies the JUDGEMENT - which
+    # register tonight's games call for, which lines are eligible, and which
+    # running bits still have budget.
+    #
+    # A home-run line during a shutout is the worst thing an announcer can do,
+    # and the only way to prevent it is deciding eligibility from the real
+    # numbers BEFORE the model sees anything.
+    try:
+        system = system + "\n\n" + _voice_block_for_show(material)
+    except Exception as e:
+        # Never let the voice layer take down an episode.
+        print(f"[show] voice layer unavailable: {e}", flush=True)
 
     # The mood is passed IN rather than chosen here, because each league is
     # written in a separate call - choosing per call would give you a manic

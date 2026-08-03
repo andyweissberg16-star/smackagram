@@ -215,5 +215,33 @@
       "And that's today's lesson in getting Smackified.",
       "They'll be replaying that one until his grandkids retire."
     ]
+  },
+  "close_final": {
+    "when": "Lost by one or two. Agonising rather than embarrassing - a different joke entirely.",
+    "intensity": 65,
+    "lines": [
+      "They came up one swing short and they'll feel that all winter.",
+      "That's not a beating. That's worse. That's a near miss.",
+      "One run. One single run. That's the kind that keeps you up.",
+      "They had it. They could taste it. And then they didn't.",
+      "Losing by ten you can laugh off. Losing by one follows you home.",
+      "Inches. That's all that was. Cruel, cruel inches.",
+      "That loss is gonna leave tire marks.",
+      "Somebody save some embarrassment for tomorrow."
+    ]
+  },
+  "routine_loss": {
+    "when": "A normal loss. Nothing dramatic happened; they were simply beaten.",
+    "intensity": 70,
+    "lines": [
+      "They got handled. No drama, no excuses, just handled.",
+      "Nothing spectacular went wrong. They were just the worse team.",
+      "That's a quiet L. The kind nobody makes a highlight out of.",
+      "They picked a rough night to forget how baseball works.",
+      "Tonight just wasn't their night. Baseball collected rent.",
+      "Y'all got beat. Plain and simple. Welcome to Smackville.",
+      "They spent nine innings making bad decisions.",
+      "The only thing they led today was the handshake line."
+    ]
   }
 }
