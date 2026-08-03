@@ -257,3 +257,46 @@ def readable_color_for_name(name, on_dark=True):
         return f"#{r:02X}{g:02X}{b:02X}"
     except Exception:
         return hexv
+
+
+# ---------------------------------------------------------------------------
+# Conference / league grouping for the Smack Board
+# ---------------------------------------------------------------------------
+# DIVISIONS above is too fine for a scoreboard - eight NFL divisions means
+# eight headings most of which hold one game. Rolling up to the two halves
+# each sport actually splits into gives a heading with real games under it.
+
+_CONFERENCE_OF = {
+    "nfl":  lambda d: "AFC" if d.startswith("AFC") else "NFC",
+    "mlb":  lambda d: "American League" if d.startswith("AL") else "National League",
+    "nba":  lambda d: ("Eastern Conference"
+                       if d in ("Atlantic", "Central", "Southeast")
+                       else "Western Conference"),
+    "nhl":  lambda d: ("Eastern Conference"
+                       if d in ("Atlantic", "Metropolitan")
+                       else "Western Conference"),
+    "wnba": lambda d: ("Eastern Conference" if d == "Eastern"
+                       else "Western Conference"),
+}
+
+
+def conference_for_abbr(league, abbr):
+    """
+    Which half of the sport a team belongs to, or None if unknown.
+
+    Returns None rather than guessing for college and anything not mapped -
+    the board leaves those ungrouped rather than inventing a heading.
+    """
+    lg = (league or "").lower()
+    rule = _CONFERENCE_OF.get(lg)
+    divs = DIVISIONS.get(lg)
+    if not rule or not divs or not abbr:
+        return None
+    a = str(abbr).upper()
+    for div_name, teams in divs.items():
+        if a in teams:
+            try:
+                return rule(div_name)
+            except Exception:
+                return None
+    return None

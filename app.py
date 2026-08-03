@@ -3310,6 +3310,22 @@ def api_board(league):
             nick = (g[side].get("nick") or "").lower()
             g[side]["smacks"] = counts.get(nick, 0)
 
+    # Smacky's line on each card. Dealt across the whole response so no two
+    # visible cards carry the same one - twelve drawing independently from
+    # one pool repeats obviously on a grid.
+    for g, quip in zip(games, espn_scores.board_quips(games, lg)):
+        g["quip"] = quip
+
+    # Which half of the sport each game belongs to, so the board can group
+    # them. Taken from the HOME side; an inter-league game is listed under
+    # the host, which is how a schedule reads anyway.
+    #
+    # None for college and anything unmapped - those stay ungrouped rather
+    # than getting a heading invented for them.
+    for g in games:
+        g["conference"] = chat_team_colors.conference_for_abbr(
+            lg, (g.get("home") or {}).get("abbr"))
+
     return jsonify({
         "league": lg.upper(),
         "count": len(games),

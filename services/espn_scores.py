@@ -2072,3 +2072,178 @@ def ticker_tag(game, league):
     if margin <= tight:
         return random.choice(_TAGS["close_live"])
     return random.choice(_TAGS["comfortable_live"])
+
+
+# ---------------------------------------------------------------------------
+# Board quips — Smacky's line on each scoreboard card
+# ---------------------------------------------------------------------------
+# Two or three words under the score. Same reasoning as the ticker tags:
+# rules, not a model call, because the board refreshes every 15 seconds and a
+# Claude call per card per refresh would be absurd. The score already carries
+# the joke.
+#
+# Twenty-odd per bucket because twelve cards are on screen at once and a pool
+# of five would visibly repeat - the same sameness problem flagged for the
+# generators, just more obvious here because they sit side by side.
+#
+# board_quips() deals WITHOUT REPLACEMENT across one response, so no two
+# visible cards can carry the same line.
+
+_QUIPS = {
+    # Nil. The funniest thing on any scoreboard and worth its own bucket -
+    # "goose egg" only works at zero.
+    "shutout_final": [
+        "GOOSE EGG.", "NOTHING. ZERO. NIL.", "THEY NEVER SHOWED UP.",
+        "SCORELESS AND SPEECHLESS.", "NOT ONE.", "BLANKED.",
+        "A WHOLE LOT OF NOTHING.", "THEY FORGOT TO SCORE.",
+        "SHUT OUT AND SHUT UP.", "ZERO. IN INK.",
+        "NO RUNS, NO HITS, NO DIGNITY.", "THE SCOREBOARD IS EMBARRASSED.",
+        "COULD NOT BUY ONE.", "COMPLETELY BLANK.", "NIL. ABSOLUTELY NIL.",
+        "THEY BROUGHT NOTHING.", "SCORELESS. RUTHLESS.",
+        "A DONUT ON THE BOARD.", "NOT A SINGLE ONE.", "EMPTY-HANDED.",
+    ],
+    "shutout_live": [
+        "STILL NOTHING.", "GOOSE EGG SO FAR.", "SCORELESS AND SINKING.",
+        "NOT ON THE BOARD YET.", "STILL WAITING.", "NOTHING DOING.",
+        "BLANK SO FAR.", "ZERO AND FALLING.", "THEY HAVE NOT STARTED.",
+        "NO SIGN OF LIFE.", "STILL EMPTY.", "NOT A ONE.",
+        "SOMEBODY SCORE.", "COMPLETELY SHUT DOWN.", "NOTHING ON THE BOARD.",
+        "STILL ON ZERO.", "NO REPLY.", "SILENT SO FAR.",
+        "NOT TROUBLING THE SCORER.", "SCORELESS AND SHRINKING.",
+    ],
+    "blowout_live": [
+        "MERCY.", "THIS IS ABUSE.", "IT IS OVER.", "PILE ON.",
+        "SOMEBODY STOP IT.", "GETTING EMBARRASSING.", "NO CONTEST.",
+        "CALL IT OFF.", "ABSOLUTE DEMOLITION.", "THEY GAVE UP.",
+        "RUNNING RIOT.", "COMPLETELY OUTCLASSED.", "TURN IT OFF.",
+        "THIS IS NOT A GAME.", "TAKING A BEATING.", "TOTAL COLLAPSE.",
+        "NOTHING LEFT.", "TIME TO GO HOME.", "OUT OF THEIR DEPTH.",
+        "SOMEBODY CALL SOMEBODY.",
+    ],
+    "comfortable_live": [
+        "SLIPPING AWAY.", "GETTING UGLY.", "TROUBLE BREWING.",
+        "COMFORTABLE. FOR NOW.", "STARTING TO HURT.", "PULLING CLEAR.",
+        "GOING THE WRONG WAY.", "IN CONTROL.", "LOSING THE THREAD.",
+        "DRIFTING.", "THIS IS TURNING.", "STRETCHING THE LEAD.",
+        "SLOWLY UNRAVELLING.", "NOT LOOKING GOOD.", "IN CHARGE.",
+        "STARTING TO SHOW.", "THE GAP IS GROWING.", "FALLING BEHIND.",
+        "LOOKING SHAKY.", "ONE-WAY TRAFFIC.",
+    ],
+    "close_live": [
+        "TOO CLOSE. WAIT.", "HOLD YOUR FIRE.", "NOT YET.",
+        "ARM IT INSTEAD.", "ANYONE'S GAME.", "TIGHT ONE.",
+        "STILL ANYBODY'S.", "NOTHING IN IT.", "COMING DOWN TO THE WIRE.",
+        "PATIENCE.", "TOO EARLY TO GLOAT.", "NECK AND NECK.",
+        "SIT ON YOUR HANDS.", "STILL LIVE.", "ONE SCORE EITHER WAY.",
+        "DO NOT JINX IT.", "KNIFE EDGE.", "NOT DECIDED.",
+        "WAIT FOR IT.", "STILL IN THE BALANCE.",
+    ],
+    "tied_live": [
+        "NOBODY'S WINNING.", "STALEMATE.", "SOMEBODY DO SOMETHING.",
+        "DEADLOCKED.", "ALL SQUARE.", "NOTHING BETWEEN THEM.",
+        "LEVEL PEGGING.", "SOMEBODY BREAK IT.", "PERFECTLY EVEN.",
+        "NEITHER WILL BUDGE.", "STUCK.", "DEAD EVEN.",
+        "NOBODY BLINKING.", "TIED AND TENSE.", "STILL EQUAL.",
+        "NOT A THING IN IT.", "TOTAL DEADLOCK.", "EVEN STEVENS.",
+        "SOMEBODY TAKE CHARGE.", "SQUARE AND SILENT.",
+    ],
+    "blowout_final": [
+        "HUMILIATING.", "NO SURVIVORS.", "THAT IS A CALL.",
+        "SEND IT NOW.", "COMPLETELY DISMANTLED.", "NOT A CONTEST.",
+        "ABSOLUTE HIDING.", "THEY WERE DESTROYED.", "CALL IT OFF.",
+        "TOTAL WIPEOUT.", "BRUTAL.", "NOWHERE NEAR IT.",
+        "A MASSACRE.", "THAT IS EMBARRASSING.", "NOT EVEN CLOSE.",
+        "THOROUGHLY BEATEN.", "TAKEN APART.", "NO EXCUSES LEFT.",
+        "SOMEBODY OWES AN APOLOGY.", "OUTCLASSED ALL DAY.",
+    ],
+    "close_final": [
+        "LOST BY ONE. BRUTAL.", "SO CLOSE.", "THAT WILL STING.",
+        "AGONISING.", "THEY WILL FEEL THAT.", "INCHES AWAY.",
+        "CRUEL.", "THAT ONE HURTS.", "NEARLY. NOT QUITE.",
+        "HEARTBREAKER.", "ONE SCORE SHORT.", "GUTTING.",
+        "SO NEARLY.", "THAT IS A LONG DRIVE HOME.", "PAINFULLY CLOSE.",
+        "A WHISKER.", "THEY HAD IT.", "LOST IT LATE.",
+        "THAT WILL KEEP THEM UP.", "MARGINS.",
+    ],
+    "final": [
+        "SOMEBODY LOST.", "GO ON THEN.", "RING THEM.", "THEY KNOW.",
+        "THAT IS THAT.", "DONE AND DUSTED.", "TIME TO CALL.",
+        "IT IS SETTLED.", "NO ARGUMENT.", "BEATEN.",
+        "THE BOOKS ARE CLOSED.", "ALL OVER.", "NOTHING TO DISCUSS.",
+        "RESULT IS IN.", "THEY LOST. FACT.", "FINAL AND FILED.",
+        "SOMEBODY IS QUIET TONIGHT.", "THAT IS ON THE RECORD.",
+        "GAME OVER.", "NO COMING BACK.",
+    ],
+    "upcoming": [
+        "PICK A LOSER.", "ARM IT NOW.", "SET THE TRAP.",
+        "BET AGAINST THEM.", "LOAD IT UP.", "CHOOSE A SIDE.",
+        "SOMEBODY WILL LOSE.", "GET AHEAD OF IT.", "LINE ONE UP.",
+        "READY WHEN THEY ARE.", "CALL IT EARLY.", "PLACE YOUR BET.",
+        "ONE OF THEM GOES HOME SAD.", "SET IT AND FORGET IT.",
+        "WAITING ON A WINNER.", "SOMEBODY IS ABOUT TO REGRET THIS.",
+        "LOCK IT IN.", "DECIDE NOW, LAUGH LATER.",
+        "PICK THE ONE WHO FOLDS.", "GET IT ARMED.",
+    ],
+}
+
+
+def _quip_bucket(game, league):
+    """Which pool this game's situation belongs to."""
+    lg = (league or "").lower()
+    big = _BLOWOUT.get(lg, 10)
+    tight = _CLOSE.get(lg, 2)
+
+    if game.get("upcoming"):
+        return "upcoming"
+
+    hs = (game.get("home") or {}).get("score")
+    as_ = (game.get("away") or {}).get("score")
+    if hs is None or as_ is None:
+        return "upcoming"
+
+    margin = abs(hs - as_)
+    loser_scored = min(hs, as_)
+    final = bool(game.get("final"))
+
+    # Nil gets its own bucket - it is the funniest thing on a scoreboard and
+    # "goose egg" makes no sense at any other score.
+    if loser_scored == 0 and margin > 0:
+        return "shutout_final" if final else "shutout_live"
+
+    if final:
+        if margin >= big:
+            return "blowout_final"
+        if margin <= tight:
+            return "close_final"
+        return "final"
+
+    if margin == 0:
+        return "tied_live"
+    if margin >= big:
+        return "blowout_live"
+    if margin <= tight:
+        return "close_live"
+    return "comfortable_live"
+
+
+def board_quips(games, league):
+    """
+    A line for every game on the board, with NO TWO THE SAME.
+
+    Dealt without replacement across the whole response. Twelve cards drawing
+    independently from one pool would repeat visibly, which on a grid where
+    they sit side by side looks like the site only knows five jokes.
+    """
+    import random
+
+    used = set()
+    out = []
+    for g in games:
+        bucket = _quip_bucket(g, league)
+        pool = [q for q in _QUIPS.get(bucket, []) if q not in used]
+        if not pool:                       # bucket exhausted - allow reuse
+            pool = _QUIPS.get(bucket, ["—"])
+        pick = random.choice(pool)
+        used.add(pick)
+        out.append(pick)
+    return out

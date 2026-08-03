@@ -68,11 +68,19 @@
      unrelated. Three keeps the full button text readable - at four,
      "SMACK A CARDINALS FAN" has to be shortened, and naming the losing team
      is the whole point of that button. */
-  .board{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
-    background:none; border:none; border-radius:0; overflow:visible;}
-  @media(min-width:1500px){ .board{grid-template-columns:repeat(4,1fr);} }
-  @media(max-width:1000px){ .board{grid-template-columns:repeat(2,1fr);} }
-  @media(max-width:640px){ .board{grid-template-columns:1fr;} }
+  .board{background:none; border:none; border-radius:0; overflow:visible;}
+  .board-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:11px;}
+  @media(min-width:1500px){ .board-grid{grid-template-columns:repeat(4,1fr);} }
+  @media(max-width:1000px){ .board-grid{grid-template-columns:repeat(2,1fr);} }
+  @media(max-width:640px){ .board-grid{grid-template-columns:1fr;} }
+
+  .div-head{display:flex; align-items:center; gap:12px; margin:20px 0 10px;}
+  .div-head:first-child{margin-top:2px;}
+  .div-head h3{font-family:'Anton',sans-serif; font-size:17px; color:var(--chalk);
+    margin:0; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap;}
+  .div-line{flex:1; height:1px; background:rgba(195,202,211,0.18);}
+  .div-count{font-family:'JetBrains Mono',monospace; font-size:8.5px;
+    color:#5A5E64; letter-spacing:1.2px; white-space:nowrap;}
 
   .game{display:flex; flex-direction:column; padding:0;
     background:#141416; border:2px solid var(--flare);
@@ -88,8 +96,19 @@
     text-overflow:ellipsis; max-width:52%;}
   .g-status{flex:0 0 76px; font-family:'JetBrains Mono',monospace; font-size:9px;
     letter-spacing:0.6px; line-height:1.5;}
-  .g-status .live{color:var(--flare);}
-  .g-status .done{color:#5A5E64;}
+  /* Both live and final glow - they are the two states you can act on. */
+  .g-head .live{color:#FF1B2D; display:inline-flex; align-items:center; gap:5px;
+    text-shadow:0 0 9px rgba(255,27,45,0.9);}
+  .live-dot{width:7px; height:7px; border-radius:50%; background:#FF1B2D;
+    box-shadow:0 0 8px rgba(255,27,45,1); flex:0 0 7px;
+    animation:board-blink 1.3s ease-in-out infinite;}
+  @keyframes board-blink{
+    0%,100%{opacity:1; transform:scale(1);}
+    50%{opacity:0.35; transform:scale(0.75);}
+  }
+  @media (prefers-reduced-motion:reduce){ .live-dot{animation:none;} }
+  .g-head .done{color:#FF2233; text-shadow:0 0 9px rgba(255,34,51,0.85);}
+  .g-head .soon{color:#7A7575;}
   .g-status .soon{color:var(--silver-deep);}
   .g-status .sub{color:#4A4E54; font-size:8.5px; margin-top:2px;}
 
@@ -124,13 +143,25 @@
   /* Full width across the foot of the card. This is the thing that fixes the
      original complaint - the buttons were stranded at the far right of a wide
      row, miles from the game they belonged to. */
-  .g-act{margin-top:auto; display:flex; gap:1px; background:rgba(195,202,211,0.14);
-    border-top:1px solid rgba(195,202,211,0.14);}
+  /* Smacky's line. Gold when somebody is getting beaten, grey when nothing
+     has happened yet - so the eye finds the games worth acting on without
+     reading every card. */
+  .g-quip{
+    padding:7px 12px; border-top:1px solid rgba(195,202,211,0.07);
+    font-family:'Anton',sans-serif; font-size:12px; letter-spacing:1.4px;
+    color:#FFB612; text-transform:uppercase; text-align:center;
+  }
+  .g-quip.cool{color:#7A7575;}
+
+  /* Solid red, split by a black line, white text - the divider is the card
+     background showing through the gap. */
+  .g-act{margin-top:auto; display:flex; gap:2px; background:#0D0D0D;
+    border-top:2px solid #0D0D0D;}
   .g-act > *{flex:1; border-radius:0 !important; margin:0 !important;}
   .g-act .hint{font-family:'JetBrains Mono',monospace; font-size:9px;
     color:#3A3D42; letter-spacing:1px;}
-  .btn-smack{background:var(--flare); color:#fff; font-size:10px; font-weight:800;
-    letter-spacing:0.7px; padding:12px 8px; border-radius:5px; border:none;
+  .btn-smack{background:var(--flare); color:#FFFFFF; font-size:9px; font-weight:800;
+    letter-spacing:1px; padding:12px 6px; border-radius:0; border:none;
     cursor:pointer; white-space:nowrap; font-family:'Inter',sans-serif;}
   .btn-arm{background:transparent; color:var(--silver); font-size:10.5px;
     font-weight:800; letter-spacing:0.7px; padding:8px 14px; border-radius:5px;
@@ -140,8 +171,11 @@
   .btn-arm:hover{background:rgba(195,202,211,0.1);}
 
   .g-act .actions{display:none; gap:7px;}
-  .game:hover .g-act .actions{display:flex;}
-  .game:hover .g-act .hint{display:none;}
+  /* Always visible, never on hover. A button somebody has to discover is a
+     button most people never press - and on touch there is no hover at all,
+     so half the audience could not reach them. */
+  .g-act .actions{display:flex !important;}
+  .g-act .hint{display:none !important;}
   /* touch devices have no hover, so never hide the actions there */
   @media (hover:none){
     .g-act .actions{display:flex;}
@@ -264,11 +298,14 @@ function teamRow(t, isLosing, gameOver){
 }
 
 function statusCell(g){
+  // Live gets a blinking dot as its own element rather than a bullet
+  // character, so it can pulse. FINAL glows too - it is the state that means
+  // "you can send one right now", which is worth the eye finding first.
   if (g.live)
-    return `<div class="live">● ${esc(g.status || "LIVE")}</div>`;
+    return `<span class="live"><span class="live-dot"></span>${esc(g.status || "LIVE")}</span>`;
   if (g.final)
-    return `<div class="done">FINAL</div>`;
-  return `<div class="soon">${esc(g.status || "SCHEDULED")}</div>`;
+    return `<span class="done">FINAL</span>`;
+  return `<span class="soon">${esc(g.status || "SCHEDULED")}</span>`;
 }
 
 // Armed calls riding on this game. Shown only once it is a real number -
@@ -324,7 +361,21 @@ function render(data){
     return;
   }
 
-  board.innerHTML = games.map(g => {
+  // Group by conference where the sport has one.
+  //
+  // A flat list of thirty games is hard to read; "American League" over one
+  // half and "National League" over the other is how anybody who follows the
+  // sport already thinks about a slate. College returns no conference, so it
+  // falls through as one ungrouped block rather than ten headings with one
+  // game under each.
+  const groups = new Map();
+  games.forEach(g => {
+    const key = g.conference || "";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(g);
+  });
+
+  const card = g => {
     const homeUp = g.losing === "away";
     const awayUp = g.losing === "home";
     const shown = g.upcoming ? "" : `
@@ -348,9 +399,18 @@ function render(data){
         ${teamRow(g.away, g.losing === "away", g.final)}
         ${teamRow(g.home, g.losing === "home", g.final)}
       </div>
+      ${g.quip ? `<div class="g-quip${g.live || g.final ? "" : " cool"}">${esc(g.quip)}</div>` : ""}
       ${heat(g)}
       <div class="g-act">${actions(g)}</div>
     </div>`;
+  };
+
+  board.innerHTML = [...groups.entries()].map(([name, list]) => {
+    const head = name
+      ? `<div class="div-head"><h3>${esc(name)}</h3><span class="div-line"></span>` +
+        `<span class="div-count">${list.length} GAME${list.length === 1 ? "" : "S"}</span></div>`
+      : "";
+    return head + `<div class="board-grid">${list.map(card).join("")}</div>`;
   }).join("");
 
   const liveCount = data.live || 0;
@@ -400,7 +460,11 @@ buildTabs();
 let start = "mlb";
 try{
   const saved = localStorage.getItem("smackboard-league");
-  if (saved && LEAGUES.some(l => l.key === saved)) start = saved;
+  // Deliberately NOT restoring the last league. The board opens on MLB in
+  // season - a returning visitor who looked at WNBA once should not be sent
+  // back there by default when the game everybody is talking about is
+  // baseball. The tabs are one tap away.
+  // if (saved && LEAGUES.some(l => l.key === saved)) start = saved;
 }catch(e){}
 select(start);
 
