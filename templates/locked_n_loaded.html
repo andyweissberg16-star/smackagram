@@ -199,16 +199,6 @@
   .sensitivity-desc.show{display:block;}
 
   .game-list{display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto;}
-  /* A live game is not armable, so it reads as a different kind of row. */
-  .live-now-cta{
-    margin-top:8px; padding-top:8px; border-top:1px solid rgba(195,202,211,0.18);
-    font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:1.2px;
-    text-transform:uppercase; color:var(--chalk-dim,#9A9A96);
-  }
-  .live-now-cta a{color:var(--flare,#E01B24); font-weight:700; text-decoration:none;}
-  .live-now-cta a:hover{text-decoration:underline;}
-  /* The row itself does nothing, so nothing about it should invite a click. */
-  .game-option.is-live-now{cursor:default;}
   .game-option{
     border:1px solid var(--line-strong); border-radius:2px; padding:12px 14px; cursor:pointer;
     display:flex; justify-content:space-between; align-items:center; transition:all 0.15s ease;
@@ -935,28 +925,7 @@ function renderGameOption(g) {
     el.innerHTML = `<div><div class="matchup">${g.away_team} @ ${g.home_team}</div><div class="kickoff">${kickoff}</div></div>`;
   }
 
-  // A game that has already started cannot be armed - the server refuses it,
-  // correctly, because there is nothing left to wait for. Selecting it led
-  // straight to a dead end and a generic error at the final button.
-  //
-  // It stays on the list, because seeing the target losing RIGHT NOW is the
-  // best possible prompt - but it sends you where that actually works.
-  if (g.is_live) {
-    el.classList.add('is-live-now');
-    const team = (g.home_score < g.away_score) ? g.home_team : g.away_team;
-    // An explicit LINK, not a click handler on the whole row.
-    //
-    // Hijacking the row meant selecting a game silently threw you onto
-    // another page - which reads as the generator redirecting you rather
-    // than as an offer. The row stays inert; the link is the only thing
-    // that navigates, and only if somebody chooses it.
-    el.insertAdjacentHTML('beforeend',
-      '<div class="live-now-cta">Already started, so it cannot be armed &mdash; ' +
-      '<a href="/send-a-smack?team=' + encodeURIComponent(team || '') + '">' +
-      'smack them now &rarr;</a></div>');
-  } else {
-    el.addEventListener('click', () => selectGame(g, el));
-  }
+  el.addEventListener('click', () => selectGame(g, el));
   return el;
 }
 

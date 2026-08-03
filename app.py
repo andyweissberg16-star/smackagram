@@ -3746,9 +3746,16 @@ def _execute_arm_smackagram(user, data: dict) -> dict:
     the wallet has ALREADY been debited by the caller. Raises ValueError
     with a user-facing message if the game is no longer valid to arm.
     """
+    # A game in progress is still armable, and deliberately so - the whole
+    # premise is that the call fires when the target loses, and a game that
+    # has kicked off has not been lost yet. Arming at 2-0 down in the third
+    # is arguably the best moment to do it.
+    #
+    # The old check refused anything past its start time, which blocked every
+    # live game. The scheduler resolves on the RESULT, not on the clock, so
+    # nothing downstream needs a game to be unstarted: if the target wins, the
+    # hold is released and the money comes back.
     game_start = datetime.fromisoformat(data["game_start_time"])
-    if game_start <= datetime.now(timezone.utc):
-        raise ValueError("This game has already started, so it can no longer be armed.")
 
     # auto_summary is the only supported mode. A pre-written line can't
     # reference a result that hasn't happened yet, which is the entire point
