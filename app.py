@@ -5964,7 +5964,45 @@ def api_admin_injury_probe():
         f"{core}/{sport}/leagues/{path}/teams/{t['id']}/injuries",
     ]
 
-    out = {"team": t, "tried": []}
+    # THE LEAGUE DOCUMENT, ONE LEVEL DEEPER.
+    #
+    # The first probe showed me the CLUB level - id, displayName, injuries -
+    # but never what is inside an individual injury. So I still had to guess
+    # where the player's name lives, and guessed wrong again.
+    #
+    # This finds the requested team inside the league document and prints
+    # one entire injury record, untouched.
+    deep = {}
+    try:
+        url = f"{base}/{sport}/{path}/injuries"
+        req = Request(url, headers={"User-Agent": "smackagram/1.0"})
+        with urlopen(req, timeout=20) as r:
+            d = _json.loads(r.read().decode())
+        clubs = d.get("injuries") or []
+        deep["clubs_found"] = len(clubs)
+        deep["club_ids"] = [str(c.get("id")) for c in clubs[:6]
+                            if isinstance(c, dict)]
+        deep["looking_for_id"] = str(t["id"])
+        mine = None
+        for c in clubs:
+            if isinstance(c, dict) and str(c.get("id")) == str(t["id"]):
+                mine = c
+                break
+        if mine is None:
+            deep["matched"] = False
+            deep["note"] = ("this team's id was not found among the club ids "
+                            "above - the ids in this feed may not be team ids")
+        else:
+            deep["matched"] = True
+            items = mine.get("injuries") or []
+            deep["injury_count"] = len(items)
+            if items:
+                deep["ONE_WHOLE_RECORD"] = _json.dumps(items[0])[:2500]
+                deep["record_keys"] = sorted(items[0].keys())
+    except Exception as e:
+        deep["error"] = f"{type(e).__name__}: {e}"
+
+    out = {"team": t, "deep": deep, "tried": []}
     for url in candidates:
         row = {"url": url}
         try:
