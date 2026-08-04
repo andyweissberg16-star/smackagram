@@ -6138,7 +6138,13 @@ def api_roster():
     # reasons - a throttle, a poisoned cache, a browser cache - and each
     # time the response looked identical. Guessing from the outside has
     # cost several rounds; ?debug=1 reports which step actually stopped.
-    debug = request.args.get("debug") == "1"
+    # ALWAYS ON, temporarily.
+    #
+    # ?debug=1 was not reaching this code - something between the browser
+    # and Flask is dropping the parameter, and chasing that is a second
+    # mystery on top of the first. The trace costs nothing and comes out
+    # once the roster is fixed.
+    debug = True
     trace = {}
     try:
         from services import team_state, espn_gate
