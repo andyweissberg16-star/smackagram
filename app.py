@@ -6263,6 +6263,67 @@ def api_admin_shadow():
     })
 
 
+@app.route("/api/admin/id-collisions")
+@login_required
+def api_admin_id_collisions():
+    """
+    Do any Order and Smackagram share a primary key?
+
+    THIS MATTERS BECAUSE OF TWILIO.
+
+    Both tables have their own auto-incrementing id starting at 1, so
+    Order 47 and Smackagram 47 can both exist. If a webhook URL carries
+    only the number and the handler guesses which table to look in, a call
+    status can be written against the wrong record entirely - the wrong
+    person marked as called, the wrong order charged or refunded.
+
+    Zero is the answer you want. Anything above zero means the overlap
+    already exists and webhook URLs need namespacing before real money
+    moves through this.
+
+    Read-only. Counts rows, changes nothing.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+
+    from sqlalchemy import text
+    from models import Order, Smackagram
+
+    # Table names read from the models rather than typed out, so this
+    # cannot quietly drift if either is ever renamed.
+    ot, st = Order.__tablename__, Smackagram.__tablename__
+
+    out = {}
+    try:
+        row = db.session.execute(text(
+            f"SELECT COUNT(*) FROM {ot} o "
+            f"JOIN {st} s ON o.id = s.id")).scalar()
+        out["collisions"] = int(row or 0)
+    except Exception as e:
+        return jsonify({"error": f"query failed: {e}"}), 500
+
+    # Useful context either way - how far each table has counted.
+    for table in (ot, st):
+        try:
+            out[f"{table}_rows"] = int(db.session.execute(text(
+                f"SELECT COUNT(*) FROM {table}")).scalar() or 0)
+            out[f"{table}_max_id"] = int(db.session.execute(text(
+                f"SELECT COALESCE(MAX(id), 0) FROM {table}")).scalar() or 0)
+        except Exception:
+            pass
+
+    if out["collisions"]:
+        out["verdict"] = ("COLLISIONS EXIST. A Twilio webhook carrying only "
+                          "an id can hit the wrong table. Namespace the "
+                          "webhook URLs before taking real money.")
+    else:
+        out["verdict"] = ("Clean right now - but both tables count from 1 "
+                          "independently, so this WILL happen as they grow. "
+                          "Worth namespacing regardless.")
+    return jsonify(out)
+
+
 @app.route("/api/admin/espn-gate")
 @login_required
 def api_admin_espn_gate():
