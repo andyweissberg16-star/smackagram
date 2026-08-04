@@ -2230,7 +2230,11 @@ def terms_page():
 SUPPORT_TOPICS = [
     "My Smackagram never arrived",
     "I was charged incorrectly",
-    "I want a refund",
+    # Content complaints sit high deliberately. Somebody reporting that
+    # Smacky went too far is telling us the generator crossed a line, and
+    # that is worth knowing FAST - it may be one bad call or it may be a
+    # prompt that has drifted and is doing it to everybody.
+    "Smacky was too aggressive (explicit content)",
     "I received a Smackagram and want it to stop",
     "Something on the site is broken",
     "Question about how it works",
@@ -2298,8 +2302,13 @@ def api_support_submit():
     # you to ignore the alerts, which is worse than not having them.
     try:
         from services import safety_service
+        # An explicit-content report alerts too. If the generator has
+        # started producing something it should not, every call going out
+        # in the meantime has the same problem - that is not a thing to
+        # find in a queue tomorrow morning.
         if topic in ("My Smackagram never arrived",
-                     "I was charged incorrectly", "I want a refund"):
+                     "I was charged incorrectly",
+                     "Smacky was too aggressive (explicit content)"):
             safety_service._notify(
                 f"Support #{t.id}: {topic} - {first} {last} ({email})")
     except Exception as e:
