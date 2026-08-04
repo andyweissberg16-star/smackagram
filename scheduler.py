@@ -68,7 +68,24 @@ def check_armed_smackagrams():
                     _sample.espn_event_id = _eid
                     db.session.commit()
             if _eid:
-                _espn = espn_scores.game_result(sport, _eid)
+                # ONE CALL PER LEAGUE, NOT ONE PER GAME.
+                #
+                # This used to make a request per armed game, so fifteen
+                # games meant fifteen requests every two minutes - outbound
+                # traffic scaling with how well the product sells, which is
+                # exactly the wrong way round and is what got this server
+                # throttled once already.
+                #
+                # league_results() returns EVERY finished game in one call,
+                # cached for 45 seconds. Fifteen calls become one, and it
+                # stays one whether five games are armed or fifty.
+                _espn = espn_scores.league_results(sport).get(str(_eid))
+                if not _espn:
+                    # Not in the finished list - either still playing, or
+                    # the scoreboard did not cover it. Fall back to the
+                    # single-game lookup, which is rare enough not to
+                    # matter and keeps an edge case from stalling a call.
+                    _espn = espn_scores.game_result(sport, _eid)
                 if _espn:
                     if (result and result.get("loser") and _espn.get("loser")
                             and result["loser"] != _espn["loser"]):

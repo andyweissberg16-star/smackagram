@@ -64,15 +64,15 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
     date_str = day.strftime("%Y%m%d")
     url = f"{BASE}/{sport_path}/{league_path}/scoreboard"
 
-    try:
-        resp = requests.get(url, params={"dates": date_str}, timeout=15)
-        if resp.status_code != 200:
-            print(f"[espn] {league} {date_str} -> HTTP {resp.status_code}")
-            return []
-        events = resp.json().get("events", []) or []
-    except Exception as e:
-        print(f"[espn] {league} fetch failed: {e}")
+    # Through the gate. This is the show's main scoreboard call - one per
+    # league every morning - and it is the one that must not be the thing
+    # that trips a block, because without it there is no show at all.
+    from services import espn_gate
+    d = espn_gate.get(url, params={"dates": date_str}, timeout=12,
+                      label=f"finals {league}")
+    if not d:
         return []
+    events = d.get("events", []) or []
 
     games = []
     for e in events:
@@ -175,15 +175,12 @@ def fetch_news(league: str, limit: int = 12) -> list[dict]:
     sport_path, league_path, label, _ = cfg
 
     url = f"{BASE}/{sport_path}/{league_path}/news"
-    try:
-        resp = requests.get(url, params={"limit": limit}, timeout=15)
-        if resp.status_code != 200:
-            print(f"[espn] {league} news -> HTTP {resp.status_code}")
-            return []
-        articles = resp.json().get("articles", []) or []
-    except Exception as e:
-        print(f"[espn] {league} news failed: {e}")
+    from services import espn_gate
+    d = espn_gate.get(url, params={"limit": limit}, timeout=12,
+                      label=f"news {league}")
+    if not d:
         return []
+    articles = d.get("articles", []) or []
 
     out = []
     for a in articles:
@@ -247,12 +244,13 @@ def fetch_game_detail(league: str, event_id: str) -> dict:
     sport, slug = path[0], path[1]
 
     url = f"{BASE}/{sport}/{slug}/summary?event={event_id}"
-    try:
-        req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urlopen(req, timeout=20) as r:
-            d = _json.load(r)
-    except Exception as e:
-        print(f"[espn] game detail failed for {league}/{event_id}: {e}", flush=True)
+    # Through the gate, like everything else. It holds a ceiling on how
+    # much leaves this server and stops entirely when ESPN pushes back -
+    # the show fetches one of these per game, so on a heavy night this is
+    # the biggest single consumer.
+    from services import espn_gate
+    d = espn_gate.fetch(url, timeout=12, label=f"detail {league}/{event_id}")
+    if not d:
         return {}
 
     out = {"league": path[2], "event_id": str(event_id)}
@@ -2227,7 +2225,17 @@ _BOARD_CACHE = {}          # league -> (fetched_at, games)
 #
 # The cache is per-league, so this is one call to ESPN every 15 seconds no
 # matter how many people are watching, not one per visitor.
-BOARD_CACHE_SECONDS = 15
+# 30 seconds, not 15.
+#
+# At 15 the board alone was 20 requests a minute across five leagues -
+# sustained, whenever anybody had the page open - which on a busy live
+# evening put the total at 28 against a ceiling of 35. Too close.
+#
+# This is a SCOREBOARD, not a play-by-play. Nobody can tell the difference
+# between a score that is 15 seconds old and one that is 30, and halving
+# it buys back ten requests a minute for the things that actually need
+# them - Locked & Loaded deciding whether somebody gets charged.
+BOARD_CACHE_SECONDS = 30
 
 
 def _rows_from_payload(data, lg):
@@ -2325,14 +2333,11 @@ def fetch_board(league: str, force: bool = False) -> list:
     sport_path, league_path = cfg[0], cfg[1]
     url = f"{BASE}/{sport_path}/{league_path}/scoreboard"
 
-    try:
-        resp = requests.get(url, timeout=12)
-        if resp.status_code != 200:
-            print(f"[board] {lg} -> HTTP {resp.status_code}", flush=True)
-            return cached[1] if cached else []
-        data = resp.json()
-    except Exception as e:
-        print(f"[board] {lg} fetch failed: {e}", flush=True)
+    # Through the gate. Falls back to the cached board when refused, which
+    # is exactly right - a slightly stale scoreboard beats an empty one.
+    from services import espn_gate
+    data = espn_gate.get(url, timeout=12, label=f"board {lg}")
+    if not data:
         return cached[1] if cached else []
 
     games = _rows_from_payload(data, lg)
@@ -2347,9 +2352,12 @@ def fetch_board(league: str, force: bool = False) -> list:
     # three days should show what is coming rather than nothing at all.
     if not games and fallback_url:
         try:
-            r2 = requests.get(fallback_url, timeout=12)
-            r2.raise_for_status()
-            games = _rows_from_payload(r2.json(), lg)
+            from services import espn_gate
+            _d2 = espn_gate.get(fallback_url, timeout=12,
+                                label=f"board-ahead {lg}")
+            if not _d2:
+                raise ValueError("no data")
+            games = _rows_from_payload(_d2, lg)
             games.sort(key=lambda g: g.get('start') or '')
             for g in games:
                 # Flagged so the page can say UPCOMING rather than TODAY.
@@ -2737,12 +2745,17 @@ def game_result(league: str, event_id: str) -> dict | None:
     sport_path, league_path = cfg[0], cfg[1]
 
     url = (f"{BASE}/{sport_path}/{league_path}/summary?event={event_id}")
-    try:
-        req = Request(url, headers={"User-Agent": "smackagram/1.0"})
-        with urlopen(req, timeout=12) as r:
-            d = _json.loads(r.read().decode())
-    except Exception as e:
-        print(f"[espn] result lookup failed for {event_id}: {e}", flush=True)
+    # Through the gate. This one decides whether a Locked & Loaded call
+    # fires and whether somebody gets charged, so it must fail CLEANLY -
+    # returning None keeps the caller polling rather than firing on a
+    # guess, which is exactly the right behaviour when ESPN is unavailable.
+    from services import espn_gate
+    # CRITICAL. This decides whether a Locked & Loaded call fires and
+    # whether somebody is charged or refunded. It gets the reserved budget
+    # that scoreboard refreshes cannot touch.
+    d = espn_gate.fetch(url, timeout=12, label=f"result {event_id}",
+                        critical=True)
+    if not d:
         return None
 
     comp = (((d.get("header") or {}).get("competitions") or [{}])[0])
@@ -2962,14 +2975,14 @@ def fetch_elsewhere(days_back: int = 1, limit: int = 6) -> list:
     out = []
 
     for key, (sport_path, league_path, label) in ELSEWHERE_PATHS.items():
-        try:
-            url = (f"{BASE}/{sport_path}/{league_path}/scoreboard"
-                   f"?dates={date_str}")
-            req = Request(url, headers={"User-Agent": "smackagram/1.0"})
-            with urlopen(req, timeout=8) as r:
-                d = _json.loads(r.read().decode())
-        except Exception as e:
-            print(f"[elsewhere] {key} unavailable: {e}", flush=True)
+        # Through the gate. This one loops five leagues, so it is exactly
+        # the shape of thing that should not be able to run away with the
+        # budget - and losing it costs a minute of the show, nothing more.
+        from services import espn_gate
+        url = (f"{BASE}/{sport_path}/{league_path}/scoreboard"
+               f"?dates={date_str}")
+        d = espn_gate.fetch(url, timeout=8, label=f"elsewhere {key}")
+        if not d:
             continue
 
         for ev in (d.get("events") or [])[:4]:
@@ -3018,3 +3031,91 @@ def fetch_elsewhere(days_back: int = 1, limit: int = 6) -> list:
             spread.append(row)
             seen[row["league"]] = n + 1
     return spread[:limit]
+
+
+# ---------------------------------------------------------------------------
+# ONE CALL PER LEAGUE, NOT ONE PER GAME
+# ---------------------------------------------------------------------------
+#
+# Locked & Loaded polls for results every two minutes and made a request PER
+# GAME. Fifteen armed games meant fifteen requests every two minutes -
+# traffic that scales with how well the product is selling, which is exactly
+# the wrong way round.
+#
+# A single scoreboard call returns EVERY game in the league at once. Fifteen
+# calls become one, and it stays one whether five games are armed or fifty.
+#
+# This is the difference between "fine at current traffic" and not having to
+# think about it again.
+
+_RESULTS_CACHE = {}      # league -> (fetched_at, {event_id: result})
+_RESULTS_TTL = 45        # a finished game does not un-finish
+
+
+def league_results(league: str) -> dict:
+    """
+    Every finished game in a league right now, keyed by event id.
+
+    One request, cached briefly. Returns {} if unavailable, which leaves
+    callers polling rather than guessing - the correct behaviour when money
+    depends on the answer.
+    """
+    lg = (league or "").lower()
+    cfg = LEAGUE_PATHS.get(lg)
+    if not cfg:
+        return {}
+
+    # time is imported locally elsewhere in this module rather than at the
+    # top, so it must be imported here too - without this every call raised
+    # NameError and fell straight through to the per-game path, quietly
+    # undoing the batching.
+    import time as _time
+    now = _time.time()
+    hit = _RESULTS_CACHE.get(lg)
+    if hit and (now - hit[0]) < _RESULTS_TTL:
+        return hit[1]
+
+    sport_path, league_path = cfg[0], cfg[1]
+    url = f"{BASE}/{sport_path}/{league_path}/scoreboard"
+
+    from services import espn_gate
+    # Critical: this is what decides whether somebody gets charged.
+    d = espn_gate.get(url, timeout=12, label=f"results {lg}", critical=True)
+    if not d:
+        # Keep serving the last good answer rather than reporting no
+        # finished games, which would look like every game is still running.
+        return hit[1] if hit else {}
+
+    out = {}
+    for ev in (d.get("events") or []):
+        comp = ((ev.get("competitions") or [{}])[0])
+        status = ((comp.get("status") or {}).get("type") or {})
+        if not status.get("completed"):
+            continue
+        sides = comp.get("competitors") or []
+        if len(sides) != 2:
+            continue
+        try:
+            a, b = sides[0], sides[1]
+            sa, sb = int(a.get("score") or 0), int(b.get("score") or 0)
+        except (TypeError, ValueError):
+            continue
+        if sa == sb:
+            continue
+
+        def _nm(c):
+            t = c.get("team") or {}
+            return (t.get("displayName") or t.get("shortDisplayName")
+                    or t.get("name") or "")
+
+        w, l = (a, b) if sa > sb else (b, a)
+        out[str(ev.get("id"))] = {
+            "final": True,
+            "winner": _nm(w), "loser": _nm(l),
+            "winner_score": max(sa, sb), "loser_score": min(sa, sb),
+            "margin": abs(sa - sb),
+        }
+
+    _RESULTS_CACHE[lg] = (now, out)
+    print(f"[espn] {lg}: {len(out)} finished game(s) in one call", flush=True)
+    return out

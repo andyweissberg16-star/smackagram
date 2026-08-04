@@ -5924,6 +5924,24 @@ with app.app_context():
 
 
 
+@app.route("/api/admin/espn-gate")
+@login_required
+def api_admin_espn_gate():
+    """
+    Is the gate open, how much budget is left, and has ESPN pushed back.
+
+    Add ?reset=1 to clear a cooldown by hand - useful if you know the
+    throttle has passed and do not want to wait it out.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    from services import espn_gate
+    if request.args.get("reset") == "1":
+        espn_gate.reset()
+    return jsonify(espn_gate.status())
+
+
 @app.route("/api/admin/injury-probe")
 @login_required
 def api_admin_injury_probe():

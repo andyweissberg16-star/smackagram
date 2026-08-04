@@ -29,6 +29,7 @@ out is a refund.
 """
 
 import json
+import os
 import re
 import threading
 import time
@@ -66,30 +67,63 @@ LEAGUES = {
 # Team lists change once a season; records change once a day. An hour is
 # generous and keeps a busy evening from making the same call repeatedly.
 _TTL = 3600
+# A failed or empty fetch is held for one minute, not fifteen. See
+# _cached - a single bad response used to take the team picker down
+# for a quarter of an hour.
+_EMPTY_TTL = 60
+
+# Team lists change a few times a YEAR. There is no reason to re-fetch them
+# hourly, and every re-fetch is another chance to spend budget on something
+# nobody needed.
+_TEAMS_TTL = 60 * 60 * 12
 _cache = {}
 _lock = threading.Lock()
 
 
 def _get(url, timeout=8):
-    try:
-        req = Request(url, headers={"User-Agent": "smackagram/1.0"})
-        with urlopen(req, timeout=timeout) as r:
-            return json.loads(r.read().decode())
-    except Exception as e:
-        print(f"[team-state] fetch failed {url[:70]}: {e}", flush=True)
-        return None
+    """
+    Everything goes through the gate.
+
+    Not urlopen directly. The gate holds a ceiling on how much leaves this
+    server in a minute, and stops entirely when ESPN pushes back - which is
+    what stops one enthusiastic feature taking down every other thing that
+    reads from them.
+    """
+    from services import espn_gate
+    return espn_gate.fetch(url, timeout=timeout, label=url.split("/")[-1][:40])
 
 
-def _cached(key, build):
+def _cached(key, build, ttl=None):
+    """
+    Cache a fetch, but DO NOT cache a failure for as long as a success.
+
+    The previous version stored whatever build() returned, including an
+    empty list. So one bad fetch - a timeout, a rate limit, an ESPN blip -
+    poisoned the cache for the full fifteen minutes, and every team lookup
+    failed with "no team matched" until it expired.
+
+    That happened for real: adding a 3MB league-wide injuries fetch was
+    enough to make the team list come back empty once, and the whole team
+    picker went down until the entry aged out.
+
+    Empty results are still cached, because a genuinely unknown team should
+    not cost seven HTTP requests on every keystroke - but only for a minute,
+    not fifteen. Long enough to stop a hammering, short enough that a blip
+    heals itself.
+    """
+    now = time.time()
     with _lock:
         hit = _cache.get(key)
-        if hit and time.time() - hit[0] < _TTL:
-            return hit[1]
+        if hit:
+            age = now - hit[0]
+            good_ttl = ttl or _TTL
+            limit = good_ttl if hit[1] else _EMPTY_TTL
+            if age < limit:
+                return hit[1]
     val = build()
     with _lock:
         _cache[key] = (time.time(), val)
     return val
-
 
 def _norm(s):
     return re.sub(r"[^a-z]", "", (s or "").lower())
@@ -117,7 +151,8 @@ def _teams(league):
         except Exception:
             pass
         return out
-    return _cached(f"teams:{league}", build)
+    # Twelve hours, not one. A team list is not news.
+    return _cached(f"teams:{league}", build, ttl=_TEAMS_TTL)
 
 
 def find_team(name, league=None):
@@ -375,7 +410,17 @@ def _league_injuries(league):
         if not cfg:
             return {}
         sport, path = cfg
-        d = _get(f"{BASE}/{sport}/{path}/injuries", timeout=20)
+        # 8 seconds, not 20.
+        #
+        # This document is 3MB and the server runs a SINGLE gunicorn
+        # worker - so while this is downloading, nothing else on the site
+        # is being served. Twenty seconds of that is a stall long enough
+        # for somebody to think the page is broken.
+        #
+        # Cached for an hour, so only the first lookup of the hour pays it
+        # at all. If it times out, the roster simply comes back without
+        # injured names rather than failing.
+        d = _get(f"{BASE}/{sport}/{path}/injuries", timeout=8)
         if not d:
             return {}
 
@@ -522,7 +567,20 @@ def roster(name, league=None, limit=60):
         # They are MARKED, and the marking matters more than the inclusion:
         # the rule everywhere on this product is that the absence is fair
         # game and the injury is not.
+        # OFF BY DEFAULT.
+        #
+        # This pulls a 3MB league-wide document, and doing it on roster
+        # lookups was enough to get the server throttled by ESPN - which
+        # took down the team picker AND anything else that reads from them.
+        #
+        # A feature that can break the rest of the site is not worth having
+        # switched on until it is proven, so it needs INJURIES_ENABLED set
+        # in the environment. Everything else works exactly as before
+        # without it.
         try:
+            if os.environ.get("INJURIES_ENABLED", "").lower() not in (
+                    "1", "true", "yes"):
+                raise RuntimeError("injuries lookup is off (INJURIES_ENABLED)")
             for row in _league_injuries(t["league"]).get(str(t["id"]), []):
                 nm = row.get("name")
                 if not nm or nm.lower() in seen:
