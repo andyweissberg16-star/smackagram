@@ -5980,6 +5980,13 @@ def api_admin_fill_players():
     league = (request.args.get("league") or "mlb").lower()
     days = max(1, min(int(request.args.get("days") or 5), 14))
 
+    if request.args.get("reset") == "1":
+        from models import Player
+        n = Player.query.filter_by(league=league).delete()
+        db.session.commit()
+        print(f"[players] cleared {n} rows for {league} before refilling",
+              flush=True)
+
     cfg = highlightly.LEAGUES.get(league)
     if not cfg:
         return jsonify({"error": f"unknown league {league}"}), 400
@@ -6006,19 +6013,49 @@ def api_admin_fill_players():
                 continue
 
             for side in ("homeTeam", "awayTeam"):
+                # THE FULL NAME. Taking the last word merged Boston
+                # Red Sox and Chicago White Sox into one club called
+                # "Sox" with their players mixed together.
                 team_full = ((m.get(side) or {}).get("displayName") or "")
-                nick = team_full.split()[-1] if team_full else ""
+                nick = team_full
                 people = ((blob.get("rosters") or {}).get(side) or [])
                 squad = [{"name": r.get("fullName") or r.get("name"),
                           "position": r.get("position"),
                           "number": r.get("jersey")}
                          for r in people if (r.get("fullName") or r.get("name"))]
+                # THE BOX SCORE TOO.
+                #
+                # A team sheet lists who DRESSED for that game - often
+                # only nine or ten in baseball. The box score has everyone
+                # who actually appeared, including relief pitchers and
+                # pinch hitters who are not on the sheet.
+                #
+                # Between them you get a real squad rather than a starting
+                # lineup, which is why the first run stored ten Astros.
+                try:
+                    for bp in highlightly.box_score(league, mid):
+                        if not player_store.matches_team(team_full,
+                                                         bp.get("team") or ""):
+                            continue
+                        if bp["name"] not in {x["name"] for x in squad}:
+                            squad.append({"name": bp["name"],
+                                          "position": None,
+                                          "number": bp.get("jersey")})
+                except Exception:
+                    pass
+
                 if not squad or not nick:
                     continue
                 n = player_store.remember(league, nick, squad)
                 report["added"] += n
                 report["teams"][nick] = report["teams"].get(nick, 0) + len(squad)
 
+    # WIPE FIRST, if asked.
+    #
+    # The first run of this stored twenty-nine players under a team called
+    # "Sox" - Boston and Chicago merged, their players mixed together.
+    # ?reset=1 clears the league before refilling so that bad data does
+    # not sit there forever.
     report["matches_walked"] = len(seen_matches)
     report["total_stored"] = player_store.count(league)
     return jsonify(report)

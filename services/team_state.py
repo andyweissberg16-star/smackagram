@@ -523,7 +523,7 @@ def roster(name, league=None, limit=60):
     try:
         from services import player_store
         stored = player_store.squad(t.get("league") or "",
-                                    t.get("nick") or name)
+                                    t.get("full") or t.get("nick") or name)
         if len(stored) >= 12:
             away = [p["name"] for p in stored if p.get("away")]
             print(f"[roster] {t.get('nick')}: {len(stored)} from the database"
@@ -553,7 +553,7 @@ def roster(name, league=None, limit=60):
                 try:
                     from services import player_store
                     player_store.remember(t.get("league") or "",
-                                          t.get("nick") or name, hl)
+                                          t.get("full") or name, hl)
                 except Exception as _e:
                     print(f"[players] store failed: {_e}", flush=True)
                 inj = [p["name"] for p in hl if p.get("injured")]

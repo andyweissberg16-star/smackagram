@@ -179,7 +179,9 @@ def _attach_highlightly_ids(games, log=print):
                 by_team.setdefault(p.get("team") or "", []).append(p)
             for team, ps in by_team.items():
                 if team:
-                    player_store.remember(lg, team.split()[-1], ps)
+                    # Full name - see player_store.team_key. Last-word keys
+                    # merged the two Sox teams into one.
+                    player_store.remember(lg, team, ps)
     except Exception as e:
         log(f"player harvest skipped: {e}")
 

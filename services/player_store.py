@@ -35,6 +35,45 @@ def _clean(s):
     return (s or "").strip()
 
 
+def team_key(full_name):
+    """
+    A stable key for a team, from whatever form of the name arrives.
+
+    THE LAST WORD IS NOT ENOUGH. "Boston Red Sox" and "Chicago White Sox"
+    both end in "Sox", so taking the last word merged two teams into one
+    and mixed their players together - twenty-nine names filed under a club
+    that does not exist.
+
+    Two words are used when the last one is ambiguous, which in practice
+    means Sox and Jays. Everything else is unaffected.
+
+    Stored as the FULL name so this cannot happen again with a league we
+    have not thought about - college football has hundreds of teams and
+    plenty of shared words.
+    """
+    n = _clean(full_name)
+    return n or ""
+
+
+def matches_team(stored, query):
+    """
+    Does a stored team name match what somebody typed or a feed sent?
+
+    Compares on the last TWO words when the last is ambiguous, so
+    "Red Sox" finds Boston and "White Sox" finds Chicago, while "Sox"
+    alone matches neither rather than both.
+    """
+    a = _clean(stored).lower()
+    b = _clean(query).lower()
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    # Either name being a tail of the other: "Yankees" against
+    # "New York Yankees", "Red Sox" against "Boston Red Sox".
+    return a.endswith(" " + b) or b.endswith(" " + a)
+
+
 def remember(league, team, players, source="highlightly"):
     """
     Store or refresh a squad. Returns how many names were new.
@@ -47,6 +86,9 @@ def remember(league, team, players, source="highlightly"):
     if not league or not team or not players:
         return 0
 
+    # Stored under the FULL name. "Sox" merged Boston and Chicago into one
+    # club with their players mixed together - twenty-nine names filed
+    # under a team that does not exist.
     existing = {p.name.lower(): p for p in
                 Player.query.filter_by(league=league, team=team).all()}
     now = datetime.utcnow()
@@ -100,12 +142,22 @@ def squad(league, team, stale_days=400):
     """
     league = (league or "").lower()
     cutoff = datetime.utcnow() - timedelta(days=stale_days)
+    # Exact first, then a tail match - so "Yankees" finds "New York
+    # Yankees" while "Red Sox" and "White Sox" stay separate.
     rows = (Player.query
             .filter(Player.league == league,
                     Player.team == _clean(team),
                     Player.last_seen >= cutoff)
             .order_by(Player.last_seen.desc())
             .all())
+    if not rows:
+        want = _clean(team)
+        candidates = (Player.query
+                      .filter(Player.league == league,
+                              Player.last_seen >= cutoff)
+                      .order_by(Player.last_seen.desc())
+                      .all())
+        rows = [r for r in candidates if matches_team(r.team, want)]
 
     fortnight = datetime.utcnow() - timedelta(days=14)
     out = []
