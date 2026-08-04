@@ -62,8 +62,6 @@
   ::-webkit-scrollbar-track{background:var(--ink);}
   ::-webkit-scrollbar-thumb{background:var(--flare); border:2px solid var(--ink); border-radius:6px;}
   html{scrollbar-color:var(--flare) var(--ink); scrollbar-width:thin;}
-  nav a.back-link{color:var(--chalk-dim); text-decoration:none; font-size:14px;}
-  nav a.back-link:hover{color:var(--flare);}
 
   .card{
     background:var(--ink-2); border:2px solid var(--chalk); border-radius:2px; padding:24px;
@@ -377,6 +375,10 @@
   #tabLockedLL.is-active{background:linear-gradient(180deg,#F4F6F9,#C3CAD3 45%,#98A0AA 55%,#E4E9EE);}
   #tabLockedLL.is-active .gen-tab-kicker{color:rgba(13,13,13,0.65);}
   #tabLockedLL.is-active .gen-tab-name{color:#0D0D0D;}
+  /* The ampersand stays RED on the active tab too. Against the silver
+     gradient it is the one mark tying this product back to the brand -
+     black-on-silver alone reads as a different site. */
+  .gen-tab.is-active .wm-locked i{color:#E8142C;}
   #tabSmackLL.is-active{background:var(--flare);}
   #tabSmackLL.is-active .gen-tab-kicker{color:rgba(255,255,255,0.78);}
   #tabSmackLL.is-active .gen-tab-name{color:#fff;}
@@ -389,6 +391,25 @@
      markup - the previous rule stuck to one tab regardless of which was on. */
   .gen-tab:not(.is-active){background:#000000;}
   .gen-tab:not(.is-active) .gen-tab-name{color:#5A5E64;}
+
+  /* THE WORDMARK ON THE TABS.
+     
+     The two-tone shows on the INACTIVE tab, where there is a black
+     background to put it against - dimmed, so the tab still reads as off,
+     but recognisably the brand rather than flat grey.
+     
+     NOT on the active tab, and that is deliberate: active Smackagram is
+     white on red, so a red "agram" would vanish into its own background,
+     and active Locked & Loaded is black on silver where a red ampersand
+     would be the only thing you could see. The active state already IS the
+     brand colour - it does not need the wordmark as well. */
+  .gen-tab:not(.is-active) .wm-smackagram{color:#8A8A88;}
+  .gen-tab:not(.is-active) .wm-smackagram i{color:#8E2230;}
+  /* Locked & Loaded keeps its SILVER even when the tab is off. The silver
+     is the product's identity, not a highlight state - dimming it to grey
+     made it look like a disabled button rather than the other generator. */
+  .gen-tab:not(.is-active) .wm-locked{color:#C3CAD3;}
+  .gen-tab:not(.is-active) .wm-locked i{color:#E8142C;}
   .gen-tab:not(.is-active) .gen-tab-kicker{color:#44484E;}
   #tabSmackLL:not(.is-active):hover{background:#1A0507;}
   #tabSmackLL:not(.is-active):hover .gen-tab-name,
@@ -406,7 +427,7 @@
      pages - it reads as heat, not as page branding, so recolouring it amber
      here would break the metaphor. Tokens below map this page's names onto
      the ones the fader expects. */
-  .fader{--ivory:#FFFFFF; --hairline:var(--amber-hairline); --punch:var(--flare);}
+  .fader{--ivory:#FFFFFF; --hairline:var(--amber-hairline); --punch:#E8142C;}
   /* INTENSITY FADER - a physical control instead of tickboxes. */
   .fader{padding:4px 0 0;}
   .fader-scale{display:flex; justify-content:space-between; margin-bottom:10px;}
@@ -624,7 +645,7 @@
     <div class="gen-tabs">
       <button type="button" class="gen-tab is-active" id="tabLockedLL">
         <span class="gen-tab-kicker">Arm it for later</span>
-        <span class="gen-tab-name" wm-locked">Locked &amp; Loaded</span>
+        <span class="gen-tab-name wm-locked">Locked <i>&amp;</i> Loaded</span>
       </button>
 
       <span class="gen-swap" aria-hidden="true">
@@ -672,7 +693,7 @@
       </div>
     </div>
 
-  <p class="gen-wordmark" wm-locked">Locked &amp; Loaded</p>
+  <p class="gen-wordmark wm-locked">Locked <i>&amp;</i> Loaded</p>
 
   <div class="card" id="gameCard">
     <p class="step-label">Step 1</p>

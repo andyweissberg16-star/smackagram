@@ -844,10 +844,13 @@ body.smk-plain::after{display:none;}
 .wm-smackagram{color:var(--chalk); font-style:normal;}
 .wm-smackagram i{color:var(--flare); font-style:normal;}
 
-/* Locked & Loaded is silver throughout - the ampersand too. It is the
-   product that is NOT the house red, and that separation is the point. */
+/* Locked & Loaded: silver words, RED AMPERSAND.
+   The two words stay silver so the product reads as its own thing rather
+   than more of the house red - but the & carries the flare, which is what
+   ties it back to the brand. Same trick as Smackagram, one character
+   instead of a whole word. */
 .wm-locked{color:var(--silver); font-style:normal;}
-.wm-locked i{color:var(--silver); font-style:normal;}
+.wm-locked i{color:var(--flare); font-style:normal;}
 
 /* The decimals carry the price, so they carry the colour. */
 .wm-price i{color:var(--flare); font-style:normal;}
