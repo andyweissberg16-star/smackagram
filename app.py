@@ -6132,12 +6132,42 @@ def api_roster():
     league = (request.args.get("league") or "").strip().lower() or None
     if not team:
         return jsonify({"players": []})
+    # SAY WHAT HAPPENED AT EACH STEP.
+    #
+    # This has returned an empty list three times for three different
+    # reasons - a throttle, a poisoned cache, a browser cache - and each
+    # time the response looked identical. Guessing from the outside has
+    # cost several rounds; ?debug=1 reports which step actually stopped.
+    debug = request.args.get("debug") == "1"
+    trace = {}
     try:
-        from services import team_state
+        from services import team_state, espn_gate
+        if debug:
+            trace["gate_before"] = espn_gate.status()
+            t = team_state.find_team(team, league)
+            trace["find_team"] = t
+            trace["leagues_searched"] = (
+                [league] if league in team_state.LEAGUES
+                else list(team_state.LEAGUES))
+            # How many teams did the first league actually return?
+            first = trace["leagues_searched"][0]
+            got = team_state._teams(first)
+            trace["teams_in_" + first] = len(got)
+            trace["sample"] = got[0] if got else None
         players = team_state.roster(team, league=league)
+        if debug:
+            trace["gate_after"] = espn_gate.status()
+            trace["players_found"] = len(players)
     except Exception as e:
+        import traceback
         print(f"[roster] {team}: {e}", flush=True)
+        traceback.print_exc()
+        if debug:
+            trace["exception"] = f"{type(e).__name__}: {e}"
         players = []
+
+    if debug:
+        return jsonify({"team": team, "players": players, "trace": trace})
     resp = jsonify({"team": team, "players": players})
     # NEVER CACHE AN EMPTY ANSWER.
     #
