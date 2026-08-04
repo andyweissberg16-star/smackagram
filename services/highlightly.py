@@ -674,6 +674,28 @@ def squad(sport, team_name, limit=60):
             if want not in names:
                 continue
 
+            # THE MATCH ROSTER FIRST - it has positions and jersey
+            # numbers, which the box score does not. The picker was showing
+            # every player with a blank position because a box score is
+            # statistics, not a team sheet.
+            try:
+                det = _get(sport, f"matches/{m.get('id')}", ttl=900)
+                blob = det[0] if isinstance(det, list) and det else det
+                side = ("homeTeam"
+                        if want in ((blob.get("homeTeam") or {})
+                                    .get("displayName") or "").lower()
+                        else "awayTeam")
+                for r in ((blob.get("rosters") or {}).get(side) or []):
+                    nm = r.get("fullName") or r.get("name")
+                    if not nm or nm.lower() in seen:
+                        continue
+                    seen.add(nm.lower())
+                    out.append({"name": nm, "position": r.get("position"),
+                                "number": r.get("jersey"),
+                                "starter": bool(r.get("isStarter"))})
+            except Exception:
+                pass
+
             for p in box_score(sport, m.get("id")):
                 if want not in (p.get("team") or "").lower():
                     continue
