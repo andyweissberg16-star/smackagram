@@ -21,6 +21,64 @@ def _refund_released_smackagram(s):
         )
 
 
+def shadow_compare_sources():
+    """
+    Ask BOTH sources what happened last night, and log where they differ.
+
+    RUNS ON ITS OWN, not inside the Locked & Loaded loop.
+
+    The first version was wired into that loop, which meant it needed an
+    ESPN event id before Highlightly was asked anything - so during an ESPN
+    outage it produced NO comparison at all. That is exactly backwards: an
+    ESPN outage is the scenario Highlightly is being bought to survive, and
+    it is when you most want to know whether the replacement works.
+
+    Now it asks each independently. If ESPN is blocked, the log says so and
+    still reports what Highlightly returned - which is useful information
+    rather than silence.
+
+    Cheap: one call per source per league, cached. Safe: decides nothing.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    from services import espn_scores, highlightly
+
+    if not highlightly.enabled():
+        return
+
+    # Yesterday in Eastern - the same window the daily show uses.
+    day = (_dt.utcnow() - _td(hours=10)).strftime("%Y-%m-%d")
+
+    for sport in ("mlb", "nfl", "nhl"):
+        mine = {}
+        try:
+            mine = espn_scores.league_results(sport) or {}
+        except Exception as e:
+            print(f"[shadow] ESPN unavailable for {sport}: {e}", flush=True)
+
+        if not mine:
+            # Report what the other source found anyway. "ESPN gave us
+            # nothing and Highlightly gave us eight games" is the single
+            # most useful line this can print during an outage.
+            try:
+                theirs = highlightly.finals(sport, day)
+                if theirs:
+                    print(f"[shadow] {sport}: ESPN returned NOTHING, "
+                          f"Highlightly returned {len(theirs)} final(s). "
+                          f"This is what the switch is for.", flush=True)
+                    for v in list(theirs.values())[:3]:
+                        print(f"[shadow]   {v['winner']} {v['winner_score']}-"
+                              f"{v['loser_score']} {v['loser']}", flush=True)
+            except Exception as e:
+                print(f"[shadow] both sources failed for {sport}: {e}",
+                      flush=True)
+            continue
+
+        try:
+            highlightly.compare(sport, day, mine)
+        except Exception as e:
+            print(f"[shadow] compare failed for {sport}: {e}", flush=True)
+
+
 def check_armed_smackagrams():
     """
     Called via the /api/cron/check-smackagrams route, which an external
@@ -82,19 +140,7 @@ def check_armed_smackagrams():
                 _all = espn_scores.league_results(sport)
                 _espn = _all.get(str(_eid))
 
-                # SHADOW RUN. Highlightly fetches the same games and every
-                # disagreement is logged, but ESPN still decides. Their
-                # score string is home-first and ESPN's is away-first -
-                # exactly the kind of thing that looks fine in code and
-                # charges the wrong person in production.
-                try:
-                    from services import highlightly
-                    from datetime import datetime as _dt
-                    if highlightly.enabled():
-                        highlightly.compare(
-                            sport, _dt.utcnow().strftime("%Y-%m-%d"), _all)
-                except Exception as _e:
-                    print(f"[shadow] skipped: {_e}", flush=True)
+                # (shadow run moved out of this loop - see below)
                 if not _espn:
                     # Not in the finished list - either still playing, or
                     # the scoreboard did not cover it. Fall back to the

@@ -53,6 +53,12 @@ app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-me")
 db.init_app(app)
 
 
+# When the shadow comparison last ran. The cron that triggers it fires
+# every two minutes; comparing yesterday's finished games that often would
+# be thirty pointless requests an hour, so it is gated to once.
+_LAST_SHADOW = 0.0
+
+
 def get_current_user():
     """Returns the logged-in User object, or None if nobody's logged in."""
     user_id = session.get("user_id")
@@ -4755,6 +4761,28 @@ def cron_check_smackagrams():
         scheduled = send_scheduled_smackagrams()
     except Exception as e:
         print(f"[cron] scheduled sends failed: {e}", flush=True)
+
+    # SHADOW COMPARISON, at most once an hour.
+    #
+    # Runs here rather than inside the armed-smackagram loop, because that
+    # loop needs an ESPN event id first - so during an ESPN outage it
+    # produced no comparison at all, which is exactly when the evidence
+    # matters most.
+    #
+    # Rate-limited to once an hour by a module-level timestamp: this cron
+    # fires every two minutes and there is no sense comparing last night's
+    # finished games thirty times an hour.
+    try:
+        from services import highlightly
+        if highlightly.enabled():
+            import time as _t
+            global _LAST_SHADOW
+            if _t.time() - _LAST_SHADOW > 3600:
+                _LAST_SHADOW = _t.time()
+                from scheduler import shadow_compare_sources
+                shadow_compare_sources()
+    except Exception as e:
+        print(f"[shadow] hourly compare failed: {e}", flush=True)
 
     return jsonify({"ok": True, "scheduled": scheduled})
 
