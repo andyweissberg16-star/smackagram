@@ -5991,8 +5991,10 @@ def api_admin_espn_gate():
     if err:
         return err
     from services import espn_gate
-    if request.args.get("reset") == "1":
-        espn_gate.reset()
+    # ?reset=1 clears everything, ?reset=espn clears one source.
+    r = request.args.get("reset")
+    if r:
+        espn_gate.reset(None if r == "1" else r)
     return jsonify(espn_gate.status())
 
 
