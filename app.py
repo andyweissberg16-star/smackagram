@@ -5952,6 +5952,37 @@ with app.app_context():
 
 
 
+@app.route("/api/admin/stored-results")
+@login_required
+def api_admin_stored_results():
+    """
+    Finished games held in the database.
+
+    Every one of these is a game no provider will ever be asked about
+    again. "contested" means two sources disagreed - the stored answer was
+    kept and the disagreement recorded rather than overwriting something
+    somebody may already have been called about.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    from models import GameResult
+    rows = (GameResult.query.order_by(GameResult.created_at.desc())
+            .limit(60).all())
+    return jsonify({
+        "total": GameResult.query.count(),
+        "contested": GameResult.query.filter(
+            GameResult.contested.is_(True)).count(),
+        "recent": [{
+            "league": r.league, "date": r.game_date,
+            "result": f"{r.winner} {r.winner_score}-{r.loser_score} {r.loser}",
+            "source": r.source,
+            "contested": bool(r.contested),
+            "note": r.contested_note,
+        } for r in rows],
+    })
+
+
 @app.route("/api/admin/shadow")
 @login_required
 def api_admin_shadow():

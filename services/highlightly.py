@@ -56,7 +56,10 @@ LEAGUES = {
     "mlb":   ("MLB", "league"),
     "nfl":   ("NFL", "league"),
     "ncaaf": ("NCAA", "league"),
-    "nhl":   ("NHL", "league"),
+    # Hockey rejects "league" with a 400 - verified live. It takes
+    # leagueName, the same as basketball. Each sport differs and there is
+    # no pattern to it.
+    "nhl":   ("NHL", "leagueName"),
     "nba":   ("NBA", "leagueName"),
 }
 

@@ -61,6 +61,14 @@ def shadow_compare_sources():
             # most useful line this can print during an outage.
             try:
                 theirs = highlightly.finals(sport, day)
+                # STORE THEM. A finished game never changes, so this is the
+                # last time anybody needs to ask about these.
+                try:
+                    from services import results_store
+                    results_store.remember_many(sport, day, theirs,
+                                                "highlightly")
+                except Exception as _e:
+                    print(f"[results] store failed: {_e}", flush=True)
                 if theirs:
                     print(f"[shadow] {sport}: ESPN returned NOTHING, "
                           f"Highlightly returned {len(theirs)} final(s). "
@@ -72,6 +80,15 @@ def shadow_compare_sources():
                 print(f"[shadow] both sources failed for {sport}: {e}",
                       flush=True)
             continue
+
+        # Store what ESPN found too - whichever source got there first
+        # wins, and a later disagreement is flagged rather than overwritten.
+        try:
+            from services import results_store
+            results_store.remember_many(sport, day, mine, "espn",
+                                        id_field="espn")
+        except Exception as _e:
+            print(f"[results] store failed: {_e}", flush=True)
 
         try:
             highlightly.compare(sport, day, mine)
@@ -102,7 +119,40 @@ def check_armed_smackagrams():
     keys = {(s.game_id, s.sport) for s in armed}
 
     for game_id, sport in keys:
-        result = sports_service.get_game_result(game_id, sport=sport)
+        # ALREADY KNOWN? THEN ASK NOBODY.
+        #
+        # A finished game never changes. If the result is in the database
+        # already, no provider is contacted at all - which is what makes an
+        # outage cost nothing for games that have already ended.
+        #
+        # This is checked FIRST, before any network call, deliberately.
+        result = None
+        try:
+            from services import results_store
+            from datetime import datetime as _dt, timedelta as _td
+            _sample = next((x for x in armed
+                            if x.game_id == game_id and x.sport == sport), None)
+            if _sample and _sample.home_team and _sample.away_team:
+                for _off in (0, 1):
+                    _day = (_dt.utcnow() - _td(days=_off)).strftime("%Y-%m-%d")
+                    _hit = results_store.lookup(sport, _day,
+                                                _sample.home_team,
+                                                _sample.away_team)
+                    if _hit:
+                        result = {"final": True, "winner": _hit.winner,
+                                  "loser": _hit.loser,
+                                  "winner_score": _hit.winner_score,
+                                  "loser_score": _hit.loser_score,
+                                  "margin": _hit.margin}
+                        print(f"[locked] {game_id}: result already stored "
+                              f"({_hit.source}) - no provider contacted",
+                              flush=True)
+                        break
+        except Exception as _e:
+            print(f"[locked] store lookup failed: {_e}", flush=True)
+
+        if result is None:
+            result = sports_service.get_game_result(game_id, sport=sport)
 
         # ESPN DECIDES THE OUTCOME.
         #

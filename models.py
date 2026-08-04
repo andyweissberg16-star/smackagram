@@ -1140,3 +1140,63 @@ class PhoneVerificationCode(db.Model):
     code = db.Column(db.String(6), nullable=False)
     expires_at = db.Column(db.DateTime, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class GameResult(db.Model):
+    """
+    A finished game, stored forever.
+
+    THE POINT: a final score never changes. Once Toronto has beaten Houston
+    3-1, that is true permanently - so it should be fetched ONCE and read
+    from the database from then on.
+
+    Everything on this site was re-asking a provider the same settled
+    question over and over, which meant an outage at any provider took away
+    facts we already knew. ESPN blocked this server for hours on 4 August
+    and the site lost access to games that had finished the night before -
+    games it had already fetched successfully.
+
+    This is the single biggest resilience win available, and it is
+    independent of which provider is used. A stored result survives every
+    outage, every rate limit and every provider change.
+
+    RESULTS ARE WRITTEN ONCE AND NOT UPDATED. If two sources disagree the
+    first one wins and the disagreement is logged rather than overwriting -
+    silently changing a result somebody was already called about is worse
+    than being wrong consistently.
+    """
+    __tablename__ = "game_results"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    # How each provider refers to this game. Either may be null - a game
+    # found through Highlightly has no ESPN id and vice versa.
+    espn_event_id = db.Column(db.String(40), index=True)
+    highlightly_id = db.Column(db.String(40), index=True)
+    sportsdata_id = db.Column(db.String(40), index=True)
+
+    league = db.Column(db.String(16), nullable=False, index=True)
+    game_date = db.Column(db.String(10), nullable=False, index=True)
+
+    # The answer everything actually wants.
+    winner = db.Column(db.String(80), nullable=False)
+    loser = db.Column(db.String(80), nullable=False)
+    winner_score = db.Column(db.Integer)
+    loser_score = db.Column(db.Integer)
+    margin = db.Column(db.Integer)
+
+    # Which provider supplied it, for tracing a wrong result back.
+    source = db.Column(db.String(20))
+
+    # Set when a second provider disagreed. The stored result does NOT
+    # change; this records that it was contested so it can be looked at.
+    contested = db.Column(db.Boolean, default=False)
+    contested_note = db.Column(db.Text)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    # A team pairing on a date identifies a game across providers, since
+    # their ids do not match each other.
+    __table_args__ = (
+        db.Index("ix_game_results_lookup", "league", "game_date"),
+    )
