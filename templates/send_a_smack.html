@@ -1261,6 +1261,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // the navigation having disappeared.
   var hasMoved = false;
 
+  // Exposed so the draft restore can put somebody back on the step they
+  // were on. Without this they log in, come back, and start from step one
+  // having already filled in everything.
+  window.smkGoToStep = function (i) { show(i); };
+  window.smkCurrentStep = function () { return current; };
+
   function show(i) {
     current = Math.max(0, Math.min(i, steps.length - 1));
     furthest = Math.max(furthest, current);
@@ -2156,6 +2162,37 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
     }
 
     return {
+      // The tapped buttons and the chosen player, so a login bounce does
+      // not ask somebody to make the same choices twice.
+      state: function () {
+        return {aims: aims.slice(), player: chosenPlayer};
+      },
+      restore: function (st) {
+        if (!st) return;
+        (st.aims || []).forEach(function (k) {
+          var b = row.querySelector('[data-aim="' + k + '"]');
+          if (b && aims.indexOf(k) === -1) b.click();
+        });
+        if (st.player) {
+          // Straight to chosen - it was picked from the real roster once
+          // already, so it does not need picking again.
+          chosenPlayer = st.player;
+          if (wrap) wrap.style.display = '';
+          if (input) input.style.display = 'none';
+          var tag = document.createElement('div');
+          tag.className = 'picked';
+          tag.innerHTML = st.player
+            + ' <button type="button" aria-label="Remove">&times;</button>';
+          tag.querySelector('button').addEventListener('click', function () {
+            chosenPlayer = null; tag.remove();
+            if (input) { input.value = ''; input.style.display = ''; }
+          });
+          if (input && input.parentNode) {
+            input.parentNode.insertBefore(tag, hint);
+          }
+          if (hint) hint.textContent = 'Locked in.';
+        }
+      },
       // TYPED BUT NOT CLICKED IS AN ERROR, not something to quietly drop.
       //
       // Silently ignoring what somebody typed would leave them thinking the
@@ -2217,6 +2254,13 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
         if (v && v.value) d._voice = v.value;
         var chk = document.getElementById('orderReplyOptIn');
         if (chk) d._reply = chk.checked;
+        // WHICH STEP THEY WERE ON. Coming back to step one having already
+        // filled in everything is the same as losing the data - they still
+        // have to click through it all again.
+        if (window.smkCurrentStep) d._step = window.smkCurrentStep();
+        // And which buttons were lit, so nobody is asked to make the same
+        // choices twice.
+        if (window.smkAim && window.smkAim.state) d._aim = window.smkAim.state();
         if (Object.keys(d).length) {
           sessionStorage.setItem(KEY, JSON.stringify(d));
         }
@@ -2255,6 +2299,24 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
           var fader = document.getElementById('intensityRange');
           if (fader) { fader.value = d._sens; fader.dispatchEvent(new Event('input', {bubbles: true})); }
         }
+        if (d._aim && window.smkAim && window.smkAim.restore) {
+          window.smkAim.restore(d._aim);
+        }
+
+        // Back to the step they were on, and SCROLL TO IT. Landing at the
+        // top of a long page with the generator somewhere below is the same
+        // problem as losing the data - they have to hunt for where they
+        // were.
+        if (typeof d._step === 'number' && window.smkGoToStep) {
+          window.smkGoToStep(d._step);
+        }
+        var card = document.getElementById('wizardCard')
+                || document.querySelector('.wizard-step.active')
+                || document.getElementById('start');
+        if (card && card.scrollIntoView) {
+          card.scrollIntoView({behavior: 'smooth', block: 'center'});
+        }
+
         // Tell them, quietly. Somebody who thinks the form emptied itself
         // will retype it anyway.
         var note = document.getElementById('previewStatus');
@@ -2271,8 +2333,17 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
 
     // Restore after everything else has initialised, so the team search and
     // the fader have wired themselves up before values arrive.
-    if (document.readyState === 'complete') setTimeout(restore, 250);
-    else window.addEventListener('load', function () { setTimeout(restore, 250); });
+    // 600ms, not 250.
+    //
+    // The fader and the team list are BUILT BY JAVASCRIPT after their own
+    // fetches return. Restoring before those finish puts values into
+    // elements that do not exist yet, and the intensity silently reverts to
+    // the default - which looks exactly like the draft not working.
+    //
+    // A little slower and correct beats instant and half-empty.
+    function go() { setTimeout(restore, 600); }
+    if (document.readyState === 'complete') go();
+    else window.addEventListener('load', go);
   })();
 </script>
 
