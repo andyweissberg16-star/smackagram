@@ -1253,10 +1253,28 @@ def _resolve_record(record_type, record_id):
     """
     if record_type == "order":
         return Order.query.get(record_id)
-    elif record_type == "smackagram":
+    if record_type == "smackagram":
         return Smackagram.query.get(record_id)
-    else:
-        return Order.query.get(record_id) or Smackagram.query.get(record_id)
+
+    # NO MORE GUESSING.
+    #
+    # This used to fall back to "try Order, then Smackagram" for the legacy
+    # bare-id routes. Those routes are gone - they existed only for calls
+    # already in flight during one deploy, and a call cannot outlive its
+    # 119-second limit.
+    #
+    # THE COLLISION IS REAL: a check found six Smackagram ids that also
+    # exist as Orders - every Smackagram in the database. So the old guess
+    # would have silently favoured Order on EVERY ONE of them, writing a
+    # call status against the wrong record.
+    #
+    # Refusing loudly beats resolving quietly to the wrong thing. If this
+    # ever fires, something is calling with no type and that is the bug to
+    # find, not something to paper over.
+    print(f"[twilio] REFUSING an untyped lookup for id {record_id} - "
+          f"every Smackagram id also exists as an Order, so a guess would "
+          f"be wrong more often than right", flush=True)
+    return None
 
 
 def _call_instructions_handler(record_type, record_id):
@@ -1336,12 +1354,18 @@ def _call_instructions_handler(record_type, record_id):
         print(f"[timing] could not record instruction time: {e}", flush=True)
 
     base_url = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
-    if record_type:
-        callback_url = f"{base_url}/recording-ready/{record_type}/{record_id}" if should_record else None
-        action_url = f"{base_url}/recording-done/{record_type}/{record_id}" if should_record else None
-    else:
-        callback_url = f"{base_url}/recording-ready/{record_id}" if should_record else None
-        action_url = f"{base_url}/recording-done/{record_id}" if should_record else None
+    # ALWAYS TYPED.
+    #
+    # There used to be an untyped branch here building "/recording-ready/47"
+    # for calls with no record_type. Those bare routes are gone, and every
+    # caller passes a type - so this would have pointed at a 404.
+    #
+    # The collision check found SIX ids shared between Orders and
+    # Smackagrams, which is every Smackagram in the database. An untyped
+    # URL was never safe; it just happened not to be exercised.
+    callback_url = f"{base_url}/recording-ready/{record_type}/{record_id}" if should_record else None
+    action_url = f"{base_url}/recording-done/{record_type}/{record_id}" if should_record else None
+
     twiml = twilio_service.build_twiml(
         audio_urls, record=should_record,
         record_callback_url=callback_url, record_action_url=action_url,
@@ -1361,18 +1385,6 @@ def call_instructions(record_type, record_id):
     """
     return _call_instructions_handler(record_type, record_id)
 
-
-@app.route("/call-instructions/<int:record_id>", methods=["GET", "POST"])
-def call_instructions_legacy(record_id):
-    """
-    Fallback for calls placed by pre-deploy code before this namespacing
-    change landed - those calls already have the old bare-int URL baked
-    into Twilio's call configuration and will hit this route instead of
-    the new namespaced one. Safe to remove once enough time has passed
-    that no such in-flight call could still exist (a call's total
-    lifetime is capped by time_limit in place_prank_call).
-    """
-    return _call_instructions_handler(None, record_id)
 
 
 @app.route("/recording-done/<record_type>/<int:record_id>", methods=["GET", "POST"])
@@ -4695,16 +4707,6 @@ def call_status(record_type, record_id):
     return "", 204
 
 
-@app.route("/call-status/<int:record_id>", methods=["POST"])
-def call_status_legacy(record_id):
-    """Fallback for calls placed by pre-deploy code - see call_instructions_legacy."""
-    status = request.form.get("CallStatus")
-    record = _resolve_record(None, record_id)
-    if record:
-        record.call_status = status
-        db.session.commit()
-    return "", 204
-
 
 @app.route("/recording-ready/<record_type>/<int:record_id>", methods=["POST"])
 def recording_ready(record_type, record_id):
@@ -4716,16 +4718,6 @@ def recording_ready(record_type, record_id):
         db.session.commit()
     return "", 204
 
-
-@app.route("/recording-ready/<int:record_id>", methods=["POST"])
-def recording_ready_legacy(record_id):
-    """Fallback for calls placed by pre-deploy code - see call_instructions_legacy."""
-    recording_url = request.form.get("RecordingUrl")
-    target = _resolve_record(None, record_id)
-    if target:
-        target.recording_url = recording_url
-        db.session.commit()
-    return "", 204
 
 
 @app.route("/api/cron/check-smackagrams", methods=["GET", "POST"])
@@ -6313,14 +6305,27 @@ def api_admin_id_collisions():
         except Exception:
             pass
 
-    if out["collisions"]:
-        out["verdict"] = ("COLLISIONS EXIST. A Twilio webhook carrying only "
-                          "an id can hit the wrong table. Namespace the "
-                          "webhook URLs before taking real money.")
+    # Whether the collision MATTERS depends on the webhook URLs, not on
+    # the count. Namespaced URLs make an overlap harmless.
+    from flask import current_app
+    bare = [str(r) for r in current_app.url_map.iter_rules()
+            if "<int:record_id>" in str(r)
+            and "<record_type>" not in str(r)
+            and "recording-done" not in str(r)]
+    out["untyped_webhook_routes"] = bare
+
+    if bare:
+        out["verdict"] = ("COLLISIONS EXIST and there are webhook routes "
+                          "that take a bare id: " + ", ".join(bare) +
+                          ". Those can resolve to the wrong record.")
+    elif out["collisions"]:
+        out["verdict"] = ("Collisions exist, but every webhook URL carries "
+                          "an explicit record type - so nothing looks up by "
+                          "bare id and the overlap is harmless. The one "
+                          "remaining bare route only hangs up and never "
+                          "resolves a record.")
     else:
-        out["verdict"] = ("Clean right now - but both tables count from 1 "
-                          "independently, so this WILL happen as they grow. "
-                          "Worth namespacing regardless.")
+        out["verdict"] = "No collisions and no untyped routes."
     return jsonify(out)
 
 
