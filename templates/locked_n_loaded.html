@@ -403,8 +403,29 @@
      and active Locked & Loaded is black on silver where a red ampersand
      would be the only thing you could see. The active state already IS the
      brand colour - it does not need the wordmark as well. */
-  .gen-tab:not(.is-active) .wm-smackagram{color:#8A8A88;}
-  .gen-tab:not(.is-active) .wm-smackagram i{color:#8E2230;}
+  /* A NOTE ON WHY THESE WORK.
+     
+     The #tabSmack.is-active rule above uses an ID, so it beats anything
+     here on specificity. It happens to set the right colour for "Smack" -
+     white on the red button - so the outcome is correct, but by
+     coincidence rather than design.
+     
+     The <i> is safe either way: no other rule targets it, so ours always
+     wins.
+     
+     If somebody changes that ID rule's colour later, "Smack" follows it
+     and this comment is where to look. */
+
+  /* INACTIVE: the full two-tone against black. */
+  .gen-tab:not(.is-active) .wm-smackagram{color:#F5F5F3;}
+  .gen-tab:not(.is-active) .wm-smackagram i{color:#E8142C;}
+
+  /* ACTIVE: the button turns red, so a red "agram" disappears into its own
+     background - the word read as just "Smack". Black against the red is
+     the only thing with enough contrast, and it keeps the two-tone split
+     rather than flattening the whole word to white. */
+  .gen-tab.is-active .wm-smackagram{color:#FFFFFF;}
+  .gen-tab.is-active .wm-smackagram i{color:#0D0D0D;}
   /* Locked & Loaded keeps its SILVER even when the tab is off. The silver
      is the product's identity, not a highlight state - dimming it to grey
      made it look like a disabled button rather than the other generator. */
@@ -483,6 +504,23 @@
     background:linear-gradient(180deg,#FFFFFF,#C9D1DA 42%,#828A94 58%,#EDF1F5);
     -webkit-background-clip:text; background-clip:text; color:transparent;
     filter:drop-shadow(0 0 18px rgba(200,210,222,0.35));
+  }
+  /* THE AMPERSAND, AGAINST THE METAL.
+     
+     This title is a silver gradient clipped to the letterforms, with the
+     text itself transparent so the gradient shows through. A child would
+     inherit that transparency and vanish, so the ampersand needs its own
+     fill AND its own background - otherwise the parent's gradient keeps
+     being clipped over it.
+     
+     One red character in a metal wordmark is the whole idea: the product
+     is silver, but it still belongs to this site. */
+  .gen-wordmark.wm-locked i{
+    background:none;
+    -webkit-background-clip:border-box; background-clip:border-box;
+    -webkit-text-fill-color:#E8142C;
+    color:#E8142C;
+    font-style:normal;
   }
 
   /* Matched to the Smackagram generator's instruction list, in amber. */

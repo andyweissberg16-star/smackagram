@@ -313,8 +313,29 @@
      and active Locked & Loaded is black on silver where a red ampersand
      would be the only thing you could see. The active state already IS the
      brand colour - it does not need the wordmark as well. */
-  .gen-tab:not(.is-active) .wm-smackagram{color:#8A8A88;}
-  .gen-tab:not(.is-active) .wm-smackagram i{color:#8E2230;}
+  /* A NOTE ON WHY THESE WORK.
+     
+     The #tabSmack.is-active rule above uses an ID, so it beats anything
+     here on specificity. It happens to set the right colour for "Smack" -
+     white on the red button - so the outcome is correct, but by
+     coincidence rather than design.
+     
+     The <i> is safe either way: no other rule targets it, so ours always
+     wins.
+     
+     If somebody changes that ID rule's colour later, "Smack" follows it
+     and this comment is where to look. */
+
+  /* INACTIVE: the full two-tone against black. */
+  .gen-tab:not(.is-active) .wm-smackagram{color:#F5F5F3;}
+  .gen-tab:not(.is-active) .wm-smackagram i{color:#E8142C;}
+
+  /* ACTIVE: the button turns red, so a red "agram" disappears into its own
+     background - the word read as just "Smack". Black against the red is
+     the only thing with enough contrast, and it keeps the two-tone split
+     rather than flattening the whole word to white. */
+  .gen-tab.is-active .wm-smackagram{color:#FFFFFF;}
+  .gen-tab.is-active .wm-smackagram i{color:#0D0D0D;}
   /* Locked & Loaded keeps its SILVER even when the tab is off. The silver
      is the product's identity, not a highlight state - dimming it to grey
      made it look like a disabled button rather than the other generator. */
@@ -393,6 +414,27 @@
     -webkit-text-stroke:1.4px var(--punch);
     paint-order:stroke fill;
     text-shadow:0 0 26px rgba(224,27,36,0.45);
+  }
+
+  /* THE TWO-TONE, ON THE BIG TITLE.
+     
+     .gen-wordmark sets colour AND a text-stroke, both red, and it loads
+     after the shared stylesheet - so it was painting the whole word red
+     and overriding the wordmark class entirely.
+     
+     The STROKE matters as much as the fill here: this title gets its
+     weight from a 1.4px stroke in the same colour, so a white "Smack"
+     with a red outline would still read as red. Both halves need their
+     own fill and stroke. */
+  .gen-wordmark.wm-smackagram{
+    color:#F5F5F3;
+    -webkit-text-stroke:1.4px #F5F5F3;
+    text-shadow:0 0 26px rgba(232,20,44,0.30);
+  }
+  .gen-wordmark.wm-smackagram i{
+    color:#E8142C;
+    -webkit-text-stroke:1.4px #E8142C;
+    font-style:normal;
   }
 
   /* INTENSITY FADER - a physical control instead of tickboxes. */
