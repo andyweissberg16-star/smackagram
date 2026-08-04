@@ -6139,9 +6139,20 @@ def api_roster():
         print(f"[roster] {team}: {e}", flush=True)
         players = []
     resp = jsonify({"team": team, "players": players})
-    # A roster changes at most daily. Letting the browser hold it means the
-    # picker feels instant on the second use.
-    resp.headers["Cache-Control"] = "public, max-age=3600"
+    # NEVER CACHE AN EMPTY ANSWER.
+    #
+    # A roster changes at most daily, so holding a good one in the browser
+    # makes the picker instant on the second use. But caching an EMPTY one
+    # for an hour means a temporary failure - ESPN throttling us, say -
+    # keeps showing the person no players long after the problem is fixed.
+    #
+    # That happened: the roster looked broken for an hour after the fix was
+    # deployed, because the browser never asked again. The server showed
+    # zero requests, which made it look like a completely different bug.
+    if players:
+        resp.headers["Cache-Control"] = "public, max-age=3600"
+    else:
+        resp.headers["Cache-Control"] = "no-store"
     return resp
 
 
