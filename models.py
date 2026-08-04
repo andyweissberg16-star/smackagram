@@ -1250,3 +1250,44 @@ class Player(db.Model):
         db.Index("ix_players_team_league", "team", "league"),
         db.UniqueConstraint("name", "team", "league", name="uq_player_team"),
     )
+
+
+class SupportTicket(db.Model):
+    """
+    A message from the contact form.
+
+    The page was three email addresses. That works until somebody actually
+    uses it - then a complaint lives in a mailbox, nobody knows whether it
+    was answered, and there is no record that it happened at all.
+
+    A ticket here is visible on the admin panel, can be marked done, and
+    records WHO closed it and HOW. That last part matters more than it
+    looks: "resolved" with no note is the same as no record.
+    """
+    __tablename__ = "support_tickets"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    first_name = db.Column(db.String(60), nullable=False)
+    last_name = db.Column(db.String(60), nullable=False)
+    email = db.Column(db.String(200), nullable=False, index=True)
+    phone = db.Column(db.String(30))
+
+    topic = db.Column(db.String(60), nullable=False, index=True)
+    message = db.Column(db.Text, nullable=False)
+
+    # Linked when the sender happened to be logged in, so their history is
+    # reachable from the ticket without asking them for an order number.
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), index=True)
+
+    status = db.Column(db.String(20), default="open", index=True)
+    completed_by = db.Column(db.String(120))
+    completed_at = db.Column(db.DateTime)
+    resolution = db.Column(db.Text)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    # Kept because a complaint about a call is easier to investigate with
+    # the browser and address that sent it.
+    user_agent = db.Column(db.String(300))
+    ip = db.Column(db.String(60))

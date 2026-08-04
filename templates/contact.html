@@ -49,6 +49,26 @@
   .card a:hover{text-decoration:underline;}
 
   footer{padding:32px 24px; text-align:center; font-size:12px; color:var(--chalk-dim); border-top:1px solid var(--line); margin-top:40px;}
+
+  .sup-form{display:flex; flex-direction:column; gap:14px; text-align:left;}
+  .sup-row{display:flex; gap:14px;}
+  .sup-row > div{flex:1; display:flex; flex-direction:column; gap:6px;}
+  .sup-form label{font-size:13px; font-weight:600; color:var(--chalk);
+                  letter-spacing:.02em;}
+  .sup-form .opt{font-weight:400; color:var(--chalk-dim);}
+  .sup-form input, .sup-form select, .sup-form textarea{
+    background:#141416; border:1px solid #2A2D32; border-radius:8px;
+    padding:11px 13px; color:var(--chalk); font:inherit; font-size:15px;
+    width:100%;}
+  .sup-form input:focus, .sup-form select:focus, .sup-form textarea:focus{
+    outline:none; border-color:#E8142C;}
+  .sup-form textarea{resize:vertical; min-height:120px;}
+  .sup-error{color:#FF3B50; font-size:14px; margin:0; min-height:1px;}
+  .sup-note{color:var(--chalk-dim); font-size:13px; margin:0;}
+  .sup-alt{color:var(--chalk-dim); font-size:14px; line-height:1.6;
+           margin:22px 0 0;}
+  .sup-alt a{color:#FF3B50;}
+  @media(max-width:560px){ .sup-row{flex-direction:column;} }
 </style>
 </head>
 <body>
@@ -72,26 +92,114 @@
   <h1>Contact Us</h1>
   <p class="sub">Questions about an order, a delivery issue, or anything else — here's how to reach us.</p>
 
-  <div class="card">
-    <h2>General Support</h2>
-    <p>For order issues, delivery problems, or general questions:</p>
-    <a href="mailto:support@smackagram.com">support@smackagram.com</a>
+  <form class="card sup-form" id="supportForm" onsubmit="return false;">
+    <div class="sup-row">
+      <div>
+        <label for="supFirst">First name</label>
+        <input id="supFirst" type="text" autocomplete="given-name" required>
+      </div>
+      <div>
+        <label for="supLast">Last name</label>
+        <input id="supLast" type="text" autocomplete="family-name">
+      </div>
+    </div>
+
+    <div class="sup-row">
+      <div>
+        <label for="supEmail">Email</label>
+        <input id="supEmail" type="email" autocomplete="email" required>
+      </div>
+      <div>
+        <label for="supPhone">Phone <span class="opt">(optional)</span></label>
+        <input id="supPhone" type="tel" autocomplete="tel">
+      </div>
+    </div>
+
+    <label for="supTopic">What is this about?</label>
+    <select id="supTopic">
+      {% for t in topics %}<option>{{ t }}</option>{% endfor %}
+    </select>
+
+    <label for="supMessage">Tell us what happened</label>
+    <textarea id="supMessage" rows="6"
+      placeholder="The more detail the better &mdash; a phone number, a date, anything that helps us find it."></textarea>
+
+    <p class="sup-error" id="supError"></p>
+    <button class="btn btn-flare" id="supSend" type="button">Send it</button>
+    <p class="sup-note">Smacky will get back to you shortly.</p>
+  </form>
+
+  <div class="card sup-done" id="supDone" style="display:none;">
+    <h2>Got it.</h2>
+    <p id="supDoneMsg">Smacky will get back to you shortly.</p>
   </div>
 
-  <div class="card">
-    <h2>Report a Problem</h2>
-    <p>If you believe Smackagram was used to contact you without your knowledge or consent, or you'd like to report misuse:</p>
-    <a href="mailto:owners@smackagram.com">owners@smackagram.com</a>
-  </div>
-
-  <div class="card">
-    <h2>Billing &amp; Refund Questions</h2>
-    <p>For questions about a charge, hold, or account credit:</p>
-    <a href="mailto:owners@smackagram.com">owners@smackagram.com</a>
-  </div>
-</div>
+  <p class="sup-alt">Would rather email? <a href="mailto:support@smackagram.com">support@smackagram.com</a>
+    &mdash; or <a href="mailto:owners@smackagram.com">owners@smackagram.com</a>
+    for anything about a charge, or if somebody used Smackagram to contact
+    you without your consent.</p>
 
 {% include '_footer.html' %}
 
+<script>
+(function () {
+  var btn = document.getElementById('supSend');
+  if (!btn) return;
+  var err = document.getElementById('supError');
+
+  btn.addEventListener('click', function () {
+    err.textContent = '';
+    var body = {
+      first_name: document.getElementById('supFirst').value.trim(),
+      last_name:  document.getElementById('supLast').value.trim(),
+      email:      document.getElementById('supEmail').value.trim(),
+      phone:      document.getElementById('supPhone').value.trim(),
+      topic:      document.getElementById('supTopic').value,
+      message:    document.getElementById('supMessage').value.trim()
+    };
+
+    // Checked here as well as on the server, so somebody who forgets a
+    // field finds out immediately rather than after a round trip.
+    if (!body.first_name || !body.email || !body.message) {
+      err.textContent = 'Still need your first name, an email we can reply '
+                      + 'to, and a message.';
+      return;
+    }
+
+    btn.disabled = true;
+    var label = btn.textContent;
+    btn.textContent = 'Sending\u2026';
+
+    fetch('/api/support', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d && d.ok) {
+          document.getElementById('supportForm').style.display = 'none';
+          var done = document.getElementById('supDone');
+          document.getElementById('supDoneMsg').textContent =
+            'Smacky will get back to you shortly. Your reference is #'
+            + d.id + ' \u2014 worth keeping if you need to chase it.';
+          done.style.display = '';
+          done.scrollIntoView({behavior: 'smooth', block: 'center'});
+          return;
+        }
+        err.textContent = (d && d.error)
+          || 'Something went wrong. Try emailing support@smackagram.com.';
+        btn.disabled = false;
+        btn.textContent = label;
+      })
+      .catch(function () {
+        err.textContent = 'Could not send that. Check your connection, or '
+                        + 'email support@smackagram.com.';
+        btn.disabled = false;
+        btn.textContent = label;
+      });
+  });
+})();
+</script>
 </body>
 </html>

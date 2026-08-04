@@ -2224,9 +2224,97 @@ def terms_page():
     return render_template("terms.html")
 
 
+# The topics somebody can pick. Ordered by how urgent they are to us
+# rather than alphabetically - a smack that never arrived is somebody who
+# paid and got nothing, and that should be the first thing on the list.
+SUPPORT_TOPICS = [
+    "My Smackagram never arrived",
+    "I was charged incorrectly",
+    "I want a refund",
+    "I received a Smackagram and want it to stop",
+    "Something on the site is broken",
+    "Question about how it works",
+    "Partnership or business enquiry",
+    "Something else",
+]
+
+
+@app.route("/api/support", methods=["POST"])
+def api_support_submit():
+    """
+    Take a message from the contact form.
+
+    Deliberately forgiving about what it accepts. Somebody who has been
+    charged wrongly and cannot get through is a worse outcome than a
+    ticket with a malformed phone number, so only the fields we genuinely
+    cannot act without are required.
+    """
+    d = request.get_json(silent=True) or request.form or {}
+
+    first = (d.get("first_name") or "").strip()[:60]
+    last = (d.get("last_name") or "").strip()[:60]
+    email = (d.get("email") or "").strip()[:200]
+    phone = (d.get("phone") or "").strip()[:30]
+    topic = (d.get("topic") or "").strip()[:60]
+    message = (d.get("message") or "").strip()
+
+    missing = []
+    if not first:
+        missing.append("your first name")
+    if not email or "@" not in email:
+        missing.append("an email address we can reply to")
+    if not message:
+        missing.append("a message")
+    if missing:
+        return jsonify({"error": "Still need " + ", ".join(missing) + "."}), 400
+
+    if topic not in SUPPORT_TOPICS:
+        topic = "Something else"
+
+    try:
+        from models import SupportTicket
+        user = get_current_user()
+        t = SupportTicket(
+            first_name=first, last_name=last, email=email, phone=phone,
+            topic=topic, message=message[:8000],
+            user_id=getattr(user, "id", None),
+            user_agent=(request.headers.get("User-Agent") or "")[:300],
+            ip=(request.headers.get("X-Forwarded-For")
+                or request.remote_addr or "")[:60],
+        )
+        db.session.add(t)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[support] could not save: {e}", flush=True)
+        return jsonify({"error": "Something went wrong saving that. Email "
+                                 "support@smackagram.com and we will pick "
+                                 "it up."}), 500
+
+    print(f"[support] #{t.id} {topic} from {email}", flush=True)
+
+    # Tell somebody, but only for the ones that involve money or a
+    # missing delivery. Alerting on every "how does this work" trains
+    # you to ignore the alerts, which is worse than not having them.
+    try:
+        from services import safety_service
+        if topic in ("My Smackagram never arrived",
+                     "I was charged incorrectly", "I want a refund"):
+            safety_service._notify(
+                f"Support #{t.id}: {topic} - {first} {last} ({email})")
+    except Exception as e:
+        print(f"[support] alert failed: {e}", flush=True)
+
+    return jsonify({"ok": True, "id": t.id,
+                    "message": "Got it. Smacky will get back to you shortly."})
+
+
 @app.route("/contact")
 def contact_page():
-    return render_template("contact.html")
+    # Topics come from one list in Python rather than being typed into the
+    # template, so the dropdown and the validation can never disagree about
+    # what a valid topic is.
+    return render_template("contact.html", topics=SUPPORT_TOPICS)
 
 
 @app.route("/smack-zone")
@@ -6280,6 +6368,83 @@ def api_admin_shadow():
         "wrong_loser_count": sum(1 for r in rows if r.get("wrong_loser")),
         "recent": rows,
     })
+
+
+@app.route("/api/admin/support")
+@login_required
+def api_admin_support():
+    """
+    Every support ticket, open ones first.
+
+    ?status=open      only unresolved
+    ?status=done      only closed
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    from models import SupportTicket
+
+    q = SupportTicket.query
+    want = request.args.get("status")
+    if want in ("open", "done"):
+        q = q.filter(SupportTicket.status == want)
+
+    rows = q.order_by(SupportTicket.status.asc(),
+                      SupportTicket.created_at.desc()).limit(200).all()
+
+    return jsonify({
+        "open": SupportTicket.query.filter_by(status="open").count(),
+        "total": SupportTicket.query.count(),
+        "tickets": [{
+            "id": t.id,
+            "when": utc_iso(t.created_at),
+            "name": f"{t.first_name} {t.last_name}".strip(),
+            "email": t.email, "phone": t.phone,
+            "topic": t.topic, "message": t.message,
+            "status": t.status,
+            "completed_by": t.completed_by,
+            "completed_at": utc_iso(t.completed_at),
+            "resolution": t.resolution,
+            "user_id": t.user_id,
+        } for t in rows],
+    })
+
+
+@app.route("/api/admin/support/<int:ticket_id>/complete", methods=["POST"])
+@login_required
+def api_admin_support_complete(ticket_id):
+    """
+    Close a ticket, recording WHO closed it and HOW.
+
+    The resolution note is required. A ticket marked done with no
+    explanation is the same as no record - somebody looking at it in three
+    months learns nothing, and if the customer comes back there is no way
+    to know what they were told.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+
+    d = request.get_json(silent=True) or {}
+    note = (d.get("resolution") or "").strip()
+    if not note:
+        return jsonify({"error": "Say what was done. A ticket closed with no "
+                                 "note is the same as no record."}), 400
+
+    from models import SupportTicket
+    t = SupportTicket.query.get(ticket_id)
+    if not t:
+        return jsonify({"error": "No such ticket"}), 404
+
+    t.status = "done"
+    t.resolution = note[:4000]
+    t.completed_by = getattr(user, "email", None) or getattr(user, "username",
+                                                             "admin")
+    t.completed_at = datetime.utcnow()
+    db.session.commit()
+
+    print(f"[support] #{t.id} closed by {t.completed_by}", flush=True)
+    return jsonify({"ok": True, "id": t.id, "completed_by": t.completed_by})
 
 
 @app.route("/api/admin/id-collisions")
