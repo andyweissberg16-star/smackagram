@@ -1820,6 +1820,11 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
     return;
   }
 
+  // Remember the label so it can be put back. Safari restores this page
+  // from cache with the button exactly as it was - disabled and saying
+  // "Redirecting to payment..." - and the pageshow handler needs to know
+  // what it said before.
+  btn.dataset.idleLabel = btn.textContent;
   btn.textContent = 'Redirecting to payment...';
   btn.disabled = true;
 
@@ -2345,6 +2350,38 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
     if (document.readyState === 'complete') go();
     else window.addEventListener('load', go);
   })();
+
+  // ---- buttons must never come back dead ----
+  //
+  // The submit button disables itself and says "Redirecting to payment..."
+  // before the request. Safari restores a page from its back-forward cache
+  // with the DOM exactly as it was - including that disabled button - so
+  // coming back from the login page leaves it dead, and the user taps a
+  // button that does nothing at all.
+  //
+  // No error, no spinner, no response. The worst kind of broken, because
+  // there is nothing to report.
+  //
+  // pageshow fires on a normal load AND on a cache restore, which is the
+  // whole reason to use it rather than load.
+  window.addEventListener('pageshow', function () {
+    [['orderSubmitBtn', 'Send this Smackagram'],
+     ['generateBtn', null],
+     ['previewBtn', null]].forEach(function (pair) {
+      var b = document.getElementById(pair[0]);
+      if (!b) return;
+      b.disabled = false;
+      // Only reset the label if it is still showing an in-progress
+      // message - the submit button personalises itself with the
+      // recipient's name and that should survive.
+      // Put back whatever it said before it went busy. The submit button
+      // personalises itself with the recipient's name - "Smack Mike" - and
+      // resetting it to a generic label would lose that.
+      if (/Redirecting|Sending|Loading|\u2026|\.\.\./i.test(b.textContent || '')) {
+        b.textContent = b.dataset.idleLabel || pair[1] || b.textContent;
+      }
+    });
+  });
 </script>
 
 <style>
