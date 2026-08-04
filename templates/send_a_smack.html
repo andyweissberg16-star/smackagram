@@ -1598,6 +1598,10 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
       return;
     }
     if (data.login_required) {
+      // Save their work FIRST. They have filled the whole form and are
+      // about to be sent away; coming back to an empty page is how you lose
+      // somebody who had already decided to pay.
+      if (window.smkSaveDraft) window.smkSaveDraft();
       window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
       return;
     }
@@ -1832,14 +1836,26 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
     });
     const data = await resp.json();
     if (data.login_required) {
+      // Save their work FIRST. They have filled the whole form and are
+      // about to be sent away; coming back to an empty page is how you lose
+      // somebody who had already decided to pay.
+      if (window.smkSaveDraft) window.smkSaveDraft();
       window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
       return;
     }
     if (data.error === 'insufficient_balance') {
+      // Same problem as the login bounce - they are being sent off to top
+      // up and would come back to nothing. This one is arguably worse:
+      // they have just been asked for money AND lost their work.
+      if (window.smkSaveDraft) window.smkSaveDraft();
       window.location.href = data.redirect || '/reload';
       return;
     }
     if (data.redirect) {
+      // Sent successfully - the draft has served its purpose. Leaving it
+      // would refill the form on their next visit with a smack they have
+      // already paid for and sent.
+      if (window.smkClearDraft) window.smkClearDraft();
       window.location.href = data.redirect;
     } else {
       errorEl.textContent = data.error || 'Something went wrong — try again.';
@@ -2165,6 +2181,98 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
         return out;
       }
     };
+  })();
+
+  // ---- keep their work through a login ----
+  //
+  // A first-time visitor fills in the whole form, taps pay, gets bounced to
+  // the login page, comes back - and everything is empty. They have done all
+  // the work and lost it at the exact moment they were about to pay, which
+  // is the worst possible place to lose somebody.
+  //
+  // So the form is saved before any redirect to login and restored on the
+  // way back. sessionStorage rather than localStorage on purpose: it clears
+  // when the tab closes, so a shared or public computer does not keep
+  // somebody's recipient name and phone number lying around.
+  (function () {
+    var KEY = 'smk_draft';
+
+    // Everything worth keeping. The generated line matters most - it may
+    // have taken several attempts to get one they liked.
+    var FIELDS = ['recipientNameInput', 'teamInput', 'fromTeamInput',
+                  'trashTalkOutput', 'orderRecipientPhone', 'orderSenderPhone',
+                  'playerInput'];
+
+    window.smkSaveDraft = function () {
+      try {
+        var d = {};
+        FIELDS.forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el && el.value) d[id] = el.value;
+        });
+        if (typeof selectedSensitivity !== 'undefined') {
+          d._sens = selectedSensitivity;
+        }
+        var v = document.getElementById('voiceSelect');
+        if (v && v.value) d._voice = v.value;
+        var chk = document.getElementById('orderReplyOptIn');
+        if (chk) d._reply = chk.checked;
+        if (Object.keys(d).length) {
+          sessionStorage.setItem(KEY, JSON.stringify(d));
+        }
+      } catch (e) { /* storage unavailable - they lose the draft, not the site */ }
+    };
+
+    function restore() {
+      try {
+        var raw = sessionStorage.getItem(KEY);
+        if (!raw) return;
+        var d = JSON.parse(raw);
+        FIELDS.forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el && d[id]) {
+            el.value = d[id];
+            // Anything listening for a change - the team search, the
+            // console readout - needs telling, or the page looks filled in
+            // but behaves as though it is empty.
+            el.dispatchEvent(new Event('input', {bubbles: true}));
+            el.dispatchEvent(new Event('change', {bubbles: true}));
+          }
+        });
+        if (d._voice) {
+          var v = document.getElementById('voiceSelect');
+          if (v) { v.value = d._voice; v.dispatchEvent(new Event('change', {bubbles: true})); }
+        }
+        if (typeof d._reply === 'boolean') {
+          var chk = document.getElementById('orderReplyOptIn');
+          if (chk && chk.checked !== d._reply) chk.click();
+        }
+        if (typeof d._sens !== 'undefined' && typeof selectedSensitivity !== 'undefined') {
+          selectedSensitivity = d._sens;
+          // The fader is BUILT BY JAVASCRIPT after the levels load, so
+          // it may not exist yet when this runs - hence the delay before
+          // restoring, and the guard here.
+          var fader = document.getElementById('intensityRange');
+          if (fader) { fader.value = d._sens; fader.dispatchEvent(new Event('input', {bubbles: true})); }
+        }
+        // Tell them, quietly. Somebody who thinks the form emptied itself
+        // will retype it anyway.
+        var note = document.getElementById('previewStatus');
+        if (note && d.trashTalkOutput) {
+          note.textContent = 'Picked up where you left off.';
+          setTimeout(function () { note.textContent = ''; }, 5000);
+        }
+      } catch (e) { /* nothing to restore */ }
+    }
+
+    window.smkClearDraft = function () {
+      try { sessionStorage.removeItem(KEY); } catch (e) {}
+    };
+
+    // Restore after everything else has initialised, so the team search and
+    // the fader have wired themselves up before values arrive.
+    if (document.readyState === 'complete') setTimeout(restore, 250);
+    else window.addEventListener('load', function () { setTimeout(restore, 250); });
   })();
 </script>
 
