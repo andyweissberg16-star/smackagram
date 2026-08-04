@@ -567,27 +567,40 @@ def roster(name, league=None, limit=60):
         # They are MARKED, and the marking matters more than the inclusion:
         # the rule everywhere on this product is that the absence is fair
         # game and the injury is not.
-        # OFF BY DEFAULT.
+        # INJURED PLAYERS, FROM HIGHLIGHTLY.
         #
-        # This pulls a 3MB league-wide document, and doing it on roster
-        # lookups was enough to get the server throttled by ESPN - which
-        # took down the team picker AND anything else that reads from them.
+        # ESPN only publishes injuries LEAGUE-WIDE - a 3MB document per
+        # league, fetched on a roster lookup, which is what got this server
+        # throttled for hours on 4 August.
         #
-        # A feature that can break the rest of the site is not worth having
-        # switched on until it is proven, so it needs INJURIES_ENABLED set
-        # in the environment. Everything else works exactly as before
-        # without it.
+        # Highlightly publishes them per team, so this is a small request
+        # rather than a large one, and it goes through the gate with its
+        # own budget. The ESPN path stays available behind
+        # INJURIES_ENABLED for anything Highlightly does not cover.
+        #
+        # THEY ARE MARKED, and the marking is the point: the rule
+        # everywhere on this product is that the absence is fair game and
+        # the injury is not.
         try:
-            if os.environ.get("INJURIES_ENABLED", "").lower() not in (
+            from services import highlightly
+            if highlightly.enabled():
+                for row in highlightly.team_injuries(t["league"],
+                                                     t.get("nick") or name):
+                    nm = row.get("name")
+                    if not nm or nm.lower() in seen:
+                        continue
+                    seen.add(nm.lower())
+                    clean.append({"name": nm, "position": row.get("position"),
+                                  "number": row.get("jersey"), "injured": True})
+            elif os.environ.get("INJURIES_ENABLED", "").lower() in (
                     "1", "true", "yes"):
-                raise RuntimeError("injuries lookup is off (INJURIES_ENABLED)")
-            for row in _league_injuries(t["league"]).get(str(t["id"]), []):
-                nm = row.get("name")
-                if not nm or nm.lower() in seen:
-                    continue
-                seen.add(nm.lower())
-                clean.append({"name": nm, "position": row.get("position"),
-                              "number": row.get("number"), "injured": True})
+                for row in _league_injuries(t["league"]).get(str(t["id"]), []):
+                    nm = row.get("name")
+                    if not nm or nm.lower() in seen:
+                        continue
+                    seen.add(nm.lower())
+                    clean.append({"name": nm, "position": row.get("position"),
+                                  "number": row.get("number"), "injured": True})
         except Exception as e:
             print(f"[roster] no injury list for {t.get('nick')}: {e}",
                   flush=True)

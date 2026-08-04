@@ -416,7 +416,22 @@ def roast_facts(sport, match_id, loser_nick):
             out.append(f"their leading rusher was {best[0]} with "
                        f"{best[1]} yards on {best[2]} carries")
 
-    return out[:4]
+    # WHO WAS MISSING, appended to the same fact list.
+    #
+    # This reaches every generator that uses roast_facts - the daily show,
+    # Locked & Loaded and the roast detail inside calls - rather than only
+    # the send page picker.
+    #
+    # Phrased as ABSENCE, never injury. A writer handed "Sam Howell did not
+    # play for them" has no reason to reach for why, and the rules in the
+    # character doc and every prompt say plainly that the injury is never
+    # the joke.
+    try:
+        out.extend(missing_men(sport, match_id, loser_nick, limit=1))
+    except Exception:
+        pass
+
+    return out[:5]
 
 
 def board(sport, date_str=None):
@@ -511,3 +526,104 @@ def board(sport, date_str=None):
     order = {"in": 0, "pre": 1, "post": 2}
     out.sort(key=lambda g: (order.get(g["state"], 3), g.get("start") or ""))
     return out
+
+
+def injuries(sport, match_id):
+    """
+    Who was unavailable, from the match detail.
+
+    ESPN only publishes injuries LEAGUE-WIDE - a 3MB document per league,
+    which is what got this server throttled. Highlightly puts them inside
+    the match itself, so they arrive with data already being fetched and
+    cost nothing extra.
+
+    THE RULE TRAVELS WITH THE NAME. Every generator is told the same thing:
+    the ABSENCE is fair game, the INJURY is not. A team that cannot cope
+    without one man is a joke; the man's body is not.
+    """
+    d = _get(sport, f"matches/{match_id}", ttl=600)
+    if not d:
+        return []
+    rows = d[0] if isinstance(d, list) and d else d
+    if not isinstance(rows, dict):
+        return []
+
+    out = []
+    for block in (rows.get("injuries") or []):
+        team = ((block.get("team") or {}).get("displayName")
+                or (block.get("team") or {}).get("name") or "")
+        for item in (block.get("data") or block.get("injuries") or []):
+            p = (item or {}).get("player") or item or {}
+            nm = p.get("name") or p.get("displayName")
+            if not nm:
+                continue
+            out.append({"name": nm, "team": team,
+                        "position": p.get("position"),
+                        "jersey": p.get("jersey")})
+    return out
+
+
+def missing_men(sport, match_id, loser_nick, limit=2):
+    """
+    Sentences about who the LOSING side was without, for any generator.
+
+    Deliberately phrased as absence rather than injury, so a writer given
+    these has no reason to reach for the injury itself.
+    """
+    try:
+        rows = injuries(sport, match_id)
+    except Exception:
+        return []
+    want = (loser_nick or "").split()[-1].lower()
+    theirs = [r for r in rows if want and want in (r.get("team") or "").lower()]
+    if not theirs:
+        return []
+
+    out = []
+    for r in theirs[:limit]:
+        pos = f" ({r['position']})" if r.get("position") else ""
+        out.append(f"{r['name']}{pos} did not play for them")
+    if len(theirs) > limit:
+        out.append(f"they were missing {len(theirs)} players in total")
+    return out
+
+
+def team_injuries(sport, team_name, limit=20):
+    """
+    Who is currently unavailable for one team, for the name picker.
+
+    Found through today's or yesterday's fixtures rather than a separate
+    endpoint, because the match detail already carries them - so this
+    reuses a request that is usually cached rather than making a new kind.
+
+    Returns [] when the team is not playing, which is the honest answer:
+    an injury list is only knowable here from a game they appear in.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    want = (team_name or "").split()[-1].lower()
+    if not want:
+        return []
+
+    for off in (0, 1):
+        day = (_dt.utcnow() - _td(days=off)).strftime("%Y-%m-%d")
+        cfg = LEAGUES.get(sport)
+        if not cfg:
+            return []
+        league_name, param = cfg
+        d = _get(sport, "matches", {param: league_name, "date": day,
+                                    "limit": 100}, ttl=600)
+        if not d:
+            continue
+        rows = d.get("data") if isinstance(d, dict) else d
+        for m in (rows or []):
+            names = {
+                ((m.get("homeTeam") or {}).get("displayName") or "").split()[-1].lower(),
+                ((m.get("awayTeam") or {}).get("displayName") or "").split()[-1].lower(),
+            }
+            if want not in names:
+                continue
+            hits = [r for r in injuries(sport, m.get("id"))
+                    if want in (r.get("team") or "").lower()]
+            if hits:
+                return hits[:limit]
+    return []
