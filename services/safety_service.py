@@ -127,7 +127,7 @@ def recent(limit=100, only_unreviewed=False):
     rows = q.limit(min(limit, 300)).all()
     return [{
         "id": r.id,
-        "when": r.created_at.isoformat() if r.created_at else None,
+        "when": (utc_iso(r.created_at) or None),
         "surface": r.surface,
         "stage": r.stage,
         "user_id": r.user_id,
@@ -160,3 +160,26 @@ def summary(days=7):
         "by_surface": by_surface,
         "by_stage": by_stage,
     }
+
+def utc_iso(dt):
+    """
+    A timestamp the browser will read correctly.
+
+    Everything here stores UTC via datetime.utcnow(), which produces a
+    NAIVE datetime - no timezone attached. isoformat() on that gives a
+    string with no marker, and JavaScript reads a marker-less timestamp as
+    LOCAL time.
+
+    So a smack sent at 7:36pm in Florida was stored as 23:36 UTC and shown
+    as 11:36pm. Four hours out, and out by a different amount per user.
+
+    The Z says "this is UTC" and every browser converts it correctly.
+    """
+    if not dt:
+        return None
+    try:
+        if dt.tzinfo is None:
+            return dt.isoformat() + "Z"
+        return dt.isoformat()
+    except AttributeError:
+        return None

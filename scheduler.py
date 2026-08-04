@@ -46,7 +46,11 @@ def shadow_compare_sources():
         return
 
     # Yesterday in Eastern - the same window the daily show uses.
-    day = (_dt.utcnow() - _td(hours=10)).strftime("%Y-%m-%d")
+    # Yesterday in Eastern - the window the daily show uses. Ten hours back
+    # from UTC was a rough approximation of the same thing; this is the
+    # actual answer and it does not drift with the seasons.
+    from services import highlightly as _hl
+    day = _hl.sport_day(1)
 
     for sport in ("mlb", "nfl", "nhl"):
         mine = {}
@@ -140,7 +144,8 @@ def check_armed_smackagrams():
                             if x.game_id == game_id and x.sport == sport), None)
             if _sample and _sample.home_team and _sample.away_team:
                 for _off in (0, 1):
-                    _day = (_dt.utcnow() - _td(days=_off)).strftime("%Y-%m-%d")
+                    from services import highlightly as _hl2
+                    _day = _hl2.sport_day(_off)
                     _hit = results_store.lookup(sport, _day,
                                                 _sample.home_team,
                                                 _sample.away_team)

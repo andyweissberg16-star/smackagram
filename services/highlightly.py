@@ -75,6 +75,28 @@ _cache = {}
 _stats = {"sent": 0, "errors": 0, "cached": 0}
 
 
+def sport_day(days_back=0):
+    """
+    Today, in the timezone American sport actually runs on.
+
+    UTC rolls over at 8pm Eastern. Anything asking "what happened today"
+    in UTC gets TOMORROW for the whole evening - the busiest part of a
+    baseball night - which is how a board full of games came to say
+    "nothing on today".
+
+    Every date used to ask a provider about fixtures goes through this.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    try:
+        from zoneinfo import ZoneInfo
+        now = _dt.now(ZoneInfo("America/New_York"))
+    except Exception:
+        # No tzdata on the host. Five hours is Eastern in summer and an
+        # hour out in winter, which still beats being a day out.
+        now = _dt.utcnow() - _td(hours=5)
+    return (now - _td(days=days_back)).strftime("%Y-%m-%d")
+
+
 def enabled():
     """Off unless a key is set, so nothing changes until it is deliberate."""
     return bool(os.environ.get("HIGHLIGHTLY_KEY"))
@@ -453,8 +475,22 @@ def board(sport, date_str=None):
         return []
     league_name, param = cfg
 
+    # EASTERN, NOT UTC.
+    #
+    # UTC rolls over at 8pm Eastern, so from 8pm onwards the server thought
+    # it was tomorrow and asked for tomorrow's fixtures - which is why the
+    # board could say "nothing on today" during a full evening of baseball.
+    #
+    # American sport runs on American dates. ESPN's own scoreboard call
+    # already used Eastern for exactly this reason; this one did not.
     from datetime import datetime as _dt
-    date_str = date_str or _dt.utcnow().strftime("%Y-%m-%d")
+    try:
+        from zoneinfo import ZoneInfo
+        _now = _dt.now(ZoneInfo("America/New_York"))
+    except Exception:
+        from datetime import timedelta as _td
+        _now = _dt.utcnow() - _td(hours=5)
+    date_str = date_str or _now.strftime("%Y-%m-%d")
 
     d = _get(sport, "matches", {param: league_name, "date": date_str,
                                 "limit": 100}, ttl=30)
@@ -605,7 +641,7 @@ def team_injuries(sport, team_name, limit=20):
         return []
 
     for off in (0, 1):
-        day = (_dt.utcnow() - _td(days=off)).strftime("%Y-%m-%d")
+        day = sport_day(off)
         cfg = LEAGUES.get(sport)
         if not cfg:
             return []
@@ -660,7 +696,7 @@ def squad(sport, team_name, limit=60):
     for off in range(0, 5):
         if len(out) >= limit:
             break
-        day = (_dt.utcnow() - _td(days=off)).strftime("%Y-%m-%d")
+        day = sport_day(off)
         d = _get(sport, "matches", {param: league_name, "date": day,
                                     "limit": 100}, ttl=900)
         if not d:

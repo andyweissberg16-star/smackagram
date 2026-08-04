@@ -136,7 +136,7 @@ def customer_list(search: str = "", limit: int = 50) -> list[dict]:
             "lifetime_spend_cents": _cents(spent),
             "orders": Order.query.filter_by(user_id=u.id).count(),
             "is_admin": bool(u.is_admin),
-            "created_at": u.created_at.isoformat() if u.created_at else "",
+            "created_at": (utc_iso(u.created_at) or ""),
         })
     return out
 
@@ -183,7 +183,7 @@ def customer_detail(user_id: int) -> dict | None:
         "email": u.email,
         "phone": u.phone,
         "is_admin": bool(u.is_admin),
-        "created_at": u.created_at.isoformat() if u.created_at else "",
+        "created_at": (utc_iso(u.created_at) or ""),
         "balance_cents": u.balance_cents,
         "balance_smacks": u.balance_cents // 100,
         "lifetime_spend_cents": _cents(spent),
@@ -195,7 +195,7 @@ def customer_detail(user_id: int) -> dict | None:
             "type": t.transaction_type,
             "description": getattr(t, "description", "") or "",
             "balance_after_cents": t.balance_after_cents,
-            "created_at": t.created_at.isoformat() if t.created_at else "",
+            "created_at": (utc_iso(t.created_at) or ""),
         } for t in ledger],
 
         "orders": [{
@@ -206,14 +206,14 @@ def customer_detail(user_id: int) -> dict | None:
             "call_status": o.call_status,
             "recording_url": getattr(o, "recording_url", None),
             "audio_url": getattr(o, "audio_url", None),
-            "created_at": o.created_at.isoformat() if o.created_at else "",
+            "created_at": (utc_iso(o.created_at) or ""),
         } for o in orders],
 
         "armed": [{
             "id": s.id,
             "recipient_name": getattr(s, "recipient_name", "") or "",
                         "status": s.status,
-            "created_at": s.created_at.isoformat() if s.created_at else "",
+            "created_at": (utc_iso(s.created_at) or ""),
         } for s in armed],
 
         "smackcast": [{
@@ -222,7 +222,7 @@ def customer_detail(user_id: int) -> dict | None:
             "status": p.status,
             "league_slots": p.league_slots,
             "slots_used": getattr(p, "slots_used", 0),
-            "created_at": p.created_at.isoformat() if p.created_at else "",
+            "created_at": (utc_iso(p.created_at) or ""),
         } for p in purchases],
     }
 
@@ -289,3 +289,26 @@ def grant_smackcast(user_id: int, slots: int, note: str, by_admin: str) -> dict:
 
     print(f"[admin] {by_admin} granted {slots} smackcast slot(s) to user {u.id} ({u.email})")
     return {"ok": True, "purchase_id": p.id, "league_slots": slots}
+
+def utc_iso(dt):
+    """
+    A timestamp the browser will read correctly.
+
+    Everything here stores UTC via datetime.utcnow(), which produces a
+    NAIVE datetime - no timezone attached. isoformat() on that gives a
+    string with no marker, and JavaScript reads a marker-less timestamp as
+    LOCAL time.
+
+    So a smack sent at 7:36pm in Florida was stored as 23:36 UTC and shown
+    as 11:36pm. Four hours out, and out by a different amount per user.
+
+    The Z says "this is UTC" and every browser converts it correctly.
+    """
+    if not dt:
+        return None
+    try:
+        if dt.tzinfo is None:
+            return dt.isoformat() + "Z"
+        return dt.isoformat()
+    except AttributeError:
+        return None

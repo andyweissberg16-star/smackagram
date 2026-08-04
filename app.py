@@ -59,6 +59,33 @@ db.init_app(app)
 _LAST_SHADOW = 0.0
 
 
+def utc_iso(dt):
+    """
+    A timestamp the browser will read correctly.
+
+    THE BUG THIS FIXES: everything here stores UTC via datetime.utcnow(),
+    which produces a NAIVE datetime - no timezone attached. Calling
+    .isoformat() on it gives "2026-08-04T23:36:01" with no marker, and
+    JavaScript reads a marker-less timestamp as LOCAL time.
+
+    So a smack sent at 7:36pm in Florida was stored as 23:36 UTC and
+    displayed as 11:36pm. Four hours wrong, and wrong by a different
+    amount for every user.
+
+    Appending Z says "this is UTC", and every browser then converts it to
+    whatever the reader's clock says - which is what the Locker was always
+    trying to do.
+    """
+    if not dt:
+        return None
+    try:
+        if dt.tzinfo is None:
+            return dt.isoformat() + "Z"
+        return dt.isoformat()
+    except AttributeError:
+        return None
+
+
 def get_current_user():
     """Returns the logged-in User object, or None if nobody's logged in."""
     user_id = session.get("user_id")
@@ -626,7 +653,7 @@ def _execute_send_smack(user, data: dict) -> dict:
             return jsonify({
                 "success": True,
                 "order_id": order.id,
-                "scheduled_for": order.scheduled_for.isoformat(),
+                "scheduled_for": utc_iso(order.scheduled_for),
                 "message": "Locked in. It rings at the time you picked.",
             })
 
@@ -1561,7 +1588,7 @@ def api_locker():
             "audio_label": "Play the call" if has_call else "What Smacky said",
             "has_reaction": has_call,
             "share_token": o.share_token,
-            "created_at": o.created_at.isoformat() if o.created_at else None,
+            "created_at": utc_iso(o.created_at),
             "pending": False,
         })
 
@@ -1583,7 +1610,7 @@ def api_locker():
             "audio_label": "Play the call" if has_call else "What Smacky said",
             "has_reaction": has_call,
             "share_token": s.share_token,
-            "created_at": s.created_at.isoformat() if s.created_at else None,
+            "created_at": utc_iso(s.created_at),
             "pending": pending,
         })
 
@@ -1797,7 +1824,7 @@ def api_admin_pulse():
                 "kind": "smackagram",
                 "id": o.id,
                 "team": getattr(o, "team", None) or getattr(o, "target_team", None),
-                "when": o.created_at.isoformat() if o.created_at else None,
+                "when": utc_iso(o.created_at),
             })
 
     q2 = Smackagram.query.order_by(Smackagram.id.desc()).limit(20).all()
@@ -1808,7 +1835,7 @@ def api_admin_pulse():
                 "id": sm.id,
                 "team": getattr(sm, "target_team", None),
                 "status": getattr(sm, "status", None),
-                "when": sm.created_at.isoformat() if sm.created_at else None,
+                "when": utc_iso(sm.created_at),
             })
 
     return jsonify({
@@ -2271,12 +2298,12 @@ def conversation_data(reply_id):
         "original": {
             "message": original.custom_message,
             "audio_url": original.message_audio_url,
-            "created_at": original.created_at.isoformat(),
+            "created_at": utc_iso(original.created_at),
         },
         "reply": {
             "message": reply.custom_message,
             "audio_url": reply.message_audio_url,
-            "created_at": reply.created_at.isoformat(),
+            "created_at": utc_iso(reply.created_at),
         },
     })
 
@@ -2364,7 +2391,7 @@ def chat_posts():
         "message": p.message,
         "average_rating": p.average_rating,
         "rating_count": p.rating_count,
-        "created_at": p.created_at.isoformat(),
+        "created_at": utc_iso(p.created_at),
     } for p in posts])
 
 
@@ -2403,7 +2430,7 @@ def create_chat_post():
         "message": post.message,
         "average_rating": post.average_rating,
         "rating_count": post.rating_count,
-        "created_at": post.created_at.isoformat(),
+        "created_at": utc_iso(post.created_at),
     })
 
 
@@ -2540,7 +2567,7 @@ def _battle_state_json(battle):
         "max_rounds": battle.max_rounds,
         "status": battle.status,
         "current_turn": battle.current_turn,
-        "turn_started_at": battle.turn_started_at.isoformat() if battle.turn_started_at else None,
+        "turn_started_at": utc_iso(battle.turn_started_at),
         "round_number": battle.round_number,
         "display_name_a": battle.display_name_a,
         "team_a": battle.team_a,
@@ -2548,7 +2575,7 @@ def _battle_state_json(battle):
         "opponent_type": battle.opponent_type,
         "team_b": battle.team_b,
         "lines": [{"id": l.id, "side": l.side, "round": l.round_number,
-                    "message": l.message, "created_at": l.created_at.isoformat(),
+                    "message": l.message, "created_at": utc_iso(l.created_at),
                     "timed_out": l.timed_out,
                     "fire": reaction_counts.get(l.id, {}).get("fire", 0),
                     "ice": reaction_counts.get(l.id, {}).get("ice", 0)} for l in lines],
@@ -3661,7 +3688,7 @@ def admin_call_timings():
             .limit(50).all())
 
     out = [{
-        "when": t.dialed_at.isoformat() if t.dialed_at else None,
+        "when": utc_iso(t.dialed_at),
         "product": "Locked & Loaded" if t.record_type == "smackagram" else "Smackagram",
         "answered_by": t.answered_by,
         "status": t.call_status,
@@ -4271,7 +4298,7 @@ def check_if_smacked():
             "type": record_type,
             "id": record.id,
             "preview": preview,
-            "created_at": record.created_at.isoformat(),
+            "created_at": utc_iso(record.created_at),
             "replied": bool(record.replied),
         }
         if record.replied:
@@ -5498,7 +5525,7 @@ def admin_show_status():
         "id": s.id, "audio_url": s.audio_url, "date_label": s.date_label,
         "minutes": s.minutes, "game_count": s.game_count, "leagues": s.leagues,
         "best_line": s.best_line, "is_live": s.is_live,
-        "created_at": s.created_at.isoformat() if s.created_at else "",
+        "created_at": utc_iso(s.created_at) if s.created_at else "",
     } for s in shows]})
 
 
@@ -6070,7 +6097,7 @@ def api_admin_fill_players():
     report = {"league": league, "days": days, "teams": {}, "added": 0}
 
     for off in range(days):
-        day = (_dt.utcnow() - _td(days=off)).strftime("%Y-%m-%d")
+        day = highlightly.sport_day(off)
         d = highlightly._get(league, "matches",
                              {param: league_name, "date": day, "limit": 100},
                              ttl=900)
