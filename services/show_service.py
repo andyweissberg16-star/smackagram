@@ -555,11 +555,16 @@ def write_script(material: dict, only_league: str = None,
             mod = importlib.import_module(f"services.{LAYOUTS[_lg]}")
             _mine = [g for g in material["games"]
                      if (g.get("league") or "").upper() == _lg]
-            layout_block = mod.prompt_block(_mine, streaks=_streak_rows)
+            # The league is passed in so the streak segment can NAME it -
+            # every block has one, and without the name a listener hears
+            # "Winners & Whiners" twice and assumes the show repeated itself.
+            layout_block = mod.prompt_block(_mine, streaks=_streak_rows,
+                                            league=_lg)
             # Record what the layout actually allocated, so the length check
             # measures against the briefs the writer was given rather than the
             # planner's independent estimate.
-            _lay = mod.build(_mine, log=lambda m: None, streaks=_streak_rows)
+            _lay = mod.build(_mine, log=lambda m: None,
+                             streaks=_streak_rows, league=_lg)
             material.setdefault("_layout_budgets", {})[_lg] = sum(
                 x["words"] for x in _lay["slots"])
         except Exception as e:
@@ -1797,6 +1802,37 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
         if _tnt:
             log(f"\"that's not a...\" construction used {_tnt} time(s)")
         _flag_repeats(segments, log)
+
+        # THE SAFETY FILTER, on the show too.
+        #
+        # This is the one thing from the call generators worth adding here,
+        # and it cannot disrupt the writing because it only acts when
+        # something is actually wrong.
+        #
+        # The show arguably needs it MORE than a call does: a Smackagram
+        # goes to one person who chose to receive it, while the Daily Smack
+        # is published to everybody and nobody reviews it before it airs.
+        #
+        # The PLAYBOOK is deliberately NOT added - the show already has its
+        # own seventeen-situation bank, richer for baseball than the
+        # playbook is, and two systems answering "what do I say about a
+        # collapse" would fight each other.
+        try:
+            from services import fast_filter
+            for _seg in segments:
+                _v = fast_filter.check(_seg.get("text") or "")
+                if not _v["ok"]:
+                    log(f"SAFETY: a segment was blocked ({_v['category']}) - "
+                        f"cutting it rather than airing it")
+                    _seg["text"] = ""
+                    _seg["display_text"] = ""
+                elif _v.get("restyled"):
+                    _seg["text"] = _v["text"]
+            # A blocked segment leaves an empty one behind, which would be
+            # silence in the middle of the show.
+            segments[:] = [x for x in segments if (x.get("text") or "").strip()]
+        except Exception as e:
+            log(f"safety filter unavailable: {e}")
         if _tnt > TNT_MAX_PER_EPISODE:
             _capped = _cap_construction(segments, TNT_MAX_PER_EPISODE)
             log(f"capped it to {TNT_MAX_PER_EPISODE} - rewrote {_capped}")

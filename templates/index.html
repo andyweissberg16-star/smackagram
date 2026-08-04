@@ -716,6 +716,11 @@
   /* LOCKED and LOADED in the silver its own generator uses; the ampersand
      stays red. */
   .prod--locked h2{color:var(--silver,#C3CAD3);}
+  /* The ampersand was inheriting the house red from .t2, so the card read
+     "Locked & Loaded" with a red & in the middle of two silver words.
+     Locked & Loaded is silver THROUGHOUT - that separation from the red is
+     the whole point of it having its own colour. */
+  .prod--locked h2 .t2{color:var(--silver,#C3CAD3);}
 
   /* All three on one timer with no delay on any of them, so they move as a
      single beat rather than three cards running at their own pace. */
@@ -880,7 +885,7 @@
 
     <div class="prod prod--cast">
       <h2>Smack<span class="t2">cast</span></h2>
-      <p class="prod-price"><span class="prod-word">Just</span><span class="big">$39.99</span><span class="prod-word">a season!</span></p>
+      <p class="prod-price"><span class="prod-word">Just</span><span class="big wm-price">$39<i>.99</i></span><span class="prod-word">a season!</span></p>
       {# The only line on the page that turns 39.99 from a real price into a
          trivial one, and it is true. #}
       <span class="prod-ctx">SPLIT TWELVE WAYS THAT&rsquo;S $3 EACH</span>

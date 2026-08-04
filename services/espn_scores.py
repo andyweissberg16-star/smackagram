@@ -302,6 +302,20 @@ def fetch_game_detail(league: str, event_id: str) -> dict:
     if lg == "nhl":
         out["nhl"] = nhl_detail(d, loser_team, win_team)
 
+    # THE RAW BOX SCORE, KEPT.
+    #
+    # Everything above is PROCESSED - pitchers, bad nights, top-order
+    # collapses. Useful, but there is no hitters list for baseball, so the
+    # Smack Ball and the Clown Show had nothing to pick from and the layout
+    # quietly fell back to a generic player slot. A real show ran with seven
+    # slots instead of nine and nobody would have known why.
+    #
+    # Keeping the raw block lets the award pickers read what they need
+    # without a second fetch. Roughly a couple of hundred KB per game -
+    # against a show that peaks near 250MB, that is noise.
+    if d.get("boxscore"):
+        out["boxscore"] = d["boxscore"]
+
     if lg in ("nfl", "ncaaf"):
         out["stakes"] = game_stakes(d, lg, loser_team)
         win_team = (out.get("winner") or {}).get("team")

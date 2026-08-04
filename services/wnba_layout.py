@@ -154,7 +154,7 @@ def pick_award_title(day=None):
     return order[d.toordinal() % len(order)]
 
 
-def build(games: list, log=print, streaks=None) -> dict:
+def build(games: list, log=print, streaks=None, league="WNBA") -> dict:
     """
     Assign every game to a slot. No sweep - the slate is small enough that
     everything gets covered properly.
@@ -245,7 +245,14 @@ def build(games: list, log=print, streaks=None) -> dict:
                          for x in streaks[:3])
         slots.append({
             "slot": "winners_and_whiners", "words": streak_w, "games": [],
-            "brief": f"WINNERS & WHINERS - fifteen seconds.\n    {rows}.\n"
+            # The league is named out loud because every block has one of
+            # these - a real show introduced "Winners & Whiners" twice and
+            # it sounded like it had forgotten the first.
+            "brief": f"THE {league.upper()} WINNERS & WHINERS - fifteen "
+                     "seconds.\n"
+                     f"    SAY THE LEAGUE IN THE TITLE: \"the "
+                     f"{league.upper()} Winners and Whiners\".\n"
+                     f"    {rows}.\n"
                      "    Rattle them off and move on. Do not explain a "
                      "losing run."})
 
@@ -279,8 +286,8 @@ SAFE, because the box score supports them:
   - a losing streak of N"""
 
 
-def prompt_block(games: list, log=print, streaks=None) -> str:
-    lay = build(games, log=log, streaks=streaks)
+def prompt_block(games: list, log=print, streaks=None, league="WNBA") -> str:
+    lay = build(games, log=log, streaks=streaks, league=league)
     rows = []
     for sl in lay["slots"]:
         names = "; ".join(
@@ -292,8 +299,15 @@ def prompt_block(games: list, log=print, streaks=None) -> str:
                     f"    {sl['brief']}\n"
                     + (f"    THE GAME: {names}\n" if names else ""))
 
-    return ("YOUR RUNNING ORDER. These slots are fixed and every game appears "
-            "in exactly ONE of them. Write them in this order. Do not add, "
-            "merge, reorder or skip a slot, and do not say the slot names "
-            "aloud.\n\n"
+    total = sum(sl["words"] for sl in lay["slots"])
+    n = len(lay["slots"])
+    return (f"YOUR RUNNING ORDER - {n} SEGMENTS, ABOUT {total} WORDS IN "
+            "TOTAL.\n\n"
+            f"ONE SEGMENT PER SLOT. {n} slots means {n} segments - a real "
+            "episode wrote three for five and the block felt thin.\n\n"
+            "THE WORD COUNTS ARE THE BUDGET. A real episode came in 60% over "
+            "and got trimmed afterwards, and trimming cuts from the END.\n\n"
+            "Every game appears in exactly ONE slot. Write them in this "
+            "order. Do not add, merge, reorder or skip a slot, and do not "
+            "say the slot names aloud.\n\n"
             + "\n".join(rows) + "\n" + FORBIDDEN + "\n\n")

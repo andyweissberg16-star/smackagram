@@ -356,7 +356,7 @@ def pick_players(games: list) -> dict:
 # The layout
 # ---------------------------------------------------------------------------
 
-def build(games: list, log=print, streaks=None) -> dict:
+def build(games: list, log=print, streaks=None, league="MLB") -> dict:
     """
     Assign every game to exactly one slot, and hand each slot its words.
 
@@ -492,6 +492,49 @@ def build(games: list, log=print, streaks=None) -> dict:
     # celebration then a demolition.
     pl = pick_players([r["game"] for r in reads])
 
+    # SECOND ROUTE TO EVERY AWARD.
+    #
+    # The awards must be there EVERY DAY. A show that has them on Tuesday
+    # and not Wednesday has no signature - and this morning they vanished
+    # entirely, because the pickers read a raw box score that
+    # fetch_game_detail was not keeping. Nobody would have known why.
+    #
+    # So there are now two routes to each one. The box score is the good
+    # route, with real numbers. These are the fallback, built from data
+    # fetch_game_detail ALREADY extracts and has extracted all along:
+    # losing_pitcher, pitchers, bad_nights.
+    #
+    # A named player with a thinner line beats no award at all.
+    def _fallback_players(gs):
+        best = worst = None
+        cook = None
+        for g in gs:
+            d = g.get("_detail") or {}
+            # Worst: the pitcher who wore the defeat.
+            lp = d.get("losing_pitcher") or {}
+            if lp.get("name") and lp.get("earned") is not None:
+                score = (lp.get("earned") or 0)
+                if worst is None or score > worst.get("_score", -1):
+                    worst = {"name": lp["name"],
+                             "team": (d.get("loser") or {}).get("team"),
+                             "detail": f"gave up {lp['earned']} earned in "
+                                       f"{lp.get('innings') or 'his outing'}",
+                             "_score": score}
+            # Cooker: the winning starter.
+            pit = (d.get("pitchers") or {}).get("winning_side") or []
+            for p in pit:
+                if not p.get("starter") or not p.get("name"):
+                    continue
+                sc = (p.get("strikeouts") or 0) * 2 - (p.get("earned") or 0) * 3
+                if cook is None or sc > cook.get("_score", -99):
+                    cook = {**p, "_score": sc, "game": g,
+                            "against": g.get("loser"),
+                            "team": (d.get("winner") or {}).get("team")}
+            # Best: nothing in the extracted data names a hitter, so the
+            # Smack Ball has no fallback. Flagged rather than faked - an
+            # award given to nobody is worse than one that did not run.
+        return best, cook, worst
+
     # THE THREE AWARDS - the podium.
     #
     # Every one is branded: "Smackagram's [title] goes to..." That puts the
@@ -500,8 +543,25 @@ def build(games: list, log=print, streaks=None) -> dict:
     # The presentation VERB is varied here in code, not requested in the
     # prompt. A prompt-level "vary this" has been ignored three times on this
     # project; the same lesson as the caps.
-    pl = pick_players([r["game"] for r in reads])
-    cooker = pick_cooker([r["game"] for r in reads])
+    _gs = [r["game"] for r in reads]
+    pl = pick_players(_gs)
+    cooker = pick_cooker(_gs)
+
+    # If the good route found nobody, try the other one before giving up.
+    if not (pl.get("best") and pl.get("worst") and cooker):
+        _fb, _fc, _fw = _fallback_players(_gs)
+        if not pl.get("worst") and _fw:
+            pl["worst"] = _fw
+            log("clown show: box score empty, used the losing pitcher")
+        if not cooker and _fc:
+            cooker = _fc
+            log("certified cooker: box score empty, used the winning starter")
+        if not pl.get("best"):
+            # No hitter data exists outside the box score, so this one
+            # genuinely cannot run. Say so loudly rather than quietly
+            # producing an eight-slot show and leaving it a mystery.
+            log("SMACK BALL SKIPPED - no hitter data. Check that "
+                "fetch_game_detail is returning a boxscore.")
     award_w = max(38, int(player_w * 0.34))
 
     if pl.get("best"):
@@ -579,7 +639,22 @@ def build(games: list, log=print, streaks=None) -> dict:
                          for x in streaks[:3])
         slots.append({
             "slot": "winners_and_whiners", "words": 29, "games": [],
-            "brief": "WINNERS & WHINERS - fifteen seconds, no more.\n"
+            # NAME THE LEAGUE OUT LOUD.
+            #
+            # Every league block carries its own streak slot, so a real show
+            # introduced "Winners & Whiners" twice - once in baseball, again
+            # when the WNBA started. Different streaks, same segment name,
+            # and it sounded like the show had forgotten it already did it.
+            #
+            # Saying "the MLB Winners and Whiners" makes the second one a
+            # different segment rather than a repeat, and a listener knows
+            # instantly which league they are hearing about.
+            "brief": f"THE {league.upper()} WINNERS & WHINERS - fifteen "
+                     "seconds, no more.\n"
+                     f"    SAY THE LEAGUE IN THE TITLE: \"the "
+                     f"{league.upper()} Winners and Whiners\". Every league "
+                     "has its own, so the name is what tells a listener "
+                     "which one this is.\n"
                      f"    {rows}.\n"
                      "    Rattle them off. One line each at most, one shared "
                      "joke at the end if there is room. Do NOT explain a "
@@ -625,9 +700,10 @@ SAFE, because the box score supports them:
   - they are on a losing streak of N"""
 
 
-def prompt_block(games: list, log=print, streaks=None) -> str:
+def prompt_block(games: list, log=print, streaks=None,
+                 league="MLB") -> str:
     """The whole running order, ready to drop into the writer's prompt."""
-    lay = build(games, log=log, streaks=streaks)
+    lay = build(games, log=log, streaks=streaks, league=league)
     rows = []
     for sl in lay["slots"]:
         names = "; ".join(
@@ -639,10 +715,21 @@ def prompt_block(games: list, log=print, streaks=None) -> str:
                     f"    {sl['brief']}\n"
                     + (f"    THE GAME: {names}\n" if names else ""))
 
-    return ("YOUR RUNNING ORDER. These slots are fixed and every game appears "
-            "in exactly ONE of them. Write them in this order. Do not add, "
-            "merge, reorder or skip a slot, and do not announce the slot "
-            "names out loud - they are structure, not headings.\n\n"
+    total = sum(sl["words"] for sl in lay["slots"])
+    n = len(lay["slots"])
+    return (f"YOUR RUNNING ORDER - {n} SEGMENTS, ABOUT {total} WORDS IN "
+            "TOTAL.\n\n"
+            "ONE SEGMENT PER SLOT. Not five segments covering seven slots - "
+            f"{n} slots means {n} segments. A real episode merged two of "
+            "these and the show lost a beat nobody could point at.\n\n"
+            "THE WORD COUNTS ARE THE BUDGET, not a suggestion. A real "
+            "episode came in 68% over and had to be trimmed after the fact, "
+            "which cuts from the END - so the last segment written is the "
+            "one that disappears.\n\n"
+            "Every game appears in exactly ONE slot. Write them in this "
+            "order. Do not add, merge, reorder or skip a slot, and do not "
+            "announce the slot names out loud - they are structure, not "
+            "headings.\n\n"
             + "\n".join(rows) + "\n" + FORBIDDEN + "\n\n")
 
 

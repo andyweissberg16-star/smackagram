@@ -15,6 +15,9 @@
   --flare-dim:#3A0810;
   --turf:#39FF6A;
   --gold:#FFD400;
+  /* Silver was defined page-by-page, so a page that forgot it got nothing.
+     It belongs here with the rest of the palette. */
+  --silver:#C3CAD3;
   --cyan:#F5F5F3;
   --line:rgba(245,245,243,0.10);
   --line-strong:rgba(245,245,243,0.24);
@@ -818,3 +821,33 @@ body.smk-plain::after{display:none;}
 @media(max-width:640px){
   .smk-price-stamp{font-size:20px;}
 }
+
+
+/* ---------------------------------------------------------------------------
+   THE WORDMARKS.
+   
+   These three names are always coloured the same way, everywhere they
+   appear - a brand that is two-tone on the homepage and flat white in the
+   nav is not a brand, it is a homepage.
+   
+   Written once here rather than repeated in every template, so changing the
+   red later is one edit rather than forty.
+   
+   Usage:
+     <span class="wm-smackagram">Smack<i>agram</i></span>
+     <span class="wm-locked">Locked &amp; Loaded</span>
+     <span class="wm-price">$39<i>.99</i></span>
+   
+   The <i> carries no italics - it is just the shortest tag that survives
+   being dropped inside a heading without changing the layout.
+--------------------------------------------------------------------------- */
+.wm-smackagram{color:var(--chalk); font-style:normal;}
+.wm-smackagram i{color:var(--flare); font-style:normal;}
+
+/* Locked & Loaded is silver throughout - the ampersand too. It is the
+   product that is NOT the house red, and that separation is the point. */
+.wm-locked{color:var(--silver); font-style:normal;}
+.wm-locked i{color:var(--silver); font-style:normal;}
+
+/* The decimals carry the price, so they carry the colour. */
+.wm-price i{color:var(--flare); font-style:normal;}
