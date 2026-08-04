@@ -660,7 +660,7 @@ def create_order():
         # happened.
         safety_service.record(
             "send-a-smack", "input", safety,
-            user_id=getattr(current_user, "id", None))
+            user_id=getattr(get_current_user(), "id", None))
         print(f"[safety] blocked order attempt - {safety.get('category','?')}: "
               f"{(safety.get('excerpt') or safety.get('reason') or '')[:90]}")
         return jsonify({
@@ -970,7 +970,7 @@ def generate_trash_talk():
                          "reason": "blocked by the local filter before the "
                                    "model check",
                          "excerpt": quick["excerpt"]},
-                        user_id=getattr(current_user, "id", None))
+                        user_id=getattr(get_current_user(), "id", None))
                 except Exception:
                     pass
                 continue          # regenerate, do not send
@@ -1008,7 +1008,7 @@ def generate_trash_talk():
         # a box, and it alerts immediately rather than waiting for a burst.
         safety_service.record(
             "generator", "generated", verdict,
-            user_id=getattr(current_user, "id", None))
+            user_id=getattr(get_current_user(), "id", None))
         print(f"[safety] self-generated line failed moderation (attempt {attempt + 1}): {last_reason}")
 
     if line is None:
@@ -1171,7 +1171,10 @@ def _anon_allowance(bucket, what="that"):
     Buckets are separate per generator, so trying one thing does not
     silently lock another.
     """
-    if getattr(current_user, "is_authenticated", False):
+    # This app does NOT use Flask-Login. It has its own get_current_user()
+    # reading the session, and I wrote current_user out of habit - which
+    # crashed every generate request with a NameError.
+    if get_current_user() is not None:
         return None
     ident = request.headers.get("X-Forwarded-For", request.remote_addr)
     cap = rate_limiter.MAX_ANON_PER_HOUR.get(bucket, 1)
@@ -1214,7 +1217,7 @@ def preview_audio():
     safety = content_moderation.check_message_safety(text)
     if not safety["safe"]:
         safety_service.record("preview", "input", safety,
-                              user_id=getattr(current_user, "id", None))
+                              user_id=getattr(get_current_user(), "id", None))
         print(f"[safety] blocked preview - {safety.get('category','?')}: "
               f"{(safety.get('excerpt') or safety.get('reason') or '')[:90]}")
         return jsonify({"error": _moderation_error_text(safety), "reason": safety.get("reason"), "excerpt": safety.get("excerpt", ""), "category": safety.get("category", ""), "retryable": not safety.get("available", True)}), (503 if not safety.get("available", True) else 400)
@@ -1661,7 +1664,7 @@ def _count_page_view(response):
                 and not request.path.startswith(("/static", "/api"))):
             analytics_service.record(
                 request,
-                is_logged_in=bool(getattr(current_user, "is_authenticated", False)))
+                is_logged_in=get_current_user() is not None)
     except Exception:
         pass
     return response
