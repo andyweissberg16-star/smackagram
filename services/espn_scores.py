@@ -2392,3 +2392,77 @@ def _team_quip_pool(bucket, loser_nick):
     if not nick or len(nick) > 16:      # long names wrap and ruin the card
         return []
     return [q.replace("{t}", nick) for q in _TEAM_QUIPS.get(bucket, [])]
+
+
+def game_result(league: str, event_id: str) -> dict | None:
+    """
+    Who won, from ESPN, for one specific game.
+
+    Locked & Loaded has been deciding this from SportsDataIO, whose free tier
+    scrambles scores by roughly 2.5x. The winner survived that - which is why
+    it worked at all - but "who lost" surviving a scrambled score is luck, not
+    a guarantee, and this is the one place on the site where getting it wrong
+    costs somebody real money and needs a refund.
+
+    ESPN is already used for the roast facts on the very same call. It should
+    decide the outcome too.
+
+    Returns None while the game is unfinished, so the caller keeps polling.
+    """
+    import json as _json
+    from urllib.request import Request, urlopen
+
+    cfg = LEAGUE_PATHS.get((league or "").lower())
+    if not cfg or not event_id:
+        return None
+    sport_path, league_path = cfg[0], cfg[1]
+
+    url = (f"{BASE}/{sport_path}/{league_path}/summary?event={event_id}")
+    try:
+        req = Request(url, headers={"User-Agent": "smackagram/1.0"})
+        with urlopen(req, timeout=12) as r:
+            d = _json.loads(r.read().decode())
+    except Exception as e:
+        print(f"[espn] result lookup failed for {event_id}: {e}", flush=True)
+        return None
+
+    comp = (((d.get("header") or {}).get("competitions") or [{}])[0])
+    status = (((comp.get("status") or {}).get("type") or {}))
+    state = (status.get("state") or "").lower()
+
+    if status.get("name", "").upper() in ("STATUS_POSTPONED", "STATUS_CANCELED"):
+        return {"status": "postponed"}
+    if state != "post" or not status.get("completed"):
+        return None                     # still going - poll again
+
+    sides = comp.get("competitors") or []
+    if len(sides) != 2:
+        return None
+
+    def name(c):
+        t = c.get("team") or {}
+        return t.get("name") or t.get("shortDisplayName") or t.get("displayName") or ""
+
+    try:
+        a, b = sides[0], sides[1]
+        sa, sb = int(a.get("score")), int(b.get("score"))
+    except (TypeError, ValueError):
+        return None
+
+    if sa == sb:
+        return {"status": "tie"}
+
+    win, lose = (a, b) if sa > sb else (b, a)
+    home = next((c for c in sides if c.get("homeAway") == "home"), sides[0])
+    away = next((c for c in sides if c.get("homeAway") == "away"), sides[1])
+
+    return {
+        "status": "final",
+        "winner": name(win),
+        "loser": name(lose),
+        "home_team": name(home),
+        "away_team": name(away),
+        "home_score": int(home.get("score") or 0),
+        "away_score": int(away.get("score") or 0),
+        "source": "espn",
+    }

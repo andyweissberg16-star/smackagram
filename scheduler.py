@@ -45,6 +45,49 @@ def check_armed_smackagrams():
 
     for game_id, sport in keys:
         result = sports_service.get_game_result(game_id, sport=sport)
+
+        # ESPN DECIDES THE OUTCOME.
+        #
+        # SportsDataIO's free tier scrambles scores by roughly 2.5x. The
+        # WINNER survived that, which is why this worked at all - but "who
+        # lost" surviving a scrambled score is luck rather than a guarantee,
+        # and this is the one place on the site where being wrong costs
+        # somebody real money and needs a refund.
+        #
+        # ESPN already supplies the roast facts on the very same call, so it
+        # should decide the result too. Both are run and any disagreement is
+        # logged - but ESPN wins.
+        try:
+            _sample = next((x for x in armed
+                            if x.game_id == game_id and x.sport == sport), None)
+            _eid = getattr(_sample, "espn_event_id", None) if _sample else None
+            if not _eid and _sample:
+                _eid = espn_scores.find_event_id(
+                    sport, _sample.home_team, _sample.away_team)
+                if _eid:
+                    _sample.espn_event_id = _eid
+                    db.session.commit()
+            if _eid:
+                _espn = espn_scores.game_result(sport, _eid)
+                if _espn:
+                    if (result and result.get("loser") and _espn.get("loser")
+                            and result["loser"] != _espn["loser"]):
+                        print(f"[locked] DISAGREEMENT on {game_id}: "
+                              f"sportsdata says {result['loser']} lost, "
+                              f"ESPN says {_espn['loser']}. Using ESPN.",
+                              flush=True)
+                    result = _espn
+                elif result:
+                    # ESPN not final yet. Hold rather than fire on a source
+                    # we do not trust - a call that goes out early cannot be
+                    # taken back.
+                    print(f"[locked] {game_id}: ESPN not final yet, holding",
+                          flush=True)
+                    result = None
+        except Exception as e:
+            print(f"[locked] ESPN check failed for {game_id}, using "
+                  f"sportsdata: {e}", flush=True)
+
         if result is None:
             continue  # game still in progress, check again next run
 
