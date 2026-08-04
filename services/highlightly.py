@@ -718,3 +718,66 @@ def squad(sport, team_name, limit=60):
             break   # one match per day is enough
 
     return out[:limit]
+
+
+def search_players(sport, query, limit=12):
+    """
+    Find players by name, from the whole player database.
+
+    THIS IS THE ANSWER TO AARON JUDGE.
+
+    There is no roster endpoint - their Teams routes give team info, and
+    squads can only be reconstructed from match team sheets, which by
+    definition contain only players who were available. Somebody on the
+    injured list appears in no team sheet anywhere.
+
+    But /players is a search across EVERY player they know, whether he is
+    playing tonight or has been out since June. So the picker stops asking
+    "who is on this team" - a question the data cannot answer completely -
+    and asks "who is called this", which it answers fully.
+
+    Their profile carries the team, so the results can still be filtered to
+    the club somebody is smacking.
+    """
+    q = (query or "").strip()
+    if len(q) < 2:
+        return []
+    d = _get(sport, "players", {"name": q, "limit": limit}, ttl=3600)
+    if not d:
+        return []
+    rows = d.get("data") if isinstance(d, dict) else d
+    out = []
+    for p in (rows or []):
+        nm = p.get("fullName") or p.get("name")
+        if nm:
+            out.append({"id": p.get("id"), "name": nm})
+    return out[:limit]
+
+
+def player_profile(sport, player_id):
+    """
+    One player's team, position and whether he is active.
+
+    Used to check a searched name actually plays for the team being
+    smacked - and "isActive" is the closest thing to an injury flag this
+    API offers.
+    """
+    d = _get(sport, f"players/{player_id}", ttl=86400)
+    if not d:
+        return None
+    row = d[0] if isinstance(d, list) and d else d
+    if not isinstance(row, dict):
+        return None
+    prof = row.get("profile") or {}
+    team = prof.get("team") or {}
+    pos = prof.get("position") or {}
+    return {
+        "id": row.get("id"),
+        "name": row.get("fullName") or prof.get("fullName"),
+        "team": team.get("displayName") or team.get("name"),
+        "team_id": team.get("id"),
+        "league": team.get("league"),
+        "position": pos.get("main") or pos.get("abbreviation"),
+        "jersey": prof.get("jersey"),
+        "active": prof.get("isActive"),
+    }

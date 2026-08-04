@@ -5952,6 +5952,82 @@ with app.app_context():
 
 
 
+@app.route("/api/player-search")
+def api_player_search():
+    """
+    Find a player by name, whether or not he is currently playing.
+
+    THIS IS WHY AARON JUDGE WAS MISSING.
+
+    The picker was filtering a SQUAD - a list reconstructed from match team
+    sheets. A team sheet only contains players who were available, so
+    anybody on the injured list appears in none of them, anywhere. No
+    amount of fetching squads was ever going to find him.
+
+    This searches the whole player database instead. The question changes
+    from "who is on this team", which the data cannot answer completely, to
+    "who is called this", which it answers fully.
+
+    Results are filtered to the team being smacked, and stored so the next
+    search for the same name needs no request at all.
+    """
+    q = (request.args.get("q") or "").strip()
+    team = (request.args.get("team") or "").strip()
+    if len(q) < 2:
+        return jsonify({"players": []})
+
+    league = (request.args.get("league") or "").lower()
+    if not league and team:
+        try:
+            from services import team_state
+            t = team_state.find_team(team)
+            if t:
+                league = t.get("league") or ""
+        except Exception:
+            pass
+    league = league or "mlb"
+
+    # THE DATABASE FIRST. A name searched once is a name we keep.
+    try:
+        from services import player_store
+        if team:
+            local = [p for p in player_store.squad(league, team)
+                     if q.lower() in p["name"].lower()]
+            if local:
+                return jsonify({"players": local[:12], "source": "stored"})
+    except Exception as e:
+        print(f"[search] store lookup failed: {e}", flush=True)
+
+    out = []
+    try:
+        from services import highlightly, player_store
+        if highlightly.enabled():
+            want = (team or "").split()[-1].lower()
+            for hit in highlightly.search_players(league, q):
+                prof = highlightly.player_profile(league, hit["id"])
+                if not prof or not prof.get("name"):
+                    continue
+                # Only players on the team being smacked.
+                if want and want not in (prof.get("team") or "").lower():
+                    continue
+                row = {"name": prof["name"], "position": prof.get("position"),
+                       "number": prof.get("jersey"),
+                       "away": prof.get("active") is False}
+                out.append(row)
+                try:
+                    player_store.remember(league, prof.get("team") or team,
+                                          [row])
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"[search] {q}: {e}", flush=True)
+
+    resp = jsonify({"players": out[:12],
+                    "source": "highlightly" if out else "none"})
+    resp.headers["Cache-Control"] = "no-store" if not out else "public, max-age=600"
+    return resp
+
+
 @app.route("/api/admin/fill-players")
 @login_required
 def api_admin_fill_players():
