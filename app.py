@@ -6056,12 +6056,18 @@ def api_admin_fill_players():
     league = (request.args.get("league") or "mlb").lower()
     days = max(1, min(int(request.args.get("days") or 5), 14))
 
-    if request.args.get("reset") == "1":
-        from models import Player
-        n = Player.query.filter_by(league=league).delete()
-        db.session.commit()
-        print(f"[players] cleared {n} rows for {league} before refilling",
-              flush=True)
+    # RESET IS HANDLED AT THE END, NOT HERE.
+    #
+    # This used to delete first and refill afterwards. When the refill then
+    # returned nothing - a rate limit, an outage, an off day with no
+    # finished games - the table was left EMPTY, and a picker that had been
+    # working stopped working.
+    #
+    # That happened. A reset=1 run wiped 153 stored players and replaced
+    # them with zero.
+    #
+    # Now nothing is deleted until a refill has actually produced names.
+    wants_reset = request.args.get("reset") == "1"
 
     cfg = highlightly.LEAGUES.get(league)
     if not cfg:
@@ -6146,6 +6152,29 @@ def api_admin_fill_players():
     # "Sox" - Boston and Chicago merged, their players mixed together.
     # ?reset=1 clears the league before refilling so that bad data does
     # not sit there forever.
+    # SAFE TO CLEAR ONLY NOW.
+    #
+    # Old rows for teams we just refreshed are removed - but only for those
+    # teams, and only because we have replacements in hand. A team the walk
+    # never reached keeps whatever it had.
+    if wants_reset and report["added"] >= 0 and report["teams"]:
+        from models import Player
+        removed = 0
+        for team_name in report["teams"]:
+            removed += (Player.query
+                        .filter(Player.league == league,
+                                Player.team == team_name,
+                                Player.last_seen < _dt.utcnow()
+                                - _td(minutes=5))
+                        .delete(synchronize_session=False))
+        db.session.commit()
+        report["stale_removed"] = removed
+    elif wants_reset:
+        report["reset_skipped"] = ("nothing was fetched, so nothing was "
+                                   "deleted - the table is untouched")
+        print("[players] reset requested but the walk found nothing. "
+              "Table left alone rather than emptied.", flush=True)
+
     report["matches_walked"] = len(seen_matches)
     report["note"] = ("Only FINISHED games are read. An unplayed match has a "
                       "projected nine-batter lineup and no box score, which "
