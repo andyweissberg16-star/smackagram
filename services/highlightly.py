@@ -627,3 +627,72 @@ def team_injuries(sport, team_name, limit=20):
             if hits:
                 return hits[:limit]
     return []
+
+
+def squad(sport, team_name, limit=60):
+    """
+    Who plays for this team, built from their recent games.
+
+    Not a roster endpoint - a roster is a list of contracts. This is who
+    actually appeared, taken from the box scores of their last few matches,
+    plus anybody currently unavailable.
+
+    ARGUABLY BETTER THAN A ROSTER for the name picker. A forty-man roster
+    includes people nobody has heard of; a box score is who was on the
+    field. And the injured are added on top, because the best name on a
+    team is often the one who is out.
+
+    Reuses match and box-score requests that are usually already cached.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    want = (team_name or "").split()[-1].lower()
+    if not want:
+        return []
+
+    cfg = LEAGUES.get(sport)
+    if not cfg:
+        return []
+    league_name, param = cfg
+
+    seen, out = set(), []
+
+    # Their last few days of fixtures - enough to cover a rest day.
+    for off in range(0, 5):
+        if len(out) >= limit:
+            break
+        day = (_dt.utcnow() - _td(days=off)).strftime("%Y-%m-%d")
+        d = _get(sport, "matches", {param: league_name, "date": day,
+                                    "limit": 100}, ttl=900)
+        if not d:
+            continue
+        rows = d.get("data") if isinstance(d, dict) else d
+        for m in (rows or []):
+            names = {
+                ((m.get("homeTeam") or {}).get("displayName") or "").split()[-1].lower(),
+                ((m.get("awayTeam") or {}).get("displayName") or "").split()[-1].lower(),
+            }
+            if want not in names:
+                continue
+
+            for p in box_score(sport, m.get("id")):
+                if want not in (p.get("team") or "").lower():
+                    continue
+                key = p["name"].lower()
+                if key in seen:
+                    continue
+                seen.add(key)
+                out.append({"name": p["name"], "position": None,
+                            "number": p.get("jersey")})
+
+            for r in injuries(sport, m.get("id")):
+                if want not in (r.get("team") or "").lower():
+                    continue
+                key = (r.get("name") or "").lower()
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                out.append({"name": r["name"], "position": r.get("position"),
+                            "number": r.get("jersey"), "injured": True})
+            break   # one match per day is enough
+
+    return out[:limit]

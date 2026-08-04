@@ -167,6 +167,35 @@ def find_team(name, league=None):
     if not want:
         return None
 
+    # THE LOCAL LIST FIRST. NO NETWORK AT ALL.
+    #
+    # This used to ask ESPN for every league's team list just to turn
+    # "Yankees" into a team - so when ESPN blocked this server, the picker
+    # could not identify a club that has existed for a century.
+    #
+    # The site already ships 1,205 teams on disk. Resolving a name is a
+    # lookup, not a question for anybody, and doing it locally means the
+    # picker keeps working when every provider is unreachable.
+    #
+    # ESPN is still consulted below when this misses, since its ID is what
+    # the ESPN roster call needs - but a failure there now costs the
+    # roster rather than the entire lookup.
+    try:
+        from services import team_display
+        for t in team_display.all_teams():
+            fields = [t.get("name"), t.get("short"), t.get("code")]
+            fields += (t.get("aliases") or [])
+            if any(_norm(f) == want for f in fields if f):
+                return {"id": None,
+                        "name": t.get("short") or t.get("name"),
+                        "nick": t.get("short") or t.get("name"),
+                        "full": t.get("name"), "location": "",
+                        "abbr": t.get("code") or "",
+                        "league": (t.get("league") or "").lower(),
+                        "local": True}
+    except Exception as e:
+        print(f"[team-state] local lookup failed: {e}", flush=True)
+
     leagues = [league] if league in LEAGUES else list(LEAGUES)
     best = None
     for lg in leagues:
@@ -478,7 +507,36 @@ def roster(name, league=None, limit=60):
     suggestions.
     """
     t = find_team(name, league)
-    if not t or not t.get("id"):
+    if not t:
+        return []
+
+    # HIGHLIGHTLY FIRST, and it does not need an ESPN id.
+    #
+    # The team name now resolves locally, which means there is often no
+    # ESPN id at all - and the old code returned an empty list at exactly
+    # that point. The picker was dying on a lookup that had SUCCEEDED.
+    #
+    # Highlightly works from the team name, so this path survives an ESPN
+    # outage completely. It also returns who actually PLAYED rather than a
+    # contract list, plus anybody currently unavailable.
+    try:
+        from services import highlightly
+        if highlightly.enabled():
+            hl = highlightly.squad(t.get("league") or "",
+                                   t.get("nick") or name)
+            if hl:
+                inj = [p["name"] for p in hl if p.get("injured")]
+                print(f"[roster] {t.get('nick')}: {len(hl)} from Highlightly"
+                      + (f", {len(inj)} out: {', '.join(inj[:3])}" if inj
+                         else ""), flush=True)
+                return hl[:limit]
+    except Exception as e:
+        print(f"[roster] highlightly squad failed: {e}", flush=True)
+
+    # ESPN needs its own id, which the local lookup does not provide.
+    if not t.get("id"):
+        print(f"[roster] {t.get('nick')}: no ESPN id and Highlightly gave "
+              f"nothing", flush=True)
         return []
 
     def build():
