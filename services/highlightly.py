@@ -417,3 +417,97 @@ def roast_facts(sport, match_id, loser_nick):
                        f"{best[1]} yards on {best[2]} carries")
 
     return out[:4]
+
+
+def board(sport, date_str=None):
+    """
+    Every game today - live, finished and upcoming - for the Smack Board.
+
+    finals() only returns FINISHED games, which is right for deciding who
+    lost and useless for a scoreboard: most of what a board shows is in
+    progress or yet to start.
+
+    RETURNS THE EXACT SHAPE ESPN'S BOARD ALREADY RETURNS. The page renders
+    nested home/away objects with nick, abbr, score, logo and record, plus
+    final/live/upcoming flags. Returning anything else would render an
+    empty board rather than an error, which is the worst kind of break -
+    it looks like there are no games.
+    """
+    cfg = LEAGUES.get(sport)
+    if not cfg:
+        return []
+    league_name, param = cfg
+
+    from datetime import datetime as _dt
+    date_str = date_str or _dt.utcnow().strftime("%Y-%m-%d")
+
+    d = _get(sport, "matches", {param: league_name, "date": date_str,
+                                "limit": 100}, ttl=30)
+    if not d:
+        return []
+
+    rows = d.get("data") if isinstance(d, dict) else d
+    out = []
+    for m in (rows or []):
+        state = m.get("state") or {}
+        desc = (state.get("description") or "").lower()
+        if "finish" in desc:
+            st = "post"
+        elif any(k in desc for k in ("progress", "half", "period", "delay")):
+            st = "in"
+        else:
+            st = "pre"
+
+        score = state.get("score") or {}
+        cur = str(score.get("current") or "")
+        hp = ap = None
+        if "-" in cur:
+            try:
+                # HOME FIRST. Their ordering, resolved here as everywhere.
+                hp, ap = [int(x.strip()) for x in cur.split("-")[:2]]
+            except (TypeError, ValueError):
+                pass
+
+        def side(team, pts):
+            t = team or {}
+            full = t.get("displayName") or t.get("name") or ""
+            nick = t.get("name") or (full.split()[-1] if full else "")
+            city = full[:-len(nick)].strip() if nick and full.endswith(nick) else ""
+            return {
+                "nick": nick,
+                "abbr": t.get("abbreviation") or "",
+                "city": city,
+                "score": pts,
+                "record": "",
+                "colour": None,
+                "logo": t.get("logo") or "",
+            }
+
+        h = side(m.get("homeTeam"), hp)
+        a = side(m.get("awayTeam"), ap)
+
+        losing = None
+        if st == "post" and hp is not None and ap is not None and hp != ap:
+            losing = a["nick"] if hp > ap else h["nick"]
+
+        out.append({
+            "espn_id": None,
+            "highlightly_id": str(m.get("id")),
+            "state": st,
+            "final": st == "post",
+            "live": st == "in",
+            "upcoming": st == "pre",
+            "status": state.get("report") or state.get("description") or "",
+            "clock": state.get("clock"),
+            "period": None,
+            "start": m.get("date"),
+            "venue": (m.get("venue") or {}).get("name"),
+            "home": h, "away": a,
+            "losing": losing,
+        })
+
+    # Live first, then upcoming, then finished - the order somebody opening
+    # the board actually wants.
+    order = {"in": 0, "pre": 1, "post": 2}
+    out.sort(key=lambda g: (order.get(g["state"], 3), g.get("start") or ""))
+    return out

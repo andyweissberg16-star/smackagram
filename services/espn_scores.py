@@ -2330,6 +2330,25 @@ def fetch_board(league: str, force: bool = False) -> list:
     if cached and not force and (_t.time() - cached[0]) < BOARD_CACHE_SECONDS:
         return cached[1]
 
+    # HIGHLIGHTLY FIRST.
+    #
+    # The board showed "No MLB games scheduled" on a night with eight games,
+    # because ESPN was blocked and the fallback is a cache that is empty
+    # after a restart. A scoreboard claiming nothing is happening while
+    # plenty is happening is worse than no scoreboard at all.
+    #
+    # Highlightly is paid and monitored, so it goes first here as it now
+    # does everywhere else. ESPN stays as the fallback below.
+    try:
+        from services import highlightly
+        if highlightly.enabled():
+            hl = highlightly.board(lg)
+            if hl:
+                _BOARD_CACHE[lg] = (_t.time(), hl)
+                return hl
+    except Exception as e:
+        print(f"[board] highlightly unavailable for {lg}: {e}", flush=True)
+
     sport_path, league_path = cfg[0], cfg[1]
     url = f"{BASE}/{sport_path}/{league_path}/scoreboard"
 
