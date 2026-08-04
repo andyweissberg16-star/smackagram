@@ -317,3 +317,103 @@ def compare(sport, date_str, espn_results):
 def disagreements(limit=50):
     """For the admin panel - what has differed so far."""
     return _DISAGREEMENTS[-limit:]
+
+
+# ---------------------------------------------------------------------------
+# ROAST FACTS
+# ---------------------------------------------------------------------------
+#
+# The same job espn_scores.roast_facts does, from a better source. Their box
+# scores carry SEASON AVERAGES alongside the game line, which ESPN does not -
+# so "he is hitting .269 and looked nothing like it tonight" becomes possible
+# in one call rather than two.
+
+def _stat(p, *names):
+    """First of these stats the player actually has."""
+    for n in names:
+        v = (p.get("stats") or {}).get(n)
+        if v is not None:
+            return v
+    return None
+
+
+def roast_facts(sport, match_id, loser_nick):
+    """
+    Named performances from the losing side, ready to hand to the writer.
+
+    Returns a list of plain sentences. Empty on any failure, which leaves
+    the call working with the scoreline alone - the same behaviour every
+    other fact path already has.
+    """
+    try:
+        rows = box_score(sport, match_id)
+    except Exception as e:
+        print(f"[highlightly] box score failed for {match_id}: {e}",
+              flush=True)
+        return []
+    if not rows:
+        return []
+
+    want = (loser_nick or "").split()[-1].lower()
+    theirs = [p for p in rows
+              if want and want in (p.get("team") or "").lower()]
+    if not theirs:
+        return []
+
+    out = []
+
+    if sport == "mlb":
+        # The pitcher who wore it.
+        for p in theirs:
+            er = _stat(p, "Total Earned Runs")
+            ip = _stat(p, "Innings Pitched")
+            if er is not None and ip is not None and float(er or 0) >= 3:
+                out.append(f"{p['name']} gave up {er} earned in {ip} innings")
+                break
+        # A hitter who did nothing, with his season average for contrast.
+        for p in theirs:
+            ab = _stat(p, "Total At-Bats")
+            h = _stat(p, "Total Hits")
+            avg = _stat(p, "Batting Average")
+            if ab and int(ab) >= 3 and h is not None and int(h) == 0:
+                line = f"{p['name']} went 0 for {ab}"
+                if avg:
+                    line += f" and he is hitting {avg} on the season"
+                out.append(line)
+                break
+        # Anyone who did well on a losing side is its own joke.
+        for p in theirs:
+            hr = _stat(p, "Total Home Runs")
+            rbi = _stat(p, "Total Runs Batted In (RBI)")
+            if hr and int(hr) >= 1:
+                out.append(f"{p['name']} homered and they still lost")
+                break
+
+    elif sport in ("nfl", "ncaaf"):
+        for p in theirs:
+            att = _stat(p, "Total Passes")
+            cmp_ = _stat(p, "Total Successful Passes")
+            yds = _stat(p, "Total Passing Yards")
+            ints = _stat(p, "Total Passing Interceptions")
+            sacks = _stat(p, "Total Sacks")
+            if att:
+                line = f"{p['name']} went {cmp_} of {att} for {yds}"
+                if ints and int(ints) > 0:
+                    line += f" and threw {ints} away"
+                out.append(line)
+                if sacks and int(sacks) >= 3:
+                    out.append(f"{p['name']} was sacked {sacks} times")
+                break
+        # The running game, or the absence of one.
+        best = None
+        for p in theirs:
+            ry = _stat(p, "Total Rushing Yards")
+            ra = _stat(p, "Total Rushing Attempts")
+            if ry is not None and ra and int(ra) >= 3:
+                if best is None or int(ry) > int(best[1]):
+                    best = (p["name"], ry, ra)
+        if best and int(best[1]) < 40:
+            out.append(f"their leading rusher was {best[0]} with "
+                       f"{best[1]} yards on {best[2]} carries")
+
+    return out[:4]

@@ -110,6 +110,57 @@ def fetch_results(league: str, days_back: int = 1) -> list[dict]:
     return games
 
 
+def _attach_highlightly_ids(games, log=print):
+    """
+    Find each game's Highlightly match id, so its box score can be fetched.
+
+    The providers use different ids, so games are matched on LEAGUE + THE
+    TWO TEAMS. Only the last word of each name is compared - "New York
+    Yankees" against "Yankees" - which is the nickname in every league that
+    matters.
+
+    One call per league, cached. Silent no-op when Highlightly is off.
+    """
+    try:
+        from services import highlightly
+        if not highlightly.enabled():
+            return games
+    except Exception:
+        return games
+
+    from datetime import datetime as _dt, timedelta as _td
+    day = (_dt.now(EASTERN) - _td(days=1)).strftime("%Y-%m-%d")
+
+    by_league = {}
+    for g in games:
+        lg = (g.get("league") or "").lower()
+        if lg and lg not in by_league:
+            try:
+                by_league[lg] = highlightly.finals(lg, day)
+            except Exception as e:
+                log(f"highlightly ids unavailable for {lg}: {e}")
+                by_league[lg] = {}
+
+    matched = 0
+    for g in games:
+        lg = (g.get("league") or "").lower()
+        want = {(g.get("winner") or "").split()[-1].lower(),
+                (g.get("loser") or "").split()[-1].lower()}
+        if "" in want:
+            continue
+        for hid, r in (by_league.get(lg) or {}).items():
+            got = {r["winner"].split()[-1].lower(),
+                   r["loser"].split()[-1].lower()}
+            if got == want:
+                g["_hl_id"] = hid
+                matched += 1
+                break
+
+    if matched:
+        log(f"highlightly: matched {matched}/{len(games)} games")
+    return games
+
+
 def enrich_with_detail(games, log=print, workers=6):
     """
     Pull the deep box score for every game and hang the roast facts on it.
@@ -141,6 +192,27 @@ def enrich_with_detail(games, log=print, workers=6):
         try:
             detail = espn_scores.fetch_game_detail(g.get("league", ""), eid)
             facts = espn_scores.roast_facts(detail) if detail else []
+
+            # HIGHLIGHTLY FIRST, where it has the game.
+            #
+            # Their box scores carry SEASON AVERAGES alongside the game
+            # line, which ESPN's do not - so "he went 0 for 3 and he is
+            # hitting .269 on the season" comes from one call rather than
+            # two, and the contrast is the joke.
+            #
+            # Only used when it actually returns something. ESPN's facts
+            # stay as the fallback, so a Highlightly outage costs detail
+            # rather than the whole show.
+            try:
+                from services import highlightly
+                if highlightly.enabled() and g.get("_hl_id"):
+                    hl = highlightly.roast_facts(
+                        (g.get("league") or "").lower(), g["_hl_id"],
+                        g.get("loser") or "")
+                    if hl:
+                        facts = hl + [f for f in facts if f not in hl]
+            except Exception as e:
+                print(f"[show] highlightly facts unavailable: {e}", flush=True)
             if facts:
                 g["deep_facts"] = facts
             # The structured detail is kept too. Picking a player of the
@@ -1517,6 +1589,7 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
     log(f"results in: {material['game_count']} games, planning {plan['minutes']:g} min")
     # Box scores before writing, not after - the writer needs them.
     try:
+        material["games"] = _attach_highlightly_ids(material["games"], log)
         material["games"] = enrich_with_detail(material["games"], log)
     except Exception as e:
         log(f"deep detail unavailable, using scorelines only: {e}")

@@ -96,6 +96,12 @@ def shadow_compare_sources():
             print(f"[shadow] compare failed for {sport}: {e}", flush=True)
 
 
+def _sample_for(armed, game_id, sport):
+    """One armed row for this game, for its team names."""
+    return next((x for x in armed
+                 if x.game_id == game_id and x.sport == sport), None)
+
+
 def check_armed_smackagrams():
     """
     Called via the /api/cron/check-smackagrams route, which an external
@@ -151,8 +157,57 @@ def check_armed_smackagrams():
         except Exception as _e:
             print(f"[locked] store lookup failed: {_e}", flush=True)
 
+        # HIGHLIGHTLY DECIDES NOW.
+        #
+        # The order is: stored result, then Highlightly, then ESPN, then
+        # SportsDataIO as a last resort.
+        #
+        # SportsDataIO went from primary to last because its free tier
+        # SCRAMBLES SCORES by roughly 2.5x - verified across ten MLB games.
+        # "Who lost" survived that scrambling, which is why it worked at
+        # all, but surviving by luck is not the same as being right, and
+        # this decides whether somebody gets charged.
+        #
+        # ESPN went from deciding to fallback because it blocked this
+        # server for hours today with no warning, no appeal and no
+        # published limits.
+        if result is None and _sample_for(armed, game_id, sport):
+            _s = _sample_for(armed, game_id, sport)
+            try:
+                from services import highlightly, results_store
+                from datetime import datetime as _dt2, timedelta as _td2
+                if highlightly.enabled():
+                    for _off in (0, 1):
+                        _d = (_dt2.utcnow()
+                              - _td2(days=_off)).strftime("%Y-%m-%d")
+                        _fin = highlightly.finals(sport, _d)
+                        # Match on the two teams - their ids are their own.
+                        for _hid, _r in _fin.items():
+                            names = {_r["winner"].split()[-1].lower(),
+                                     _r["loser"].split()[-1].lower()}
+                            want = {(_s.home_team or "").split()[-1].lower(),
+                                    (_s.away_team or "").split()[-1].lower()}
+                            if names == want:
+                                result = _r
+                                results_store.remember(
+                                    sport, _d, _r, "highlightly",
+                                    {"highlightly": str(_hid)})
+                                print(f"[locked] {game_id}: Highlightly says "
+                                      f"{_r['loser']} lost {_r['loser_score']}"
+                                      f"-{_r['winner_score']}", flush=True)
+                                break
+                        if result:
+                            break
+            except Exception as _e:
+                print(f"[locked] highlightly lookup failed: {_e}", flush=True)
+
         if result is None:
+            # Last resort. Scrambled scores, but the WINNER survives it.
             result = sports_service.get_game_result(game_id, sport=sport)
+            if result:
+                print(f"[locked] {game_id}: falling back to SportsDataIO - "
+                      f"its scores are unreliable, only the loser is trusted",
+                      flush=True)
 
         # ESPN DECIDES THE OUTCOME.
         #
@@ -198,13 +253,24 @@ def check_armed_smackagrams():
                     # matter and keeps an edge case from stalling a call.
                     _espn = espn_scores.game_result(sport, _eid)
                 if _espn:
+                    # ESPN NO LONGER OVERRIDES.
+                    #
+                    # It used to win every disagreement. Now it only fills
+                    # in when nothing better answered, because a source
+                    # that can block this server for hours without warning
+                    # should not be the final word on who gets charged.
+                    #
+                    # When it disagrees with an answer we already have, the
+                    # disagreement is LOGGED and the existing answer kept.
                     if (result and result.get("loser") and _espn.get("loser")
                             and result["loser"] != _espn["loser"]):
                         print(f"[locked] DISAGREEMENT on {game_id}: "
-                              f"sportsdata says {result['loser']} lost, "
-                              f"ESPN says {_espn['loser']}. Using ESPN.",
+                              f"we have {result['loser']} losing, "
+                              f"ESPN says {_espn['loser']}. KEEPING OURS.",
                               flush=True)
-                    result = _espn
+                    # Only take ESPN's answer if we have nothing better.
+                    if result is None:
+                        result = _espn
                 elif result:
                     # ESPN not final yet. Hold rather than fire on a source
                     # we do not trust - a call that goes out early cannot be
