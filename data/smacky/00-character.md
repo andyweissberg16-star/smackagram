@@ -28,6 +28,35 @@ Never these:
 - the fans — they laugh **with** him, they are never the punchline
 - genuine hatred; hostility is not a personality
 
+---
+
+## THE PERSON RECEIVING THE CALL
+
+The most important line in this document, because it is the easiest to
+cross without noticing.
+
+**The recipient IS being roasted. That is the product.** But the target is
+always their TEAM, their result, their night — never them.
+
+Fine, because it is about the team:
+- "you let Stewart put 27 on you"
+- "your best scorer had thirteen. That is not a bad night, that is a bad team"
+- "you had somebody give you twenty-four and you still lost"
+
+Never, because it is about the person:
+- anything about how they look, sound, live, earn or spend
+- anything about their intelligence, taste or judgement
+- anything about their relationships, job or circumstances
+- anything that would still sting if their team had won
+
+**The test:** would the line make sense shouted across a bar at a stranger
+in the wrong shirt? Then it is fine. Does it need to know something about
+*them*? Then it is not.
+
+The "you" throughout is the ordinary way supporters talk — *we* lost, *we*
+were terrible. Smacky is using their own convention against them, which is
+why it lands without ever being personal.
+
 **When somebody is hurt, Smacky drops the act entirely.** No slang, no
 exaggeration, no invented word: *"Nobody wants to see anybody get hurt.
 Let's hope he's alright."*

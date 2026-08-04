@@ -292,7 +292,9 @@ def fetch_game_detail(league: str, event_id: str) -> dict:
     out["bad_nights"] = _bad_nights(d, loser_team, lg)
     if lg in ("nba", "wnba", "ncaab", "ncaaw"):
         win_team = (out.get("winner") or {}).get("team")
-        out["nba_players"] = nba_players(d, loser_team, win_team)
+        # The league matters: WNBA thresholds are lower, because a 25-point
+        # night in a 40-minute game is not the same event as one in 48.
+        out["nba_players"] = nba_players(d, loser_team, win_team, league=lg)
         out["nba_shooting"] = nba_team_shooting(d, loser_team)
 
     if lg in ("nfl", "ncaaf"):
@@ -1693,7 +1695,24 @@ def _made_attempted(v):
         return None, None
 
 
-def nba_players(d, losing_team, winning_team):
+# Basketball thresholds, scaled per league.
+#
+# These were NBA numbers applied to every basketball league. A WNBA game is
+# 40 minutes rather than 48 and scores roughly 84 a side against 114, so a
+# 25-point night there is the equivalent of about 34 in the NBA - almost
+# nobody clears it, and the call falls back to the scoreline with no player
+# named at all. Which is exactly what a real Locked & Loaded did.
+#
+# Scaled by 0.74, the ratio of the two leagues' scoring.
+BALL_THRESHOLDS = {
+    "nba":   {"star": 25, "sinker": -12, "minutes": 15, "blowout": 20, "scored": 20},
+    "ncaab": {"star": 20, "sinker": -12, "minutes": 15, "blowout": 18, "scored": 18},
+    "wnba":  {"star": 20, "sinker": -9,  "minutes": 11, "blowout": 15, "scored": 15},
+    "ncaaw": {"star": 15, "sinker": -9,  "minutes": 11, "blowout": 14, "scored": 14},
+}
+
+
+def nba_players(d, losing_team, winning_team, league="nba"):
     """
     Who actually lost this game.
 
@@ -1703,6 +1722,7 @@ def nba_players(d, losing_team, winning_team):
     line missed was his plus-minus: minus twenty-one, in a game they lost by
     seven. The team was twenty-one points worse with him out there.
     """
+    _T = BALL_THRESHOLDS.get((league or "nba").lower(), BALL_THRESHOLDS["nba"])
     out = {"cold": [], "sinkers": [], "star_carried": None, "their_star": None}
 
     for block in ((d.get("boxscore") or {}).get("players") or []):
@@ -1729,7 +1749,7 @@ def nba_players(d, losing_team, winning_team):
                 # Under fifteen minutes nobody is the story. This is the
                 # filter that stops a bench player who played six minutes
                 # being roasted for scoring two.
-                if mins is None or mins < 15:
+                if mins is None or mins < _T["minutes"]:
                     continue
 
                 pts = _to_num(st.get("PTS"))
@@ -1751,21 +1771,67 @@ def nba_players(d, losing_team, winning_team):
                         out["cold"].append(entry)
                     # The floor sank while they played. Worse than any single
                     # stat because it survives a good-looking box score.
-                    if pm is not None and pm <= -12 and starter:
+                    if pm is not None and pm <= _T["sinker"] and starter:
                         out["sinkers"].append(entry)
                     # A star who did his job and still lost.
-                    if pts and pts >= 25:
+                    out.setdefault("_all_losing", []).append(entry)
+                    # The starting five's combined total. A quiet top scorer
+                    # is one thing; a whole starting five that managed forty
+                    # between them is the story.
+                    if starter:
+                        # int, because _to_num returns a float and "38.0
+                        # points" read aloud is wrong.
+                        out["starters_pts"] = (out.get("starters_pts") or 0) + int(pts or 0)
+                        out["starters_n"] = (out.get("starters_n") or 0) + 1
+                    # ANY 19+ NIGHT gets named, not only the leader. Two
+                    # players at 21 and 19 is a different story from one at
+                    # 21, and a call that mentions only the top scorer throws
+                    # the second away.
+                    if (pts or 0) >= 19:
+                        out.setdefault("notable_losing", []).append(entry)
+                    if pts and pts >= _T["star"]:
                         cur = out["star_carried"]
                         if not cur or pts > cur["points"]:
                             out["star_carried"] = entry
                 else:
-                    if pts and pts >= 25:
-                        cur = out["their_star"]
-                        if not cur or pts > cur["points"]:
-                            out["their_star"] = entry
+                    # THE WINNING SIDE'S TOP SCORER, whatever she scored.
+                    #
+                    # No threshold. This is the easy target and it is always
+                    # available: somebody did this to you, and naming her is
+                    # the point. A threshold here only ever produced calls
+                    # that named nobody, which is worse than naming somebody
+                    # who had a merely good night.
+                    cur = out["their_star"]
+                    if not cur or (pts or 0) > (cur.get("points") or 0):
+                        out["their_star"] = entry
+                    if (pts or 0) >= 19:
+                        out.setdefault("notable_winning", []).append(entry)
 
     out["cold"].sort(key=lambda x: (x["made"] or 0) / (x["attempts"] or 1))
     out["sinkers"].sort(key=lambda x: x["plus_minus"] or 0)
+
+    # ALWAYS NAME SOMEBODY.
+    #
+    # The thresholds decide who counts as a STAR. They should not decide
+    # whether anyone is mentioned at all - a real WNBA call went out naming
+    # nobody, because a 40-minute game rarely produces the 25-point night the
+    # NBA numbers were asking for.
+    #
+    # If nobody cleared the bar, the top scorer on each side is named anyway.
+    # Fourteen points might not be a star turn, but it is still who led the
+    # game, and "their best player managed fourteen" is a perfectly good line.
+    # Flagged so the writer knows which it is and does not oversell a quiet
+    # night.
+    if not out.get("star_carried") and out.get("_all_losing"):
+        top = max(out["_all_losing"], key=lambda x: x.get("points") or 0)
+        if top.get("points"):
+            out["star_carried"] = {**top, "modest": True}
+    if not out.get("their_star") and out.get("_all_winning"):
+        top = max(out["_all_winning"], key=lambda x: x.get("points") or 0)
+        if top.get("points"):
+            out["their_star"] = {**top, "modest": True}
+    out.pop("_all_losing", None)
+    out.pop("_all_winning", None)
     return out
 
 
@@ -1807,6 +1873,144 @@ def nba_team_shooting(d, losing_team):
     return None
 
 
+# How to name somebody. Varied HERE rather than asked for in the prompt,
+# because a prompt-level "vary this" has been ignored repeatedly on this
+# project - the construction cap, the cross-league teases, the grouping rule.
+#
+# The point is only that a name gets said. A call that reports a scoreline
+# and no people sounds like a results service; a call that says "you let
+# Stewart put 27 on you" sounds like somebody watched it.
+# "You" as a hinge - the sentence starts on the listener and lands on the
+# team. That is what keeps it clean AND makes it funnier: the insult is
+# always about the club they chose, never about them.
+CHOSE_THIS = [
+    "you chose to be a fan of the worst team in the league and today it "
+    "showed its gratitude",
+    "you woke up and picked this franchise. It picked violence right back",
+    "somewhere along the line you decided this was your team. Tonight was "
+    "the invoice",
+    "you support a team that lost like that. Freely. On purpose",
+    "nobody made you a fan of this lot. That is the part that gets me",
+    "you have chosen a life of this, and tonight was a fairly typical "
+    "Tuesday in it",
+]
+
+ALLOWED_IT = [
+    "you let {name} put up {pts} on you",
+    "{name} got {pts} and nobody on your side seemed bothered",
+    "{name} scored {pts}. Was anybody guarding that, or was it optional",
+    "somebody was supposed to be on {name}. {pts} says otherwise",
+    "{name} helped themselves to {pts} of yours",
+    "{pts} for {name}, and it looked easy",
+    "you gave {name} {pts} like it was a gift",
+    "{name} put {pts} on your head and walked off",
+    "{name} had {pts} before your bench finished sitting down",
+]
+
+WASTED_IT = [
+    "{name} gave you {pts} and you lost anyway - what exactly was everybody "
+    "else doing",
+    "{name} did their part with {pts}. Nobody else turned up",
+    "{pts} from {name} and it bought you nothing",
+    "you wasted {pts} from {name}. That takes effort",
+    "{name} scored {pts} in a losing effort, which is the saddest phrase in "
+    "sport",
+    "{name} had {pts}. The rest of your roster was a rumour",
+    "{pts} from {name} and it still went in the L column",
+]
+
+LED_THEM = [
+    "{name} led them with {pts} - that is all it took to beat you",
+    "{pts} was enough. {name} did not even need a big night",
+    "{name} topped them with {pts}. That was the bar and you could not clear it",
+    "they got {pts} out of {name} and that was the whole plan",
+    "{name} had {pts} and never had to find another gear",
+]
+
+BEST_YOU_HAD = [
+    "{name} led you with {pts} - that was the best anybody managed",
+    "your leading scorer was {name} with {pts}. Let that sit",
+    "{pts} from {name} was your high point. Your HIGH point",
+    "{name} top-scored for you with {pts}, which tells you everything",
+    "the best you had was {pts} from {name}",
+]
+
+# NOBODY GOT GOING.
+#
+# The losing side's best effort being under 19 is its own roast - it is not
+# that a star was let down, it is that nobody turned up at all.
+NO_SCORING = [
+    "your best scorer had {pts}. That is not a bad night, that is a bad team",
+    "{name} led you with {pts}. Nobody on your roster reached twenty",
+    "top scorer: {name}, {pts} points. That is the whole story",
+    "not one of you got to twenty. {name} came closest with {pts}",
+    "{pts} was your ceiling tonight, courtesy of {name}",
+    "{name} was your leading man at {pts}. Read that again",
+    "your leading scorer had {pts}. A quiet Tuesday at the gym beats that",
+]
+
+# The starting five, combined.
+STARTING_FIVE = [
+    "your starting five combined for {pts}. Five people. {pts} points",
+    "the whole starting five managed {pts} between them",
+    "{pts} from your starters. All five of them. Together",
+    "your first five put up {pts} combined, which is one decent night split "
+    "five ways",
+    "add up your entire starting five and you get {pts}",
+    "five starters, {pts} points. Somebody should check on them",
+]
+
+# THE CAITLIN STANDARD.
+#
+# Fires rarely and only in the WNBA. The bit works because Smacky cannot be
+# objective, not because he says her name constantly - mentioned every call
+# it stops being a bit and becomes a tic, which is the failure mode of every
+# running joke on this project.
+#
+# Never at anyone's expense: the joke is Smacky's own lost objectivity.
+CLARK_LINES = [
+    "Caitlin Clark would have had that by the third quarter, but nobody "
+    "asked me",
+    "I am not saying Caitlin Clark would have won that game by herself. I am "
+    "thinking it, though",
+    "somewhere Caitlin Clark watched that and felt nothing, which is the "
+    "correct response",
+    "that is not a Caitlin Clark number. I do not make the rules",
+    "Caitlin Clark was not involved in this game and it still would have "
+    "been better if she was",
+    "I have been asked to stop comparing everybody to Caitlin Clark. I have "
+    "considered it",
+    "no Caitlin Clark in this one, which explains a lot",
+]
+
+
+# The two that were still fixed lines.
+CARRIED_IT = [
+    "{name} put up {pts} and it still was not enough - nobody else showed up",
+    "{name} gave you {pts} and got nothing back from anybody",
+    "{pts} from {name} against four passengers",
+    "{name} carried {pts} of the load. The rest of you watched",
+    "{name} had {pts}. Everybody else combined to be a problem",
+]
+
+DID_DAMAGE = [
+    "you let {name} do the damage: {bits}",
+    "{name} did what they liked: {bits}",
+    "the whole night was {name}: {bits}",
+    "you had no answer for {name}: {bits}",
+    "{name} picked you apart: {bits}",
+]
+
+
+def _named(pool, name, pts, used):
+    """One line about a player, never the same shape twice in a call."""
+    import random as _r
+    fresh = [x for x in pool if x not in used]
+    line = _r.choice(fresh or pool)
+    used.add(line)
+    return line.format(name=name, pts=pts)
+
+
 def nba_roast_facts(detail):
     """
     Basketball facts. No single player wears the loss the way a quarterback
@@ -1814,6 +2018,11 @@ def nba_roast_facts(detail):
     if there was one, then the man the floor sank behind, then cold
     shooting, then their star who did the damage.
     """
+    _T = BALL_THRESHOLDS.get((detail.get("league") or "nba").lower(),
+                             BALL_THRESHOLDS["nba"])
+    # Shapes already used in THIS call, so no two player mentions land the
+    # same way. The variation has to be per call, not per pool.
+    _used = set()
     f = list(stakes_facts(detail))
     w = detail.get("winner") or {}
     l = detail.get("loser") or {}
@@ -1827,7 +2036,7 @@ def nba_roast_facts(detail):
         f.append(f"{l['team']} are now {l['record']}")
 
     m = detail.get("margin")
-    if m and m >= 20:
+    if m and m >= _T["blowout"]:
         f.append(f"lost by {m} - a blowout, never competitive")
     elif m and m <= 3:
         f.append(f"lost by {m} - one possession, and they could not get it")
@@ -1837,7 +2046,7 @@ def nba_roast_facts(detail):
     # The floor sank behind them. This survives a good-looking box score,
     # which is the point - a man can score thirty and still be the reason.
     for sink in (p.get("sinkers") or [])[:1]:
-        if sink.get("points", 0) >= 20:
+        if sink.get("points", 0) >= _T["scored"]:
             f.append(f"{sink['name']} scored {sink['points']} and was still a "
                      f"minus {abs(sink['plus_minus'])} - the team was worse "
                      f"with him out there, which takes some doing")
@@ -1856,15 +2065,102 @@ def nba_roast_facts(detail):
     star = p.get("star_carried")
     sunk_names = {x["name"] for x in (p.get("sinkers") or [])}
     if star and star["name"] not in sunk_names:
-        f.append(f"{star['name']} put up {star['points']} and it still was "
-                 f"not enough - nobody helped him")
+        # "modest" means nobody cleared the star threshold and this is simply
+        # the top scorer. Saying "put up 14 and it still was not enough"
+        # oversells a quiet night - a listener knows 14 is not a star turn,
+        # and Smacky claiming otherwise makes him sound like he did not watch.
+        if star.get("modest"):
+            # Under 19 is a different roast from a quiet star night - it is
+            # not that somebody was let down, it is that nobody turned up.
+            pool = NO_SCORING if (star.get("points") or 0) < 19 else BEST_YOU_HAD
+            f.append(_named(pool, star["name"], star["points"], _used))
+        else:
+                f.append(_named(CARRIED_IT, star["name"], star["points"], _used))
+
+    # WHO DID IT TO YOU.
+    #
+    # The winning side's leading scorer, always, whatever the number. She is
+    # the easy target and the one the recipient will actually feel - a call
+    # that says "you lost by nine" lands nowhere near one that says "this
+    # woman put up sixteen on you".
+    #
+    # The wording scales so a modest night is not oversold. A listener knows
+    # sixteen is not a monster game, and Smacky pretending otherwise makes
+    # him sound like he did not watch.
+    # THE DEFENCE ALLOWED IT.
+    #
+    # The point of naming her is not the stat line - it is that somebody was
+    # supposed to be guarding her. "She scored 27" is a fact; "you let her
+    # score 27" is a roast, and it is the same sentence pointed at the person
+    # receiving the call.
+    for x in (p.get("notable_winning") or [])[:2]:
+        if x is p.get("their_star"):
+            continue        # the leader is covered below, do not say it twice
+        f.append(_named(ALLOWED_IT, x["name"], x["points"], _used))
+
+    # A BIG NIGHT WASTED.
+    #
+    # Somebody on the losing side going for 20+ and STILL losing is the
+    # sharper joke - it is not that they had nobody, it is that they had
+    # somebody and it did not matter.
+    # The "nobody else showed up" line below covers the leading scorer, so
+    # skip her here - the same player carrying the same joke twice in one
+    # call is exactly the repetition that makes it sound generated.
+    _carried = (p.get("star_carried") or {}).get("name")
+    for x in (p.get("notable_losing") or [])[:2]:
+        if (x.get("points") or 0) >= 20 and x.get("name") != _carried:
+            f.append(_named(WASTED_IT, x["name"], x["points"], _used))
+
+    # THE STARTING FIVE, combined.
+    #
+    # Only when it is genuinely bad - a good starting five total is not a
+    # joke, and reporting it anyway is how a roast turns into a box score.
+    _sp, _sn = p.get("starters_pts"), p.get("starters_n")
+    if _sp and _sn and _sn >= 4:
+        _lg = (detail.get("league") or "nba").lower()
+        _floor = 45 if _lg in ("wnba", "ncaaw") else 55
+        if _sp < _floor:
+            import random as _r2
+            _shape = _r2.choice([x for x in STARTING_FIVE if x not in _used]
+                                or STARTING_FIVE)
+            _used.add(_shape)
+            f.append(_shape.format(pts=_sp))
+
+    # THEY CHOSE THIS TEAM.
+    #
+    # Only on a heavy defeat - "you chose this" after a one-point loss is
+    # mean rather than funny, because a one-point loss is not the team's
+    # fault. Roughly one call in four when it does apply, so it stays a
+    # closing jab rather than the whole call.
+    if (detail.get("margin") or 0) >= _T["blowout"]:
+        import random as _rc
+        if _rc.random() < 0.25:
+            f.append(_rc.choice(CHOSE_THIS))
+
+    # THE CAITLIN STANDARD, rarely.
+    #
+    # Roughly one call in six, WNBA only. Capped in CODE because every
+    # running joke on this project has been over-used the moment it was left
+    # to a prompt - and a bit that fires every time is a tic.
+    if (detail.get("league") or "").lower() == "wnba":
+        import random as _r3
+        if _r3.random() < 0.17:
+            f.append(_r3.choice(CLARK_LINES))
 
     their = p.get("their_star")
-    if their:
+    if their and (their.get("points") or 0) < _T["star"]:
+        f.append(_named(LED_THEM, their["name"], their["points"], _used))
+    elif their:
         bits = f"{their['points']} points on {their['fg']}"
         if their.get("rebounds"):
             bits += f", {int(their['rebounds'])} boards"
-        f.append(f"their guy {their['name']} did the damage: {bits}")
+        # "their guy" in a WNBA recap is simply wrong, and a listener notices
+        # immediately. The name alone does the job in either league.
+        import random as _r
+        _shapes = [x for x in DID_DAMAGE if x not in _used] or DID_DAMAGE
+        _pick = _r.choice(_shapes)
+        _used.add(_pick)
+        f.append(_pick.format(name=their["name"], bits=bits))
 
     sh = detail.get("nba_shooting") or {}
     if sh.get("cold_night"):
