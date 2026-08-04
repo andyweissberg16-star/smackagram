@@ -2919,3 +2919,102 @@ def nhl_detail(d, losing_team, winning_team):
 
     out["their_scorers"].sort(key=lambda x: -x["points"])
     return out
+
+
+# ---------------------------------------------------------------------------
+# ELSEWHERE - everything that is not a main block
+# ---------------------------------------------------------------------------
+#
+# One minute of the show for whatever else happened. These sports do not
+# play daily, or do not carry enough weight for a block of their own, but a
+# UFC knockout or a Premier League thrashing is worth twenty seconds.
+#
+# It also solves a seasonal problem. In August only baseball and the WNBA
+# are running, which is why a real episode had eleven games in it. This
+# fills that gap without waiting for the NFL.
+
+ELSEWHERE_PATHS = {
+    # Head-to-head, so there is always a loser to roast.
+    "nfl_pre": ("football", "nfl", "NFL PRESEASON"),
+    "mls":     ("soccer", "usa.1", "MLS"),
+    "epl":     ("soccer", "eng.1", "PREMIER LEAGUE"),
+    "ucl":     ("soccer", "uefa.champions", "CHAMPIONS LEAGUE"),
+    "ufc":     ("mma", "ufc", "UFC"),
+}
+
+
+def fetch_elsewhere(days_back: int = 1, limit: int = 6) -> list:
+    """
+    A handful of results from everything outside the main blocks.
+
+    Deliberately shallow - the scoreline and nothing else. This gets about
+    a minute of the show, which is four or five one-liners, so fetching
+    box scores for it would be work nobody hears.
+
+    Returns [] on any failure. A show that loses this segment is a show
+    that is slightly shorter, which is not a problem worth an exception.
+    """
+    import json as _json
+    from urllib.request import Request, urlopen
+
+    day = datetime.now(EASTERN) - timedelta(days=days_back)
+    date_str = day.strftime("%Y%m%d")
+    out = []
+
+    for key, (sport_path, league_path, label) in ELSEWHERE_PATHS.items():
+        try:
+            url = (f"{BASE}/{sport_path}/{league_path}/scoreboard"
+                   f"?dates={date_str}")
+            req = Request(url, headers={"User-Agent": "smackagram/1.0"})
+            with urlopen(req, timeout=8) as r:
+                d = _json.loads(r.read().decode())
+        except Exception as e:
+            print(f"[elsewhere] {key} unavailable: {e}", flush=True)
+            continue
+
+        for ev in (d.get("events") or [])[:4]:
+            comp = ((ev.get("competitions") or [{}])[0])
+            status = ((comp.get("status") or {}).get("type") or {})
+            if not status.get("completed"):
+                continue
+            sides = comp.get("competitors") or []
+            if len(sides) != 2:
+                continue
+
+            def nm(c):
+                t = c.get("team") or c.get("athlete") or {}
+                return (t.get("shortDisplayName") or t.get("displayName")
+                        or t.get("name") or "")
+
+            try:
+                a, b = sides[0], sides[1]
+                sa = int(a.get("score") or 0)
+                sb = int(b.get("score") or 0)
+            except (TypeError, ValueError):
+                continue
+
+            if not nm(a) or not nm(b):
+                continue
+
+            if sa == sb:
+                out.append({"league": label, "drawn": True,
+                            "a": nm(a), "b": nm(b), "score": f"{sa}-{sb}"})
+            else:
+                w, l = (a, b) if sa > sb else (b, a)
+                out.append({
+                    "league": label,
+                    "winner": nm(w),
+                    "loser": nm(l),
+                    "score": f"{max(sa, sb)}-{min(sa, sb)}",
+                    "margin": abs(sa - sb),
+                })
+
+    # Spread across sports rather than four football results and nothing
+    # else - the point of this segment is breadth.
+    spread, seen = [], {}
+    for row in out:
+        n = seen.get(row["league"], 0)
+        if n < 2:
+            spread.append(row)
+            seen[row["league"]] = n + 1
+    return spread[:limit]

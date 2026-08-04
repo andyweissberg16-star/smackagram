@@ -63,7 +63,26 @@ _SELF_HARM = [
 # Traits rather than performance. The rule everywhere else on this product
 # is that the roast lands on the game, and this is that rule made literal.
 _TRAITS = [
-    r"\b(?:fat|obese|ugly|hideous|disgusting)[- ]?(?:ass|looking)?\b(?=.{0,30}\b(?:you|he|she|they)\b)",
+    # ONLY WHEN IT DESCRIBES A PERSON.
+    #
+    # The first version matched any of these words within thirty characters
+    # of "you", which blocked "that defence was disgusting and you know it"
+    # and "an ugly night for you" - both completely normal sports talk. In
+    # this vocabulary "disgusting" and "filthy" are COMPLIMENTS.
+    #
+    # Every generation attempt got blocked, all three retries failed, and
+    # the site said "couldn't generate right now". A filter that fires on
+    # ordinary output is worse than no filter, because it takes the product
+    # down instead of a bad line.
+    #
+    # So: the word has to be attached to a PERSON - "you're fat", "he's
+    # ugly", "your fat face". Describing a performance is fine.
+    # Both apostrophes - the model produces the curly one as often as the
+    # straight one, and "he's ugly" leaked straight through a pattern that
+    # only knew about "he is".
+    r"\b(?:you|he|she|they)\s*(?:'|\u2019)?(?:re|s)?\s*"
+    r"(?:are|is)?\s*(?:so\s+)?(?:fat|obese|ugly|hideous)\b",
+    r"\byour (?:fat|ugly|hideous)\b",
     r"\bretard(?:ed)?\b",
     r"\b(?:cripple|crippled|spastic)\b",
     r"\byour (?:mother|mom|wife|girlfriend|kids|children|family)\b",
@@ -82,7 +101,11 @@ _CRIME = [
 _DEFAMATION = [
     r"\b(?:he|she|they)(?:'s| is| are)? (?:a )?(?:criminal|drug dealer|"
     r"rapist|paedophile|pedophile)\b",
-    r"\b(?:fixes|fixed|throwing|threw) (?:the )?games?\b(?!.{0,20}away)",
+    # "They threw the game" is what every fan says about a bad night. Only
+    # an explicit accusation of CORRUPTION belongs here.
+    r"\b(?:fixing|fixed) (?:the )?(?:game|match|series) for money\b",
+    r"\bpaid to (?:lose|throw)\b",
+    r"\bbetting against (?:his|her|their) own team\b",
     r"\bon (?:steroids|peds)\b",
     r"\bbetting on (?:his|her|their) own\b",
 ]

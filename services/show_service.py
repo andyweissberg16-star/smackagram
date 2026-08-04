@@ -1785,6 +1785,82 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
         else:
             log("break skipped - baseball was the last segment, nothing to come back to")
 
+    # ELSEWHERE - about a minute on everything else that happened.
+    #
+    # Placed AFTER the break, and its position ROTATES: some days it sits
+    # between baseball and the WNBA, other days it closes the show. A
+    # segment that is always in the same place is one a regular listener
+    # starts skipping.
+    #
+    # Rotated on the DATE rather than at random, so a re-render of the same
+    # episode does not move it - and consecutive days always differ.
+    try:
+        _else = espn_scores.fetch_elsewhere()
+        if _else:
+            _rows = []
+            for r in _else:
+                if r.get("drawn"):
+                    _rows.append(f"{r['league']}: {r['a']} and {r['b']} drew "
+                                 f"{r['score']}")
+                else:
+                    _rows.append(f"{r['league']}: {r['winner']} beat "
+                                 f"{r['loser']} {r['score']}")
+
+            _text = (
+                "AROUND THE GROUNDS - about a minute, no more.\n"
+                + "\n".join(f"  {x}" for x in _rows) +
+                "\n\nRattle these off. ONE LINE EACH, a joke on two or three "
+                "of them at most - this is a quick lap, not a block.\n"
+                "Say what sport each one is, because a listener who has just "
+                "heard baseball needs telling that this is football now.\n"
+                "Only what is listed above is true. Invent no scores, no "
+                "scorers, no detail."
+            )
+
+            # WRITTEN, not pasted.
+            #
+            # Everything else at this point is finished prose. Inserting the
+            # brief itself would put "AROUND THE GROUNDS - about a minute,
+            # no more" straight down the microphone.
+            #
+            # Its own small call rather than adding it to a league writer:
+            # this is not a league, and the two league writers run in
+            # parallel and would either both include it or both leave it
+            # out.
+            from services.smackcast_service import _get_client as _cl
+            _r = _cl().messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=350,
+                # Smacky's real voice, not a thin one-off description -
+                # otherwise this segment sounds like a different presenter
+                # walked in for a minute.
+                system=_elsewhere_system(),
+                messages=[{"role": "user", "content": _text}],
+            )
+            _written = (_r.content[0].text or "").strip()
+            if not _written:
+                raise ValueError("empty around-the-grounds copy")
+
+            _seg = {"text": _written, "display_text": _written,
+                    "reaction": "none", "league": "ELSEWHERE"}
+
+            import datetime as _dt
+            _after_wnba = _dt.date.today().toordinal() % 2 == 0
+
+            _brk_end = -1
+            for _i, _sg in enumerate(segments):
+                if (_sg.get("league") or "").upper() == "BREAK":
+                    _brk_end = _i
+            if _after_wnba or _brk_end == -1:
+                segments.append(_seg)
+                log(f"around the grounds: {len(_rows)} results, closing the show")
+            else:
+                segments.insert(_brk_end + 1, _seg)
+                log(f"around the grounds: {len(_rows)} results, straight "
+                    f"after the break")
+    except Exception as e:
+        log(f"around the grounds unavailable: {e}")
+
     # A phone bit, sometimes. Inserted after the break is placed so it never
     # lands next to the advert, and before audio so it is treated as a normal
     # segment everywhere downstream.
@@ -1967,6 +2043,74 @@ AD_FUMBLES = [
 # How often the read goes wrong. Roughly one episode in five - often enough
 # to be worth staying for, rare enough that a clean read is still the norm.
 AD_FUMBLE_CHANCE = 0.20
+
+
+def _elsewhere_system():
+    """
+    Smacky's voice for the Around the Grounds minute.
+
+    Built from the same vocabulary the rest of the show uses, so it does not
+    sound like a different presenter walked in for sixty seconds. But the
+    PLAYBOOK is left out - a one-line result has no box score behind it, and
+    "somebody call the mercy rule" needs a margin nobody fetched.
+    """
+    parts = ["You are Smacky, a loud sports host reading a quick lap of "
+             "everything else that happened. Spoken radio copy only - no "
+             "headings, no stage directions, no asterisks, nothing that a "
+             "text-to-speech engine would read out as a symbol."]
+    try:
+        from services import smackology
+        blk = smackology.smacky_block(3)
+        if blk:
+            parts.append(blk)
+    except Exception:
+        pass
+    try:
+        from services import insults
+        blk = insults.block(3)
+        if blk:
+            parts.append(blk)
+    except Exception:
+        pass
+    parts.append(
+        "AROUND THE GROUNDS - ITS OWN RULES.\n"
+        "This is a sixty-second lap, not a block. It sits inside a show that "
+        "already has full segments on baseball and basketball, and every "
+        "rule below exists so it does not collide with them.\n\n"
+
+        "ONE LINE PER RESULT. Four or five results, one sentence each. A "
+        "joke on two or three of them at most - a lap where every result "
+        "gets a punchline is not a lap, it is another block.\n\n"
+
+        "NAME THE SPORT EVERY TIME. Somebody has just heard nine minutes of "
+        "baseball. 'Arsenal beat Chelsea' means nothing to them until you "
+        "say it is football.\n\n"
+
+        "NO STREAKS, NO RECORDS, NO SEASON TALK. Each league already has a "
+        "Winners and Whiners for that, and doing it here is the same "
+        "segment twice.\n\n"
+
+        "NO AWARDS. No player of the night, no worst performer. Those belong "
+        "to the leagues that have box scores behind them.\n\n"
+
+        "DO NOT SIGN OFF. Some days this closes the show and the real "
+        "outro follows immediately - 'that's all from me' here means the "
+        "listener hears goodbye twice. Just stop.\n\n"
+
+        "DO NOT TEASE WHAT IS COMING. You do not know what follows.\n\n"
+
+        "AT MOST ONE INVENTED WORD in the whole minute, and only if it "
+        "fits. The league blocks have already used theirs; a second "
+        "Clownburger in the same episode is the joke wearing out in real "
+        "time.\n\n"
+
+        "Roast the RESULT, never the person listening and never anybody's "
+        "appearance, career or private life.\n"
+        "INVENT NOTHING. No score, no scorer, no red card, no knockdown, no "
+        "detail beyond exactly what you are given. You have the result and "
+        "nothing else, and a made-up detail about a named professional is "
+        "not a joke.")
+    return "\n\n".join(parts)
 
 
 def ad_copy_for_today():
@@ -2628,19 +2772,53 @@ def enforce_length(segments, plan, log=None):
     if total <= ceiling:
         return segments
 
-    # Never cut the break or anything before it.
-    last_break = -1
-    for i, seg in enumerate(segments):
-        if (seg.get("league") or "").upper() == "BREAK":
-            last_break = i
+    # CUT FROM WHICHEVER LEAGUE IS FATTEST, not from the end.
+    #
+    # The old rule protected everything before the ad break and dropped
+    # whatever followed. But the break sits after the LAST BASEBALL segment,
+    # so baseball was fully protected and the WNBA took every cut.
+    #
+    # A real episode ran 86% over and lost two segments - both from the WNBA
+    # block. That is how one league loses its closing beat while the league
+    # before it keeps every one of its own.
+    #
+    # Now: take from whoever has the most, one at a time, until it fits. A
+    # long baseball block gives up a segment rather than a short basketball
+    # block losing its ending.
+    #
+    # The BREAK is never dropped - the ad is the thing that was paid for -
+    # and no league is ever emptied completely.
+    kept = list(segments)
 
-    kept, running = [], 0
-    for i, seg in enumerate(segments):
-        w = words(seg)
-        if i <= last_break or running + w <= ceiling or not kept:
-            kept.append(seg)
-            running += w
-        # else: dropped
+    def _lg(seg):
+        return (seg.get("league") or "").upper()
+
+    def _total(segs):
+        return sum(words(x) for x in segs)
+
+    guard = 0
+    while _total(kept) > ceiling and guard < 40:
+        guard += 1
+        by_lg = {}
+        for idx, seg in enumerate(kept):
+            lg = _lg(seg)
+            # BREAK is the advert - the thing that was paid for.
+            # ELSEWHERE is a single sixty-second segment, so dropping it
+            # does not shorten the show by a segment, it removes a whole
+            # feature. It is currently safe only because the rule below
+            # never touches a league with one segment - which is luck, not
+            # design, and luck stops working the day it gets a second one.
+            if lg in ("BREAK", "ELSEWHERE", ""):
+                continue
+            by_lg.setdefault(lg, []).append(idx)
+        spare = {lg: ix for lg, ix in by_lg.items() if len(ix) > 1}
+        if not spare:
+            break
+        fattest = max(spare, key=lambda lg: sum(words(kept[i])
+                                                for i in spare[lg]))
+        kept.pop(spare[fattest][-1])
+        if log:
+            log(f"over budget - dropped a {fattest} segment")
 
     if log and len(kept) < len(segments):
         log(f"trimmed {len(segments) - len(kept)} segment(s): script was "
@@ -2794,6 +2972,14 @@ def _strip_cross_league(by_lg, present, _material_games=None):
             if (seg.get("league") or "").upper() == "BREAK":
                 continue
             if seg.get("kind") in ("break_in", "break_out"):
+                continue
+            # AROUND THE GROUNDS IS EXEMPT.
+            #
+            # This strip exists to stop a baseball segment wandering into
+            # basketball. But Around the Grounds names five different sports
+            # ON PURPOSE - that IS the segment - so running the strip over it
+            # would cut every line it has.
+            if (seg.get("league") or "").upper() == "ELSEWHERE":
                 continue
             text = seg.get("text") or ""
             if not text:
