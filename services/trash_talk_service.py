@@ -19,22 +19,27 @@ def _get_client():
 # auto-recap option. Keep these in sync with the tone instructions below.
 SENSITIVITY_LEVELS = {
     1: {
-        "label": "Clean",
-        "description": "Sharp, witty roasts with zero profanity. Still stings, just PG.",
+        "label": "Friendly",
+        "description": "Ribbing between mates. Sharp, but nothing you would "
+                       "mind being overheard. No swearing at all.",
     },
     2: {
-        "label": "Mild",
-        "description": "A little bite. Occasional mild language (damn, hell).",
+        "label": "Cocky",
+        "description": "Swagger. He is enjoying this and he wants them to "
+                       "know it. The odd damn or hell.",
     },
     3: {
-        "label": "Aggressive",
-        "description": "Real trash talk. Regular cursing, no holds barred on the team.",
+        "label": "Ruthless",
+        "description": "No mercy and no let-up. Regular cursing, straight at "
+                       "the sore spot.",
     },
     4: {
-        "label": "Savage",
-        "description": "Maximum aggression. Heavy profanity, brutally crude.",
+        "label": "Brutal",
+        "description": "Everything he has. Heavy profanity, nothing held "
+                       "back.",
     },
 }
+
 
 DEFAULT_SENSITIVITY = 4  # matches the original always-crude behavior, so nothing changes for existing users unless they pick a lower level
 
@@ -114,11 +119,42 @@ _HARD_LIMITS = """Hard limits — never cross these, at ANY sensitivity level:
   is fine and is the whole joke; declaring a fact about their CHARACTER is
   not. "The worst team in the league" insults the team they happen to have
   chosen - that is the target.
+- THIS IS SPOKEN ALOUD. Write it as somebody would SAY it.
+  No asterisks, no markdown, no emphasis marks, no bracketed stage
+  directions like (laughs) or [sighs] - a text-to-speech engine reads those
+  out loud, and a call that says "asterisk" mid-sentence is a broken call.
+  If a joke only works written down - a footnote asterisk on a title, for
+  instance - it does not work here. Say it instead.
+- THE ROAST ZONE. What Smacky goes after: bad coaching, missed shots,
+  turnovers, weak defence, choking, terrible trades, awful draft picks, fan
+  overconfidence, bad predictions, rivalries, scoreboard results, collapses,
+  and the excuses that follow a loss.
+  The test: if the insult is about HOW SOMEBODY PLAYED it is fair game. If
+  it is about WHO THEY ARE, it is not.
+- Never invent a crime or an allegation about a real person. Not that a
+  player is on steroids, not that somebody fixed a game, not that a coach
+  is corrupt. Those are false statements of fact about named people, not
+  jokes, and they do not stop being either because the tone is funny.
 - No slurs of any kind, no hate speech, no content targeting race,
   religion, gender, sexuality, disability, or any protected characteristic.
 - No threats of violence, no wishing real harm on anyone.
 - No real-world tragedy references, no political content.
-- 15-25 seconds of spoken audio — roughly 60-90 words.
+- LENGTH: 110 to 125 words. This is the single most important formatting
+  rule and it is not a suggestion.
+
+  Why: the message is followed by a 5-second sign-off tag, and the whole
+  thing should run 50 to 60 seconds. Calls arriving at 40 seconds feel
+  slight for something somebody paid for - there is time to build to
+  something rather than firing one line and stopping.
+
+  110-125 words lands in that window at any normal speaking rate. Under 100
+  is too short. Do not pad to reach it: if you find yourself repeating an
+  idea in different words, you needed a better second idea, not more
+  sentences.
+
+  Use the room. Set something up, let it breathe, come back to it. A line
+  that lands at 55 seconds is a different and better thing from the same
+  joke rushed into 25.
 - Do NOT write your own sign-off, closing line, or "smackagram" mention —
   that gets appended automatically after your output. End on the roast itself.
 - Do NOT write a greeting or address the recipient by name — that's already
@@ -127,7 +163,7 @@ _HARD_LIMITS = """Hard limits — never cross these, at ANY sensitivity level:
 - Output ONLY the line to be spoken. No preamble, no quotation marks, no labels."""
 
 
-def _build_system_prompt(sensitivity: int, recap_mode: bool) -> str:
+def _build_system_prompt(sensitivity: int, recap_mode: bool, sport: str = None, game: dict = None) -> str:
     sensitivity = sensitivity if sensitivity in _TONE_BY_LEVEL else DEFAULT_SENSITIVITY
     tone = _TONE_BY_LEVEL[sensitivity]
 
@@ -167,16 +203,78 @@ humiliations). If you're not confident a specific stat or event is accurate,
 use a real but more general true fact instead of inventing a fake specific one
 — never fabricate a specific year, score, or event that didn't happen."""
 
-    return f"{intro}\n\n{tone}\n\n{accuracy}\n\n{_HARD_LIMITS}"
+    # THE APPROVED VOCABULARY, filtered by level before the model sees it.
+    #
+    # Every rule asked of the model in a prompt on this project has been
+    # ignored at least once. A word list handed over as data, already cut
+    # down to what this sensitivity allows, cannot be exceeded - it can only
+    # be used or not used.
+    vocab = ""
+    try:
+        from services import insults
+        vocab = insults.block(sensitivity, sport=sport)
+    except Exception as e:
+        print(f"[smack] vocabulary unavailable: {e}", flush=True)
+
+    # SMACKY'S OWN WORDS - the invented vocabulary.
+    #
+    # This existed and was only ever wired into Smack Battle. The core
+    # Smackagram and Locked & Loaded - the two products people actually pay
+    # for - never saw it, so the character with the invented language was
+    # only speaking it in the free game.
+    own = ""
+    try:
+        own = smackology.smacky_block(sensitivity, sport=sport)
+    except Exception as e:
+        print(f"[smack] smackology unavailable: {e}", flush=True)
+
+    # WHAT ACTUALLY HAPPENED - situational language.
+    #
+    # Only the situations that apply. Handed all thirteen, a writer picks
+    # whichever phrase it likes and it reads as a list being consulted.
+    # Handed only the collapse lines on a night somebody blew a fourteen
+    # point lead, it sounds like somebody who watched the game.
+    situ = ""
+    try:
+        from services import playbook
+        situ = playbook.block(game, sport=sport)
+    except Exception as e:
+        print(f"[smack] playbook unavailable: {e}", flush=True)
+
+    parts = [intro, tone, accuracy]
+    if vocab:
+        parts.append(vocab)
+    if own:
+        parts.append(own)
+    if situ:
+        parts.append(situ)
+    parts.append(_HARD_LIMITS)
+    return "\n\n".join(parts)
 
 
+# FIFTY greetings.
+#
+# The first word out of the phone. At six, a regular recipient would start
+# recognising them - and somebody who gets smacked twice in a week hearing
+# the same "Well, well, well" is somebody who knows it is automated.
+#
+# Range matters more than volume here: some warm, some flat, some far too
+# formal for a phone call about a baseball team. The mismatch between a
+# polite greeting and what follows is doing work.
 GREETINGS = [
-    "Hey",
-    "Well hello there",
-    "Hi",
-    "Well, well, well",
-    "Yo",
-    "Good day to you",
+    "Hey", "Hi", "Yo", "Well hello there", "Well, well, well",
+    "Good day to you", "Hey there", "Oh hello", "Right", "So",
+    "Listen", "Alright", "Ah", "Greetings", "Good evening",
+    "Afternoon", "Morning", "Look", "Now then", "Okay so",
+    "Hello hello", "There he is", "Ah, there you are", "Excuse me",
+    "Pardon me", "Sorry to bother you", "Quick one", "Real quick",
+    "Hate to do this", "Not gonna lie", "Gotta say", "Be honest with me",
+    "Settle something for me", "Straight up", "For real though",
+    "Serious question", "Hold on", "Wait", "Hang on", "One second",
+    "Sit down", "Brace yourself", "You're not gonna like this",
+    "This is awkward", "No easy way to say this", "Deep breath",
+    "Big fan of yours", "Long time listener", "Congratulations",
+    "Condolences",
 ]
 
 # Fifty openers, because five meant a regular recipient heard the same line
@@ -254,9 +352,178 @@ RECAP_GREETINGS = [
 ]
 
 
+# THE OPENER.
+#
+# Every Smackagram used to begin with the SAME SENTENCE - only the first
+# word changed. "Hey / Yo / Well well well, {name}! I heard you're a {team}
+# fan." That is the first thing a recipient ever hears, and it was identical
+# on every call the product has ever sent.
+#
+# Written out in full here rather than asked of the model, for the same
+# reason the greeting always was: it has to be reliable. But reliable does
+# not have to mean identical.
+#
+# Each one must land the two facts a call needs in its first breath - WHO it
+# is for and WHICH team - because a recipient who does not know why their
+# phone is talking hangs up.
+# THE SHAPE OF THE JOKE.
+#
+# A model given only "roast this team" reaches for the same structure every
+# time: setup, comparison, closing insult. Fifty calls about fifty different
+# teams still sound like fifty versions of one call - invisible while each
+# recipient hears exactly ONE of them, and obvious the moment they sit side
+# by side on a public wall.
+#
+# So the structure is chosen here and handed over as an instruction, not
+# requested in a rule the model can quietly decline.
+ROAST_SHAPES = [
+    "Ask them a question you already know the answer to, then answer it "
+    "yourself.",
+    "Pretend to defend the team for one sentence, then abandon them "
+    "completely.",
+    "Compare the team to something mundane and disappointing - a queue, a "
+    "returned parcel, a group chat nobody replies to.",
+    "Start as if you are delivering bad news gently, then stop being gentle.",
+    "List two things briefly, then land on a third that is much worse.",
+    "Give one genuine compliment, then take it back in the same breath.",
+    "Describe what a neutral watching the team would think, in detail.",
+    "Talk about the team as if it is a medical condition they are managing.",
+    "Offer them advice they did not ask for and cannot use.",
+    "Say the quiet part - what their own fans say to each other.",
+    "Speak as if you have been asked to break this to them personally.",
+    "Wonder aloud what it would take for them to give up on this team.",
+    "Frame it as a warning to anybody else considering supporting them.",
+    "Treat one detail as absolutely damning and refuse to move past it.",
+    "Be genuinely impressed by how badly it is going.",
+    "Compare this season to a previous one, badly.",
+]
+
+
+OPENERS = [
+    # Straight
+    "{greet}, {name}! I heard you're a {team} fan.",
+    "{greet}, {name}. Word going round is you support the {team}.",
+    "{greet}, {name}! Somebody told me you're a {team} fan and I wanted to "
+    "hear it from you.",
+    "{greet}, {name}. So you're a {team} fan. That's a choice you made.",
+    "{greet}, {name}! They told me you follow the {team} and I said no, "
+    "surely not.",
+    "{greet}, {name}. I've got you down as a {team} fan. Say nothing, it's "
+    "worse if you explain.",
+    "{greet}, {name}! Quick question. You're a {team} fan, correct?",
+    "{greet}, {name}. I'm told you're a {team} fan, and I'm calling to "
+    "discuss that.",
+
+    # Deadpan
+    "{greet}, {name}! A {team} fan. In this economy.",
+    "{greet}, {name}. Your name came up on a list of {team} fans. Not a good "
+    "list.",
+    "{greet}, {name}! I hear you're a {team} fan, which explains a lot "
+    "actually.",
+    "{greet}, {name}. Somebody put your number down as a {team} fan. I hope "
+    "that was you.",
+    "{greet}, {name}! {team} fan. Yeah. I can hear it already.",
+    "{greet}, {name}. Just confirming for my records - {team}, is it.",
+    "{greet}, {name}! I was told there'd be a {team} fan at this number.",
+    "{greet}, {name}. This is about the {team} thing.",
+
+    # Mock concern
+    "{greet}, {name}! I'm calling about your support of the {team}. Somebody "
+    "had to.",
+    "{greet}, {name}. How long have you been a {team} fan? And how are you "
+    "coping.",
+    "{greet}, {name}! Somebody mentioned you're a {team} fan and everyone "
+    "went quiet.",
+    "{greet}, {name}. Your friends are worried. It's the {team} thing.",
+    "{greet}, {name}! Take a seat. It's about the {team}.",
+    "{greet}, {name}. I'm not here to judge. I'm here about the {team}, but "
+    "not to judge.",
+    "{greet}, {name}! Nobody wanted to be the one to call you about the "
+    "{team}. So here I am.",
+
+    # Faux official
+    "{greet}, {name}. This is a courtesy call regarding your {team} fandom.",
+    "{greet}, {name}! Calling on behalf of nobody, about the {team}.",
+    "{greet}, {name}. Your {team} membership has been flagged for review.",
+    "{greet}, {name}! I'm following up on a report that you support the "
+    "{team}.",
+    "{greet}, {name}. This call may be recorded, which is unfortunate for "
+    "you and the {team}.",
+    "{greet}, {name}! Do you have a moment to talk about the {team}? It "
+    "wasn't really a question.",
+
+    # Incredulous
+    "{greet}, {name}! Of all the teams. The {team}.",
+    "{greet}, {name}. You picked the {team}. On purpose. As an adult.",
+    "{greet}, {name}! I've read your file. It just says {team} fan, "
+    "underlined.",
+    "{greet}, {name}. Explain the {team} thing to me like I'm five.",
+    "{greet}, {name}! Somebody said {team} fan and pointed at your number.",
+    "{greet}, {name}. There are thirty other teams and you chose the {team}.",
+
+    # Sympathetic, briefly
+    "{greet}, {name}! You've been a {team} fan a long time, haven't you. It "
+    "shows.",
+    "{greet}, {name}. Rough one for the {team}. Thought I'd check in.",
+    "{greet}, {name}! Just calling to see how the {team} thing is going for "
+    "you.",
+    "{greet}, {name}. I know it's been hard, being a {team} fan. I'm not "
+    "here to help.",
+    "{greet}, {name}! How's the {team} season treating you? Don't answer "
+    "that.",
+
+    # Playing dumb
+    "{greet}, {name}. Remind me which team you support again? Oh. The "
+    "{team}.",
+    "{greet}, {name}! Somebody said you support the {team}. Is that the "
+    "whole team or just the badge.",
+    "{greet}, {name}. Are the {team} still going? Somebody said you'd know.",
+    "{greet}, {name}! I was told you're the person to ask about the {team}. "
+    "Unfortunately.",
+
+    # Direct
+    "{greet}, {name}. We need to talk about the {team}.",
+    "{greet}, {name}! It's about the {team}, and it's not good.",
+    "{greet}, {name}. You know why I'm calling. {team}.",
+    "{greet}, {name}! Two words. {team}. That's one, but you understand.",
+    "{greet}, {name}. Let's not pretend this is about anything other than "
+    "the {team}.",
+    "{greet}, {name}! I'll keep this short, which is more than the {team} "
+    "managed.",
+]
+
+
+# Roughly what ElevenLabs turbo produces on conversational text. Used only
+# for the log line - the real duration is whatever the engine renders.
+_SPOKEN_WPM = 135
+_OUTRO_SECONDS = 5.4
+
+
+def _log_length(text):
+    """How long this will take to say, so the target can be tuned."""
+    try:
+        n = len(str(text).split())
+        secs = n / _SPOKEN_WPM * 60
+        total = secs + _OUTRO_SECONDS
+        flag = ""
+        if total < 49:
+            flag = "  SHORT - target is 50-60s"
+        elif total > 68:
+            flag = "  long"
+        print(f"[smack] {n} words, ~{secs:.0f}s + tag = ~{total:.0f}s total{flag}",
+              flush=True)
+    except Exception:
+        pass
+
+
 def _build_greeting(recipient_name: str, team: str) -> str:
-    greeting = random.choice(GREETINGS)
-    return f"{greeting}, {recipient_name.strip()}! I heard you're a {team.strip()} fan!"
+    """One of a dozen openers, so the first thing they hear is not identical
+    on every call the product sends."""
+    return random.choice(OPENERS).format(
+        greet=random.choice(GREETINGS),
+        name=recipient_name.strip(),
+        team=team.strip(),
+    )
 
 
 def _build_recap_greeting(recipient_name: str, team: str) -> str:
@@ -271,7 +538,7 @@ def _build_recap_greeting(recipient_name: str, team: str) -> str:
     return template.format(name=recipient_name.strip(), team=team.strip())
 
 
-def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAULT_SENSITIVITY, roast_topics: list = None) -> str:
+def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAULT_SENSITIVITY, roast_topics: list = None, from_team: str = None) -> str:
     """
     Generates a ready-to-edit trash talk line roasting the given team,
     always opening with a personalized greeting built in code (not left to
@@ -332,23 +599,126 @@ def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAU
               "only the ones listed above are true."
         )
 
+    # THE SHAPE OF THE JOKE, chosen in code.
+    #
+    # Given only "roast this team", a model reaches for the same structure
+    # every time - a setup, a comparison, a closing insult. Fifty calls about
+    # fifty different teams still sound like fifty versions of one call,
+    # which is invisible while each recipient hears exactly ONE of them and
+    # very obvious on a public wall.
+    #
+    # Asking the prompt to "vary the structure" has been ignored four times
+    # on this project. So the structure is picked HERE and handed over as an
+    # instruction the model cannot decline.
+    shape = random.choice(ROAST_SHAPES)
+
+    # THE RIVALRY, when the sender says who they support.
+    #
+    # Optional, and the call works without it. But "a Giants fan sent this"
+    # turns an anonymous roast into a specific one - and the head-to-head
+    # record between two clubs is a fact neither side can argue with, which
+    # is exactly the kind of detail this product has been missing.
+    #
+    # The SENDER is still never named. Knowing which team it came from is
+    # not knowing who sent it, and that distinction is the whole anonymity
+    # promise.
+    rival_block = ""
+    if from_team and from_team.strip().lower() != (team or "").strip().lower():
+        rival_block = (
+            f"\n\nTHE SENDER SUPPORTS: {from_team.strip()}.\n"
+            "Say so once, early, as the reason this call is happening - "
+            "'this is from a {sender} fan' or similar. It reframes the whole "
+            "call from an anonymous roast into a specific one.\n"
+            "Do NOT name the sender or hint at who they are. Which team they "
+            "support is not who they are, and the anonymity is the promise "
+            "this product is built on.\n"
+            "Do not invent any head-to-head record, result or history "
+            "between the two clubs unless it appears in the facts above."
+        ).replace("{sender}", from_team.strip())
+
+    # ONE BRIEF, IN PRIORITY ORDER.
+    #
+    # These used to be four separate blocks - topics, live facts, rivalry,
+    # shape - each saying "do this" with no ordering, leaving the model to
+    # reconcile them. Which meant nobody could predict what won.
+    #
+    # At 110-125 words there is room for roughly THREE OR FOUR BEATS, so the
+    # question is not what to include but what gets a beat. The ladder:
+    #
+    #   1. What the SENDER ASKED FOR. They typed it in and paid for it. If
+    #      they said "the 2020 title", a call that does not mention the 2020
+    #      title is a failed call however funny it is.
+    #   2. The rivalry, if given - one clause, early, as the reason for the
+    #      call.
+    #   3. A live fact, but ONLY where it serves the above. "They've lost
+    #      three straight" is worth a beat on its own merits; it is worth
+    #      more when it backs up what the sender asked about.
+    #   4. Everything else - the timeless archetype material - fills what is
+    #      left.
+    #
+    # Written as one instruction rather than four so the model is not
+    # arbitrating between competing demands mid-sentence.
+    parts = [f"Team to roast: {team}."]
+
     if roast_topics:
         topics_str = ", ".join(roast_topics)
-        user_content = (
-            f"Team to roast: {team}. Specifically roast them about: {topics_str}. "
-            f"Weave these in naturally and specifically — don't just list them, actually "
-            f"make the joke land using real, accurate details about each one. Write the line."
-        )
-    else:
-        user_content = f"Team to roast: {team}. Write the line."
+        parts.append(
+            f"\nTHE SENDER ASKED FOR THIS SPECIFICALLY: {topics_str}\n"
+            "This is the first call on your word count. They typed it in and "
+            "paid for it - a call that does not land on it is a failed call, "
+            "however funny the rest is.\n"
+            "Give each thing they named a real beat, not a passing mention. "
+            "Be specific and accurate about it; a vague gesture at the right "
+            "subject is worse than picking a different one.")
 
-    # Appended to whichever branch ran, so chosen topics and live data work
-    # together rather than one replacing the other.
-    user_content += live_block
+    if live_facts:
+        if roast_topics:
+            parts.append(
+                "\nTRUE RIGHT NOW - from the live feed today:\n"
+                + "\n".join(f"- {x}" for x in live_facts)
+                + "\n\nUSE ONE OF THESE ONLY IF IT SUPPORTS WHAT THEY ASKED "
+                  "FOR. A current fact that backs up their point is worth a "
+                  "beat; one that changes the subject is not, however good "
+                  "it is. If none of them fit, ignore them entirely - that "
+                  "is the correct outcome, not a missed opportunity.\n"
+                  "Do NOT invent any other number, score, record or result.")
+        else:
+            parts.append(
+                "\nTRUE RIGHT NOW - from the live feed today:\n"
+                + "\n".join(f"- {x}" for x in live_facts)
+                + "\n\nUSE ONE OF THESE, not all of them. Pick whichever is "
+                  "funniest and build a beat on it - a specific number they "
+                  "cannot argue with beats a general insult.\n"
+                  "The rest of the call should still be the timeless kind of "
+                  "roast. The fact makes it land TODAY; the joke is what "
+                  "makes it funny. Do not read the statistics out.\n"
+                  "Do NOT invent any other number, score, record or result.")
+
+    if rival_block:
+        parts.append(rival_block)
+
+    # The shape comes LAST, because it is about arrangement rather than
+    # content. It decides how the beats above are ordered and delivered, not
+    # what they are - so it must not be read as another thing to include.
+    parts.append(
+        f"\n\nSHAPE THIS ONE LIKE THIS: {shape}\n"
+        "That is the ARRANGEMENT, not extra content. Fit what is above into "
+        "that shape. Do not announce it or explain it - just write the call "
+        "that way.")
+
+    parts.append(
+        "\n\nWrite the call. 110-125 words. If everything above will not "
+        "fit, drop the LOWEST priority item - never what the sender asked "
+        "for.")
+
+    user_content = "".join(parts)
 
     message = _get_client().messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=200,
+        # 125 words is roughly 165-190 tokens, so a 200 cap would cut
+        # the call off mid-sentence the moment it tried to reach the
+        # new length. 400 leaves room to finish a thought.
+        max_tokens=400,
         system=system_prompt,
         messages=[{
             "role": "user",
@@ -356,7 +726,52 @@ def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAU
         }],
     )
     roast = message.content[0].text.strip()
-    return f"{opener} {roast}"
+    # Cleaned here TOO, not only at the voice.
+    #
+    # The TTS path is protected now, but the sender sees this text in an
+    # editable box before buying. If it shows "title*" while the call says
+    # "title", they have been shown something that is not what they are
+    # sending. What you see has to be what they hear.
+    try:
+        from services.speech_clean import clean_for_speech
+        final = clean_for_speech(f"{opener} {roast}")
+    except Exception:
+        final = f"{opener} {roast}"
+
+    # MEASURED, NOT ENFORCED.
+    #
+    # Logged rather than trimmed, because cutting a call because it ran a
+    # second long is worse than letting it run - the audio is not stopped at
+    # sixty seconds and should not be. This is here so the target can be
+    # tuned against what the model ACTUALLY produces rather than against
+    # calls somebody happened to receive and time by hand.
+    _log_length(final)
+
+    # THE FAST CHECK, at the source.
+    #
+    # Doing it here covers every caller at once - the core Smackagram,
+    # Locked & Loaded firing automatically at two in the morning, replies,
+    # and anything added later. A check applied per-endpoint is one somebody
+    # forgets on the next endpoint.
+    #
+    # Raises rather than returning something safe, so a caller cannot
+    # accidentally send a blocked line by ignoring a return value. The
+    # generate route catches this and retries.
+    try:
+        from services import fast_filter
+        quick = fast_filter.check(final)
+        if not quick["ok"]:
+            raise ValueError(
+                f"blocked by the local filter ({quick['category']}): "
+                f"{quick['excerpt'][:60]}")
+        if quick.get("restyled"):
+            final = quick["text"]
+    except ValueError:
+        raise
+    except Exception as e:
+        print(f"[smack] fast filter unavailable: {e}", flush=True)
+
+    return final
 
 
 WNBA_SLANG = """
@@ -948,7 +1363,25 @@ def generate_game_recap_roast(team: str, recipient_name: str, key_facts: list[st
     not a generic one.
     """
     opener = _build_recap_greeting(recipient_name, team)
-    system_prompt = _build_system_prompt(sensitivity, recap_mode=True)
+    # Sport passed through so "bricklayer" cannot turn up in a baseball
+    # call - a basketball word in a baseball recap is a small tell that
+    # nobody is actually watching.
+    # The game shape drives which situations the writer is shown, so a
+    # blowout gets blowout language and a collapse gets collapse language
+    # rather than the writer choosing from everything.
+    _shape = {}
+    for fact in (key_facts or []):
+        low = str(fact).lower()
+        if "blowout" in low or "never competitive" in low:
+            _shape["margin"] = 30
+        if "one run" in low or "one possession" in low or "single goal" in low:
+            _shape["margin"] = 1
+        if "shot" in low and "percent" in low:
+            _shape["cold_shooting"] = True
+        if "and it still was not enough" in low or "nobody else showed up" in low:
+            _shape["star_quiet"] = True
+    system_prompt = _build_system_prompt(sensitivity, recap_mode=True,
+                                         sport=sport, game=_shape or None)
 
     if key_facts:
         facts_block = "\n".join(f"- {fact}" for fact in key_facts)
@@ -969,12 +1402,60 @@ def generate_game_recap_roast(team: str, recipient_name: str, key_facts: list[st
 
     message = _get_client().messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=200,
+        # 125 words is roughly 165-190 tokens, so a 200 cap would cut
+        # the call off mid-sentence the moment it tried to reach the
+        # new length. 400 leaves room to finish a thought.
+        max_tokens=400,
         system=system_prompt,
         messages=[{"role": "user", "content": user_content}],
     )
     roast = message.content[0].text.strip()
-    return f"{opener} {roast}"
+    # Cleaned here TOO, not only at the voice.
+    #
+    # The TTS path is protected now, but the sender sees this text in an
+    # editable box before buying. If it shows "title*" while the call says
+    # "title", they have been shown something that is not what they are
+    # sending. What you see has to be what they hear.
+    try:
+        from services.speech_clean import clean_for_speech
+        final = clean_for_speech(f"{opener} {roast}")
+    except Exception:
+        final = f"{opener} {roast}"
+
+    # MEASURED, NOT ENFORCED.
+    #
+    # Logged rather than trimmed, because cutting a call because it ran a
+    # second long is worse than letting it run - the audio is not stopped at
+    # sixty seconds and should not be. This is here so the target can be
+    # tuned against what the model ACTUALLY produces rather than against
+    # calls somebody happened to receive and time by hand.
+    _log_length(final)
+
+    # THE FAST CHECK, at the source.
+    #
+    # Doing it here covers every caller at once - the core Smackagram,
+    # Locked & Loaded firing automatically at two in the morning, replies,
+    # and anything added later. A check applied per-endpoint is one somebody
+    # forgets on the next endpoint.
+    #
+    # Raises rather than returning something safe, so a caller cannot
+    # accidentally send a blocked line by ignoring a return value. The
+    # generate route catches this and retries.
+    try:
+        from services import fast_filter
+        quick = fast_filter.check(final)
+        if not quick["ok"]:
+            raise ValueError(
+                f"blocked by the local filter ({quick['category']}): "
+                f"{quick['excerpt'][:60]}")
+        if quick.get("restyled"):
+            final = quick["text"]
+    except ValueError:
+        raise
+    except Exception as e:
+        print(f"[smack] fast filter unavailable: {e}", flush=True)
+
+    return final
 
 
 SMACK_LAB_SYSTEM_PROMPT = """You are the "Smack Lab" coach on Smackagram — a
@@ -1008,6 +1489,14 @@ Hard limits — never cross these, no exceptions:
   nothing about them personally; never invent personal details or insult
   them as an individual, even in the "critique" portion. Critique their
   WRITING/DELIVERY, not them as a person.
+- ROAST HOW THEY PLAYED, NOT WHO THEY ARE. Nothing about appearance,
+  weight, disability, a medical condition, age, or somebody's family. If the
+  insult is about the sport it is fair game; if it is about the person it is
+  not, and no tone setting changes that.
+- Never invent a crime or an allegation about a real person - not that a
+  player is on steroids, not that somebody fixed a game. Those are false
+  statements about named people, and they do not stop being that because the
+  tone is funny.
 - No slurs, no hate speech, no content targeting race, religion, gender,
   sexuality, disability, or any protected characteristic.
 - No threats of violence, no wishing real harm on anyone.
@@ -1054,10 +1543,44 @@ def smack_lab_respond(team: str, conversation_history: list[dict], user_line: st
 
     try:
         result = json.loads(raw)
+        critique = result.get("critique", "").strip()
+        comeback = result.get("comeback", "").strip()
+
+        # THE FAST FILTER HERE TOO.
+        #
+        # Smack Lab is a live back-and-forth with a real person and it is the
+        # loosest thing on the site - somebody pushing at the edges gets a
+        # reply within seconds, over and over. It was also the only generator
+        # whose output never went through any local check.
+        #
+        # Blocked means the line is replaced with a refusal, not rewritten.
+        # There is no retry loop here to fall back on, and a rewritten threat
+        # would leave nothing in the log.
+        try:
+            from services import fast_filter
+            for label, txt in (("critique", critique), ("comeback", comeback)):
+                v = fast_filter.check(txt)
+                if not v["ok"]:
+                    print(f"[lab] blocked {label} ({v['category']})",
+                          flush=True)
+                    return {
+                        "rating": 5,
+                        "critique": "Let's keep it on the sport.",
+                        "comeback": "Not going there. Give me something "
+                                    "about the game.",
+                        "blocked": v["category"],
+                    }
+                if label == "critique":
+                    critique = v["text"]
+                else:
+                    comeback = v["text"]
+        except Exception as e:
+            print(f"[lab] fast filter unavailable: {e}", flush=True)
+
         return {
             "rating": int(result.get("rating", 5)),
-            "critique": result.get("critique", "").strip(),
-            "comeback": result.get("comeback", "").strip(),
+            "critique": critique,
+            "comeback": comeback,
         }
     except (json.JSONDecodeError, ValueError):
         return {
@@ -1158,7 +1681,32 @@ def generate_reply_smack(original_message: str, sensitivity: int = 4) -> str:
     responds to what was said, rather than being generic.
     """
     tone = _TONE_BY_LEVEL.get(sensitivity, _TONE_BY_LEVEL[DEFAULT_SENSITIVITY])
-    system_prompt = f"{REPLY_SMACK_SYSTEM_PROMPT}\n\n{tone}\n\n{_HARD_LIMITS}"
+    # SMACK BACK GETS THE VOCABULARY TOO.
+    #
+    # This is a real paid call going down a real phone, and it was the only
+    # one of the three that did not know Smacky's own words. Same product,
+    # same voice, half the character missing.
+    #
+    # The PLAYBOOK is deliberately left out - a reply is about what somebody
+    # SAID, not about a game, so "somebody call the mercy rule" has nothing
+    # to attach to.
+    _extra = []
+    try:
+        from services import insults
+        _v = insults.block(sensitivity)
+        if _v:
+            _extra.append(_v)
+    except Exception as e:
+        print(f"[reply] vocabulary unavailable: {e}", flush=True)
+    try:
+        _o = smackology.smacky_block(sensitivity)
+        if _o:
+            _extra.append(_o)
+    except Exception as e:
+        print(f"[reply] smackology unavailable: {e}", flush=True)
+
+    system_prompt = "\n\n".join(
+        [REPLY_SMACK_SYSTEM_PROMPT, tone] + _extra + [_HARD_LIMITS])
 
     user_content = f"The original message they received:\n\n{original_message}\n\nWrite their comeback."
 

@@ -32,6 +32,18 @@ MAX_INBOX_LOOKUPS_PER_HOUR = 20
 # One is the sales pitch. The rest is where cost control belongs.
 MAX_ANON_PREVIEWS_PER_HOUR = 1
 
+# The same one-free rule for every generator a visitor can reach.
+#
+# SEPARATE BUCKETS on purpose. Somebody who spent their free listen should
+# still be able to generate a line, and somebody playing Smack Lab should
+# not have burned their audio preview on it. Sharing one bucket would mean
+# trying the product in one place silently locks it in another.
+MAX_ANON_PER_HOUR = {
+    "anon_preview": 1,      # hearing a call
+    "anon_generate": 1,     # writing a line
+    "anon_lab": 3,          # Smack Lab is a back-and-forth; one is not a go
+}
+
 
 def _recent(key: str, window_seconds: int) -> list:
     now = time.time()

@@ -301,6 +301,18 @@ async function sendLine() {
     const data = await resp.json();
     typing.remove();
 
+    // Free rounds spent. Somewhere to go, rather than a wall at the moment
+    // they were enjoying it.
+    if (data.needs_account) {
+      const acc = document.createElement('div');
+      acc.className = 'empty-state';
+      acc.innerHTML = data.error
+        + ' <a href="/register" style="color:var(--flare);font-weight:600;">'
+        + 'Create one</a>';
+      log.appendChild(acc);
+      return;
+    }
+
     if (data.error) {
       const errDiv = document.createElement('div');
       errDiv.className = 'empty-state';

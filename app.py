@@ -590,6 +590,10 @@ def _execute_send_smack(user, data: dict) -> dict:
         sender_phone=data.get("sender_phone") if data.get("reply_opt_in") else None,
         reply_token=secrets.token_urlsafe(24) if data.get("reply_opt_in") else None,
         payment_status="captured",  # wallet deduction IS the payment - no async Stripe wait needed
+        # Optional send-later time, already converted to UTC by the page.
+        # Null means send now, which is every order placed before this
+        # existed - additive, nothing to backfill.
+        scheduled_for=_parse_schedule(data.get("scheduled_for")),
     )
     db.session.add(order)
     db.session.commit()
@@ -603,6 +607,23 @@ def _execute_send_smack(user, data: dict) -> dict:
         publish_to_wall(order,
                         "smackback" if order.replied_to_type else "smackagram",
                         audio_urls[0])
+
+        # SCHEDULED CALLS DO NOT RING NOW.
+        #
+        # The audio is still generated and the wall post still goes up - the
+        # work is done and paid for. Only the dialling waits, and the cron
+        # picks it up within three minutes of the chosen time.
+        if getattr(order, "scheduled_for", None):
+            db.session.commit()
+            print(f"[schedule] order {order.id} held until "
+                  f"{order.scheduled_for} UTC", flush=True)
+            return jsonify({
+                "success": True,
+                "order_id": order.id,
+                "scheduled_for": order.scheduled_for.isoformat(),
+                "message": "Locked in. It rings at the time you picked.",
+            })
+
         call_sid = twilio_service.place_prank_call("order", order.id, order.recipient_phone, record=True)
         order.twilio_call_sid = call_sid
         order.call_status = "ringing"
@@ -877,11 +898,19 @@ def _moderation_error_text(verdict):
 
 
 @app.route("/api/generate-trash-talk", methods=["POST"])
-@login_required
 def generate_trash_talk():
+    # One free line without an account. Writing costs API credits with no
+    # purchase attached, so one is the sales pitch.
+    gate = _anon_allowance("anon_generate", "line")
+    if gate:
+        return gate
+
     data = request.json
     team = data.get("team", "").strip()
     recipient_name = data.get("recipient_name", "").strip()
+    # Optional. Which team the SENDER supports, so the call can be framed as
+    # a rivalry rather than an anonymous roast. Never reveals who they are.
+    from_team = (data.get("from_team") or "").strip()[:40]
     sensitivity = data.get("sensitivity", trash_talk_service.DEFAULT_SENSITIVITY)
     # Sanitized server-side too, not just trusting whatever the frontend
     # already limited to 3 — cap length per topic as a light guard
@@ -908,10 +937,47 @@ def generate_trash_talk():
             candidate = trash_talk_service.generate_trash_talk(
                 team=team, recipient_name=recipient_name,
                 sensitivity=sensitivity, roast_topics=roast_topics,
+                from_team=from_team,
             )
         except Exception as e:
             print(f"[generate] generation failed (attempt {attempt + 1}): {e}")
             continue
+
+        # THE FAST CHECK FIRST.
+        #
+        # Local, instant, no round trip. Catches the obvious so the model
+        # call is spent on the genuinely ambiguous - and works even when
+        # that call is timing out.
+        #
+        # Style swaps are applied quietly: "idiot" becoming "clown" is a
+        # house-voice decision, not a safety one.
+        #
+        # A BLOCK IS NEVER REWRITTEN. The temptation is to swap a threat for
+        # something harmless and carry on, but that sends a call that was
+        # ALMOST a threat and the safety log never sees it - losing the one
+        # signal that a generator has started drifting.
+        try:
+            from services import fast_filter
+            quick = fast_filter.check(candidate)
+            if not quick["ok"]:
+                print(f"[generate] fast filter blocked "
+                      f"({quick['category']}): {quick['excerpt'][:60]}",
+                      flush=True)
+                try:
+                    safety_service.record(
+                        "generator", "generated",
+                        {"category": quick["category"],
+                         "reason": "blocked by the local filter before the "
+                                   "model check",
+                         "excerpt": quick["excerpt"]},
+                        user_id=getattr(current_user, "id", None))
+                except Exception:
+                    pass
+                continue          # regenerate, do not send
+            if quick.get("restyled"):
+                candidate = quick["text"]
+        except Exception as e:
+            print(f"[generate] fast filter unavailable: {e}", flush=True)
 
         try:
             verdict = content_moderation.check_message_safety(candidate)
@@ -972,13 +1038,18 @@ def get_sensitivity_levels():
 
 
 @app.route("/api/smack-lab/respond", methods=["POST"])
-@login_required
 def smack_lab_respond():
     """
     Powers Smack Lab — live back-and-forth trash-talk sparring with a
     rating + coaching critique on every turn. Rate-limited per IP since
     this is a free feature (no purchase) that costs real Claude API calls.
     """
+    # Three free turns without an account. Smack Lab is a back-and-forth -
+    # one turn is not a go, it is a tease.
+    gate = _anon_allowance("anon_lab", "few rounds")
+    if gate:
+        return gate
+
     identifier = request.headers.get("X-Forwarded-For", request.remote_addr)
     if rate_limiter.is_rate_limited(identifier):
         return jsonify({
@@ -1050,6 +1121,70 @@ def voice_sample(voice_key):
     return jsonify({"preview_url": preview_url})
 
 
+def _parse_schedule(raw):
+    """
+    An ISO timestamp from the page, returned as naive UTC to match
+    created_at.
+
+    The page sends UTC, because a scheduled call is the one feature where
+    being an hour out is not a small bug - it rings at seven in the morning
+    instead of eight at night.
+
+    Refuses anything in the past, since a call scheduled for last Tuesday
+    would fire the instant the next cron ran. And anything past 60 days,
+    which is almost always a mistyped year.
+    """
+    if not raw:
+        return None
+    try:
+        from datetime import datetime, timedelta, timezone
+
+        txt = str(raw).strip().replace("Z", "+00:00")
+        when = datetime.fromisoformat(txt)
+        if when.tzinfo is not None:
+            when = when.astimezone(timezone.utc).replace(tzinfo=None)
+
+        now = datetime.utcnow()
+        if when <= now + timedelta(minutes=2):
+            return None            # effectively now - just send it
+        if when > now + timedelta(days=60):
+            print(f"[schedule] {raw} is too far out, ignoring", flush=True)
+            return None
+        return when
+    except Exception as e:
+        print(f"[schedule] could not read '{raw}': {e}", flush=True)
+        return None
+
+
+def _anon_allowance(bucket, what="that"):
+    """
+    One free go before an account is needed.
+
+    Returns None when the request may proceed, or a ready-made 429 response.
+
+    Requiring a login to TRY the product put a registration form in front of
+    somebody deciding whether to spend a dollar - and registering is the
+    bigger ask of the two. But generation costs real API credits with no
+    purchase attached, so one is the sales pitch and the rest sits behind an
+    account.
+
+    Buckets are separate per generator, so trying one thing does not
+    silently lock another.
+    """
+    if getattr(current_user, "is_authenticated", False):
+        return None
+    ident = request.headers.get("X-Forwarded-For", request.remote_addr)
+    cap = rate_limiter.MAX_ANON_PER_HOUR.get(bucket, 1)
+    if rate_limiter.is_limited(bucket, ident, cap):
+        return jsonify({
+            "error": f"That's your free {what}. Create an account - it's "
+                     f"free - to keep going.",
+            "needs_account": True,
+        }), 429
+    rate_limiter.record(bucket, ident)
+    return None
+
+
 @app.route("/api/preview-audio", methods=["POST"])
 def preview_audio():
     """
@@ -1059,22 +1194,9 @@ def preview_audio():
     """
     identifier = request.headers.get("X-Forwarded-For", request.remote_addr)
 
-    # ONE preview without an account, then sign in.
-    #
-    # Requiring a login to hear the product put a registration form in front
-    # of somebody deciding whether to spend a dollar - and registering is a
-    # bigger ask than the dollar. But previews cost real ElevenLabs credits
-    # with no purchase attached, so one is the sales pitch and the rest sits
-    # behind an account.
-    if not getattr(current_user, "is_authenticated", False):
-        if rate_limiter.is_limited("anon_preview", identifier,
-                                   rate_limiter.MAX_ANON_PREVIEWS_PER_HOUR):
-            return jsonify({
-                "error": "That's your free listen. Create an account - it's "
-                         "free - to hear more.",
-                "needs_account": True,
-            }), 429
-        rate_limiter.record("anon_preview", identifier)
+    gate = _anon_allowance("anon_preview", "listen")
+    if gate:
+        return gate
 
     if rate_limiter.is_rate_limited(identifier):
         return jsonify({
@@ -4617,7 +4739,21 @@ def cron_check_smackagrams():
         return jsonify({"error": "unauthorized"}), 401
 
     check_armed_smackagrams()
-    return jsonify({"ok": True})
+
+    # Scheduled sends ride the SAME three-minute cron rather than needing a
+    # second job to set up and forget about. Three minutes is close enough
+    # for "eight o'clock on his birthday".
+    #
+    # Wrapped separately so a failure here cannot stop the armed check -
+    # that one is holding real money.
+    scheduled = {}
+    try:
+        from scheduler import send_scheduled_smackagrams
+        scheduled = send_scheduled_smackagrams()
+    except Exception as e:
+        print(f"[cron] scheduled sends failed: {e}", flush=True)
+
+    return jsonify({"ok": True, "scheduled": scheduled})
 
 
 # Published sample recaps shown on the product page. Empty until real ones
@@ -5542,6 +5678,14 @@ with app.app_context():
                 created_at TIMESTAMP
             )"""))
 
+            for _col, _type in (("scheduled_for", "TIMESTAMP"),
+                                ("scheduled_sent", "BOOLEAN DEFAULT FALSE")):
+                conn.execute(db.text(
+                    f"ALTER TABLE orders ADD COLUMN IF NOT EXISTS {_col} {_type}"))
+            conn.execute(db.text(
+                "CREATE INDEX IF NOT EXISTS ix_orders_scheduled "
+                "ON orders (scheduled_for)"))
+
             conn.execute(db.text("""CREATE TABLE IF NOT EXISTS safety_events (
                 id SERIAL PRIMARY KEY,
                 created_at TIMESTAMP,
@@ -5775,6 +5919,43 @@ with app.app_context():
         db.session.commit()
         print("[auth] seeded second admin test account (admin1/admin)")
 
+
+
+@app.route("/api/roster")
+def api_roster():
+    """
+    The players on one team, for the name picker.
+
+    Only this team's roster - they have already chosen the team, so it is
+    25-50 names rather than every player in every league.
+
+    The point is that a name can only be CHOSEN, never typed. A misspelled
+    or invented player reaching the generator produces a call about somebody
+    who does not exist, and nobody would find out until it had been said
+    down the phone.
+
+    Open, like the team list already is - it is public roster information
+    and requiring a login to see a dropdown would be silly.
+    """
+    team = (request.args.get("team") or "").strip()
+    # The picker already knows which league the team is in, so it sends it.
+    # Without it, an unrecognised name is searched across all fourteen
+    # leagues one after another - and the college lists run to hundreds of
+    # teams each, so somebody would sit waiting for several seconds.
+    league = (request.args.get("league") or "").strip().lower() or None
+    if not team:
+        return jsonify({"players": []})
+    try:
+        from services import team_state
+        players = team_state.roster(team, league=league)
+    except Exception as e:
+        print(f"[roster] {team}: {e}", flush=True)
+        players = []
+    resp = jsonify({"team": team, "players": players})
+    # A roster changes at most daily. Letting the browser hold it means the
+    # picker feels instant on the second use.
+    resp.headers["Cache-Control"] = "public, max-age=3600"
+    return resp
 
 
 @app.route("/api/teams/all")

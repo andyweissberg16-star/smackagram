@@ -36,14 +36,31 @@ from urllib.request import Request, urlopen
 
 BASE = "https://site.api.espn.com/apis/site/v2/sports"
 
+# EVERY LEAGUE IN THE TEAM PICKER.
+#
+# This started with seven, while the picker offered 1,205 teams across
+# fourteen leagues - so 439 of them, including all the football (soccer) and
+# college baseball, had no roster at all. Somebody picking Arsenal would tap
+# "a player" and get an empty list.
+#
+# The KEYS match team_display's league codes exactly, because that is what
+# the picker sends. The values are ESPN's own paths, which do not always
+# agree with ours - "epl" here is "eng.1" there.
 LEAGUES = {
-    "nfl":   ("football", "nfl"),
-    "nba":   ("basketball", "nba"),
-    "wnba":  ("basketball", "wnba"),
-    "mlb":   ("baseball", "mlb"),
-    "nhl":   ("hockey", "nhl"),
-    "ncaaf": ("football", "college-football"),
-    "ncaab": ("basketball", "mens-college-basketball"),
+    "nfl":       ("football", "nfl"),
+    "nba":       ("basketball", "nba"),
+    "wnba":      ("basketball", "wnba"),
+    "mlb":       ("baseball", "mlb"),
+    "nhl":       ("hockey", "nhl"),
+    "ncaaf":     ("football", "college-football"),
+    "ncaab":     ("basketball", "mens-college-basketball"),
+    "ncaawb":    ("basketball", "womens-college-basketball"),
+    "ncaabase":  ("baseball", "college-baseball"),
+    "mls":       ("soccer", "usa.1"),
+    "epl":       ("soccer", "eng.1"),
+    "laliga":    ("soccer", "esp.1"),
+    "seriea":    ("soccer", "ita.1"),
+    "bundesliga": ("soccer", "ger.1"),
 }
 
 # Team lists change once a season; records change once a day. An hour is
@@ -336,3 +353,89 @@ def facts_for(team_name, league=None, limit=4, timeout_s=3.0):
         with _lock:
             _misses[key] = now
     return result
+
+
+def roster(name, league=None, limit=60):
+    """
+    The players actually on this team, for the name picker.
+
+    ONLY THIS TEAM'S ROSTER, not every player in every league. They have
+    already chosen the team, so the list is 25-50 names rather than tens of
+    thousands - smaller to hold, faster to search, and it cannot offer
+    somebody who plays for a different club.
+
+    That last part is the point. A misspelled or invented name reaching the
+    generator produces a call about a person who does not exist, and neither
+    the sender nor the recipient would know until it had already been said
+    down the phone.
+
+    Returns [] on anything unexpected, and the picker then simply has no
+    suggestions.
+    """
+    t = find_team(name, league)
+    if not t or not t.get("id"):
+        return []
+
+    def build():
+        sport, path = LEAGUES[t["league"]]
+        d = _get(f"{BASE}/{sport}/{path}/teams/{t['id']}/roster")
+        if not d:
+            return []
+        out = []
+        # ESPN nests this differently per sport - a flat list for some, split
+        # into position groups for others. Handle both rather than guessing.
+        groups = d.get("athletes") or []
+        for g in groups:
+            people = g.get("items") if isinstance(g, dict) and "items" in g else [g]
+            for a in (people or []):
+                if not isinstance(a, dict):
+                    continue
+                nm = a.get("displayName") or a.get("fullName")
+                if not nm:
+                    continue
+                out.append({
+                    "name": nm,
+                    "position": ((a.get("position") or {}).get("abbreviation")
+                                 if isinstance(a.get("position"), dict)
+                                 else a.get("position")),
+                    "number": a.get("jersey"),
+                })
+        # THE COACH GOES IN TOO.
+        #
+        # Rarely picked, but when it is picked it is the best option on the
+        # list - a football coach in particular is often the whole story of
+        # a defeat in a way no single player is. Fourth and one, timeouts
+        # left, a challenge nobody understood.
+        #
+        # ESPN puts this in different places depending on the sport, so both
+        # are checked rather than assuming one.
+        for blob in (d.get("coach"), (d.get("team") or {}).get("coach")):
+            if not blob:
+                continue
+            people = blob if isinstance(blob, list) else [blob]
+            for c in people:
+                if not isinstance(c, dict):
+                    continue
+                nm = (c.get("displayName")
+                      or " ".join(x for x in (c.get("firstName"),
+                                              c.get("lastName")) if x).strip())
+                if nm:
+                    # Marked so the picker can label it - "Head Coach" next
+                    # to the name tells somebody instantly why it is there.
+                    out.append({"name": nm, "position": "Head Coach",
+                                "number": None, "is_coach": True})
+
+        # De-duplicate, keep the order ESPN gave (usually by position).
+        seen, clean = set(), []
+        for p in out:
+            if p["name"].lower() in seen:
+                continue
+            seen.add(p["name"].lower())
+            clean.append(p)
+        return clean[:limit]
+
+    try:
+        return _cached(f"roster:{t['league']}:{t['id']}", build) or []
+    except Exception as e:
+        print(f"[team-state] roster failed for {name}: {e}", flush=True)
+        return []

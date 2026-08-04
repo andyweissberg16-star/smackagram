@@ -375,8 +375,8 @@
   }
   .fader-tick.on{color:var(--heat, var(--punch));}
   /* A temperature scale, not a progress bar. The whole spectrum stays visible
-     the way a thermometer does - red at Savage on the left, cooling through
-     orange to yellow at Clean on the right - so the colour under the thumb
+     the way a thermometer does - red at Brutal on the left, cooling through
+     orange to yellow at Friendly on the right - so the colour under the thumb
      tells you how hot the setting is at a glance. */
   .fader-input{
     -webkit-appearance:none; appearance:none; width:100%; height:8px;
@@ -669,6 +669,26 @@
   #wizardCard{border:none !important; box-shadow:none !important; border-radius:0 !important; margin:0 !important;}
   #wizardCard::before{display:none !important;}
   {% endif %}
+
+  .aim-row{display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 4px;}
+  .aim{background:#141416; border:1px solid #2A2D32; color:var(--chalk);
+       border-radius:20px; padding:9px 15px; font:inherit; font-size:14px;
+       cursor:pointer; transition:border-color .15s, background .15s;}
+  .aim:hover{border-color:var(--flare);}
+  .aim.on{background:var(--flare); border-color:var(--flare); color:#fff;
+          font-weight:600;}
+  .pick-list{max-height:190px; overflow-y:auto; border:1px solid #2A2D32;
+             border-radius:8px; margin-top:6px; display:none;}
+  .pick-list.open{display:block;}
+  .pick{padding:10px 13px; cursor:pointer; display:flex;
+        justify-content:space-between; gap:10px; font-size:14px;}
+  .pick:hover, .pick.hi{background:rgba(232,20,44,.14);}
+  .pick small{color:var(--chalk-dim); font-size:12px; white-space:nowrap;}
+  .picked{display:inline-flex; align-items:center; gap:8px;
+          background:var(--flare); color:#fff; border-radius:20px;
+          padding:7px 14px; font-size:14px; font-weight:600; margin-top:8px;}
+  .picked button{background:none; border:none; color:#fff; cursor:pointer;
+                 font-size:16px; line-height:1; padding:0;}
 </style>
 <script>
 // Runs before paint. If this page is inside a frame, strip the chrome itself
@@ -831,8 +851,47 @@
     <label for="teamInput"><span class="fld-num">2.</span> Team to trash talk</label>
     <input id="teamInput" type="text" placeholder="ex - Yankees" data-team-search>
 
-    <label for="roastTopicsInput"><span class="fld-num">3.</span> Specific things to roast them about (optional)</label>
-    <input id="roastTopicsInput" type="text" placeholder="ex - cheating, trash cans">
+    {# WHAT TO AIM IT AT.
+       
+       This was an open box anybody could type anything into, and whatever
+       they typed went straight into the generator. Two problems with that:
+       it is the obvious place for somebody to try steering the call
+       somewhere you would not want it to go, and most people type something
+       vague like "they suck" which produces a WORSE call than no input.
+       
+       Buttons instead. Nobody can type anything into a button, and it is
+       faster on a phone than typing is.
+       
+       The player option opens a search of that team's actual roster - a
+       name can be CHOSEN but never typed, because an invented or misspelled
+       player produces a call about somebody who does not exist and nobody
+       finds out until it has been said down the phone. #}
+    <label><span class="fld-num">3.</span> Aim it at something
+      <span style="font-weight:400;opacity:.6;">(optional)</span></label>
+    <div class="aim-row" id="aimRow">
+      <button type="button" class="aim" data-aim="form">How they're playing</button>
+      <button type="button" class="aim" data-aim="player">A player or coach</button>
+      <button type="button" class="aim" data-aim="brutal">Just be brutal</button>
+    </div>
+
+    <div id="playerPick" style="display:none; margin-top:10px;">
+      <input id="playerInput" type="text" autocomplete="off"
+             placeholder="Start typing a name, then pick from the list">
+      <div id="playerList" class="pick-list"></div>
+      <p class="field-hint" id="playerHint">Pick a name from the list &mdash;
+        Smacky needs the real spelling.</p>
+    </div>
+
+    {# Optional rivalry framing. Which team the SENDER supports turns an
+       anonymous roast into a specific one - and it does NOT reveal who they
+       are. Which team you support is not who you are, and the anonymity is
+       the promise this product is built on. #}
+    <label for="fromTeamInput"><span class="fld-num">4.</span> Your team
+      <span style="font-weight:400;opacity:.6;">(optional)</span></label>
+    <input id="fromTeamInput" type="text" placeholder="ex - Giants" data-team-search>
+    <p class="field-hint">Add it and Smacky mentions it&rsquo;s coming from a
+      rival. Your name never comes up either way.</p>
+
     <p class="field-hint">Leave blank and Smacky&rsquo;ll roast them generally, using whatever real history and current events fit.</p>
 
     <div id="step1Error" role="alert" style="display:none;"></div>
@@ -854,7 +913,7 @@
     <div class="sas-body" id="sasBody2">
     <p class="step-label">Step 2</p>
     <h3>Choose how hard <span class="smacky">Smacky</span> goes</h3>
-    <p class="heading-aside">(He votes Savage. He always votes Savage.)</p>
+    <p class="heading-aside">(He votes Brutal. He always votes Brutal.)</p>
     <div id="sensitivitySelector">
       <p style="color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
     </div>
@@ -1452,13 +1511,13 @@ async function loadSensitivityLevels() {
       // Temperature for the thumb, the lit label and the readout. Sampled to
       // match the track gradient at that point, so the handle looks like it
       // picked up the colour it is sitting on.
-      var HEAT = {4: 'var(--flare)', 3: '#FF6B14', 2: '#FF9F0A', 1: '#FFD400'};
+      var HEAT = {4: '#E8142C', 3: '#FF6B14', 2: '#FF9F0A', 1: '#FFD400'};
       var GLOW = {4: 'rgba(224,27,36,0.55)', 3: 'rgba(255,107,20,0.5)',
                   2: 'rgba(255,159,10,0.45)', 1: 'rgba(255,212,0,0.4)'};
       var fader = range.closest('.fader') || range.parentNode;
-      fader.style.setProperty('--heat', HEAT[selectedSensitivity] || 'var(--flare)');
+      fader.style.setProperty('--heat', HEAT[selectedSensitivity] || '#E8142C');
       fader.style.setProperty('--heat-glow', GLOW[selectedSensitivity] || 'rgba(224,27,36,0.55)');
-      range.style.setProperty('--heat', HEAT[selectedSensitivity] || 'var(--flare)');
+      range.style.setProperty('--heat', HEAT[selectedSensitivity] || '#E8142C');
       range.style.setProperty('--heat-glow', GLOW[selectedSensitivity] || 'rgba(224,27,36,0.55)');
 
       // Anything above Clean needs an age acknowledgement. Reset it whenever
@@ -1492,11 +1551,18 @@ loadSensitivityLevels();
 document.getElementById('generateBtn').addEventListener('click', async () => {
   const team = document.getElementById('teamInput').value.trim();
   const recipientName = document.getElementById('recipientNameInput').value.trim();
-  const roastTopics = document.getElementById('roastTopicsInput').value
-    .split(',')
-    .map(t => t.trim())
-    .filter(t => t.length > 0)
-    .slice(0, 3);
+  // A name that was TYPED but never TAPPED stops here.
+  //
+  // Quietly dropping it would leave somebody thinking the call is about a
+  // player it never mentions. Better to stop them while the fix is one tap
+  // away.
+  if (window.smkAim && window.smkAim.problem && window.smkAim.problem()) return;
+
+  // Built only from what was tapped, so nothing a person typed freely can
+  // reach the generator.
+  const roastTopics = (window.smkAim && window.smkAim.topics)
+    ? window.smkAim.topics().slice(0, 3)
+    : [];
   const output = document.getElementById('trashTalkOutput');
   const btn = document.getElementById('generateBtn');
 
@@ -1516,9 +1582,21 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     const resp = await fetch('/api/generate-trash-talk', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({team: team, recipient_name: recipientName, sensitivity: selectedSensitivity, roast_topics: roastTopics})
+      body: JSON.stringify({team: team, recipient_name: recipientName, sensitivity: selectedSensitivity, roast_topics: roastTopics, from_team: (document.getElementById('fromTeamInput') || {}).value || ''})
     });
     const data = await resp.json();
+    // Free line spent. The account link goes right here rather than a dead
+    // end at the moment they were interested.
+    if (data.needs_account) {
+      output.value = data.error;
+      const el = document.getElementById('previewStatus');
+      if (el) {
+        el.innerHTML = '<a href="/register" style="color:var(--flare);'
+                     + 'font-weight:600;">Create a free account</a>'
+                     + ' to keep generating.';
+      }
+      return;
+    }
     if (data.login_required) {
       window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
       return;
@@ -1943,6 +2021,151 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
   });
   input.addEventListener('blur', check);
 })();
+
+  // ---- what to aim it at ----
+  //
+  // Buttons, not an open box. Whatever somebody typed used to go straight
+  // into the generator - the obvious place to try steering the call
+  // somewhere it should not go, and in practice most people typed something
+  // vague that made the call WORSE.
+  //
+  // The player option searches that team's real roster. A name can be
+  // CHOSEN but never typed: an invented or misspelled player produces a
+  // call about somebody who does not exist, and nobody finds out until it
+  // has already been said down the phone.
+  window.smkAim = (function () {
+    var aims = [];              // which buttons are lit
+    var chosenPlayer = null;    // a name only lands here by being CLICKED
+    var roster = [];
+    var lastTeam = '';
+
+    var row = document.getElementById('aimRow');
+    var wrap = document.getElementById('playerPick');
+    var input = document.getElementById('playerInput');
+    var list = document.getElementById('playerList');
+    var hint = document.getElementById('playerHint');
+    if (!row) return {};
+
+    function loadRoster() {
+      var team = (document.getElementById('teamInput') || {}).value || '';
+      team = team.trim();
+      if (!team) {
+        hint.textContent = 'Pick the team first, then a name.';
+        return;
+      }
+      if (team === lastTeam && roster.length) return;
+      lastTeam = team;
+      hint.textContent = 'Loading the squad\u2026';
+      fetch('/api/roster?team=' + encodeURIComponent(team))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          roster = d.players || [];
+          hint.textContent = roster.length
+            ? 'Pick a name from the list \u2014 Smacky needs the real spelling.'
+            : "Couldn't load that squad. Skip this one and Smacky will still "
+              + 'have plenty to work with.';
+        })
+        .catch(function () {
+          roster = [];
+          hint.textContent = "Couldn't load that squad right now.";
+        });
+    }
+
+    function draw(q) {
+      var needle = q.trim().toLowerCase();
+      if (!needle) { list.classList.remove('open'); return; }
+      var hits = roster.filter(function (p) {
+        return p.name.toLowerCase().indexOf(needle) > -1;
+      }).slice(0, 8);
+      if (!hits.length) { list.classList.remove('open'); return; }
+      list.innerHTML = hits.map(function (p, n) {
+        var meta = [p.position, p.number ? '#' + p.number : '']
+                     .filter(Boolean).join(' \u00b7 ');
+        return '<div class="pick' + (n === 0 ? ' hi' : '') + '" data-name="'
+             + p.name.replace(/"/g, '&quot;') + '">' + p.name
+             + '<small>' + meta + '</small></div>';
+      }).join('');
+      list.classList.add('open');
+      list.querySelectorAll('.pick').forEach(function (el) {
+        el.addEventListener('click', function () { choose(el.dataset.name); });
+      });
+    }
+
+    function choose(name) {
+      chosenPlayer = name;
+      list.classList.remove('open');
+      input.style.display = 'none';
+      var tag = document.createElement('div');
+      tag.className = 'picked';
+      tag.innerHTML = name + ' <button type="button" aria-label="Remove">&times;</button>';
+      tag.querySelector('button').addEventListener('click', function () {
+        chosenPlayer = null;
+        tag.remove();
+        input.value = '';
+        input.style.display = '';
+        input.focus();
+      });
+      input.parentNode.insertBefore(tag, hint);
+      hint.textContent = 'Locked in.';
+    }
+
+    row.addEventListener('click', function (e) {
+      var b = e.target.closest('.aim');
+      if (!b) return;
+      var k = b.dataset.aim;
+      var at = aims.indexOf(k);
+      if (at > -1) { aims.splice(at, 1); b.classList.remove('on'); }
+      else { aims.push(k); b.classList.add('on'); }
+
+      if (k === 'player') {
+        wrap.style.display = aims.indexOf('player') > -1 ? '' : 'none';
+        if (aims.indexOf('player') > -1) { loadRoster(); input.focus(); }
+        else { chosenPlayer = null; input.value = ''; }
+      }
+    });
+
+    if (input) {
+      input.addEventListener('focus', loadRoster);
+      input.addEventListener('input', function () {
+        chosenPlayer = null;          // typing invalidates a previous pick
+        draw(input.value);
+      });
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          var first = list.querySelector('.pick');
+          if (first) choose(first.dataset.name);
+        }
+      });
+    }
+
+    return {
+      // TYPED BUT NOT CLICKED IS AN ERROR, not something to quietly drop.
+      //
+      // Silently ignoring what somebody typed would leave them thinking the
+      // call is about a player it never mentions. Better to stop them and
+      // say so while it is still one tap away from being fixed.
+      problem: function () {
+        if (aims.indexOf('player') > -1 && !chosenPlayer
+            && input && input.value.trim()) {
+          if (window.smkInvalid) window.smkInvalid(input);
+          hint.textContent = 'Tap the name in the list so Smacky gets the '
+                           + 'spelling right.';
+          hint.style.color = '#E8142C';
+          return true;
+        }
+        return false;
+      },
+      // What the generator is told, built only from things that were TAPPED.
+      topics: function () {
+        var out = [];
+        if (aims.indexOf('form') > -1) out.push('how they are playing right now');
+        if (aims.indexOf('brutal') > -1) out.push('no mercy, go as hard as the level allows');
+        if (chosenPlayer) out.push(chosenPlayer);
+        return out;
+      }
+    };
+  })();
 </script>
 
 <style>

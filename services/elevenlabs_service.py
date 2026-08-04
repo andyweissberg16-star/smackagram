@@ -261,6 +261,30 @@ def generate_audio_url(message: str, voice_id: str = None) -> str:
     if voice_id is None:
         voice_id = os.environ["ELEVENLABS_VOICE_ID"]
 
+    # CLEANED BEFORE ANYTHING ELSE, including before the cache key.
+    #
+    # A real Smackagram about the Dodgers went out saying "ASTERISK" aloud -
+    # the model had written the 2020-title joke as "title*" and the engine
+    # read the character. The Daily Smack has had a sanitiser for a while;
+    # the call path had NONE, so the show was protected and the flagship
+    # product was not.
+    #
+    # Doing it HERE covers every generator at once - core Smackagram, Locked
+    # & Loaded, Smack Back, replies, and anything added later. A fix applied
+    # per-generator is a fix somebody forgets on the next one.
+    #
+    # Before the cache key on purpose: otherwise the dirty and clean versions
+    # of the same line are two different cache entries, and a previously
+    # cached bad file would keep being served.
+    try:
+        from services.speech_clean import clean_for_speech, would_be_spoken
+        flags = would_be_spoken(message)
+        if flags:
+            print(f"[speech] cleaned before TTS: {', '.join(flags)}", flush=True)
+        message = clean_for_speech(message)
+    except Exception as e:
+        print(f"[speech] sanitiser unavailable: {e}", flush=True)
+
     # cache key includes the voice, since the same text sounds different
     # (and needs separate storage) per voice
     cache_key = hashlib.sha256(f"{voice_id}:{message}".encode()).hexdigest()

@@ -435,3 +435,74 @@ def generate_weekly_smackcasts():
         except Exception as e:
             db.session.rollback()
             print(f"[smackcast] Failed to generate recap for subscription {sub.id}: {e}")
+
+
+def send_scheduled_smackagrams():
+    """
+    NOT IN USE. Nothing on the site sets a scheduled time.
+
+    Built, then pulled, and the reason is worth keeping: Smackagram means
+    "send it now" and Locked & Loaded means "send it when they lose". A
+    third option - "send it at eight" - blurs both and hands the buyer a
+    decision they did not need.
+
+    Left in place because it is inert without a UI feeding it, and because
+    if a genuine use appears later (a birthday product, say, where the
+    timing IS the point) the plumbing is already correct and tested.
+
+    Fire any Smackagram whose scheduled time has arrived.
+
+    Runs on the SAME three-minute cron as the armed check, so a call goes
+    out within three minutes of its slot. That is close enough for "eight
+    o'clock on his birthday" and avoids a second cron job to forget about.
+
+    A call is claimed BEFORE it is placed - marked sent, committed, then
+    dialled. Two overlapping cron runs would otherwise both find the same
+    row and ring somebody twice, which is the kind of bug that costs a
+    refund and a complaint rather than just a log line.
+    """
+    from datetime import datetime
+
+    from models import Order, db
+
+    now = datetime.utcnow()
+    due = (Order.query
+           .filter(Order.scheduled_for.isnot(None))
+           .filter(Order.scheduled_for <= now)
+           .filter(Order.scheduled_sent.is_(False))
+           # "captured" is what a wallet order is written as - the wallet
+           # deduction IS the payment, so there is no separate capture step.
+           # Filtering on "paid" would have matched nothing and every
+           # scheduled call would have sat there forever.
+           .filter(Order.payment_status.in_(("captured", "paid")))
+           .limit(25)
+           .all())
+
+    if not due:
+        return {"checked": 0, "sent": 0}
+
+    sent = 0
+    for o in due:
+        try:
+            # Claim it first. If the call then fails, it is not retried
+            # automatically - a scheduled call that rings twice is worse
+            # than one that does not ring, and the admin can see it.
+            o.scheduled_sent = True
+            db.session.commit()
+
+            from services import twilio_service
+            # Signature is (record_type, record_id, phone) - passing the
+            # object would have thrown on every scheduled send.
+            sid = twilio_service.place_prank_call(
+                "order", o.id, o.recipient_phone,
+                record=bool(getattr(o, "includes_recording", True)))
+            o.twilio_call_sid = sid
+            db.session.commit()
+            sent += 1
+            print(f"[scheduled] sent order {o.id} "
+                  f"(due {o.scheduled_for})", flush=True)
+        except Exception as e:
+            db.session.rollback()
+            print(f"[scheduled] order {o.id} FAILED: {e}", flush=True)
+
+    return {"checked": len(due), "sent": sent}

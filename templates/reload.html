@@ -302,7 +302,7 @@ async function initPaymentForPack(packKey) {
       return;
     }
 
-    elements = stripe.elements({clientSecret: data.client_secret, appearance: {theme: 'night', variables: {colorPrimary: 'var(--flare)', colorBackground: '#141414', colorText: '#FFFFFF'}}});
+    elements = stripe.elements({clientSecret: data.client_secret, appearance: {theme: 'night', variables: {colorPrimary: '#E8142C', colorBackground: '#141414', colorText: '#FFFFFF'}}});
 
     paymentElementInstance = elements.create('payment');
     paymentElementInstance.mount('#payment-element');

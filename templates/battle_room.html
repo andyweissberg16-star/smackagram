@@ -780,7 +780,7 @@ function readableColor(hex, fallback){
 
 <script>
 const challengeCode = "{{ challenge_code }}";
-const INTENSITY_LABELS = {1: 'Clean', 2: 'Mild', 3: 'Aggressive', 4: 'Savage'};
+const INTENSITY_LABELS = {1: 'Friendly', 2: 'Cocky', 3: 'Ruthless', 4: 'Brutal'};
 const LEAGUE_LABELS = {nfl: 'NFL', nba: 'NBA', mlb: 'MLB', nhl: 'NHL', wnba: 'WNBA', ncaaf: 'NCAA Football', ncaab: 'NCAA Basketball', soccer: 'Soccer'};
 // Maps Smack Battle's own league dropdown values to the `league` keys
 // actually used by /api/teams/all, for restricting the team autocomplete
@@ -1400,7 +1400,7 @@ function buildFinalScorecard(battle, mySide) {
   ` : '';
 
   const colorA = readableColor(battle.team_a_color, 'var(--gold)');
-  const colorB = readableColor(battle.team_b_color, 'var(--flare)');
+  const colorB = readableColor(battle.team_b_color, '#E8142C');
 
   // Split decision. The winner's half is wider and lit in their own team
   // colour; the loser's is narrow and dark. The layout itself says who won

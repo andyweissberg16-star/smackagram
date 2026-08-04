@@ -197,6 +197,164 @@ SMACKY = {
 }
 
 
+# SMACKY'S OWN WORDS.
+#
+# Invented terms nobody else uses. The point is not the joke in each one -
+# it is that a listener who has heard three Smackagrams starts recognising
+# them, and a phrase somebody recognises is worth more than a better phrase
+# they hear once.
+#
+# "sport" restricts a word to where it makes sense. Brick Goblin in a
+# baseball call is a tell that nobody is watching, and it costs the whole
+# line its credibility.
+SMACKY_WORDS = [
+    # Universal
+    {"word": "Clownburger", "tier": 2, "sport": None,
+     "means": "making so many ridiculous decisions they become a joke",
+     "for": "fans, coaches or players embarrassing themselves"},
+    {"word": "Melt Merchant", "tier": 1, "sport": None,
+     "means": "falls apart completely under pressure",
+     "for": "late collapses, playoff failures"},
+    {"word": "Captain Collapse", "tier": 1, "sport": None,
+     "means": "always blows a lead", "for": "epic choke jobs"},
+    {"word": "Chokelord", "tier": 2, "sport": None,
+     "means": "the undisputed king of choking", "for": "playoff meltdowns"},
+    {"word": "L Magnet", "tier": 2, "sport": None,
+     "means": "somehow attracts losses wherever they go",
+     "for": "losing players, unlucky teams"},
+    {"word": "Walking L", "tier": 2, "sport": None,
+     "means": "one giant loss in human form",
+     "for": "rival fans, struggling players"},
+    {"word": "L Factory", "tier": 2, "sport": None,
+     "means": "produces nothing but losses", "for": "a terrible season"},
+    {"word": "Bumtron", "tier": 3, "sport": None,
+     "means": "performing like a broken sports robot",
+     "for": "veterans who look washed"},
+    {"word": "Skill Vacuum", "tier": 3, "sport": None,
+     "means": "appears to absorb the talent out of the room",
+     "for": "horrendous performances"},
+    {"word": "Hype Balloon", "tier": 1, "sport": None,
+     "means": "massively overhyped, deflates fast",
+     "for": "rookies, overrated stars"},
+    {"word": "Fraud Nugget", "tier": 2, "sport": None,
+     "means": "pretending to be elite without earning it",
+     "for": "overrated players, fake contenders"},
+    {"word": "IQ Deficit", "tier": 3, "sport": None,
+     "means": "decision-making disappears entirely during a game",
+     "for": "mental mistakes, terrible coaching"},
+    {"word": "Cornball Commander", "tier": 2, "sport": None,
+     "means": "trying far too hard to look cool and failing",
+     "for": "cocky rivals, awkward celebrations"},
+    {"word": "Smackectomy", "tier": 2, "sport": None,
+     "means": "a verbal destruction that leaves no comeback",
+     "for": "AFTER a devastating roast, never before one"},
+
+    # Fan-directed. The person listening IS a fan, so these describe the
+    # fanbase as a group or get posed as a question - never stated flat at
+    # them. Same rule as the insult list.
+    {"word": "Cry Captain", "tier": 2, "sport": None, "fans": True,
+     "means": "the unofficial leader of complaining and excuses",
+     "for": "fans, players or coaches whining"},
+    {"word": "Excuse Engineer", "tier": 2, "sport": None, "fans": True,
+     "means": "a professional at inventing excuses after a loss",
+     "for": "fans and coaches"},
+    {"word": "Copium Cowboy", "tier": 2, "sport": None, "fans": True,
+     "means": "rides into every argument on false hope",
+     "for": "a delusional fanbase after a loss"},
+    {"word": "Sweat Merchant", "tier": 1, "sport": None, "fans": True,
+     "means": "panics over every single play", "for": "nervous fans"},
+    {"word": "Trophy Tourist", "tier": 1, "sport": None, "fans": True,
+     "means": "only follows championship teams", "for": "bandwagon fans"},
+
+    # Basketball only
+    {"word": "Brick Goblin", "tier": 1, "sport": "basketball",
+     "means": "misses everything they shoot",
+     "for": "a shooter having an awful night"},
+    {"word": "Bench Goblin", "tier": 1, "sport": "basketball",
+     "means": "lives on the bench and contributes nothing",
+     "for": "deep reserves"},
+    {"word": "Stat Goblin", "tier": 2, "sport": "basketball",
+     "means": "collecting stats instead of winning",
+     "for": "triple-double hunters, stat padders"},
+    {"word": "Highlight Victim", "tier": 2, "sport": "basketball",
+     "means": "always ends up on somebody else's highlight reel",
+     "for": "defenders getting posterised or crossed over"},
+
+    # Football only
+    {"word": "Fumble Nugget", "tier": 2, "sport": "football",
+     "means": "constantly drops or mishandles the ball",
+     "for": "costly mistakes"},
+
+    # Basketball and football
+    {"word": "Turnover Technician", "tier": 2, "sport": "ball",
+     "means": "specialises in giving the ball away",
+     "for": "basketball and football"},
+]
+
+_SPORT_FAMILY = {
+    "nba": "basketball", "wnba": "basketball", "ncaab": "basketball",
+    "ncaaw": "basketball", "basketball": "basketball",
+    "nfl": "football", "ncaaf": "football", "football": "football",
+}
+
+
+def smacky_words(level=4, sport=None):
+    """The invented words allowed here."""
+    fam = _SPORT_FAMILY.get(str(sport or "").lower())
+    out = []
+    for w in SMACKY_WORDS:
+        if w["tier"] > int(level or 4):
+            continue
+        need = w.get("sport")
+        if need is None:
+            out.append(w)
+        elif need == "ball" and fam in ("basketball", "football"):
+            out.append(w)
+        elif need == fam:
+            out.append(w)
+    return out
+
+
+def smacky_block(level=4, sport=None, allow_explainer=True):
+    """
+    The invented vocabulary as a prompt section.
+
+    The explainer - "oh, you don't know what that means?" followed by a
+    one-line definition - is genuinely funny ONCE. Every call, it becomes
+    the thing people notice instead of the joke, which is how every running
+    bit on this project has gone wrong. So it is permitted at most once,
+    and only when the caller says so.
+    """
+    words = smacky_words(level, sport)
+    if not words:
+        return ""
+    lines = [f"  {w['word']} - {w['means']}; {w['for']}" for w in words]
+
+    body = ("SMACKY'S OWN WORDS. Nobody else uses these, which is the point -\n"
+            "a listener who has heard three of these calls starts recognising\n"
+            "them, and a phrase somebody recognises beats a better phrase they\n"
+            "hear once.\n\n" + "\n".join(lines) +
+            "\n\nUSE AT MOST ONE PER CALL. They work because they are rare. "
+            "Two in ninety seconds sounds like a man reading from a list.\n"
+            "Match the word to what actually happened - a wrong one is worse "
+            "than none.")
+
+    if allow_explainer:
+        body += ("\n\nYou MAY explain one, once, if it lands naturally: say "
+                 "the word, then \"oh, you don't know what that means?\" and "
+                 "give a one-line definition that is itself a joke. Do this "
+                 "at most ONCE and only if there is room - it is funny the "
+                 "first time somebody hears it and tiresome the third.")
+
+    fan_words = [w["word"] for w in words if w.get("fans")]
+    if fan_words:
+        body += ("\n\n" + ", ".join(fan_words) + " describe the FANBASE as a "
+                 "group, or get posed as a question. Never stated flat at the "
+                 "person listening - they are a fan, and the roast lands on "
+                 "the team.")
+    return body
+
+
 def _fmt(words):
     return ", ".join(words)
 

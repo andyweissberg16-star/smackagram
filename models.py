@@ -213,6 +213,17 @@ class Order(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # SEND IT LATER.
+    #
+    # Null means send immediately, which is every order placed before this
+    # existed - so the column is additive and nothing needs backfilling.
+    #
+    # Stored in UTC. The page collects a local time and converts, because a
+    # scheduled call is the one feature where being an hour out is not a
+    # small bug: it rings at seven in the morning instead of eight at night.
+    scheduled_for = db.Column(db.DateTime, index=True)
+    scheduled_sent = db.Column(db.Boolean, default=False)
+
 
 class Smackagram(db.Model):
     """
