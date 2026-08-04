@@ -115,7 +115,11 @@
      OFF by default and toggled by a click, because browsers refuse to play
      audio until the user has interacted with the page - an alert that fires
      silently is worse than none, since you would trust it. #}
-  <button id="liveBtn" class="tab" style="margin-left:10px;">🔔 Alerts off</button>
+  <button id="liveBtn" class="tab" style="margin-left:10px;">🔔 Alerts ON</button>
+  {# Pick the sound and hear it. "Noticeable" depends on the room you are
+     sitting in, so this is a choice rather than a decision I make for you. #}
+  <select id="soundPick" class="tab" style="margin-left:8px;padding:6px 8px;"></select>
+  <button id="soundTest" class="tab" style="margin-left:4px;">▶ Test</button>
   <span id="liveFeed" style="margin-left:10px;font-size:12px;color:#9A9A96;"></span>
 </header>
 
@@ -725,30 +729,104 @@
   // the page, so an alert enabled automatically would fail silently - and a
   // silent alarm you trust is worse than no alarm.
   (function () {
-    var on = false, marks = {order: 0, locked: 0}, timer = null, ctx = null;
+    // ON BY DEFAULT. The only way it starts off is if you turned it off
+    // before - that choice persists, nothing else does.
+    var on = localStorage.getItem('smackAlerts') !== 'off';
+    var marks = {order: 0, locked: 0}, timer = null, ctx = null, unlocked = false;
     var btn = document.getElementById('liveBtn');
     var feed = document.getElementById('liveFeed');
     if (!btn) return;
 
     // Generated rather than a file: no request, no cache, and it cannot
     // break because somebody moved an mp3.
-    function ping(kind) {
+    // SOUNDS.
+    //
+    // Six of them, because "noticeable" is a matter of taste and of the room
+    // you are sitting in - a soft chime is right at a desk and useless in a
+    // kitchen. Pick one from the dropdown and it sticks.
+    //
+    // All generated rather than files: no request, no cache, nothing to
+    // break because somebody moved an mp3.
+    //
+    // Each takes a "low" flag so Locked & Loaded is always a shade below a
+    // Smackagram - you can tell them apart without looking.
+    var SOUNDS = {
+      chime:    'Chime (soft)',
+      register: 'Cash register',
+      alarm:    'Alarm (3 beeps)',
+      rise:     'Rising fanfare',
+      doorbell: 'Doorbell',
+      klaxon:   'Klaxon (loudest)'
+    };
+
+    function tone(t, hz, dur, vol, type) {
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type || 'sine';
+      o.frequency.setValueAtTime(hz, t);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(t); o.stop(t + dur + 0.02);
+      return o;
+    }
+
+    function sweep(t, from, to, dur, vol, type) {
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type || 'sawtooth';
+      o.frequency.setValueAtTime(from, t);
+      o.frequency.linearRampToValueAtTime(to, t + dur);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(t); o.stop(t + dur + 0.02);
+    }
+
+    function play(name, low) {
       try {
         ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
-        var t = ctx.currentTime;
-        // Two different tones so you can tell them apart without looking.
-        var notes = kind === 'locked' ? [660, 880] : [880, 1320];
-        notes.forEach(function (hz, i) {
-          var o = ctx.createOscillator(), g = ctx.createGain();
-          o.type = 'sine';
-          o.frequency.value = hz;
-          g.gain.setValueAtTime(0.0001, t + i * 0.12);
-          g.gain.exponentialRampToValueAtTime(0.25, t + i * 0.12 + 0.01);
-          g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.12 + 0.16);
-          o.connect(g); g.connect(ctx.destination);
-          o.start(t + i * 0.12); o.stop(t + i * 0.12 + 0.18);
-        });
+        if (ctx.state === 'suspended') ctx.resume();
+        var t = ctx.currentTime + 0.02;
+        var k = low ? 0.75 : 1;      // Locked & Loaded sits lower
+
+        if (name === 'register') {
+          // Two bright metallic hits, like a till.
+          tone(t,        1180 * k, 0.11, 0.30, 'square');
+          tone(t + 0.09, 1560 * k, 0.30, 0.26, 'square');
+          tone(t + 0.09, 2340 * k, 0.22, 0.10, 'sine');
+
+        } else if (name === 'alarm') {
+          // Three hard beeps. Hard to ignore, easy to hate by Friday.
+          [0, 0.16, 0.32].forEach(function (d) {
+            tone(t + d, 1000 * k, 0.11, 0.32, 'square');
+          });
+
+        } else if (name === 'rise') {
+          // Four notes climbing - reads as good news rather than a fault.
+          [660, 880, 1100, 1320].forEach(function (hz, n) {
+            tone(t + n * 0.075, hz * k, 0.22, 0.24, 'triangle');
+          });
+
+        } else if (name === 'doorbell') {
+          tone(t,       784 * k, 0.42, 0.30, 'sine');
+          tone(t + 0.20, 622 * k, 0.60, 0.30, 'sine');
+
+        } else if (name === 'klaxon') {
+          // The one you hear from another room.
+          sweep(t,        420 * k, 1000 * k, 0.26, 0.30);
+          sweep(t + 0.28, 420 * k, 1000 * k, 0.26, 0.30);
+
+        } else {
+          // chime - the original
+          tone(t,       (low ? 660 : 880), 0.20, 0.25);
+          tone(t + 0.12, (low ? 880 : 1320), 0.24, 0.25);
+        }
       } catch (e) { /* audio unavailable - the feed line still updates */ }
+    }
+
+    function ping(kind) {
+      play(localStorage.getItem('smackSound') || 'chime', kind === 'locked');
     }
 
     function poll() {
@@ -777,21 +855,83 @@
         .catch(function () {});
     }
 
-    btn.addEventListener('click', function () {
-      on = !on;
+    function paint() {
       btn.textContent = on ? '\uD83D\uDD14 Alerts ON' : '\uD83D\uDD14 Alerts off';
       btn.style.background = on ? '#E8142C' : '';
       btn.style.color = on ? '#fff' : '';
+    }
+
+    function start() {
+      clearInterval(timer);
+      poll();                        // primes the marks, fires nothing
+      timer = setInterval(poll, 10000);
+      feed.textContent = unlocked ? 'listening' : 'listening (click to enable sound)';
+    }
+
+    // THE BROWSER LOCK.
+    //
+    // Audio cannot play until the user has interacted with the page. That is
+    // not something a setting can override, so rather than pretending the
+    // alert is armed when it is silent, the feed SAYS it is waiting - and
+    // the first click anywhere unlocks it.
+    //
+    // Without this, "on by default" would mean an alarm you trust that never
+    // makes a sound, which is worse than one you know is off.
+    function unlock() {
+      if (unlocked) return;
+      try {
+        ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === 'suspended') ctx.resume();
+        unlocked = true;
+        if (on) feed.textContent = 'listening';
+      } catch (e) { /* no audio available at all */ }
+    }
+    ['click', 'keydown', 'touchstart'].forEach(function (evt) {
+      document.addEventListener(evt, unlock, {once: false, passive: true});
+    });
+
+    btn.addEventListener('click', function () {
+      on = !on;
+      localStorage.setItem('smackAlerts', on ? 'on' : 'off');
+      paint();
       if (on) {
+        unlock();
         ping('smackagram');          // proves the sound works, immediately
-        poll();                      // primes the marks
-        timer = setInterval(poll, 10000);
-        feed.textContent = 'listening';
+        start();
       } else {
         clearInterval(timer);
         feed.textContent = '';
       }
     });
+
+    // The picker. Changing it plays the new sound immediately - choosing an
+    // alert you have not heard is how you end up with one you cannot stand.
+    var pick = document.getElementById('soundPick');
+    var test = document.getElementById('soundTest');
+    if (pick) {
+      var chosen = localStorage.getItem('smackSound') || 'chime';
+      pick.innerHTML = Object.keys(SOUNDS).map(function (k) {
+        return '<option value="' + k + '"' + (k === chosen ? ' selected' : '')
+             + '>' + SOUNDS[k] + '</option>';
+      }).join('');
+      pick.addEventListener('change', function () {
+        localStorage.setItem('smackSound', pick.value);
+        unlock();
+        play(pick.value, false);
+      });
+    }
+    if (test) {
+      test.addEventListener('click', function () {
+        unlock();
+        // Plays both variants back to back so you hear the difference
+        // between a Smackagram and a Locked & Loaded.
+        play(pick ? pick.value : 'chime', false);
+        setTimeout(function () { play(pick ? pick.value : 'chime', true); }, 900);
+      });
+    }
+
+    paint();
+    if (on) start();
   })();
 
   // ---- tools ----
