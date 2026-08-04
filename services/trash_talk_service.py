@@ -294,6 +294,44 @@ def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAU
     opener = _build_greeting(recipient_name, team)
     system_prompt = _build_system_prompt(sensitivity, recap_mode=False)
 
+    # WHAT IS ACTUALLY HAPPENING TO THEM RIGHT NOW.
+    #
+    # This generator has only ever received a team NAME, so it has been
+    # writing from the model's vague memory of a club - which is why every
+    # Cowboys smack sounds like every other Cowboys smack.
+    #
+    # The archetype jokes stay. "Your bullpen is a rumour" is funny BECAUSE
+    # it is timeless. This adds the layer underneath: they are 3-7, they have
+    # lost four straight, they were beaten by nineteen on Sunday.
+    #
+    # Returns nothing for an unknown team, in the off-season, or if ESPN is
+    # slow - and the line is then written exactly as it is today.
+    live_facts = []
+    try:
+        from services import team_state
+        live_facts = team_state.facts_for(team)
+    except Exception as e:
+        print(f"[smack] no live data for {team}: {e}", flush=True)
+
+    live_block = ""
+    if live_facts:
+        print(f"[smack] live data for {team}: {len(live_facts)} facts",
+              flush=True)
+        live_block = (
+            "\n\nTRUE RIGHT NOW - from the live feed today:\n"
+            + "\n".join(f"- {x}" for x in live_facts)
+            + "\n\nUSE ONE OF THESE, not all of them. Pick whichever is "
+              "funniest and build the joke on it. A specific number they "
+              "cannot argue with beats a general insult, and 'you have lost "
+              "four straight' is something they have been living with all "
+              "week.\n"
+              "The REST of the line should still be the timeless kind of "
+              "roast. The fact is what makes it land today; the joke is what "
+              "makes it funny. Do not read the statistics out like a report.\n"
+              "Do NOT invent any other numbers, scores, records or results - "
+              "only the ones listed above are true."
+        )
+
     if roast_topics:
         topics_str = ", ".join(roast_topics)
         user_content = (
@@ -303,6 +341,10 @@ def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAU
         )
     else:
         user_content = f"Team to roast: {team}. Write the line."
+
+    # Appended to whichever branch ran, so chosen topics and live data work
+    # together rather than one replacing the other.
+    user_content += live_block
 
     message = _get_client().messages.create(
         model="claude-sonnet-4-6",

@@ -1608,6 +1608,14 @@ document.getElementById('previewBtn').addEventListener('click', async () => {
 
     if (resp.status === 429) {
       status.textContent = data.error;
+      // Their free listen is spent. A message with no way forward is a dead
+      // end at the exact moment they were interested, so put the account
+      // link right there.
+      if (data.needs_account) {
+        status.innerHTML = data.error
+          + ' <a href="/register" style="color:var(--flare);font-weight:600;">'
+          + 'Create one</a>';
+      }
     } else if (data.audio_sequence) {
       playSequence(audioEl, data.audio_sequence);
       status.textContent = `${data.previews_remaining} free previews left this hour.`;

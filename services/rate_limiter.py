@@ -19,6 +19,19 @@ WINDOW_SECONDS = 3600
 # work phone and then a personal one.
 MAX_INBOX_LOOKUPS_PER_HOUR = 20
 
+# ONE preview before you need an account.
+#
+# The preview used to require a login, which meant a first-time visitor
+# could not hear the product before creating an account - friction at the
+# exact moment somebody is deciding whether to spend a dollar, and
+# registering is a bigger ask than the dollar is.
+#
+# But previews cost real ElevenLabs credits with no purchase attached, so
+# opening them completely is a standing bill anybody can run up.
+#
+# One is the sales pitch. The rest is where cost control belongs.
+MAX_ANON_PREVIEWS_PER_HOUR = 1
+
 
 def _recent(key: str, window_seconds: int) -> list:
     now = time.time()

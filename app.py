@@ -1051,7 +1051,6 @@ def voice_sample(voice_key):
 
 
 @app.route("/api/preview-audio", methods=["POST"])
-@login_required
 def preview_audio():
     """
     Free preview — lets someone hear a generated line before buying.
@@ -1059,6 +1058,23 @@ def preview_audio():
     no purchase required.
     """
     identifier = request.headers.get("X-Forwarded-For", request.remote_addr)
+
+    # ONE preview without an account, then sign in.
+    #
+    # Requiring a login to hear the product put a registration form in front
+    # of somebody deciding whether to spend a dollar - and registering is a
+    # bigger ask than the dollar. But previews cost real ElevenLabs credits
+    # with no purchase attached, so one is the sales pitch and the rest sits
+    # behind an account.
+    if not getattr(current_user, "is_authenticated", False):
+        if rate_limiter.is_limited("anon_preview", identifier,
+                                   rate_limiter.MAX_ANON_PREVIEWS_PER_HOUR):
+            return jsonify({
+                "error": "That's your free listen. Create an account - it's "
+                         "free - to hear more.",
+                "needs_account": True,
+            }), 429
+        rate_limiter.record("anon_preview", identifier)
 
     if rate_limiter.is_rate_limited(identifier):
         return jsonify({
@@ -1527,6 +1543,83 @@ def _count_page_view(response):
     except Exception:
         pass
     return response
+
+
+@app.route("/api/admin/trace-audio")
+@login_required
+def api_admin_trace_audio():
+    """
+    Walk the audio chain for one order and report where it breaks.
+
+    Silence on a call has at least five possible causes and the log does not
+    distinguish them: no script written, no audio generated, an S3 key that
+    does not exist, a URL that 404s, or empty TwiML. Guessing between them
+    costs more than checking.
+
+    Read-only. Fetches URLs but changes nothing.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+
+    oid = request.args.get("order")
+    order = (Order.query.get(int(oid)) if oid
+             else Order.query.order_by(Order.id.desc()).first())
+    if not order:
+        return jsonify({"error": "no orders found"}), 404
+
+    out = {"order_id": order.id, "steps": []}
+
+    def step(name, ok, detail=""):
+        out["steps"].append({"step": name, "ok": bool(ok), "detail": str(detail)[:300]})
+
+    # Audio is generated on demand from custom_message - there is no stored
+    # script or audio column. An empty custom_message with no scenario is
+    # therefore silence by construction.
+    msg = getattr(order, "custom_message", None)
+    step("message text", bool(msg) or bool(order.scenario_id),
+         (msg or f"no custom_message; falls back to scenario {order.scenario_id}")[:200])
+
+    step("voice selected", True, getattr(order, "voice_key", None) or "(default)")
+    step("call placed", bool(order.twilio_call_sid),
+         f"sid={order.twilio_call_sid} status={order.call_status} "
+         f"answered_by={order.answered_by}")
+
+    try:
+        base = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
+        urls = call_audio_service.resolve_audio_url(order, base)
+        step("resolve_audio_url", bool(urls),
+             urls if urls else "returned nothing - this is what Twilio would play")
+    except Exception as e:
+        urls = []
+        step("resolve_audio_url", False, f"{type(e).__name__}: {e}")
+
+    # Does each URL actually serve audio? A URL that exists in the database
+    # and a URL that returns bytes are different things.
+    import urllib.request
+    for u in (urls or []):
+        try:
+            req = urllib.request.Request(u, method="HEAD")
+            with urllib.request.urlopen(req, timeout=8) as r:
+                ln = r.headers.get("Content-Length")
+                ct = r.headers.get("Content-Type")
+                step(f"fetch {u.split('/')[-1][:40]}",
+                     r.status == 200 and (int(ln or 0) > 1000),
+                     f"HTTP {r.status}, {ln} bytes, {ct}")
+        except Exception as e:
+            step(f"fetch {u.split('/')[-1][:40]}", False, f"{type(e).__name__}: {e}")
+
+    try:
+        twiml = twilio_service.build_twiml(urls or [], record=False)
+        has_play = "<Play" in twiml
+        step("TwiML has a Play verb", has_play, twiml[:300])
+    except Exception as e:
+        step("build_twiml", False, f"{type(e).__name__}: {e}")
+
+    out["verdict"] = ("everything resolves - the problem is downstream of here"
+                      if all(x["ok"] for x in out["steps"])
+                      else "first failing step above is the cause")
+    return jsonify(out)
 
 
 @app.route("/api/admin/pulse")
