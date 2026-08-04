@@ -5924,6 +5924,73 @@ with app.app_context():
 
 
 
+@app.route("/api/admin/injury-probe")
+@login_required
+def api_admin_injury_probe():
+    """
+    What ESPN actually returns for injuries, from several possible URLs.
+
+    I have been guessing at the shape of this feed and getting it wrong -
+    my sandbox cannot reach ESPN, so every parser I write for it is written
+    blind. This asks the real thing and shows the raw answer.
+
+    Read-only. Fetches and prints; changes nothing.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+
+    import json as _json
+    from urllib.request import Request, urlopen
+
+    team = (request.args.get("team") or "Yankees").strip()
+    try:
+        from services import team_state
+        t = team_state.find_team(team)
+    except Exception as e:
+        return jsonify({"error": f"team lookup failed: {e}"}), 500
+    if not t:
+        return jsonify({"error": f"no team matched '{team}'"}), 404
+
+    sport, path = team_state.LEAGUES[t["league"]]
+    base = "https://site.api.espn.com/apis/site/v2/sports"
+    core = "https://sports.core.api.espn.com/v2/sports"
+
+    # Every URL ESPN might expose this under. One of them is right.
+    candidates = [
+        f"{base}/{sport}/{path}/teams/{t['id']}/injuries",
+        f"{base}/{sport}/{path}/injuries",
+        f"{base}/{sport}/{path}/teams/{t['id']}?enable=roster,injuries",
+        f"{core}/{sport}/leagues/{path}/teams/{t['id']}/injuries",
+    ]
+
+    out = {"team": t, "tried": []}
+    for url in candidates:
+        row = {"url": url}
+        try:
+            req = Request(url, headers={"User-Agent": "smackagram/1.0"})
+            with urlopen(req, timeout=10) as r:
+                raw = r.read().decode()
+            d = _json.loads(raw)
+            row["status"] = 200
+            row["top_level_keys"] = sorted(d.keys())[:12]
+            # Where are the names? Walk a little way in and report shape.
+            inj = d.get("injuries")
+            if inj is not None:
+                row["injuries_type"] = type(inj).__name__
+                row["injuries_len"] = len(inj) if hasattr(inj, "__len__") else None
+                if isinstance(inj, list) and inj:
+                    first = inj[0]
+                    row["first_item_keys"] = (sorted(first.keys())[:12]
+                                              if isinstance(first, dict) else None)
+                    row["first_item_sample"] = _json.dumps(first)[:600]
+            row["bytes"] = len(raw)
+        except Exception as e:
+            row["status"] = f"{type(e).__name__}: {e}"
+        out["tried"].append(row)
+    return jsonify(out)
+
+
 @app.route("/api/admin/roster-audit")
 @login_required
 def api_admin_roster_audit():
