@@ -6007,6 +6007,20 @@ def api_admin_fill_players():
                 continue
             seen_matches.add(mid)
 
+            # SKIP GAMES THAT HAVE NOT BEEN PLAYED.
+            #
+            # An unplayed match has a PROJECTED lineup - nine batters and
+            # nothing else - and an empty box score. That is why a refill
+            # returned exactly nine players for every single team: it was
+            # reading tomorrow's lineup card rather than a squad.
+            #
+            # A finished game has the full team sheet plus everybody who
+            # actually appeared.
+            _st = ((m.get("state") or {}).get("description") or "").lower()
+            _rep = ((m.get("state") or {}).get("report") or "").lower()
+            if "finish" not in _st and _rep != "final":
+                continue
+
             det = highlightly._get(league, f"matches/{mid}", ttl=900)
             blob = det[0] if isinstance(det, list) and det else det
             if not isinstance(blob, dict):
@@ -6057,6 +6071,9 @@ def api_admin_fill_players():
     # ?reset=1 clears the league before refilling so that bad data does
     # not sit there forever.
     report["matches_walked"] = len(seen_matches)
+    report["note"] = ("Only FINISHED games are read. An unplayed match has a "
+                      "projected nine-batter lineup and no box score, which "
+                      "is not a squad. Use more days if counts look thin.")
     report["total_stored"] = player_store.count(league)
     return jsonify(report)
 
