@@ -149,14 +149,23 @@ def status(source=None):
         return out
 
 def _note_throttle(reason, source="espn"):
+    # A PAID PROVIDER IS NOT ESPN.
+    #
+    # The fifteen-minute cooldown exists because ESPN blocks an IP for
+    # hours with no appeal, so hammering makes a bad situation worse.
+    #
+    # A 429 from a paid plan means the per-minute allowance was used. It
+    # clears in sixty seconds. Sitting out fifteen minutes for that takes
+    # a momentary limit and turns it into an outage - which is exactly
+    # what happened when the picker searched on every keystroke.
+    wait = COOLDOWN_SECONDS if source == "espn" else 60
     with _lock:
         st = _src(source)
-        st["blocked_until"] = time.time() + COOLDOWN_SECONDS
+        st["blocked_until"] = time.time() + wait
         st["reason"] = reason
         st["throttled"] += 1
-    print(f"[gate] {source} PUSHED BACK ({reason}). Stopping {source} "
-          f"traffic for {COOLDOWN_SECONDS // 60} minutes. Other sources are "
-          f"unaffected.", flush=True)
+    print(f"[gate] {source} PUSHED BACK ({reason}). Pausing {source} for "
+          f"{wait}s. Other sources are unaffected.", flush=True)
 
 
 def _allow(source, critical, label):

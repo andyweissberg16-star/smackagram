@@ -2193,7 +2193,30 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       // The search asks a different question: not "who is on this team"
       // but "who is called this", which finds him whether he is playing
       // or has been out since June.
-      if (!hits.length && needle.length >= 2) {
+      if (!hits.length && needle.length >= 3) {
+        // WAIT UNTIL THEY STOP TYPING.
+        //
+        // Without this, "jose" fires four searches - ju, jos, jose, and
+        // whatever came before. Four requests to type one name, and a
+        // paid quota spent on prefixes nobody meant to search for.
+        //
+        // 350ms is long enough to catch a whole word and short enough
+        // that nobody notices waiting.
+        clearTimeout(searchTimer);
+        var pending = needle;
+        searchTimer = setTimeout(function () {
+          runSearch(pending, q);
+        }, 350);
+        return;
+      }
+
+      if (!hits.length) { list.classList.remove('open'); return; }
+      showHits(hits);
+    }
+
+    var searchTimer = null;
+
+    function runSearch(needle, original) {
         var team = (document.getElementById('teamInput') || {}).value || '';
         fetch('/api/player-search?q=' + encodeURIComponent(needle)
               + '&team=' + encodeURIComponent(team.trim()))
@@ -2207,13 +2230,12 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
                 roster.push(p);
               }
             });
-            draw(q);
+            draw(original);
           })
           .catch(function () { list.classList.remove('open'); });
-        return;
-      }
+    }
 
-      if (!hits.length) { list.classList.remove('open'); return; }
+    function showHits(hits) {
       list.innerHTML = hits.map(function (p, n) {
         // "Out" is shown so the sender knows before they pick - and the
         // marker travels through to the generator, which is told plainly
