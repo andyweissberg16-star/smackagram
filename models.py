@@ -999,6 +999,44 @@ class CallTiming(db.Model):
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class SafetyEvent(db.Model):
+    """
+    Anything the moderation gate stopped, kept.
+
+    These were print() only - written to the Render log, which rolls off and
+    which nobody reads at two in the morning. So a block would happen, the
+    person would be refunded, and you would never learn it occurred.
+
+    That matters in both directions. If somebody is repeatedly probing the
+    generators you want to know tonight, not from a complaint later. And if
+    the gate is firing on harmless messages, you want to know that too -
+    a false positive costs a paying customer their call.
+    """
+    __tablename__ = "safety_events"
+
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           index=True)
+
+    # Where it happened, so a pattern in one product is visible.
+    surface = db.Column(db.String(40), index=True)   # send-a-smack, locked, lab...
+    stage = db.Column(db.String(30))                 # input | generated | fire-time
+
+    user_id = db.Column(db.Integer, index=True)
+    record_type = db.Column(db.String(20))
+    record_id = db.Column(db.Integer)
+
+    category = db.Column(db.String(60), index=True)
+    reason = db.Column(db.Text)
+    # The offending words only, not the whole message. Enough to judge it,
+    # not a transcript of everything anybody has ever typed.
+    excerpt = db.Column(db.Text)
+
+    # Was money involved, and did it come back.
+    refunded = db.Column(db.Boolean, default=False)
+    reviewed = db.Column(db.Boolean, default=False, index=True)
+
+
 class PageStat(db.Model):
     """
     Traffic, counted rather than logged.

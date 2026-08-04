@@ -238,6 +238,19 @@ def check_armed_smackagrams():
                     if not safety["safe"]:
                         _refund_released_smackagram(s)
                         s.status = "failed"
+                        # THE ONE THAT MATTERS MOST. This fires
+                        # automatically with nobody watching, so a block here
+                        # was previously invisible - the customer was
+                        # refunded and the event vanished into the log.
+                        try:
+                            from services import safety_service
+                            safety_service.record(
+                                "locked-n-loaded", "fire-time", safety,
+                                user_id=getattr(s, "user_id", None),
+                                record_type="smackagram", record_id=s.id,
+                                refunded=True)
+                        except Exception as _e:
+                            print(f"[safety] record failed: {_e}", flush=True)
                         print(f"[safety] Locked smackagram {s.id} blocked at fire-time — reason: {safety['reason']}")
                         s.resolved_at = datetime.utcnow()
                         continue

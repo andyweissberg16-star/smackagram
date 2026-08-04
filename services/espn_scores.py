@@ -297,6 +297,11 @@ def fetch_game_detail(league: str, event_id: str) -> dict:
         out["nba_players"] = nba_players(d, loser_team, win_team, league=lg)
         out["nba_shooting"] = nba_team_shooting(d, loser_team)
 
+    # Hockey. Its own block, not bent into the basketball one - a goalie is
+    # not a point guard and the stats do not correspond.
+    if lg == "nhl":
+        out["nhl"] = nhl_detail(d, loser_team, win_team)
+
     if lg in ("nfl", "ncaaf"):
         out["stakes"] = game_stakes(d, lg, loser_team)
         win_team = (out.get("winner") or {}).get("team")
@@ -599,6 +604,10 @@ def roast_facts(detail: dict) -> list:
 
     # Basketball, both leagues. Same box score shape, same
     # hierarchy - WNBA needs no separate path.
+    # Hockey has its own hierarchy - the goalie answers for it, then whoever
+    # did the damage. NHL had NO path at all and fell through to nothing.
+    if (detail.get("league") or "").upper() in ("NHL",):
+        return nhl_roast_facts(detail)
     if (detail.get("league") or "").upper() in ("NBA", "WNBA", "NCAAB", "NCAAW"):
         return nba_roast_facts(detail)
     # What the loss COST goes first and outranks the box score. A man
@@ -2762,3 +2771,137 @@ def game_result(league: str, event_id: str) -> dict | None:
         "away_score": int(away.get("score") or 0),
         "source": "espn",
     }
+
+
+# ---------------------------------------------------------------------------
+# Hockey
+# ---------------------------------------------------------------------------
+#
+# NHL was armable but had NO fact path at all - roast_facts fell through and
+# returned nothing, so a Locked & Loaded on a hockey game got the scoreline
+# and silence. The same fault the WNBA had, for a different reason.
+
+NHL_GOALIE = [
+    "your goalie {name} let in {goals} on {shots} shots",
+    "{name} faced {shots} and {goals} got past. Do the arithmetic",
+    "{goals} goals on {shots} shots for {name}. That is a save percentage "
+    "you can hear",
+    "{name} was in net for all {goals} of those",
+    "somebody should check whether {name} knew the game had started - "
+    "{goals} on {shots}",
+]
+
+NHL_SCORER = [
+    "you let {name} put up {pts} on you",
+    "{name} had {pts} and your defence watched",
+    "{pts} for {name}, and nobody laid a glove on them",
+    "{name} did what they liked out there: {pts}",
+]
+
+NHL_SHUTOUT = [
+    "you were shut out. Sixty minutes and not one goal",
+    "zero. On the scoreboard, all night. Sixty full minutes of nothing",
+    "a shutout. You did not manage a single goal in an entire hockey game",
+]
+
+NHL_SHOTS = [
+    "{shots} shots and nothing to show for it",
+    "you took {shots} shots and scored {goals}. Volume is not the problem",
+    "{shots} attempts, {goals} of them went in. Somebody will watch that tape",
+]
+
+
+def nhl_roast_facts(detail: dict) -> list:
+    """
+    Hockey's own hierarchy: the goalie answers for it, then whoever did the
+    damage, then the shot count.
+
+    Deliberately NOT bent into the basketball shape - a goalie is not a
+    point guard and "plus-minus" means something different on ice.
+    """
+    import random as _r
+
+    f = []
+    w = detail.get("winner") or {}
+    l = detail.get("loser") or {}
+    if w.get("team") and l.get("team"):
+        f.append(f"{w['team']} beat {l['team']}")
+    if l.get("record"):
+        f.append(f"{l['team']} are now {l['record']}")
+
+    m = detail.get("margin")
+    if detail.get("one_goal") or m == 1:
+        f.append("lost it by a single goal")
+    elif m and m >= 5:
+        f.append(f"lost by {m} - not close at any point")
+
+    h = detail.get("nhl") or {}
+    used = set()
+
+    def pick(pool, **kw):
+        fresh = [x for x in pool if x not in used] or pool
+        line = _r.choice(fresh)
+        used.add(line)
+        return line.format(**kw)
+
+    if h.get("shutout"):
+        f.append(pick(NHL_SHUTOUT))
+
+    g = h.get("goalie")
+    if g and g.get("name") and g.get("goals_against") is not None:
+        f.append(pick(NHL_GOALIE, name=g["name"], goals=g["goals_against"],
+                      shots=g.get("shots_faced") or "a pile of"))
+
+    for s in (h.get("their_scorers") or [])[:2]:
+        if s.get("points"):
+            f.append(pick(NHL_SCORER, name=s["name"], pts=s["points"]))
+
+    # "1 goals" read aloud is wrong, and this is spoken audio.
+    if h.get("shots") and (h.get("goals") is not None):
+        if h["shots"] >= 25 and h["goals"] <= 1:
+            f.append(pick(NHL_SHOTS, shots=h["shots"], goals=h["goals"]))
+
+    return f
+
+
+def nhl_detail(d, losing_team, winning_team):
+    """Goalie, scorers and shot totals from an NHL box score."""
+    out = {"goalie": None, "their_scorers": [], "shots": None, "goals": None,
+           "shutout": False}
+
+    for block in ((d.get("boxscore") or {}).get("players") or []):
+        team = (block.get("team") or {})
+        nick = team.get("name") or team.get("shortDisplayName") or ""
+        losing = nick.lower() == str(losing_team or "").lower()
+        winning = nick.lower() == str(winning_team or "").lower()
+        if not (losing or winning):
+            continue
+
+        for group in (block.get("statistics") or []):
+            labels = [str(x).upper() for x in (group.get("labels") or [])]
+            name_l = (group.get("name") or "").lower()
+
+            for ath in (group.get("athletes") or []):
+                nm = ((ath.get("athlete") or {}).get("displayName") or "")
+                if not nm:
+                    continue
+                st = _stat_map(labels, ath.get("stats") or [])
+
+                # The losing goalie wears it.
+                if losing and ("goalie" in name_l or "SA" in labels):
+                    ga = _to_num(st.get("GA"))
+                    sa = _to_num(st.get("SA"))
+                    if ga is not None and (out["goalie"] is None
+                                           or ga > (out["goalie"]["goals_against"] or 0)):
+                        out["goalie"] = {"name": nm,
+                                         "goals_against": int(ga),
+                                         "shots_faced": int(sa) if sa else None}
+                # Who did the damage.
+                elif winning:
+                    pts = _to_num(st.get("P")) or _to_num(st.get("PTS"))
+                    if pts and pts >= 2:
+                        out["their_scorers"].append({"name": nm,
+                                                     "points": int(pts)})
+
+    out["their_scorers"].sort(key=lambda x: -x["points"])
+    return out

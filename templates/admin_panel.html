@@ -89,6 +89,16 @@
   .flash.bad{background:rgba(224,27,36,.12); border-color:var(--punch); color:var(--punch);}
   a.audio{color:var(--punch); font-size:12px; text-decoration:none;}
   .hide{display:none;}
+
+  .tool-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+    gap:10px; margin-bottom:20px;}
+  .tool{display:block; background:#141416; border:1px solid #2A2D32;
+    border-radius:8px; padding:12px 14px; text-decoration:none; color:inherit;
+    cursor:pointer; text-align:left; font:inherit; width:100%;}
+  .tool:hover{border-color:#E8142C;}
+  .tool b{display:block; font-size:13px; margin-bottom:3px;}
+  .tool span{font-size:11px; color:#7A7575; line-height:1.45;}
+  .tool.danger:hover{border-color:#FFB612;}
 </style>
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 </head>
@@ -100,6 +110,13 @@
   <a href="/admin/show">Daily Smack</a>
   <a href="/admin/espn">Scores</a>
   <span class="who" id="who"></span>
+  {# Live alerts.
+     
+     OFF by default and toggled by a click, because browsers refuse to play
+     audio until the user has interacted with the page - an alert that fires
+     silently is worse than none, since you would trust it. #}
+  <button id="liveBtn" class="tab" style="margin-left:10px;">🔔 Alerts off</button>
+  <span id="liveFeed" style="margin-left:10px;font-size:12px;color:#9A9A96;"></span>
 </header>
 
 <div class="wrap">
@@ -107,6 +124,8 @@
 
   <div class="tabs">
     <button class="tab on" data-view="dash">Dashboard</button>
+    <button class="tab" data-view="tools">Tools</button>
+    <button class="tab" data-view="safety">Safety<span id="safetyBadge"></span></button>
     <button class="tab" data-view="traffic">Traffic</button>
     <button class="tab" data-view="customers">Customers</button>
     <button class="tab" data-view="settings">Settings</button>
@@ -127,6 +146,40 @@
   </div>
 
   <!-- ---------- CUSTOMERS ---------- -->
+  <div id="view-tools" class="hide">
+    <h2>Pages</h2>
+    <div class="tool-grid" id="toolPages"></div>
+
+    <h2>Diagnostics</h2>
+    <p class="empty" style="margin:-6px 0 12px;">
+      These open JSON in a new tab. Safe to click - none of them change
+      anything.
+    </p>
+    <div class="tool-grid" id="toolReads"></div>
+
+    <h2>Actions</h2>
+    <p class="empty" style="margin:-6px 0 12px;">
+      These <b>do</b> something. Each asks first.
+    </p>
+    <div class="tool-grid" id="toolActions"></div>
+  </div>
+
+  <div id="view-safety" class="hide">
+    <h2>Safety</h2>
+    <div class="cards" id="safetyCards"><p class="empty">Loading&hellip;</p></div>
+
+    {# Everything the moderation gate stopped. These used to be print() to
+       the Render log - a block happened, the customer was refunded, and
+       nobody ever learned it occurred. #}
+    <h2>Blocked</h2>
+    <div class="table-wrap"><table id="safetyTable"></table></div>
+    <p class="empty" style="margin-top:12px;">
+      An <b>input</b> block is somebody typing something the gate refused.
+      A <b>generated</b> or <b>fire-time</b> block means our own writer
+      produced it - rarer, and the one to look at.
+    </p>
+  </div>
+
   <div id="view-traffic" class="hide">
     <h2>Traffic</h2>
     <div class="cards" id="trafCards"><p class="empty">Loading&hellip;</p></div>
@@ -245,7 +298,7 @@
   }
 
   // ---- tabs ----
-  var views = {dash:'view-dash', customers:'view-customers', settings:'view-settings', traffic:'view-traffic'};
+  var views = {dash:'view-dash', customers:'view-customers', settings:'view-settings', traffic:'view-traffic', safety:'view-safety', tools:'view-tools'};
   document.querySelectorAll('.tab').forEach(function (t) {
     t.addEventListener('click', function () {
       document.querySelectorAll('.tab').forEach(function (x) { x.classList.remove('on'); });
@@ -586,6 +639,253 @@
 
   document.querySelectorAll('.tab').forEach(function (t) {
     if (t.dataset.view === 'traffic') t.addEventListener('click', loadTraffic);
+  });
+
+  // ---- safety ----
+  //
+  // Loaded on first view, but the BADGE loads on page load - an unreviewed
+  // block is the one thing on this page worth interrupting somebody for.
+  var safetyLoaded = false;
+
+  function loadSafetyBadge() {
+    fetch('/api/admin/safety')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var n = (d.summary || {}).unreviewed || 0;
+        var el = document.getElementById('safetyBadge');
+        if (el && n) {
+          el.textContent = ' ' + n;
+          el.style.cssText = 'background:#E8142C;color:#fff;border-radius:9px;'
+            + 'padding:1px 6px;margin-left:6px;font-size:11px;';
+        }
+      })
+      .catch(function () {});
+  }
+
+  function loadSafety() {
+    if (safetyLoaded) return;
+    safetyLoaded = true;
+
+    fetch('/api/admin/safety')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var s = d.summary || {};
+        document.getElementById('safetyCards').innerHTML =
+            card('Blocked', s.total || 0, 'last 30 days')
+          + card('Unreviewed', s.unreviewed || 0, '')
+          // The number that actually matters: our own output being refused
+          // is a different problem from a user typing something.
+          + card('Our own output', s.our_own_output || 0,
+                 'generated or fire-time');
+
+        var rows = ['<tr><th>When</th><th>Where</th><th>Stage</th>'
+                  + '<th>Category</th><th>Excerpt</th><th></th></tr>'];
+        (d.events || []).forEach(function (e) {
+          var when = e.when ? e.when.replace('T', ' ').slice(0, 16) : '';
+          var own = (e.stage === 'generated' || e.stage === 'fire-time');
+          rows.push('<tr' + (own ? ' style="background:rgba(232,20,44,.10)"' : '')
+            + '><td>' + when + '</td><td>' + (e.surface || '') + '</td><td>'
+            + (e.stage || '') + '</td><td>' + (e.category || '') + '</td><td>'
+            + ((e.excerpt || '').slice(0, 90)) + '</td><td>'
+            + (e.reviewed ? 'seen'
+                 : '<button class="btn-sm" data-seen="' + e.id + '">mark seen</button>')
+            + '</td></tr>');
+        });
+        document.getElementById('safetyTable').innerHTML =
+          (d.events || []).length ? rows.join('')
+            : '<tr><td>Nothing blocked. Recording starts from this deploy.</td></tr>';
+
+        document.querySelectorAll('[data-seen]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            fetch('/api/admin/safety/' + b.dataset.seen + '/reviewed',
+                  {method: 'POST'})
+              .then(function () { b.textContent = 'seen'; b.disabled = true; });
+          });
+        });
+      })
+      .catch(function () {
+        document.getElementById('safetyCards').innerHTML =
+          '<p class="empty">Could not load safety events.</p>';
+      });
+  }
+
+  document.querySelectorAll('.tab').forEach(function (t) {
+    if (t.dataset.view === 'safety') t.addEventListener('click', loadSafety);
+  });
+  loadSafetyBadge();
+
+  // ---- live send alerts ----
+  //
+  // A sound the moment anybody sends anything. Polled every ten seconds
+  // rather than pushed: a websocket is the textbook answer but this runs on
+  // a single worker, and two indexed lookups every ten seconds costs less
+  // than the complexity would.
+  //
+  // OFF UNTIL CLICKED. Browsers block audio until the user interacts with
+  // the page, so an alert enabled automatically would fail silently - and a
+  // silent alarm you trust is worse than no alarm.
+  (function () {
+    var on = false, marks = {order: 0, locked: 0}, timer = null, ctx = null;
+    var btn = document.getElementById('liveBtn');
+    var feed = document.getElementById('liveFeed');
+    if (!btn) return;
+
+    // Generated rather than a file: no request, no cache, and it cannot
+    // break because somebody moved an mp3.
+    function ping(kind) {
+      try {
+        ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+        var t = ctx.currentTime;
+        // Two different tones so you can tell them apart without looking.
+        var notes = kind === 'locked' ? [660, 880] : [880, 1320];
+        notes.forEach(function (hz, i) {
+          var o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = 'sine';
+          o.frequency.value = hz;
+          g.gain.setValueAtTime(0.0001, t + i * 0.12);
+          g.gain.exponentialRampToValueAtTime(0.25, t + i * 0.12 + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.12 + 0.16);
+          o.connect(g); g.connect(ctx.destination);
+          o.start(t + i * 0.12); o.stop(t + i * 0.12 + 0.18);
+        });
+      } catch (e) { /* audio unavailable - the feed line still updates */ }
+    }
+
+    function poll() {
+      fetch('/api/admin/pulse?order=' + marks.order + '&locked=' + marks.locked)
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          var first = (marks.order === 0 && marks.locked === 0);
+          marks.order = d.order || marks.order;
+          marks.locked = d.locked || marks.locked;
+
+          // The first poll only sets the high-water marks. Without this,
+          // switching alerts on would fire once for every smack sent today.
+          if (first) {
+            feed.textContent = 'listening';
+            return;
+          }
+          if (d.count) {
+            var last = d['new'][0];
+            ping(last.kind);
+            feed.textContent = d.count + ' new \u00b7 ' + last.kind
+                             + (last.team ? ' \u00b7 ' + last.team : '');
+            feed.style.color = '#E8142C';
+            setTimeout(function () { feed.style.color = '#9A9A96'; }, 4000);
+          }
+        })
+        .catch(function () {});
+    }
+
+    btn.addEventListener('click', function () {
+      on = !on;
+      btn.textContent = on ? '\uD83D\uDD14 Alerts ON' : '\uD83D\uDD14 Alerts off';
+      btn.style.background = on ? '#E8142C' : '';
+      btn.style.color = on ? '#fff' : '';
+      if (on) {
+        ping('smackagram');          // proves the sound works, immediately
+        poll();                      // primes the marks
+        timer = setInterval(poll, 10000);
+        feed.textContent = 'listening';
+      } else {
+        clearInterval(timer);
+        feed.textContent = '';
+      }
+    });
+  })();
+
+  // ---- tools ----
+  //
+  // Thirty-odd admin and diagnostic routes existed and were reachable only
+  // by remembering the URL. Half of them nobody would find again.
+  //
+  // Split three ways ON PURPOSE. A page you can click freely, a read-only
+  // check you can click freely, and something that CHANGES STATE are three
+  // different risks, and a flat list of links hides that difference right
+  // up until somebody regenerates twenty audio files by accident.
+  var TOOL_PAGES = [
+    ['/admin/show',  'Daily Smack',   'Status of the last episode, and the material behind it'],
+    ['/admin/espn',  'ESPN',          'What the sports feed is returning right now'],
+    ['/admin/news',  'News',          'Headlines the show can draw on'],
+    ['/smackcast/test', 'Smackcast test', 'Generate a recap from sample matchups'],
+    ['/smack-board', 'Smack Board',   'The live scoreboard as visitors see it'],
+    ['/daily-smack', 'Daily Smack page', "Today's episode, public view"],
+    ['/opt-out',     'Opt Out',       'The page recipients use to stop calls']
+  ];
+
+  var TOOL_READS = [
+    ['/api/admin/show-status',        'Show status',     'Last episode: when, how long, how many games'],
+    ['/api/admin/show-material',      'Show material',   'The games and facts the writer was given'],
+    ['/api/admin/call-timings',       'Call timing',     'AMD gap per call - how much dead air before the message'],
+    ['/api/admin/analytics?days=7',   'Traffic',         'Visitors, pages and the funnel'],
+    ['/api/admin/safety',             'Safety events',   'Everything the moderation gate stopped'],
+    ['/api/admin/check-id-collisions','ID collisions',   'Order and Smackagram primary keys that overlap'],
+    ['/api/admin/check-team-codes',   'Team codes',      'Abbreviations that could reach the voice'],
+    ['/api/admin/espn-probe',         'ESPN probe',      'Raw feed check'],
+    ['/api/admin/espn-preview',       'ESPN preview',    'What the show would build from today'],
+    ['/api/admin/news-preview',       'News preview',    'Headlines as the writer would see them'],
+    ['/api/board/mlb',                'Board: MLB',      'Live board JSON'],
+    ['/api/board/wnba',               'Board: WNBA',     'Live board JSON'],
+    ['/api/show/current',             'Current episode', 'What the site is serving right now'],
+    ['/api/wall',                     'The wall',        'Smacks of the Day feed']
+  ];
+
+  // Each of these changes something, so each carries the sentence explaining
+  // WHAT before you confirm.
+  var TOOL_ACTIONS = [
+    ['/api/cron/daily-show',          'Generate the Daily Smack',
+     'Writes and renders a full episode. Takes about three minutes and costs '
+     + 'ElevenLabs credits.',
+     'Generate a whole new episode now? Roughly 3 minutes and real TTS cost.'],
+    ['/api/cron/check-smackagrams',   'Check armed smackagrams',
+     'Looks for finished games and FIRES any calls that are due.',
+     'This can place real phone calls if a game has finished. Continue?'],
+    ['/api/cron/generate-smackcasts', 'Generate Smackcasts',
+     'Builds this week\'s recaps for every connected league.',
+     'Generate Smackcast recaps for all leagues?'],
+    ['/api/admin/seed-moments',       'Reload famous moments',
+     'Re-reads data/famous_moments.json. Leaves generated call text alone.',
+     'Reload the famous moments file?']
+  ];
+
+  function toolCard(href, title, desc) {
+    return '<a class="tool" href="' + href + '" target="_blank" rel="noopener">'
+         + '<b>' + title + '</b><span>' + desc + '</span></a>';
+  }
+
+  var toolsLoaded = false;
+  function loadTools() {
+    if (toolsLoaded) return;
+    toolsLoaded = true;
+
+    document.getElementById('toolPages').innerHTML =
+      TOOL_PAGES.map(function (t) { return toolCard(t[0], t[1], t[2]); }).join('');
+    document.getElementById('toolReads').innerHTML =
+      TOOL_READS.map(function (t) { return toolCard(t[0], t[1], t[2]); }).join('');
+
+    document.getElementById('toolActions').innerHTML =
+      TOOL_ACTIONS.map(function (t, i) {
+        return '<button class="tool danger" data-act="' + i + '">'
+             + '<b>' + t[1] + '</b><span>' + t[2] + '</span></button>';
+      }).join('');
+
+    document.querySelectorAll('[data-act]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var t = TOOL_ACTIONS[+b.dataset.act];
+        if (!confirm(t[3])) return;
+        // The cron key lives in the environment, not in this page - asking
+        // for it is safer than embedding it in HTML any admin session can
+        // read.
+        var key = prompt('CRON_SECRET:');
+        if (!key) return;
+        var sep = t[0].indexOf('?') > -1 ? '&' : '?';
+        window.open(t[0] + sep + 'key=' + encodeURIComponent(key), '_blank');
+      });
+    });
+  }
+
+  document.querySelectorAll('.tab').forEach(function (t) {
+    if (t.dataset.view === 'tools') t.addEventListener('click', loadTools);
   });
 </script>
 

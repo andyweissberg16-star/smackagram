@@ -14,9 +14,9 @@ import requests
 from dotenv import load_dotenv
 
 from models import SmackcastWeeklyNote
-from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode, WallPost, OptOut, FamousMoment, CallTiming, PageStat
+from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode, WallPost, OptOut, FamousMoment, CallTiming, PageStat, SafetyEvent
 from services import news_service, show_service, admin_service, settings_service, show_service
-from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service, revenge_service, analytics_service
+from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service, revenge_service, analytics_service, safety_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
 
 load_dotenv()
@@ -634,6 +634,12 @@ def create_order():
     custom_message = data.get("custom_message", "")
     safety = content_moderation.check_message_safety(custom_message)
     if not safety["safe"]:
+        # Recorded, not just printed. A block used to vanish into the
+        # Render log - the customer was refunded and nobody ever learned it
+        # happened.
+        safety_service.record(
+            "send-a-smack", "input", safety,
+            user_id=getattr(current_user, "id", None))
         print(f"[safety] blocked order attempt - {safety.get('category','?')}: "
               f"{(safety.get('excerpt') or safety.get('reason') or '')[:90]}")
         return jsonify({
@@ -931,6 +937,12 @@ def generate_trash_talk():
             line = candidate
             break
         last_reason = verdict["reason"]
+        # OUR OWN WRITER produced something the gate refused. That is a
+        # different and more serious event than a user typing an insult into
+        # a box, and it alerts immediately rather than waiting for a burst.
+        safety_service.record(
+            "generator", "generated", verdict,
+            user_id=getattr(current_user, "id", None))
         print(f"[safety] self-generated line failed moderation (attempt {attempt + 1}): {last_reason}")
 
     if line is None:
@@ -1063,6 +1075,8 @@ def preview_audio():
     # at all, regardless of whether they ever actually complete an order.
     safety = content_moderation.check_message_safety(text)
     if not safety["safe"]:
+        safety_service.record("preview", "input", safety,
+                              user_id=getattr(current_user, "id", None))
         print(f"[safety] blocked preview - {safety.get('category','?')}: "
               f"{(safety.get('excerpt') or safety.get('reason') or '')[:90]}")
         return jsonify({"error": _moderation_error_text(safety), "reason": safety.get("reason"), "excerpt": safety.get("excerpt", ""), "category": safety.get("category", ""), "retryable": not safety.get("available", True)}), (503 if not safety.get("available", True) else 400)
@@ -1513,6 +1527,93 @@ def _count_page_view(response):
     except Exception:
         pass
     return response
+
+
+@app.route("/api/admin/pulse")
+@login_required
+def api_admin_pulse():
+    """
+    Anything sent since the id the admin page last saw.
+
+    Polled rather than pushed. A websocket would be the textbook answer, but
+    this runs on a single Gunicorn worker and a poll every ten seconds costs
+    two indexed lookups - the complexity is not worth what it buys.
+
+    Returns only what is NEW, so the page can tell the difference between
+    "nothing has happened" and "the page just loaded".
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+
+    try:
+        since_order = int(request.args.get("order", 0))
+        since_lnl = int(request.args.get("locked", 0))
+    except (TypeError, ValueError):
+        since_order = since_lnl = 0
+
+    fresh = []
+
+    q = Order.query.order_by(Order.id.desc()).limit(20).all()
+    for o in q:
+        if o.id > since_order:
+            fresh.append({
+                "kind": "smackagram",
+                "id": o.id,
+                "team": getattr(o, "team", None) or getattr(o, "target_team", None),
+                "when": o.created_at.isoformat() if o.created_at else None,
+            })
+
+    q2 = Smackagram.query.order_by(Smackagram.id.desc()).limit(20).all()
+    for sm in q2:
+        if sm.id > since_lnl:
+            fresh.append({
+                "kind": "locked",
+                "id": sm.id,
+                "team": getattr(sm, "target_team", None),
+                "status": getattr(sm, "status", None),
+                "when": sm.created_at.isoformat() if sm.created_at else None,
+            })
+
+    return jsonify({
+        "new": sorted(fresh, key=lambda x: x["id"], reverse=True)[:12],
+        "count": len(fresh),
+        # The high-water marks, so the next poll only asks for what follows.
+        "order": q[0].id if q else since_order,
+        "locked": q2[0].id if q2 else since_lnl,
+        # First call after a page load reports the marks WITHOUT the backlog,
+        # so opening /admin does not fire an alarm for everything sent today.
+        "priming": since_order == 0 and since_lnl == 0,
+    })
+
+
+@app.route("/api/admin/safety")
+@login_required
+def api_admin_safety():
+    """Everything the moderation gate stopped, newest first."""
+    user, err = _require_admin()
+    if err:
+        return err
+    only_new = request.args.get("unreviewed") == "1"
+    return jsonify({
+        "summary": safety_service.summary(days=30),
+        "events": safety_service.recent(limit=120, only_unreviewed=only_new),
+    })
+
+
+@app.route("/api/admin/safety/<int:event_id>/reviewed", methods=["POST"])
+@login_required
+def api_admin_safety_reviewed(event_id):
+    """Mark one as looked at, so the unreviewed count means something."""
+    user, err = _require_admin()
+    if err:
+        return err
+    ev = SafetyEvent.query.get(event_id)
+    if not ev:
+        return jsonify({"error": "not found"}), 404
+    ev.reviewed = True
+    db.session.commit()
+    return jsonify({"ok": True})
 
 
 @app.route("/api/admin/analytics")
@@ -5347,6 +5448,26 @@ with app.app_context():
                 published BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP
             )"""))
+
+            conn.execute(db.text("""CREATE TABLE IF NOT EXISTS safety_events (
+                id SERIAL PRIMARY KEY,
+                created_at TIMESTAMP,
+                surface VARCHAR(40),
+                stage VARCHAR(30),
+                user_id INTEGER,
+                record_type VARCHAR(20),
+                record_id INTEGER,
+                category VARCHAR(60),
+                reason TEXT,
+                excerpt TEXT,
+                refunded BOOLEAN DEFAULT FALSE,
+                reviewed BOOLEAN DEFAULT FALSE
+            )"""))
+            for _ix in ("ix_safety_created ON safety_events (created_at)",
+                        "ix_safety_user ON safety_events (user_id)",
+                        "ix_safety_cat ON safety_events (category)",
+                        "ix_safety_reviewed ON safety_events (reviewed)"):
+                conn.execute(db.text(f"CREATE INDEX IF NOT EXISTS {_ix}"))
 
             conn.execute(db.text("""CREATE TABLE IF NOT EXISTS page_stats (
                 id SERIAL PRIMARY KEY,
