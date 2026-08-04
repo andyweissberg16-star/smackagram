@@ -524,7 +524,17 @@ def roster(name, league=None, limit=60):
         from services import player_store
         stored = player_store.squad(t.get("league") or "",
                                     t.get("full") or t.get("nick") or name)
-        if len(stored) >= 12:
+        # ANY stored names are better than none.
+        #
+        # This used to require twelve before it would trust the database.
+        # A team with nine stored names fell through to a live fetch - and
+        # when that was rate-limited, the picker showed NOTHING despite
+        # having nine perfectly good names sitting in Postgres.
+        #
+        # Whatever is stored is shown. The search fills gaps as people
+        # type, and every searched name is kept, so the list grows towards
+        # complete from use rather than needing to start complete.
+        if stored:
             away = [p["name"] for p in stored if p.get("away")]
             print(f"[roster] {t.get('nick')}: {len(stored)} from the database"
                   + (f", {len(away)} not seen lately" if away else ""),
