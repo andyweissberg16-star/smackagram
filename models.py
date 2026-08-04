@@ -1200,3 +1200,53 @@ class GameResult(db.Model):
     __table_args__ = (
         db.Index("ix_game_results_lookup", "league", "game_date"),
     )
+
+
+class Player(db.Model):
+    """
+    Every player name we have ever seen, kept.
+
+    WHY THIS EXISTS
+    ---------------
+    The name picker was fetching a team's squad live on every use. That is
+    slow, it costs a request per team, and it breaks entirely when a
+    provider is unreachable - which happened for most of 4 August.
+
+    THE BETTER REASON, though, is Aaron Judge.
+
+    A player on the injured list appears in NO recent roster. Highlightly's
+    baseball feed has no injuries block at all, so somebody out for six
+    weeks is simply invisible - and he is exactly the name people want to
+    hear about.
+
+    But he WAS in a roster before he got hurt. Storing every name as it is
+    seen means the picker keeps offering him long after he stops appearing
+    in the data, which is precisely the behaviour wanted.
+
+    LAST_SEEN is what makes that safe. A name is offered whether or not he
+    played this week, but the date is kept so somebody who has not appeared
+    in a year can be aged out rather than haunting the list forever.
+    """
+    __tablename__ = "players"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False, index=True)
+    team = db.Column(db.String(80), nullable=False, index=True)
+    league = db.Column(db.String(16), nullable=False, index=True)
+
+    position = db.Column(db.String(40))
+    jersey = db.Column(db.String(8))
+
+    # When this name last turned up in real data. Not "is he injured" -
+    # that is a different question and one no feed answers reliably - but
+    # enough to say "he has not played in a while", which is the honest
+    # version and is often the better joke anyway.
+    last_seen = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    first_seen = db.Column(db.DateTime, default=datetime.utcnow)
+
+    source = db.Column(db.String(20))
+
+    __table_args__ = (
+        db.Index("ix_players_team_league", "team", "league"),
+        db.UniqueConstraint("name", "team", "league", name="uq_player_team"),
+    )

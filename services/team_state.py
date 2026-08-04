@@ -510,6 +510,29 @@ def roster(name, league=None, limit=60):
     if not t:
         return []
 
+    # THE DATABASE FIRST. NO NETWORK AT ALL.
+    #
+    # Names are stored every time a squad is fetched for any reason, so
+    # this fills up from ordinary use with no job to run.
+    #
+    # It also solves the problem no live feed can: a player on the injured
+    # list appears in NO recent roster, and Highlightly's baseball data has
+    # no injuries block at all. But he was in a roster before he got hurt -
+    # so the picker keeps offering him, which is exactly what somebody
+    # typing his name wants.
+    try:
+        from services import player_store
+        stored = player_store.squad(t.get("league") or "",
+                                    t.get("nick") or name)
+        if len(stored) >= 12:
+            away = [p["name"] for p in stored if p.get("away")]
+            print(f"[roster] {t.get('nick')}: {len(stored)} from the database"
+                  + (f", {len(away)} not seen lately" if away else ""),
+                  flush=True)
+            return stored[:limit]
+    except Exception as e:
+        print(f"[roster] player store unavailable: {e}", flush=True)
+
     # HIGHLIGHTLY FIRST, and it does not need an ESPN id.
     #
     # The team name now resolves locally, which means there is often no
@@ -525,6 +548,14 @@ def roster(name, league=None, limit=60):
             hl = highlightly.squad(t.get("league") or "",
                                    t.get("nick") or name)
             if hl:
+                # KEEP THEM. Next time this is a database read, and these
+                # names survive long after they stop appearing in any feed.
+                try:
+                    from services import player_store
+                    player_store.remember(t.get("league") or "",
+                                          t.get("nick") or name, hl)
+                except Exception as _e:
+                    print(f"[players] store failed: {_e}", flush=True)
                 inj = [p["name"] for p in hl if p.get("injured")]
                 print(f"[roster] {t.get('nick')}: {len(hl)} from Highlightly"
                       + (f", {len(inj)} out: {', '.join(inj[:3])}" if inj

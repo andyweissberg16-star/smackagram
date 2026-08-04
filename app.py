@@ -5952,6 +5952,29 @@ with app.app_context():
 
 
 
+@app.route("/api/admin/players")
+@login_required
+def api_admin_players():
+    """
+    How many player names are stored, and for which teams.
+
+    These are read by the picker without any network call - and they
+    survive long after a player stops appearing in live data, which is how
+    somebody on a long injured list stays findable.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    from services import player_store
+    league = request.args.get("league")
+    team = request.args.get("team")
+    out = {"total": player_store.count(league),
+           "teams": len(player_store.teams_known(league))}
+    if team and league:
+        out["squad"] = player_store.squad(league, team)
+    return jsonify(out)
+
+
 @app.route("/api/admin/stored-results")
 @login_required
 def api_admin_stored_results():

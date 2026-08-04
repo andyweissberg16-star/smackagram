@@ -158,6 +158,31 @@ def _attach_highlightly_ids(games, log=print):
 
     if matched:
         log(f"highlightly: matched {matched}/{len(games)} games")
+
+    # HARVEST THE NAMES WHILE WE ARE HERE.
+    #
+    # The show already fetches a box score for every game. Those box scores
+    # are full of player names, and throwing them away means the picker has
+    # to fetch a squad live later for the same information.
+    #
+    # Fifteen games a night is thirty teams, so the database fills from
+    # normal use rather than needing a job that somebody has to remember.
+    try:
+        from services import player_store, highlightly
+        for g in games:
+            if not g.get("_hl_id"):
+                continue
+            lg = (g.get("league") or "").lower()
+            rows = highlightly.box_score(lg, g["_hl_id"])
+            by_team = {}
+            for p in rows:
+                by_team.setdefault(p.get("team") or "", []).append(p)
+            for team, ps in by_team.items():
+                if team:
+                    player_store.remember(lg, team.split()[-1], ps)
+    except Exception as e:
+        log(f"player harvest skipped: {e}")
+
     return games
 
 
