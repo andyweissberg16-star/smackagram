@@ -307,7 +307,7 @@
       <p class="door-foot" id="soloFoot">5 rounds &middot; about 4 minutes</p>
     </div>
 
-    <div class="door door-rival">
+    <div class="door door-rival" id="createCard">
       <div class="door-head">
         <div class="door-badge door-badge-silver">VS</div>
         <div>
@@ -549,7 +549,16 @@ async function createBattle() {
       fetch('/api/battle-sfx').catch(() => {});
       const url = `${window.location.origin}/battle/${createdCode}`;
       document.getElementById('battleLink').textContent = url;
-      document.getElementById('createCard').style.display = 'none';
+      // Guarded.
+      //
+      // This line threw because no element had id "createCard" - so
+      // getElementById returned null, .style blew up, and the whole thing
+      // landed in the catch block showing "Couldn't create the battle" for
+      // a battle that had ALREADY BEEN CREATED. The id is now on the setup
+      // panel, and this no longer takes the page down if it ever moves
+      // again.
+      const setup = document.getElementById('createCard');
+      if (setup) setup.style.display = 'none';
       document.getElementById('resultCard').style.display = 'block';
     }
   } catch (err) {
