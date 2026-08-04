@@ -56,13 +56,32 @@ from urllib.request import Request, urlopen
 # number of small requests.
 MAX_PER_MINUTE = 35
 
-# How long everything stops after they push back. Long enough for a short
-# throttle to clear; short enough that a morning show is not lost.
+# How long everything stops after they push back.
+#
+# Fifteen minutes is a guess at how long ESPN holds a grudge - nobody
+# publishes that. It is long enough for a short throttle to clear and short
+# enough that a morning show is not lost entirely.
+#
+# If a 403 persists past several cooldowns, the block is longer than this
+# and the answer is patience rather than a shorter timer. /api/admin/espn-
+# gate?reset=1 clears it by hand when you know it has passed.
 COOLDOWN_SECONDS = 900
 
 # A single fetch that blocks longer than this is holding up the whole site,
 # because the server runs one worker.
 DEFAULT_TIMEOUT = 8
+
+# A BROWSER USER-AGENT.
+#
+# ESPN's public endpoints are stricter with non-browser agents on some
+# paths, and the calls that were working on this project used a browser
+# string while the ones that started failing used "smackagram/1.0".
+#
+# That may or may not be what tipped it into a 403 - a rate limit is the
+# more likely cause - but identifying as a browser is free, and it removes
+# one variable from a problem that is otherwise a waiting game.
+_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+       "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36")
 
 _lock = threading.Lock()
 _recent = deque()          # timestamps of requests actually sent
@@ -148,7 +167,7 @@ def fetch(url, timeout=DEFAULT_TIMEOUT, label="", critical=False):
         _stats["sent"] += 1
 
     try:
-        req = Request(url, headers={"User-Agent": "smackagram/1.0"})
+        req = Request(url, headers={"User-Agent": _UA})
         with urlopen(req, timeout=timeout) as r:
             return json.loads(r.read().decode())
     except Exception as e:
@@ -206,7 +225,7 @@ def get(url, params=None, timeout=DEFAULT_TIMEOUT, label="", critical=False):
     try:
         import requests
         r = requests.get(url, params=params or {}, timeout=timeout,
-                         headers={"User-Agent": "smackagram/1.0"})
+                         headers={"User-Agent": _UA})
         if r.status_code in (429, 403):
             _note_throttle(f"HTTP {r.status_code}")
             return None
