@@ -355,6 +355,66 @@ def facts_for(team_name, league=None, limit=4, timeout_s=3.0):
     return result
 
 
+def _league_injuries(league):
+    """
+    Every injured player in a league, grouped by team id.
+
+    ESPN only publishes this LEAGUE-WIDE - the per-team URL returns an
+    empty two-byte response, which is why the first version of this found
+    nobody and Aaron Judge never appeared in the picker.
+
+    The document is roughly 3MB, so it is cached under its own key for an
+    hour: one fetch serves all thirty clubs rather than every roster
+    lookup paying for it.
+
+    Returns {"10": [ {name, position, number}, ... ], ...} - or {} on any
+    failure, which simply means no injured names are offered.
+    """
+    def build():
+        cfg = LEAGUES.get(league)
+        if not cfg:
+            return {}
+        sport, path = cfg
+        d = _get(f"{BASE}/{sport}/{path}/injuries", timeout=20)
+        if not d:
+            return {}
+
+        out = {}
+        for club in (d.get("injuries") or []):
+            if not isinstance(club, dict):
+                continue
+            tid = str(club.get("id") or "")
+            rows = []
+            for item in (club.get("injuries") or []):
+                if not isinstance(item, dict):
+                    continue
+                # The athlete sits a level down. Its exact key varies, so
+                # try the usual ones rather than assuming.
+                ath = (item.get("athlete") or item.get("player")
+                       or (item.get("competitor") or {}).get("athlete") or {})
+                nm = (ath.get("displayName") or ath.get("fullName")
+                      or item.get("displayName"))
+                if not nm:
+                    continue
+                pos = ath.get("position")
+                if isinstance(pos, dict):
+                    pos = pos.get("abbreviation") or pos.get("name")
+                rows.append({"name": nm, "position": pos,
+                             "number": ath.get("jersey")})
+            if tid and rows:
+                out[tid] = rows
+
+        print(f"[injuries] {league}: {sum(len(v) for v in out.values())} "
+              f"players across {len(out)} clubs", flush=True)
+        return out
+
+    try:
+        return _cached(f"injuries:{league}", build) or {}
+    except Exception as e:
+        print(f"[injuries] {league} unavailable: {e}", flush=True)
+        return {}
+
+
 def roster(name, league=None, limit=60):
     """
     The players actually on this team, for the name picker.
@@ -446,56 +506,33 @@ def roster(name, league=None, limit=60):
             clean.append(p)
         # INJURED PLAYERS COUNT.
         #
-        # ESPN's roster feed leaves out anybody on the injured list, which
-        # means the best name on the team is often missing - Aaron Judge is
-        # not on the Yankees roster call while he is out, and he is exactly
-        # who somebody wants to hear about.
+        # ESPN's roster feed leaves out anybody on the injured list, so the
+        # best name on a team is often missing - Aaron Judge is not on the
+        # Yankees roster call while he is out, and he is exactly who
+        # somebody wants to hear about.
         #
-        # They are pulled from the injuries feed and MARKED, because the
-        # marking matters more than the inclusion: the rule everywhere on
-        # this product is that an injury is never the joke. Smacky can say
-        # the team is losing without their best player. He cannot say
-        # anything about the injury itself.
-        # TWO SOURCES, because one endpoint quietly changing shape would
-        # drop every injured player again and nothing would say so.
+        # THE PER-TEAM INJURIES URL RETURNS TWO BYTES. Empty, always. The
+        # real data is only published LEAGUE-WIDE - one document listing
+        # every club - so the team has to be found inside it by id.
         #
-        # Checking this team by team is not a plan - there are thirty MLB
-        # clubs alone. So both feeds are read, results are merged, and the
-        # count is checked against what the sport should have.
-        _injury_blobs = []
-        for _url in (f"{BASE}/{sport}/{path}/teams/{t['id']}/injuries",
-                     f"{BASE}/{sport}/{path}/teams/{t['id']}"):
-            try:
-                _d = _get(_url)
-                if _d:
-                    _injury_blobs.append(_d)
-            except Exception:
-                pass
-
+        # That document is about 3MB, which is why it is cached for an hour
+        # in its own key: one fetch then serves every team in the league
+        # rather than every roster lookup paying for it.
+        #
+        # They are MARKED, and the marking matters more than the inclusion:
+        # the rule everywhere on this product is that the absence is fair
+        # game and the injury is not.
         try:
-            rows = []
-            for blob in _injury_blobs:
-                # top level, or nested under team - both shapes appear
-                rows += (blob.get("injuries")
-                         or (blob.get("team") or {}).get("injuries") or [])
-            for row in rows:
-                items = row.get("injuries") if isinstance(row, dict) else None
-                for it in (items or [row]):
-                    ath = (it or {}).get("athlete") or {}
-                    nm = ath.get("displayName") or ath.get("fullName")
-                    if not nm or nm.lower() in seen:
-                        continue
-                    seen.add(nm.lower())
-                    clean.append({
-                        "name": nm,
-                        "position": ((ath.get("position") or {}).get("abbreviation")
-                                     if isinstance(ath.get("position"), dict)
-                                     else ath.get("position")),
-                        "number": ath.get("jersey"),
-                        "injured": True,
-                    })
+            for row in _league_injuries(t["league"]).get(str(t["id"]), []):
+                nm = row.get("name")
+                if not nm or nm.lower() in seen:
+                    continue
+                seen.add(nm.lower())
+                clean.append({"name": nm, "position": row.get("position"),
+                              "number": row.get("number"), "injured": True})
         except Exception as e:
-            print(f"[roster] no injury list for {t.get('nick')}: {e}", flush=True)
+            print(f"[roster] no injury list for {t.get('nick')}: {e}",
+                  flush=True)
 
         # A count in the log, because the only way to know a roster came
         # back short is to compare it against what should be there. A

@@ -592,7 +592,7 @@ def generate_meme_image(best_line: str, league_name: str, week: int) -> str:
     # meme images to upload successfully but return a broken image icon
     # (no public read access) when the browser tried to load them.
     from datetime import datetime as _dt
-    filename = ("memes/" + _dt.now().strftime("%Y-%m-%d")
+    filename = ("tts/meme-" + _dt.now().strftime("%Y-%m-%d")
                 + f"-{uuid.uuid4().hex[:6]}.png")
     s3 = boto3.client("s3", region_name=s3_region)
     with open(buffer_path, "rb") as f:
@@ -1524,8 +1524,8 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
     # import of it - only two other functions import it locally, and using
     # it without that would have crashed every recap upload.
     from datetime import datetime as _dt
-    filename = ("smackcast/" + _dt.now().strftime("%Y-%m-%d")
-                + f"-smackcast-{uuid.uuid4().hex[:6]}.mp3")
+    filename = ("tts/smackcast-" + _dt.now().strftime("%Y-%m-%d")
+                + f"-{uuid.uuid4().hex[:6]}.mp3")
     s3 = boto3.client("s3", region_name=s3_region)
     s3.put_object(Bucket=s3_bucket, Key=filename, Body=normalized_bytes, ContentType="audio/mpeg")
 

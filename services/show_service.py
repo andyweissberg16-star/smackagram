@@ -2351,8 +2351,19 @@ def _assemble_with_music(intro: str, segments: list, outro: str, log=None) -> st
         # be recognised at a glance. The short random tail keeps two runs on
         # the same day from overwriting each other - a re-render should not
         # silently replace the episode somebody is already listening to.
+        # STAYS UNDER tts/. The bucket's public-read policy is scoped to
+        # that path, so a file in daily-smack/ uploads perfectly and then
+        # returns AccessDenied when a browser asks for it - the show goes
+        # silent with nothing in any log.
+        #
+        # This already happened once on this project with the meme images,
+        # and there is a comment in smackcast_service saying so. I moved
+        # these anyway.
+        #
+        # The name still does the work - readable and dated - it just lives
+        # where the policy can see it.
         _day = datetime.now(EASTERN).strftime("%Y-%m-%d")
-        key = f"daily-smack/{_day}-daily-smack-{uuid.uuid4().hex[:6]}.mp3"
+        key = f"tts/daily-smack-{_day}-{uuid.uuid4().hex[:6]}.mp3"
 
         with open(out, "rb") as f:
             boto3.client("s3", region_name=region).put_object(
