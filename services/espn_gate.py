@@ -193,7 +193,8 @@ def reset():
     print("[espn-gate] cooldown cleared manually", flush=True)
 
 
-def get(url, params=None, timeout=DEFAULT_TIMEOUT, label="", critical=False):
+def get(url, params=None, timeout=DEFAULT_TIMEOUT, label="",
+        critical=False, headers=None, source="espn"):
     """
     The requests-library route through the same gate.
 
@@ -224,10 +225,28 @@ def get(url, params=None, timeout=DEFAULT_TIMEOUT, label="", critical=False):
 
     try:
         import requests
-        r = requests.get(url, params=params or {}, timeout=timeout,
-                         headers={"User-Agent": _UA})
+        # Extra headers for callers that need them - Highlightly requires an
+        # API key header, ESPN needs none.
+        h = {"User-Agent": _UA}
+        if headers:
+            h.update(headers)
+        r = requests.get(url, params=params or {}, timeout=timeout, headers=h)
         if r.status_code in (429, 403):
-            _note_throttle(f"HTTP {r.status_code}")
+            # ONLY ESPN GETS THE FULL SHUTDOWN.
+            #
+            # The cooldown exists because ESPN blocks an IP for hours with
+            # no way to appeal. A paid provider returning 429 means the
+            # plan's rate limit was hit - annoying, self-correcting within
+            # the minute, and NOT a reason to stop talking to ESPN as well.
+            #
+            # Stopping everything because one provider rate-limited us
+            # would turn a small problem into an outage.
+            if source == "espn":
+                _note_throttle(f"HTTP {r.status_code}")
+            else:
+                print(f"[espn-gate] {source} returned {r.status_code} "
+                      f"({label}) - not tripping the ESPN cooldown",
+                      flush=True)
             return None
         r.raise_for_status()
         return r.json()

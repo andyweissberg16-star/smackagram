@@ -79,7 +79,22 @@ def check_armed_smackagrams():
                 # league_results() returns EVERY finished game in one call,
                 # cached for 45 seconds. Fifteen calls become one, and it
                 # stays one whether five games are armed or fifty.
-                _espn = espn_scores.league_results(sport).get(str(_eid))
+                _all = espn_scores.league_results(sport)
+                _espn = _all.get(str(_eid))
+
+                # SHADOW RUN. Highlightly fetches the same games and every
+                # disagreement is logged, but ESPN still decides. Their
+                # score string is home-first and ESPN's is away-first -
+                # exactly the kind of thing that looks fine in code and
+                # charges the wrong person in production.
+                try:
+                    from services import highlightly
+                    from datetime import datetime as _dt
+                    if highlightly.enabled():
+                        highlightly.compare(
+                            sport, _dt.utcnow().strftime("%Y-%m-%d"), _all)
+                except Exception as _e:
+                    print(f"[shadow] skipped: {_e}", flush=True)
                 if not _espn:
                     # Not in the finished list - either still playing, or
                     # the scoreboard did not cover it. Fall back to the

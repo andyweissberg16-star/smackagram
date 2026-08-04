@@ -5924,6 +5924,32 @@ with app.app_context():
 
 
 
+@app.route("/api/admin/shadow")
+@login_required
+def api_admin_shadow():
+    """
+    Where ESPN and Highlightly have disagreed.
+
+    "wrong_loser" is the one that matters - that is a game where the two
+    sources name a different losing team, which in production means calling
+    somebody about a game they won and charging them for it.
+
+    An empty list after a week of games is the signal that it is safe to
+    switch over.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    from services import highlightly
+    rows = highlightly.disagreements()
+    return jsonify({
+        "highlightly": highlightly.status(),
+        "total_disagreements": len(rows),
+        "wrong_loser_count": sum(1 for r in rows if r.get("wrong_loser")),
+        "recent": rows,
+    })
+
+
 @app.route("/api/admin/espn-gate")
 @login_required
 def api_admin_espn_gate():
