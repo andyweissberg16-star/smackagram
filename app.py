@@ -5952,6 +5952,78 @@ with app.app_context():
 
 
 
+@app.route("/api/admin/fill-players")
+@login_required
+def api_admin_fill_players():
+    """
+    Fill the player table directly, without waiting for a show to run.
+
+    Walks a league's fixtures over the last few days and stores every name
+    in every team sheet. One pass covers every club that has played.
+
+    ?league=mlb        which league (default mlb)
+    ?days=5            how far back to walk
+
+    Slow on purpose - a request per day plus one per match. Run it when
+    you want the table filled, not on a schedule.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+
+    from datetime import datetime as _dt, timedelta as _td
+    from services import highlightly, player_store
+
+    if not highlightly.enabled():
+        return jsonify({"error": "HIGHLIGHTLY_KEY is not set"}), 400
+
+    league = (request.args.get("league") or "mlb").lower()
+    days = max(1, min(int(request.args.get("days") or 5), 14))
+
+    cfg = highlightly.LEAGUES.get(league)
+    if not cfg:
+        return jsonify({"error": f"unknown league {league}"}), 400
+    league_name, param = cfg
+
+    seen_matches = set()
+    report = {"league": league, "days": days, "teams": {}, "added": 0}
+
+    for off in range(days):
+        day = (_dt.utcnow() - _td(days=off)).strftime("%Y-%m-%d")
+        d = highlightly._get(league, "matches",
+                             {param: league_name, "date": day, "limit": 100},
+                             ttl=900)
+        rows = (d.get("data") if isinstance(d, dict) else d) or []
+        for m in rows:
+            mid = m.get("id")
+            if not mid or mid in seen_matches:
+                continue
+            seen_matches.add(mid)
+
+            det = highlightly._get(league, f"matches/{mid}", ttl=900)
+            blob = det[0] if isinstance(det, list) and det else det
+            if not isinstance(blob, dict):
+                continue
+
+            for side in ("homeTeam", "awayTeam"):
+                team_full = ((m.get(side) or {}).get("displayName") or "")
+                nick = team_full.split()[-1] if team_full else ""
+                people = ((blob.get("rosters") or {}).get(side) or [])
+                squad = [{"name": r.get("fullName") or r.get("name"),
+                          "position": r.get("position"),
+                          "number": r.get("jersey")}
+                         for r in people if (r.get("fullName") or r.get("name"))]
+                if not squad or not nick:
+                    continue
+                n = player_store.remember(league, nick, squad)
+                report["added"] += n
+                report["teams"][nick] = report["teams"].get(nick, 0) + len(squad)
+
+    report["matches_walked"] = len(seen_matches)
+    report["total_stored"] = player_store.count(league)
+    return jsonify(report)
+
+
 @app.route("/api/admin/players")
 @login_required
 def api_admin_players():
