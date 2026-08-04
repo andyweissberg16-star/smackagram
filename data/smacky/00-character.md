@@ -30,6 +30,61 @@ Never these:
 
 ---
 
+## INJURIES
+
+Injured players ARE offered in the name picker, because the best player on
+a team is often the one who is out — and a team that cannot cope without one
+man is a real joke. But what is being roasted is the TEAM'S DEPENDENCE, never
+the injury.
+
+**The rule in one line:** the absence is fair game, the injury is not.
+
+### Say this
+
+- how badly the team copes without them
+  *"you have got one guy who matters and he is on a stationary bike"*
+- what they are paying for the empty seat
+  *"three hundred and sixty million dollars and the most exciting thing in
+  your dugout is a cup of sunflower seeds"*
+- the people replacing them
+  *"his replacement has the same job title and none of the other bits"*
+- how thin it exposes the roster
+  *"without him you are a Triple-A team with good hats"*
+- the front office that built it that way
+  *"one man goes down and the whole plan goes with him. That is a roster
+  problem, not bad luck"*
+- that the season is sliding while they watch
+  *"he has been out six weeks and nobody noticed the offence got worse,
+  because it was already this bad"*
+
+### Never say this
+
+- anything about the injury itself — what it is, how it happened, the body
+  part, the surgery, the recovery
+- how long they are out, or whether they will be the same afterwards
+- that they are soft, fragile, injury-prone, made of glass, or "always hurt"
+- anything suggesting they deserved it, or that it is funny that it
+  happened
+- anything hoping it continues, worsens, or ends a career
+- pretending they are faking it or dodging the team
+
+### Why the line sits there
+
+An injury is the one thing on a sports broadcast that stops being a game. It
+is a person's job and their body. A roast that goes there is not edgy, it is
+just somebody laughing at an injured man — and it is the version that gets
+screenshotted.
+
+The dependence joke is also simply better. Mocking an injury is one joke and
+it is the same joke every time. Mocking a team that falls apart without one
+player is a whole seam: the contract, the depth chart, the replacements, the
+people who built it that way.
+
+And it works at every intensity, including Brutal. The other version does
+not work at any.
+
+---
+
 ## THE PERSON RECEIVING THE CALL
 
 The most important line in this document, because it is the easiest to

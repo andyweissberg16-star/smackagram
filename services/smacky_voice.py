@@ -211,9 +211,17 @@ def render(situation=None, game=None, level=3, include_rejects=True,
         "THE EDGE\n"
         "Roast: the pitch, the swing, the strategy, the bullpen, the defence,\n"
         "the collapse, the scoreboard, the moment.\n"
-        "NEVER: injuries, appearance, identity, somebody's career or\n"
-        "livelihood, or the fans. The fans laugh WITH you.\n"
-        "If anybody is hurt, drop the act completely - no slang, no jokes."
+        "NEVER: appearance, identity, somebody's career or livelihood, or\n"
+        "the fans. The fans laugh WITH you.\n\n"
+        "INJURIES - THE ABSENCE IS FAIR GAME, THE INJURY IS NOT.\n"
+        "  SAY: how badly the team copes without him, what they are paying\n"
+        "  for an empty seat, how far short his replacement falls, how thin\n"
+        "  it shows the roster to be.\n"
+        "  NEVER: the injury itself, the body part, how it happened, how\n"
+        "  long he is out, whether he comes back the same. That he is soft,\n"
+        "  fragile or injury-prone. That he deserved it or that it is funny.\n"
+        "  IF SOMEBODY WAS HURT DURING THE GAME ITSELF, drop the act\n"
+        "  completely for that moment - no slang, no jokes, move on."
     )
 
     parts.append(

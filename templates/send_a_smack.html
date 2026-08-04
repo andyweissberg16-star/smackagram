@@ -2184,20 +2184,30 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       }).slice(0, 8);
       if (!hits.length) { list.classList.remove('open'); return; }
       list.innerHTML = hits.map(function (p, n) {
-        var meta = [p.position, p.number ? '#' + p.number : '']
+        // "Out" is shown so the sender knows before they pick - and the
+        // marker travels through to the generator, which is told plainly
+        // that the injury is never the joke.
+        var meta = [p.position, p.number ? '#' + p.number : '',
+                    p.injured ? 'out' : '']
                      .filter(Boolean).join(' \u00b7 ');
         return '<div class="pick' + (n === 0 ? ' hi' : '') + '" data-name="'
-             + p.name.replace(/"/g, '&quot;') + '">' + p.name
+             + p.name.replace(/"/g, '&quot;') + '"'
+             + (p.injured ? ' data-injured="1"' : '') + '>' + p.name
              + '<small>' + meta + '</small></div>';
       }).join('');
       list.classList.add('open');
       list.querySelectorAll('.pick').forEach(function (el) {
-        el.addEventListener('click', function () { choose(el.dataset.name); });
+        el.addEventListener('click', function () {
+          choose(el.dataset.name, el.dataset.injured === '1');
+        });
       });
     }
 
-    function choose(name) {
-      chosenPlayer = name;
+    function choose(name, injured) {
+      // The marker goes to the generator with the name. Without it the
+      // writer has no idea the player is out, and the rule protecting them
+      // never fires.
+      chosenPlayer = injured ? name + ' (injured)' : name;
       list.classList.remove('open');
       input.style.display = 'none';
       var tag = document.createElement('div');

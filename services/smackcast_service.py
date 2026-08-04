@@ -591,7 +591,9 @@ def generate_meme_image(best_line: str, league_name: str, week: int) -> str:
     # covered by that same policy, which is exactly what caused the
     # meme images to upload successfully but return a broken image icon
     # (no public read access) when the browser tried to load them.
-    filename = f"tts/{uuid.uuid4()}.png"
+    from datetime import datetime as _dt
+    filename = ("memes/" + _dt.now().strftime("%Y-%m-%d")
+                + f"-{uuid.uuid4().hex[:6]}.png")
     s3 = boto3.client("s3", region_name=s3_region)
     with open(buffer_path, "rb") as f:
         s3.put_object(Bucket=s3_bucket, Key=filename, Body=f.read(), ContentType="image/png")
@@ -1515,7 +1517,15 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
 
     s3_bucket = os.environ["AUDIO_S3_BUCKET"]
     s3_region = os.environ.get("AWS_REGION", "us-east-1")
-    filename = f"tts/{uuid.uuid4()}.mp3"
+    # Its own folder and a readable name, same reasoning as the daily show:
+    # a bucket of tts/<uuid>.mp3 tells you nothing about what any file is.
+    #
+    # datetime is imported HERE because this module has no module-level
+    # import of it - only two other functions import it locally, and using
+    # it without that would have crashed every recap upload.
+    from datetime import datetime as _dt
+    filename = ("smackcast/" + _dt.now().strftime("%Y-%m-%d")
+                + f"-smackcast-{uuid.uuid4().hex[:6]}.mp3")
     s3 = boto3.client("s3", region_name=s3_region)
     s3.put_object(Bucket=s3_bucket, Key=filename, Body=normalized_bytes, ContentType="audio/mpeg")
 

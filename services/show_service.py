@@ -2339,10 +2339,30 @@ def _assemble_with_music(intro: str, segments: list, outro: str, log=None) -> st
 
         bucket = os.environ["AUDIO_S3_BUCKET"]
         region = os.environ.get("AWS_REGION", "us-east-1")
-        key = f"tts/{uuid.uuid4()}.mp3"
+
+        # A NAME YOU CAN READ.
+        #
+        # Every file in the bucket was tts/<random-uuid>.mp3 - a wall of
+        # meaningless names with no way to tell a daily show from a single
+        # call from a Smackcast. Twenty-three episodes are in there and none
+        # of them can be identified without opening it.
+        #
+        # Its own folder, dated, so the bucket sorts itself and any file can
+        # be recognised at a glance. The short random tail keeps two runs on
+        # the same day from overwriting each other - a re-render should not
+        # silently replace the episode somebody is already listening to.
+        _day = datetime.now(EASTERN).strftime("%Y-%m-%d")
+        key = f"daily-smack/{_day}-daily-smack-{uuid.uuid4().hex[:6]}.mp3"
+
         with open(out, "rb") as f:
             boto3.client("s3", region_name=region).put_object(
-                Bucket=bucket, Key=key, Body=f, ContentType="audio/mpeg")
+                Bucket=bucket, Key=key, Body=f, ContentType="audio/mpeg",
+                # Downloads land as "2026-08-04-daily-smack.mp3" rather than
+                # a uuid, which matters the moment anybody saves one to clip
+                # it or send it on.
+                ContentDisposition=(
+                    f'inline; filename="{_day}-daily-smack.mp3"'),
+                Metadata={"show": "daily-smack", "date": _day})
 
         log(f"mix complete - intro bed, voice in at {MUSIC_SOLO_MS}ms"
             + (", outro bed" if use_outro else ", no outro (speech too short)"))

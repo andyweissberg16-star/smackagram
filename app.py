@@ -5924,6 +5924,67 @@ with app.app_context():
 
 
 
+@app.route("/api/admin/roster-audit")
+@login_required
+def api_admin_roster_audit():
+    """
+    Every team in a league at once, with its roster count and who is listed
+    as injured.
+
+    Built because checking this by hand is not a plan - there are thirty MLB
+    clubs and a hundred and thirty in college football. One page tells you
+    whether the injured players are coming through everywhere or nowhere.
+
+    Slow on purpose: it makes a real call per team. Run it when something
+    looks wrong, not on a schedule.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+
+    league = (request.args.get("league") or "mlb").lower()
+    try:
+        from services import team_state
+        teams = team_state._teams(league)
+    except Exception as e:
+        return jsonify({"error": f"unknown league: {e}"}), 400
+
+    try:
+        limit = min(int(request.args.get("limit", 8)), 40)
+    except (TypeError, ValueError):
+        limit = 8
+
+    out, thin, no_injuries = [], 0, 0
+    for t in teams[:limit]:
+        try:
+            names = team_state.roster(t.get("nick") or t.get("name"), league)
+        except Exception:
+            names = []
+        hurt = [x["name"] for x in names if x.get("injured")]
+        row = {"team": t.get("nick") or t.get("name"),
+               "players": len(names), "injured": len(hurt),
+               "injured_names": hurt[:5]}
+        if len(names) < 10:
+            row["flag"] = "roster looks short"; thin += 1
+        if not hurt:
+            no_injuries += 1
+        out.append(row)
+
+    return jsonify({
+        "league": league,
+        "checked": len(out),
+        "teams": out,
+        # The number that matters. Some teams genuinely have nobody hurt;
+        # ALL of them having nobody means the injury feed is not parsing.
+        "teams_with_no_injuries": no_injuries,
+        "short_rosters": thin,
+        "verdict": ("the injury feed is not working - no team has anybody hurt"
+                    if no_injuries == len(out) and out else
+                    "short rosters - a position group is not parsing"
+                    if thin else "looks healthy"),
+    })
+
+
 @app.route("/api/roster")
 def api_roster():
     """

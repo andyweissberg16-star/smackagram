@@ -110,7 +110,36 @@ _DEFAMATION = [
     r"\bbetting on (?:his|her|their) own\b",
 ]
 
+# CELEBRATING AN INJURY.
+#
+# Injured players are now offered in the name picker, because the best
+# player on a team is often the one who is out - and "you are losing without
+# him" is a fair joke. "I am glad he got hurt" is not, and the prompt rule
+# alone is not enough now that those names are being handed over
+# deliberately.
+#
+# The ABSENCE is fair game. The injury never is.
+_INJURY_GLEE = [
+    # "glad he tore..." - the verb can come after the sentiment.
+    r"\b(?:glad|happy|pleased|delighted)\b[^.!?]{0,40}"
+    r"\b(?:hurt|injur\w*|tore|torn|broke|broken|snapped|blew out)\b",
+    r"\b(?:hurt|injur\w+|tore|torn|broke)\b[^.!?]{0,30}\b(?:and|so)\b"
+    r"[^.!?]{0,20}\b(?:glad|happy|deserved|good)\b",
+    # "hope he stays hurt", "hope he never plays again"
+    r"\bhope\b[^.!?]{0,40}\b(?:gets? hurt|stays? (?:hurt|injured|out)|"
+    r"tears?|breaks?|never plays?)\b",
+    r"\bdeserved (?:that|the|it)\b[^.!?]{0,20}\b(?:injury|tear|break)?\b"
+    r"(?=[^.!?]{0,20}\b(?:injur|hurt|tore|torn)\b)|"
+    r"\bdeserved (?:that|the) (?:injury|tear|break)\b",
+    r"\bstays? (?:hurt|injured|on the (?:il|shelf))\b",
+    # "career-ending" about a PERSON only. A career-ending decision by a
+    # general manager is ordinary sports talk.
+    r"\bcareer[- ]ending\b(?![^.!?]{0,30}\b(?:mistake|decision|trade|"
+    r"signing|move|contract)\b)",
+]
+
 BLOCKED = [
+    ("injury_glee", _INJURY_GLEE),
     ("threat", _THREAT),
     ("self_harm", _SELF_HARM),
     ("personal_traits", _TRAITS),

@@ -384,9 +384,21 @@ def roster(name, league=None, limit=60):
         out = []
         # ESPN nests this differently per sport - a flat list for some, split
         # into position groups for others. Handle both rather than guessing.
+        # ESPN nests this several different ways depending on the sport
+        # and the season. Handle all of them rather than assuming one:
+        #   athletes: [ {items: [...]}, ... ]   grouped by position (MLB, NFL)
+        #   athletes: [ {...}, {...} ]          flat list
+        #   athletes: [ {athletes: [...]} ]     nested under a second key
         groups = d.get("athletes") or []
+        if isinstance(groups, dict):
+            groups = [groups]
         for g in groups:
-            people = g.get("items") if isinstance(g, dict) and "items" in g else [g]
+            if isinstance(g, dict):
+                people = (g.get("items") or g.get("athletes")
+                          or ([g] if (g.get("displayName") or g.get("fullName"))
+                              else []))
+            else:
+                people = [g]
             for a in (people or []):
                 if not isinstance(a, dict):
                     continue
@@ -432,6 +444,82 @@ def roster(name, league=None, limit=60):
                 continue
             seen.add(p["name"].lower())
             clean.append(p)
+        # INJURED PLAYERS COUNT.
+        #
+        # ESPN's roster feed leaves out anybody on the injured list, which
+        # means the best name on the team is often missing - Aaron Judge is
+        # not on the Yankees roster call while he is out, and he is exactly
+        # who somebody wants to hear about.
+        #
+        # They are pulled from the injuries feed and MARKED, because the
+        # marking matters more than the inclusion: the rule everywhere on
+        # this product is that an injury is never the joke. Smacky can say
+        # the team is losing without their best player. He cannot say
+        # anything about the injury itself.
+        # TWO SOURCES, because one endpoint quietly changing shape would
+        # drop every injured player again and nothing would say so.
+        #
+        # Checking this team by team is not a plan - there are thirty MLB
+        # clubs alone. So both feeds are read, results are merged, and the
+        # count is checked against what the sport should have.
+        _injury_blobs = []
+        for _url in (f"{BASE}/{sport}/{path}/teams/{t['id']}/injuries",
+                     f"{BASE}/{sport}/{path}/teams/{t['id']}"):
+            try:
+                _d = _get(_url)
+                if _d:
+                    _injury_blobs.append(_d)
+            except Exception:
+                pass
+
+        try:
+            rows = []
+            for blob in _injury_blobs:
+                # top level, or nested under team - both shapes appear
+                rows += (blob.get("injuries")
+                         or (blob.get("team") or {}).get("injuries") or [])
+            for row in rows:
+                items = row.get("injuries") if isinstance(row, dict) else None
+                for it in (items or [row]):
+                    ath = (it or {}).get("athlete") or {}
+                    nm = ath.get("displayName") or ath.get("fullName")
+                    if not nm or nm.lower() in seen:
+                        continue
+                    seen.add(nm.lower())
+                    clean.append({
+                        "name": nm,
+                        "position": ((ath.get("position") or {}).get("abbreviation")
+                                     if isinstance(ath.get("position"), dict)
+                                     else ath.get("position")),
+                        "number": ath.get("jersey"),
+                        "injured": True,
+                    })
+        except Exception as e:
+            print(f"[roster] no injury list for {t.get('nick')}: {e}", flush=True)
+
+        # A count in the log, because the only way to know a roster came
+        # back short is to compare it against what should be there. A
+        # baseball squad is 26 and a football one is 53 - anything far
+        # under that means a group was missed.
+        # A ROSTER THAT COMES BACK SHORT IS THE WARNING SIGN.
+        #
+        # If a position group stops parsing, or the injury feed changes
+        # shape, the list simply gets smaller - and nothing else on the site
+        # would notice. Checking every team by hand is not possible, so the
+        # code checks its own work against what each sport actually carries.
+        _EXPECTED = {"mlb": 26, "nfl": 48, "nba": 14, "wnba": 11, "nhl": 20,
+                     "ncaaf": 60, "ncaab": 12}
+        _want = _EXPECTED.get(t["league"])
+        if _want and len(clean) < _want * 0.7:
+            print(f"[roster] WARNING {t.get('nick')}: only {len(clean)} names, "
+                  f"expected around {_want}. A position group or the injury "
+                  f"feed is probably not parsing.", flush=True)
+
+        _hurt = [x["name"] for x in clean if x.get("injured")]
+        print(f"[roster] {t.get('nick')} ({t['league']}): {len(clean)} names "
+              f"from {len(groups)} group(s)"
+              + (f", {len(_hurt)} injured: {', '.join(_hurt[:6])}"
+                 if _hurt else ", none listed as injured"), flush=True)
         return clean[:limit]
 
     try:
