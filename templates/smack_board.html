@@ -489,13 +489,21 @@ const AL_TEAMS = [
 
 function mlbLeague(g) {
   if (currentSport() !== 'mlb') return '';
-  var home = String(g.home || '').toLowerCase();
-  // Match on the nickname, since the data sometimes carries the city and
-  // sometimes does not.
+
+  // g.home IS AN OBJECT, not a string.
+  //
+  // It carries {nick, abbr, city, score, logo}. String(g.home) gives
+  // "[object Object]", which matches no team - so every game fell
+  // through to National League and the American section vanished
+  // entirely.
+  var h = g.home || {};
+  var name = [h.nick, h.city, h.abbr].filter(Boolean).join(' ').toLowerCase();
+  if (!name) return '';
+
   for (var i = 0; i < AL_TEAMS.length; i++) {
-    if (home.indexOf(AL_TEAMS[i]) > -1) return 'lg-al';
+    if (name.indexOf(AL_TEAMS[i]) > -1) return 'lg-al';
   }
-  return home ? 'lg-nl' : '';
+  return 'lg-nl';
 }
 
 // WHEN DOES IT START?
