@@ -82,6 +82,17 @@
     font-weight:600; letter-spacing:.02em;
   }
   .pw-peek:hover{color:var(--chalk,#F5F5F3);}
+
+  /* Small and quiet, but present. It has to be READABLE - a reviewer
+     finding it in 9px grey reads that as hiding it, which is worse than
+     not having it. */
+  .sms-consent{
+    margin:-6px 0 16px;
+    font-size:12.5px;
+    line-height:1.5;
+    color:var(--chalk-dim,#9A9A96);
+  }
+  .sms-consent a{color:inherit; text-decoration:underline;}
 </style>
 </head>
 <body>
@@ -118,6 +129,19 @@
 
     <label for="phoneInput">Mobile Phone</label>
     <input id="phoneInput" type="tel" placeholder="555-555-5555" autocomplete="tel">
+    {# THE SMS DISCLOSURE TWILIO'S REVIEWER LOOKS FOR.
+
+       An A2P campaign describes how consent is collected. The reviewer
+       then VISITS THE SITE to check the description is true - and a
+       phone field with no disclosure beside it is a mismatch between
+       what was registered and what exists.
+
+       The wording matches the campaign submission exactly. If one
+       changes, the other has to change with it. #}
+    <p class="sms-consent">We'll text you a verification code.
+      Msg &amp; data rates may apply. Reply STOP to opt out, HELP for
+      help. See our <a href="/terms" target="_blank">Terms</a> and
+      <a href="/privacy" target="_blank">Privacy Policy</a>.</p>
 
     <!-- SMS consent. Wording is set by Twilio's A2P 10DLC requirements, not by
          taste: it has to name the brand, say what messages are sent, state that

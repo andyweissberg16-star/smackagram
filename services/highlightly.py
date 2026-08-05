@@ -41,13 +41,32 @@ import os
 import time
 import threading
 
-# Each sport is its own host and its own subscription.
-HOSTS = {
-    "mlb":   "https://baseball.highlightly.net",
-    "nfl":   "https://american-football.highlightly.net",
-    "ncaaf": "https://american-football.highlightly.net",
-    "nhl":   "https://hockey.highlightly.net",
-    "nba":   "https://basketball.highlightly.net",
+# ONE HOST. THE SPORT IS A PATH, NOT A SUBDOMAIN.
+#
+# This used to call baseball.highlightly.net, basketball.highlightly.net
+# and so on - which are SEPARATE PRODUCTS, each with its own free tier.
+# The PRO subscription is for the unified "Sport API", so every one of
+# those calls was hitting a free quota and 429ing while a paid plan sat
+# unused. Highlightly confirmed this by email on 5 August.
+#
+# https://sports.highlightly.net/{sport}/{endpoint}
+BASE = "https://sports.highlightly.net"
+
+# Which path segment each of our leagues lives under.
+#
+# NBA AND NHL HAVE THEIR OWN SEGMENTS, separate from the general
+# basketball and hockey ones. That matters: the NBA segment has a box
+# score endpoint and the general basketball segment does not - which is
+# why box scores looked unavailable for basketball when they were simply
+# behind a different path.
+PATHS = {
+    "mlb":   "baseball",
+    "nfl":   "american-football",
+    "ncaaf": "american-football",
+    "nba":   "nba",
+    "ncaab": "nba",
+    "nhl":   "nhl",
+    "wnba":  "basketball",
 }
 
 # What they call each league, and which query parameter carries it.
@@ -59,15 +78,86 @@ LEAGUES = {
     # leagueName, the same as basketball. Each sport differs and there is
     # no pattern to it.
     "nhl":   ("NHL", "leagueName"),
-    "nba":   ("NBA", "leagueName"),
+    # The dedicated NBA segment takes "league" like the other American
+    # ones, per their docs. leagueName was what the GENERAL basketball
+    # host wanted, which is a different endpoint.
+    "nba":   ("NBA", "league"),
+    "ncaab": ("NCAAB", "league"),
+    # WNBA stays on the general basketball segment, which does use
+    # leagueName - and has no box scores. That limitation is real, unlike
+    # the NBA one, which was an artefact of calling the wrong host.
+    "wnba":  ("WNBA", "leagueName"),
 }
 
 # Baseball says "box-scores", football says "box-score". Verified against
 # the live API - the plural form 404s on football and vice versa.
-BOX_PATH = {
-    "mlb": "box-scores", "nfl": "box-score", "ncaaf": "box-score",
-    "nhl": "box-scores",
+# BOX SCORE PATHS - TRIED IN ORDER, AND THE WINNER IS REMEMBERED.
+#
+# Two sources disagree. Our own live testing found "box-scores" plural on
+# baseball and hockey; Highlightly's documentation shows "box-score"
+# singular throughout. Both may be right - the per-sport APIs we were
+# calling before are different products from the unified one.
+#
+# So rather than pick and be wrong for a week, each is tried once and
+# whichever answers is cached for the process. Self-correcting, and it
+# costs one extra request per sport per deploy.
+#
+# NBA IS IN THIS LIST NOW. The old code called the general basketball
+# host, which genuinely has no box scores - so we concluded basketball
+# had none. The NBA segment DOES, and the documentation lists it plainly.
+# WNBA stays on the general basketball segment and still has none.
+BOX_PATH_CANDIDATES = {
+    "mlb":   ["box-score", "box-scores"],
+    "nfl":   ["box-score", "box-scores"],
+    "ncaaf": ["box-score", "box-scores"],
+    "nba":   ["box-score", "box-scores"],
+    "ncaab": ["box-score", "box-scores"],
+    "nhl":   ["box-score", "box-scores"],
 }
+_box_path_found = {}
+
+# WHICH PARAMETER CARRIES THE LEAGUE NAME, discovered rather than assumed.
+#
+# Their API uses "league" on some segments and "leagueName" on others,
+# with no pattern to it - hockey rejects "league" outright with a 400.
+# Worse, the answer for a sport on the PER-SPORT hosts is not necessarily
+# the answer on the unified one, and we have just been burnt by exactly
+# that assumption.
+#
+# So the values in LEAGUES are a first guess. If a request comes back
+# empty, the other name is tried once and whichever works is remembered
+# for the process.
+_league_param_found = {}
+
+
+def _matches_for(sport, params, ttl=45):
+    """
+    Fetch matches, working out which league parameter this segment wants.
+
+    Returns the raw response, or None.
+    """
+    cfg = LEAGUES.get(sport)
+    if not cfg:
+        return None
+    league_name, first_guess = cfg
+
+    order = [_league_param_found.get(sport) or first_guess]
+    other = "leagueName" if order[0] == "league" else "league"
+    if not _league_param_found.get(sport):
+        order.append(other)
+
+    for param in order:
+        q = dict(params)
+        q[param] = league_name
+        d = _get(sport, "matches", q, ttl=ttl)
+        rows = (d or {}).get("data") if isinstance(d, dict) else d
+        if rows:
+            if _league_param_found.get(sport) != param:
+                _league_param_found[sport] = param
+                print(f"[highlightly] {sport} wants '{param}' for the league",
+                      flush=True)
+            return d
+    return None
 
 _lock = threading.Lock()
 _cache = {}
@@ -117,11 +207,11 @@ def _get(sport, path, params=None, ttl=45, timeout=10):
     key = os.environ.get("HIGHLIGHTLY_KEY")
     if not key:
         return None
-    host = HOSTS.get(sport)
-    if not host:
+    seg = PATHS.get(sport)
+    if not seg:
         return None
 
-    url = f"{host}/{path}"
+    url = f"{BASE}/{seg}/{path}"
     ck = f"{url}?{sorted((params or {}).items())}"
 
     now = time.time()
@@ -196,12 +286,7 @@ def finals(sport, date_str):
     One call covers the whole league, the same shape as the ESPN batching -
     so this does not scale with how many people are being smacked.
     """
-    cfg = LEAGUES.get(sport)
-    if not cfg:
-        return {}
-    league_name, param = cfg
-    d = _get(sport, "matches", {param: league_name, "date": date_str,
-                                "limit": 100})
+    d = _matches_for(sport, {"date": date_str, "limit": 100})
     if not d:
         return {}
 
@@ -227,10 +312,21 @@ def box_score(sport, match_id):
     Returns a flat list of {name, team, stats:{...}} because every caller
     downstream wants "who did what", not their nested shape.
     """
-    path = BOX_PATH.get(sport)
-    if not path:
+    # Use the spelling that worked last time; otherwise find out.
+    known = _box_path_found.get(sport)
+    candidates = [known] if known else BOX_PATH_CANDIDATES.get(sport, [])
+    if not candidates:
         return []
-    d = _get(sport, f"{path}/{match_id}", ttl=300)
+
+    d = None
+    for path in candidates:
+        d = _get(sport, f"{path}/{match_id}", ttl=300)
+        if d:
+            if not known:
+                _box_path_found[sport] = path
+                print(f"[highlightly] {sport} box scores are at "
+                      f"'{path}'", flush=True)
+            break
     if not d:
         return []
 
@@ -491,8 +587,7 @@ def board(sport, date_str=None):
         _now = _dt.utcnow() - _td(hours=5)
     date_str = date_str or _now.strftime("%Y-%m-%d")
 
-    d = _get(sport, "matches", {param: league_name, "date": date_str,
-                                "limit": 100}, ttl=30)
+    d = _matches_for(sport, {"date": date_str, "limit": 100}, ttl=30)
     if not d:
         return []
 
@@ -645,8 +740,7 @@ def team_injuries(sport, team_name, limit=20):
         if not cfg:
             return []
         league_name, param = cfg
-        d = _get(sport, "matches", {param: league_name, "date": day,
-                                    "limit": 100}, ttl=600)
+        d = _matches_for(sport, {"date": day, "limit": 100}, ttl=600)
         if not d:
             continue
         rows = d.get("data") if isinstance(d, dict) else d
@@ -696,8 +790,7 @@ def squad(sport, team_name, limit=60):
         if len(out) >= limit:
             break
         day = sport_day(off)
-        d = _get(sport, "matches", {param: league_name, "date": day,
-                                    "limit": 100}, ttl=900)
+        d = _matches_for(sport, {"date": day, "limit": 100}, ttl=900)
         if not d:
             continue
         rows = d.get("data") if isinstance(d, dict) else d

@@ -1340,6 +1340,10 @@ class SupportReply(db.Model):
     delivered = db.Column(db.Boolean, default=True)
     error = db.Column(db.String(300))
 
+    # Which way it went. Without this a reply that failed by text looks
+    # identical to one that failed by email, and the fix is different.
+    channel = db.Column(db.String(10), default="email")
+
 
 class SystemAlert(db.Model):
     """

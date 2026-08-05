@@ -640,7 +640,23 @@ def require_site_password():
     # Stripe and Twilio hit these routes directly and can't log in with a
     # username/password — Stripe verifies itself via signature, Twilio's
     # callbacks are unauthenticated by nature (that's how Twilio itself works).
-    exempt_prefixes = ("/webhook/stripe", "/call-instructions/", "/call-status/", "/recording-ready/", "/recording-done/", "/static/", "/api/cron/")
+    exempt_prefixes = ("/webhook/stripe", "/call-instructions/", "/call-status/",
+        "/recording-ready/", "/recording-done/", "/static/", "/api/cron/",
+        # ---- PAGES A CARRIER REVIEWER HAS TO BE ABLE TO SEE ----
+        #
+        # An A2P submission describes how consent is collected, what the
+        # opt-out is, and where the terms live. The reviewer then VISITS
+        # THE SITE to check those claims are true.
+        #
+        # With the site password on, they would have hit a password
+        # prompt and been unable to verify a single one - which reads as
+        # a description that does not match the site, and is exactly the
+        # error the campaign was rejected under.
+        #
+        # These five pages contain nothing worth gating: they are the
+        # legal and consent surface, not the product.
+        "/register", "/api/register", "/login", "/api/login",
+        "/terms", "/privacy", "/contact", "/api/support", "/opt-out")
     if request.path.startswith(exempt_prefixes):
         return
 
@@ -2634,6 +2650,35 @@ def api_support_submit():
                                  "it up."}), 500
 
     print(f"[support] #{t.id} {topic} from {email}", flush=True)
+
+    # EMAIL THE OWNERS. EVERY TICKET, NOT A SELECTION.
+    #
+    # A ticket used to land in the database and wait for somebody to think
+    # of checking a URL. That is how a small complaint becomes a
+    # chargeback: the customer cannot tell whether it arrived, so they
+    # escalate to their bank instead of to us.
+    #
+    # reply_to is the CUSTOMER, so hitting Reply in a mail client answers
+    # them directly rather than a noreply address. Small thing, and it
+    # decides whether anybody actually replies.
+    try:
+        from services import mail
+        mail.send(
+            os.environ.get("SUPPORT_INBOX", "owners@smackagram.com"),
+            f"[Smackagram #{t.id}] {topic}",
+            f"{first} {last} <{email}>\n"
+            f"Phone: {phone or 'not given'}\n"
+            f"Topic: {topic}\n"
+            f"Ticket: #{t.id}\n"
+            f"{'-' * 46}\n\n{message}\n\n"
+            f"{'-' * 46}\n"
+            f"Reply from the admin panel so the answer is recorded "
+            f"against the ticket.",
+            reply_to=email)
+    except Exception as e:
+        # A failed notification must never lose the ticket - it is already
+        # saved by this point, and visible in the panel either way.
+        print(f"[support] could not email owners: {e}", flush=True)
 
     # Tell somebody, but only for the ones that involve money or a
     # missing delivery. Alerting on every "how does this work" trains
@@ -6356,6 +6401,9 @@ with app.app_context():
             conn.execute(db.text(
                 "ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS "
                 "refunded BOOLEAN DEFAULT FALSE"))
+            conn.execute(db.text(
+                "ALTER TABLE support_replies ADD COLUMN IF NOT EXISTS "
+                "channel VARCHAR(10) DEFAULT 'email'"))
 
             # INDEXES.
             #
@@ -7029,6 +7077,116 @@ def api_admin_email_test():
     return jsonify(out)
 
 
+@app.route("/api/admin/highlightly-check")
+@login_required
+def api_admin_highlightly_check():
+    """
+    What does Highlightly actually answer, from this server?
+
+    Two things in this codebase are currently GUESSES: which query
+    parameter each sport segment wants for the league name, and whether
+    box scores live at "box-score" or "box-scores". Our own testing and
+    their documentation disagree, and the per-sport APIs we used to call
+    are a different product from the unified one we pay for.
+
+    Rather than guess again, this asks. Every combination is tried and
+    the answer reported, so the code can be set to match a fact rather
+    than an assumption.
+
+    Deliberately NOT run automatically - it is about twenty requests and
+    exists to be read by a person once, after a change.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+
+    import requests
+    from services import highlightly
+    key = os.environ.get("HIGHLIGHTLY_KEY")
+    if not key:
+        return jsonify({"error": "HIGHLIGHTLY_KEY is not set on this "
+                                 "instance."}), 400
+
+    BASE = "https://sports.highlightly.net"
+    HEAD = {"x-rapidapi-key": key}
+    day = request.args.get("date") or highlightly.sport_day(1)
+
+    SEGMENTS = {
+        "mlb":  ("baseball", "MLB"),
+        "nfl":  ("american-football", "NFL"),
+        "nba":  ("nba", "NBA"),
+        "nhl":  ("nhl", "NHL"),
+        "wnba": ("basketball", "WNBA"),
+    }
+
+    def ask(path, params):
+        try:
+            r = requests.get(f"{BASE}/{path}", params=params,
+                             headers=HEAD, timeout=15)
+            body = r.json() if r.headers.get("content-type", "") \
+                .startswith("application/json") else r.text[:150]
+            return r.status_code, body, dict(r.headers)
+        except Exception as e:
+            return None, f"{type(e).__name__}: {e}"[:150], {}
+
+    out = {"date_tested": day, "segments": {}}
+
+    # Does the key work at all, and what does the plan say?
+    st, body, hdrs = ask("baseball/matches",
+                         {"league": "MLB", "date": day, "limit": 3})
+    out["key_works"] = (st == 200)
+    out["first_call_status"] = st
+    out["rate_limit"] = {
+        k: v for k, v in hdrs.items() if k.lower().startswith("x-ratelimit")
+    }
+    if isinstance(body, dict) and body.get("plan"):
+        out["plan"] = body["plan"]
+    elif st != 200:
+        out["first_call_body"] = body
+
+    for sport, (seg, league) in SEGMENTS.items():
+        info = {"segment": seg}
+        rows = None
+        for param in ("league", "leagueName"):
+            st, body, _ = ask(f"{seg}/matches",
+                              {param: league, "date": day, "limit": 20})
+            got = body.get("data") if isinstance(body, dict) else (
+                body if isinstance(body, list) else None)
+            if st == 200 and got:
+                info["league_param"] = param
+                info["games_found"] = len(got)
+                rows = got
+                break
+            info["last_status"] = st
+        if not rows:
+            info["result"] = "no data"
+            out["segments"][sport] = info
+            continue
+
+        # A finished game, to test box scores against.
+        mid = next((r.get("id") for r in rows
+                    if "inish" in str((r.get("state") or {})
+                                      .get("description", ""))), None)
+        if not mid:
+            info["box_score"] = "no finished game on this date to test"
+        else:
+            info["tested_match"] = mid
+            for path in ("box-score", "box-scores"):
+                st, body, _ = ask(f"{seg}/{path}/{mid}", {})
+                if st == 200 and body:
+                    info["box_score"] = path
+                    break
+            else:
+                info["box_score"] = f"neither worked (last HTTP {st})"
+        out["segments"][sport] = info
+
+    out["what_the_code_currently_assumes"] = {
+        "paths": highlightly.PATHS,
+        "league_params": {k: v[1] for k, v in highlightly.LEAGUES.items()},
+    }
+    return jsonify(out)
+
+
 @app.route("/api/admin/audio-check")
 @login_required
 def api_admin_audio_check():
@@ -7197,6 +7355,32 @@ def api_admin_terms():
     })
 
 
+def _oldest_open_days():
+    """
+    How long the longest-waiting ticket has been sitting.
+
+    The single most useful number on a support screen. A count of open
+    tickets says how much work there is; this says whether anybody is
+    being ignored - and one ticket at nine days is a worse problem than
+    nine tickets from this morning.
+    """
+    from models import SupportTicket
+    t = (SupportTicket.query.filter_by(status="open")
+         .order_by(SupportTicket.created_at.asc()).first())
+    if not t or not t.created_at:
+        return None
+    return (datetime.utcnow() - t.created_at).days
+
+
+def _mail_providers():
+    """Whether a reply can actually be sent, so the panel can say so."""
+    try:
+        from services import mail
+        return mail.configured()
+    except Exception:
+        return []
+
+
 @app.route("/api/admin/support")
 @login_required
 def api_admin_support():
@@ -7230,27 +7414,59 @@ def api_admin_support():
             reply_map.setdefault(r.ticket_id, []).append(r)
 
     return jsonify({
-        "open": SupportTicket.query.filter_by(status="open").count(),
         "total": SupportTicket.query.count(),
+        "open": SupportTicket.query.filter_by(status="open").count(),
+        # BROKEN DOWN BY TOPIC, so a pattern is visible without reading
+        # every ticket. Four "never arrived" in a morning is a delivery
+        # problem, not four customers - and that distinction only shows
+        # up in a count.
+        "by_topic": {
+            topic: SupportTicket.query.filter_by(
+                topic=topic, status="open").count()
+            for topic in SUPPORT_TOPICS
+            if SupportTicket.query.filter_by(
+                topic=topic, status="open").count()
+        },
+        # The ones that cost money or reputation if they sit. Surfaced
+        # separately so they are not buried under general questions.
+        "urgent": SupportTicket.query.filter(
+            SupportTicket.status == "open",
+            SupportTicket.topic.in_([
+                "My Smackagram never arrived",
+                "I was charged incorrectly",
+                "Smacky was too aggressive (explicit content)",
+                "I received a Smackagram and want it to stop",
+            ])).count(),
+        "oldest_open_days": _oldest_open_days(),
+        "mail_providers": _mail_providers(),
         "tickets": [{
             "id": t.id,
-            "when": utc_iso(t.created_at),
             "name": f"{t.first_name} {t.last_name}".strip(),
-            "email": t.email, "phone": t.phone,
-            "topic": t.topic, "message": t.message,
+            "email": t.email,
+            "phone": t.phone,
+            "topic": t.topic,
+            "message": t.message,
+            # A one-line version for the list, so somebody can scan
+            # twenty tickets without opening any of them.
+            "summary": (t.message or "")[:110]
+                       + ("..." if len(t.message or "") > 110 else ""),
             "status": t.status,
+            "user_id": t.user_id,
+            "when": utc_iso(t.created_at),
+            "age_days": ((datetime.utcnow() - t.created_at).days
+                         if t.created_at else None),
+            "resolution": t.resolution,
             "completed_by": t.completed_by,
             "completed_at": utc_iso(t.completed_at),
-            "resolution": t.resolution,
-            "user_id": t.user_id,
-            # What was actually said to them, in order. The resolution
-            # note is a summary written afterwards; this is the record.
             "replies": [{
-                "when": utc_iso(r.sent_at), "by": r.sent_by,
-                "body": r.body, "delivered": bool(r.delivered),
+                "body": r.body,
+                "by": r.sent_by,
+                "channel": getattr(r, "channel", "email"),
+                "delivered": bool(r.delivered),
                 "error": r.error,
-            } for r in sorted(reply_map.get(t.id, []),
-                              key=lambda x: x.sent_at or datetime.min)],
+                "when": utc_iso(r.sent_at),
+            } for r in SupportReply.query.filter_by(ticket_id=t.id)
+                .order_by(SupportReply.sent_at.asc()).all()],
         } for t in rows],
     })
 
@@ -7304,9 +7520,40 @@ def api_admin_support_reply(ticket_id):
     # answered when the mail may have bounced.
     #
     # The eight-second timeout keeps the worst case short.
-    ok, detail = email_service.send(t.email, subject, full)
+    # EMAIL OR TEXT, whichever was asked for.
+    #
+    # Text is the better channel for short answers - people read a text in
+    # a minute and an email in a day - but it is BLOCKED until the A2P
+    # campaign is approved, so it will fail for now. The failure is
+    # recorded on the reply rather than swallowed, so it is obvious which
+    # ones did not land.
+    channel = (d.get("channel") or "email").lower()
+
+    if channel == "text":
+        if not t.phone:
+            return jsonify({"error": "No phone number on this ticket - "
+                                     "reply by email instead."}), 400
+        try:
+            from services import twilio_service
+            # No quoted original here: a text has no room for it, and
+            # the ticket number tells them what it is about.
+            twilio_service.send_sms(
+                t.phone,
+                f"Smackagram support (#{t.id}): {body[:300]}")
+            ok, detail = True, "sent by text"
+        except Exception as e:
+            ok, detail = False, f"text failed: {e}"
+    else:
+        # Both providers tried before giving up. email_service (SMTP) is
+        # kept as a third fallback for when the instance is paid and
+        # SMTP works again.
+        from services import mail
+        ok, detail = mail.send(t.email, subject, full)
+        if not ok:
+            ok, detail = email_service.send(t.email, subject, full)
 
     r = SupportReply(ticket_id=t.id, body=body, sent_by=who,
+                     channel=channel,
                      delivered=bool(ok),
                      error=(None if ok else str(detail)[:300]))
     db.session.add(r)

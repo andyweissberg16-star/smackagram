@@ -130,6 +130,7 @@
     <button class="tab on" data-view="dash">Dashboard</button>
     <button class="tab" data-view="tools">Tools</button>
     <button class="tab" data-view="safety">Safety<span id="safetyBadge"></span></button>
+    <button class="tab" data-view="support">Support<span id="supportBadge"></span></button>
     <button class="tab" data-view="traffic">Traffic</button>
     <button class="tab" data-view="customers">Customers</button>
     <button class="tab" data-view="settings">Settings</button>
@@ -166,6 +167,18 @@
       These <b>do</b> something. Each asks first.
     </p>
     <div class="tool-grid" id="toolActions"></div>
+  </div>
+
+  <div id="view-support" class="hide">
+    <h2>Support</h2>
+    {# The counts first, then the queue.
+
+       "Oldest waiting" is the number that matters most here. A count of
+       open tickets says how much work there is; the oldest one says
+       whether somebody is being ignored - and one ticket at nine days is
+       a worse problem than nine from this morning. #}
+    <div class="cards" id="supportCards"><p class="empty">Loading&hellip;</p></div>
+    <div id="supportList"><p class="empty">Loading&hellip;</p></div>
   </div>
 
   <div id="view-safety" class="hide">
@@ -310,6 +323,7 @@
       Object.values(views).forEach(function (id) { document.getElementById(id).classList.add('hide'); });
       document.getElementById('view-detail').classList.add('hide');
       document.getElementById(views[t.dataset.view]).classList.remove('hide');
+      if (t.dataset.view === 'support') loadSupport();
       if (t.dataset.view === 'customers') loadCustomers();
       if (t.dataset.view === 'settings') loadSettings();
     });
@@ -699,6 +713,137 @@
       .catch(function () {});
   }
 
+  function loadSupportBadge() {
+    fetch('/api/admin/support?status=open')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var n = d.open || 0;
+        var el = document.getElementById('supportBadge');
+        if (!el) return;
+        if (!n) { el.textContent = ''; el.style.cssText = ''; return; }
+        el.textContent = ' ' + n;
+        // RED when something has been waiting two days or more, amber
+        // otherwise. A count alone does not distinguish "busy morning"
+        // from "somebody has been ignored since Tuesday", and those need
+        // different reactions.
+        var stale = (d.oldest_open_days || 0) >= 2;
+        el.style.cssText = 'background:' + (stale ? '#E8142C' : '#C9922B')
+          + ';color:#fff;border-radius:9px;padding:1px 6px;margin-left:6px;'
+          + 'font-size:11px;';
+        el.title = stale
+          ? 'Oldest has been waiting ' + d.oldest_open_days + ' days'
+          : n + ' open';
+      })
+      .catch(function () {});
+  }
+
+  var supportLoaded = false;
+  function loadSupport(force) {
+    if (supportLoaded && !force) return;
+    supportLoaded = true;
+    fetch('/api/admin/support?status=open')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var mail = (d.mail_providers || []);
+        document.getElementById('supportCards').innerHTML =
+            card('Open', d.open || 0)
+          + card('Needs attention', d.urgent || 0)
+          + card('Oldest waiting',
+                 d.oldest_open_days === null || d.oldest_open_days === undefined
+                   ? '&mdash;' : d.oldest_open_days + 'd')
+          + card('Total ever', d.total || 0)
+          // Whether a reply can actually leave the building. Without this
+          // somebody types an answer, presses send, and finds out only
+          // from an error - after they have written it.
+          + card('Email', mail.length ? mail.join(' + ') : 'NOT SET UP');
+
+        var tickets = d.tickets || [];
+        if (!tickets.length) {
+          document.getElementById('supportList').innerHTML =
+            '<p class="empty">Nothing open. </p>';
+          return;
+        }
+
+        // Grouped by topic so a pattern shows without reading every one -
+        // four "never arrived" in a morning is a delivery problem, not
+        // four customers.
+        var byTopic = d.by_topic || {};
+        var chips = Object.keys(byTopic).map(function (t) {
+          return '<span class="mono" style="margin-right:12px;">'
+               + esc(t) + ': <b>' + byTopic[t] + '</b></span>';
+        }).join('');
+
+        document.getElementById('supportList').innerHTML =
+          (chips ? '<p style="margin:0 0 14px;">' + chips + '</p>' : '')
+          + tickets.map(function (t) {
+              var old = (t.age_days || 0) >= 2;
+              return '<div class="panel" style="margin-bottom:12px;'
+                + (old ? 'border-left:3px solid #E8142C;' : '') + '">'
+                + '<div style="display:flex;justify-content:space-between;'
+                +   'align-items:baseline;gap:10px;">'
+                +   '<b>' + esc(t.topic) + '</b>'
+                +   '<span class="mono" style="color:var(--muted-2);">#'
+                +     t.id + ' &middot; ' + (t.age_days || 0) + 'd</span>'
+                + '</div>'
+                + '<p style="margin:6px 0;">' + esc(t.summary || '') + '</p>'
+                + '<p class="mono" style="color:var(--muted-2);margin:0 0 8px;">'
+                +   esc(t.name) + ' &middot; ' + esc(t.email)
+                +   (t.phone ? ' &middot; ' + esc(t.phone) : '') + '</p>'
+                + (t.replies || []).map(function (r) {
+                    return '<div class="sub">&#8627; ' + esc(r.by || '')
+                         + ' <span class="mono">(' + esc(r.channel || 'email')
+                         + ')</span>: ' + esc(r.body)
+                         + (r.delivered ? ''
+                            : ' <b style="color:#E8142C;">NOT DELIVERED</b>')
+                         + '</div>';
+                  }).join('')
+                + '<div style="margin-top:10px;">'
+                +   '<textarea id="reply' + t.id + '" rows="2" '
+                +     'placeholder="Reply to ' + esc(t.name) + '" '
+                +     'style="width:100%;"></textarea>'
+                +   '<button class="tab" onclick="sendReply(' + t.id
+                +     ",'email')\">Send email</button>"
+                +   (t.phone ? '<button class="tab" onclick="sendReply('
+                       + t.id + ",'text')\" style=\"margin-left:6px;\">"
+                       + 'Send text</button>' : '')
+                + '</div>'
+                + '</div>';
+            }).join('');
+      })
+      .catch(function () {
+        document.getElementById('supportList').innerHTML =
+          '<p class="empty">Could not load tickets.</p>';
+      });
+  }
+
+  window.sendReply = function (id, channel) {
+    var box = document.getElementById('reply' + id);
+    var body = (box && box.value || '').trim();
+    if (!body) { if (box) box.focus(); return; }
+    box.disabled = true;
+    fetch('/api/admin/support/' + id + '/reply', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({body: body, channel: channel})
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        // The reply is STORED either way, so say which happened rather
+        // than just "failed" - somebody needs to know whether to chase it
+        // another way.
+        alert(res.error
+          ? 'Saved against the ticket, but not delivered:\n\n' + res.error
+          : 'Sent.');
+        box.disabled = false;
+        box.value = '';
+        loadSupport(true);
+      })
+      .catch(function () {
+        alert('Could not reach the server.');
+        box.disabled = false;
+      });
+  };
+
   function loadSafety() {
     if (safetyLoaded) return;
     safetyLoaded = true;
@@ -750,6 +895,13 @@
     if (t.dataset.view === 'safety') t.addEventListener('click', loadSafety);
   });
   loadSafetyBadge();
+  loadSupportBadge();
+  // Refreshed while the panel is open, so a ticket arriving mid-session
+  // shows up without a reload. Sixty seconds - support is not a
+  // scoreboard and polling harder would just be noise.
+  setInterval(function () {
+    if (!document.hidden) loadSupportBadge();
+  }, 60000);
 
   // ---- live send alerts ----
   //
@@ -1004,6 +1156,8 @@
      'Where the two data sources disagree. wrong_loser is the serious one'],
     ['/api/admin/email-test', 'Email check',
      'Are the SMTP settings there? Add ?to=you@email.com to send one'],
+    ['/api/admin/highlightly-check', 'Highlightly check',
+     'Asks their API which parameters and paths actually work'],
     ['/api/admin/audio-check', 'Audio reachable?',
      'HEADs the last 20 stored audio URLs and reports the status code'],
     ['/api/admin/login-guard', 'Login guard',
