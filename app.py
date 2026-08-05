@@ -242,6 +242,139 @@ def login_page():
     return render_template("login.html")
 
 
+@app.route("/forgot-password")
+def forgot_password_page():
+    return render_template("forgot_password.html")
+
+
+@app.route("/reset-password/<token>")
+def reset_password_page(token):
+    return render_template("reset_password.html", token=token)
+
+
+@app.route("/api/forgot-password", methods=["POST"])
+def api_forgot_password():
+    """
+    Send somebody a link to set a new password.
+
+    ALWAYS RETURNS THE SAME THING, whether or not the email exists.
+    "No account with that email" is a free tool for working out who has an
+    account here, and given what this site is, that is worth protecting.
+
+    Rate limited by the same guard as the login, because otherwise this is
+    an unlimited way to send mail to anybody.
+    """
+    import hashlib
+    import secrets
+    from datetime import timedelta
+
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+
+    _ip = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip() \
+        or request.remote_addr or ""
+    from services import login_guard
+    allowed, _ = login_guard.check(f"reset:{email}", _ip)
+
+    same_answer = jsonify({
+        "ok": True,
+        "message": ("If there is an account with that email, a reset link is "
+                    "on its way. Check your spam folder if it does not "
+                    "appear."),
+    })
+
+    if not allowed or not email or "@" not in email:
+        return same_answer
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        login_guard.record_failure(f"reset:{email}", _ip)
+        return same_answer
+
+    try:
+        from models import PasswordReset
+        # Any earlier link for this account stops working now. Two live
+        # reset links is one more than anybody needs.
+        for old in PasswordReset.query.filter_by(user_id=user.id,
+                                                 used_at=None).all():
+            old.used_at = datetime.utcnow()
+
+        raw = secrets.token_urlsafe(32)
+        db.session.add(PasswordReset(
+            user_id=user.id,
+            token_hash=hashlib.sha256(raw.encode()).hexdigest(),
+            expires_at=datetime.utcnow() + timedelta(hours=1),
+            requested_ip=_ip,
+        ))
+        db.session.commit()
+
+        base = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
+        link = f"{base}/reset-password/{raw}"
+
+        from services import email_service
+        ok, detail = email_service.send(
+            user.email, "Reset your Smackagram password",
+            f"Somebody asked to reset the password on your Smackagram "
+            f"account.\n\n{link}\n\nThis link works once and expires in an "
+            f"hour.\n\nIf that was not you, ignore this - your password has "
+            f"not changed.")
+        if not ok:
+            print(f"[reset] link for {email} could not be sent: {detail}",
+                  flush=True)
+            from services import alerts
+            alerts.record("email", "reset_send_failed", str(detail)[:200],
+                          severity="critical")
+    except Exception as e:
+        db.session.rollback()
+        print(f"[reset] failed for {email}: {e}", flush=True)
+
+    return same_answer
+
+
+@app.route("/api/reset-password", methods=["POST"])
+def api_reset_password():
+    """
+    Set a new password, given a valid link.
+
+    The token is looked up BY ITS HASH - the raw value never touches the
+    database, so a leaked table is not a set of working keys.
+    """
+    import hashlib
+
+    data = request.get_json(silent=True) or {}
+    token = (data.get("token") or "").strip()
+    password = data.get("password") or ""
+
+    if len(password) < 6:
+        return jsonify({"error": "Password needs at least 6 characters."}), 400
+
+    from models import PasswordReset
+    rec = PasswordReset.query.filter_by(
+        token_hash=hashlib.sha256(token.encode()).hexdigest()).first()
+
+    # One message for every kind of bad token - expired, used, invented.
+    # Distinguishing them tells somebody probing which guesses got closer.
+    if (not rec or rec.used_at
+            or rec.expires_at < datetime.utcnow()):
+        return jsonify({"error": "That link has expired or already been "
+                                 "used. Ask for a new one."}), 400
+
+    user = User.query.get(rec.user_id)
+    if not user:
+        return jsonify({"error": "That link is no longer valid."}), 400
+
+    user.set_password(password)
+    rec.used_at = datetime.utcnow()
+    db.session.commit()
+
+    # Whoever was locked out can try again now.
+    from services import login_guard
+    login_guard.record_success(user.email, "")
+
+    print(f"[reset] password changed for {user.email}", flush=True)
+    return jsonify({"ok": True, "message": "Password updated. You can log in."})
+
+
 @app.route("/api/login", methods=["POST"])
 def api_login():
     data = request.json or {}

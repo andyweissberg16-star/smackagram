@@ -1386,3 +1386,32 @@ class SystemAlert(db.Model):
     resolved = db.Column(db.Boolean, default=False, index=True)
     resolved_at = db.Column(db.DateTime)
     resolved_by = db.Column(db.String(120))
+
+
+class PasswordReset(db.Model):
+    """
+    A one-time link for getting back into an account.
+
+    THE TOKEN IS STORED HASHED. Anybody who can read this table - a backup
+    on a laptop, a leaked dump - would otherwise hold a working key to
+    every account that had recently asked for a reset. Hashing means the
+    table is useless to them.
+
+    Tokens EXPIRE and are SINGLE USE. A reset link sitting in an inbox for
+    six months is a live credential; one that dies in an hour is not.
+    """
+    __tablename__ = "password_resets"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"),
+                        nullable=False, index=True)
+
+    token_hash = db.Column(db.String(128), nullable=False, index=True)
+    expires_at = db.Column(db.DateTime, nullable=False)
+
+    used_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    # Kept so a burst of resets for one account is visible - that is
+    # somebody trying to take it over, not somebody forgetful.
+    requested_ip = db.Column(db.String(60))
