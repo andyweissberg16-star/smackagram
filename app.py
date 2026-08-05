@@ -7129,80 +7129,73 @@ def api_admin_roster_probe():
                     "sample": rows[0] if rows else None}
         return {"status": 200, "shape": str(body)[:200]}
 
-    seg, league = "baseball", "MLB"
-    out = {"segment": seg, "league": league, "teams": {}, "players": {},
-           "coaches": {}}
+    seg = "baseball"
+    out = {"segment": seg}
 
-    # THEIR VALIDATOR IS STRICT, AND THAT IS USEFUL.
+    # WHAT THE LAST PROBE ESTABLISHED
     #
-    # It rejects any property it does not recognise - "property limit
-    # should not exist" - so an endpoint's accepted parameters can be
-    # found by elimination rather than guessed. Start with nothing and
-    # add one at a time; the error names the offender every time.
-    ladders = {
-        "teams": [
-            ("no params", {}),
-            ("league", {"league": league}),
-            ("leagueName", {"leagueName": league}),
-            ("season", {"season": 2026}),
-            ("league+season", {"league": league, "season": 2026}),
-            ("name", {"name": "Yankees"}),
-        ],
-        "standings": [
-            ("no params", {}),
-            ("league", {"league": league}),
-            ("leagueName", {"leagueName": league}),
-            ("year", {"year": 2026}),
-            ("league+year", {"league": league, "year": 2026}),
-        ],
+    #   /teams              383 rows, no params, MLB and NCAA together
+    #   /teams?name=Yankees exactly one team
+    #   /players            1000 rows, and the ONLY filter it accepts is
+    #                       name - teamId, team, /teams/{id}/players,
+    #                       squads and rosters all fail
+    #   team record         abbreviation, displayName, id, league, logo,
+    #                       name. NO COACH ANYWHERE.
+    #
+    # So a roster-per-team backfill is not possible. What IS possible is
+    # walking the whole player list. Two things decide whether that is
+    # worth doing:
+    #
+    #   1. how many players are there in total
+    #   2. does a player record carry a TEAM - because a name with no
+    #      team is far less useful to the picker
+    out["how_many"] = {}
+    st, body = ask(f"{seg}/players", {})
+    if st == 200 and isinstance(body, dict):
+        out["how_many"]["pagination"] = body.get("pagination")
+        rows = body.get("data") or []
+        out["how_many"]["first_page_rows"] = len(rows)
+        out["how_many"]["player_fields"] = (
+            sorted(rows[0].keys()) if rows else None)
+
+    # Does offset work, and does it actually move?
+    st, body = ask(f"{seg}/players", {"offset": 1000})
+    rows = body.get("data") if isinstance(body, dict) else []
+    out["how_many"]["offset_1000"] = {
+        "status": st,
+        "rows": len(rows or []),
+        "first_name": (rows[0].get("fullName") if rows else None),
+        "said": (body.get("message") if isinstance(body, dict)
+                 and st != 200 else ""),
     }
-    for ep, tries in ladders.items():
-        out["teams"][ep] = {}
-        for label, params in tries:
-            out["teams"][ep][label] = summarise(*ask(f"{seg}/{ep}", params))
 
-    # A team id from whichever call worked.
-    team_id = None
-    for ep_result in out["teams"].values():
-        for v in ep_result.values():
-            s_ = v.get("sample")
-            if isinstance(s_, dict):
-                team_id = s_.get("id") or (s_.get("team") or {}).get("id")
-                if team_id:
-                    out["team_id_used"] = team_id
-                    break
-        if team_id:
-            break
-
-    if not team_id:
-        out["players"] = {"skipped": "no team id found - see teams above"}
-    else:
-        # Same ladder approach for players.
-        for label, path, params in (
-            ("players?teamId", f"{seg}/players", {"teamId": team_id}),
-            ("players?team", f"{seg}/players", {"team": team_id}),
-            ("players bare", f"{seg}/players", {}),
-            ("teams/{id}", f"{seg}/teams/{team_id}", {}),
-            ("teams/{id}/players", f"{seg}/teams/{team_id}/players", {}),
-            ("squads?teamId", f"{seg}/squads", {"teamId": team_id}),
-            ("rosters?teamId", f"{seg}/rosters", {"teamId": team_id}),
-            ("lineups?teamId", f"{seg}/lineups", {"teamId": team_id}),
-        ):
-            out["players"][label] = summarise(*ask(path, params))
-
-        # Coaches: read the whole team record and report its field names.
-        st, body = ask(f"{seg}/teams/{team_id}", {})
-        if st == 200:
+    # ---- does a single player record carry a team? ----
+    #
+    # This is the question that decides everything. A flat list of names
+    # with no team tells the picker nothing about who plays where.
+    out["player_detail"] = {}
+    st, body = ask(f"{seg}/players", {"name": "Judge", "limit": 3})
+    rows = body.get("data") if isinstance(body, dict) else []
+    out["player_detail"]["search_by_name"] = {
+        "status": st, "rows": len(rows or []),
+        "sample": rows[0] if rows else None,
+    }
+    pid = rows[0].get("id") if rows else None
+    if pid:
+        for label, path in (("players/{id}", f"{seg}/players/{pid}"),
+                            ("players/{id}/stats",
+                             f"{seg}/players/{pid}/statistics")):
+            st, body = ask(path, {})
             rec = body.get("data") if isinstance(body, dict) else body
             if isinstance(rec, list) and rec:
                 rec = rec[0]
-            if isinstance(rec, dict):
-                out["coaches"]["team_record_fields"] = sorted(rec.keys())
-                out["coaches"]["likely"] = {
-                    k: str(v)[:80] for k, v in rec.items()
-                    if any(w in k.lower() for w in
-                           ("coach", "manager", "staff", "head"))
-                } or "no coach-like field on the team record"
+            out["player_detail"][label] = {
+                "status": st,
+                "fields": sorted(rec.keys()) if isinstance(rec, dict) else None,
+                "sample": (str(rec)[:300] if not isinstance(rec, dict)
+                           else {k: str(v)[:60] for k, v in
+                                 list(rec.items())[:12]}),
+            }
 
     out["note"] = ("Baseball only, deliberately - it is the one league in "
                    "season, so a wrong answer elsewhere would be ambiguous "
