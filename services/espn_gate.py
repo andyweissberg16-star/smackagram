@@ -167,6 +167,15 @@ def _note_throttle(reason, source="espn"):
     print(f"[gate] {source} PUSHED BACK ({reason}). Pausing {source} for "
           f"{wait}s. Other sources are unaffected.", flush=True)
 
+    # TELL SOMEBODY. A data source going down takes the board, the show
+    # and the picker with it, and on 4 August that went unnoticed for
+    # hours because it only ever printed to a log.
+    try:
+        from services import alerts
+        alerts.record(source, "blocked", reason, severity="error")
+    except Exception:
+        pass
+
 
 def _allow(source, critical, label):
     """

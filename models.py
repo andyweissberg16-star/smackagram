@@ -1346,3 +1346,33 @@ class SupportReply(db.Model):
     # left the building.
     delivered = db.Column(db.Boolean, default=True)
     error = db.Column(db.String(300))
+
+
+class SystemAlert(db.Model):
+    """
+    Something broke, and whether anybody has dealt with it.
+
+    Repeats of the same failure ROLL UP into one row with a count rather
+    than filling the table - ESPN blocking the server for an hour is one
+    problem, not two hundred rows.
+
+    Resolved alerts are KEPT rather than deleted. "This has happened four
+    times this month" is the useful fact, and it only exists if the
+    history survives being cleared.
+    """
+    __tablename__ = "system_alerts"
+
+    id = db.Column(db.Integer, primary_key=True)
+
+    system = db.Column(db.String(40), nullable=False, index=True)
+    kind = db.Column(db.String(60), nullable=False, index=True)
+    severity = db.Column(db.String(12), default="error", index=True)
+    detail = db.Column(db.String(500))
+
+    count = db.Column(db.Integer, default=1)
+    first_seen = db.Column(db.DateTime, default=datetime.utcnow)
+    last_seen = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    resolved = db.Column(db.Boolean, default=False, index=True)
+    resolved_at = db.Column(db.DateTime)
+    resolved_by = db.Column(db.String(120))

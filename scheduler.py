@@ -484,7 +484,17 @@ def check_armed_smackagrams():
                     s.status = "fired"
                 except Exception as e:
                     s.status = "failed"
-                    print(f"Locked smackagram {s.id} failed to fire: {e}")
+                    print(f"Auto-Smack {s.id} failed to send: {e}", flush=True)
+                    # CRITICAL. Somebody paid for this call, the game
+                    # finished, and it did not go out. Nobody finds that
+                    # out from a log line.
+                    try:
+                        from services import alerts
+                        alerts.record("delivery", "call_failed",
+                                      f"Auto-Smack {s.id}: {e}",
+                                      severity="critical")
+                    except Exception:
+                        pass
             else:
                 # target team won — refund the $1 back to the wallet
                 _refund_released_smackagram(s)

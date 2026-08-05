@@ -2358,6 +2358,13 @@ def api_support_submit():
     except Exception as e:
         db.session.rollback()
         print(f"[support] could not save: {e}", flush=True)
+        try:
+            from services import alerts
+            # Critical: somebody is trying to reach us and cannot.
+            alerts.record("support", "save_failed", str(e)[:200],
+                          severity="critical")
+        except Exception:
+            pass
         return jsonify({"error": "Something went wrong saving that. Email "
                                  "support@smackagram.com and we will pick "
                                  "it up."}), 500
@@ -6499,6 +6506,51 @@ def api_admin_email_test():
         out["note"] = ("Add ?to=your@email.com to actually send one. This "
                        "only checks the settings exist.")
     return jsonify(out)
+
+
+@app.route("/api/admin/alerts")
+@login_required
+def api_admin_alerts():
+    """
+    What is currently broken.
+
+    Repeats roll up, so "ESPN blocked, 240 times since 14:02" is one entry
+    rather than 240. Resolved ones are kept - "this has happened four
+    times this month" is the useful fact and it only exists if the history
+    survives being cleared.
+
+    ?resolve=12 marks one handled.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    from services import alerts as alert_svc
+    from models import SystemAlert
+
+    rid = request.args.get("resolve")
+    if rid and rid.isdigit():
+        who = getattr(user, "email", None) or "admin"
+        alert_svc.resolve(int(rid), by=who)
+
+    rows = alert_svc.open_alerts()
+    return jsonify({
+        "open": len(rows),
+        "critical": sum(1 for r in rows if r.severity == "critical"),
+        "alerting_configured": bool(os.environ.get("ADMIN_ALERT_PHONE")),
+        "alerts": [{
+            "id": r.id, "system": r.system, "kind": r.kind,
+            "severity": r.severity, "detail": r.detail,
+            "count": r.count,
+            "first_seen": utc_iso(r.first_seen),
+            "last_seen": utc_iso(r.last_seen),
+        } for r in rows],
+        "recently_resolved": [{
+            "system": r.system, "kind": r.kind, "count": r.count,
+            "resolved_by": r.resolved_by,
+            "resolved_at": utc_iso(r.resolved_at),
+        } for r in SystemAlert.query.filter_by(resolved=True)
+            .order_by(SystemAlert.resolved_at.desc()).limit(10).all()],
+    })
 
 
 @app.route("/api/admin/operations")
