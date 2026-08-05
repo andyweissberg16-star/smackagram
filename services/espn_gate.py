@@ -79,6 +79,20 @@ COOLDOWN_SECONDS = 900
 # paid product.
 CASUAL_CEILING = 25
 
+# What each provider actually tolerates, as (critical, casual).
+#
+# Read from their own response headers rather than a pricing page:
+# balldontlie returns x-ratelimit-limit: 5. Going above that earns 429s,
+# and a provider that sees constant 429s from one caller eventually stops
+# answering it at all - which is precisely how ESPN was lost.
+#
+# Four rather than five on purpose. A ceiling set exactly at the limit
+# has no room for a retry, a clock skew, or two requests landing in the
+# same second.
+SOURCE_LIMITS = {
+    "balldontlie": (5, 4),
+}
+
 # A single fetch that blocks longer than this is holding up the whole site,
 # because the server runs one worker.
 DEFAULT_TIMEOUT = 8
@@ -194,7 +208,16 @@ def _allow(source, critical, label):
             return False
         while st["recent"] and now - st["recent"][0] > 60:
             st["recent"].popleft()
-        cap = MAX_PER_MINUTE if critical else CASUAL_CEILING
+        # PER-SOURCE CEILINGS.
+        #
+        # One number for every provider was fine while they all tolerated
+        # similar traffic. Balldontlie's free tier allows FIVE REQUESTS A
+        # MINUTE, and their header says so plainly - so a shared ceiling
+        # of 25 would mean five successes and twenty 429s every minute,
+        # which is how a provider decides you are a problem.
+        hard, casual = SOURCE_LIMITS.get(source,
+                                         (MAX_PER_MINUTE, CASUAL_CEILING))
+        cap = hard if critical else casual
         if len(st["recent"]) >= cap:
             st["refused_budget"] += 1
             print(f"[gate] {source} refused ({label}) - {len(st['recent'])} "

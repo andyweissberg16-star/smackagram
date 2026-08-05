@@ -8013,6 +8013,42 @@ def api_admin_id_collisions():
     return jsonify(out)
 
 
+@app.route("/api/admin/sources")
+@login_required
+def api_admin_sources():
+    """
+    Which data source is answering, and which is not.
+
+    After a week in which the wrong API was being called entirely, ESPN
+    started refusing this server's address, and WNBA turned out not to
+    exist in the paid provider - this exists so the answer to "where is
+    the data coming from" takes one look rather than an investigation.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    from services import espn_gate, highlightly, balldontlie
+
+    day = highlightly.sport_day(1)
+    out = {"date": day, "gate": espn_gate.status(), "leagues": {}}
+    for lg in ("mlb", "nfl", "nba", "nhl", "ncaaf", "ncaab", "wnba"):
+        row = {}
+        try:
+            row["highlightly"] = (
+                "not covered" if lg in highlightly.NOT_COVERED
+                else len(highlightly.finals(lg, day) or {}))
+        except Exception as e:
+            row["highlightly"] = f"error: {e}"[:60]
+        row["balldontlie"] = ("available" if balldontlie.covers(lg)
+                              else "not covered")
+        out["leagues"][lg] = row
+
+    out["espn"] = ("Returns 403 to this server on the first request - an "
+                   "IP block rather than rate limiting, confirmed by the "
+                   "same URL returning 200 from a laptop. Treat as gone.")
+    return jsonify(out)
+
+
 @app.route("/api/admin/espn-gate")
 @login_required
 def api_admin_espn_gate():

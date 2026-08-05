@@ -2349,6 +2349,26 @@ def fetch_board(league: str, force: bool = False) -> list:
     except Exception as e:
         print(f"[board] highlightly unavailable for {lg}: {e}", flush=True)
 
+    # BALLDONTLIE BEFORE ESPN, because ESPN cannot answer at all.
+    #
+    # ESPN now returns 403 to this server on the FIRST request - an IP
+    # block, not rate limiting, confirmed by the same URL returning 200
+    # from a laptop. Leaving it as the only fallback means there is no
+    # fallback.
+    #
+    # This is also the ONLY source for WNBA, which Highlightly does not
+    # carry. Without it that league shows an empty board every night.
+    try:
+        from services import balldontlie
+        if balldontlie.covers(lg):
+            from services import highlightly as _hl
+            bd = balldontlie.board(lg, _hl.sport_day(0))
+            if bd:
+                _BOARD_CACHE[lg] = (_t.time(), bd)
+                return bd
+    except Exception as e:
+        print(f"[board] balldontlie unavailable for {lg}: {e}", flush=True)
+
     sport_path, league_path = cfg[0], cfg[1]
     url = f"{BASE}/{sport_path}/{league_path}/scoreboard"
 

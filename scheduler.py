@@ -185,7 +185,32 @@ def check_armed_smackagrams():
                     for _off in (0, 1):
                         _d = (_dt2.utcnow()
                               - _td2(days=_off)).strftime("%Y-%m-%d")
+                        # BALLDONTLIE WHEN HIGHLIGHTLY CANNOT ANSWER.
+                        #
+                        # Two cases. WNBA, which Highlightly does not
+                        # carry at all - confirmed 5 August, their
+                        # basketball segment had Philippine leagues that
+                        # day and no WNBA. And any night Highlightly is
+                        # down, which used to be ESPN's job until ESPN
+                        # started refusing Render's address outright.
+                        #
+                        # Auto-Smack TAKES MONEY for a call that depends
+                        # on knowing who lost, so having no second source
+                        # is not an inconvenience, it is a refund.
                         _fin = highlightly.finals(sport, _d)
+                        if not _fin:
+                            try:
+                                from services import balldontlie
+                                if balldontlie.covers(sport):
+                                    _fin = balldontlie.finals(sport, _d)
+                                    if _fin:
+                                        print(f"[locked] {game_id}: "
+                                              f"balldontlie answered where "
+                                              f"Highlightly did not",
+                                              flush=True)
+                            except Exception as _e:
+                                print(f"[locked] balldontlie failed: {_e}",
+                                      flush=True)
                         # Match on the two teams - their ids are their own.
                         for _hid, _r in _fin.items():
                             names = {_r["winner"].split()[-1].lower(),
@@ -194,9 +219,15 @@ def check_armed_smackagrams():
                                     (_s.away_team or "").split()[-1].lower()}
                             if names == want:
                                 result = _r
+                                # Record WHICH source answered, not a
+                                # hardcoded name. A stored result that
+                                # claims the wrong provider makes the
+                                # shadow comparison meaningless and hides
+                                # an outage rather than showing it.
+                                _src = _r.get("source") or "highlightly"
                                 results_store.remember(
-                                    sport, _d, _r, "highlightly",
-                                    {"highlightly": str(_hid)})
+                                    sport, _d, _r, _src,
+                                    {_src: str(_hid)})
                                 print(f"[locked] {game_id}: Highlightly says "
                                       f"{_r['loser']} lost {_r['loser_score']}"
                                       f"-{_r['winner_score']}", flush=True)
