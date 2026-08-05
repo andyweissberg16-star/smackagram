@@ -562,7 +562,14 @@
   .btn-center{display:flex; justify-content:center;}
   /* Same issue here: the Next button was touching the section rule beneath
      it. Lift it off the edge. */
-  .step-next-wrap{margin-bottom:10px;}
+  /* MATCHED TO THE SMACKAGRAM GENERATOR.
+     
+     This had a bottom margin and NO TOP MARGIN, so the Next button sat
+     hard against whatever was above it while the same button on the other
+     generator had 22px of air. Two pages that switch between each other
+     with a tab should not space their controls differently - the jump is
+     noticeable precisely because everything else lines up. */
+  .step-next-wrap{margin-top:22px; margin-bottom:6px;}
   /* Hidden until the step has a valid choice - a Next that does nothing is
      worse than no Next at all. Revealed by adding .is-ready rather than by
      setting an inline display: style.display = '' only CLEARS the inline
