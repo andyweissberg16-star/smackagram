@@ -473,8 +473,8 @@ def check_armed_smackagrams():
                     # Checking once, at purchase, is checking at the only
                     # moment the answer is guaranteed to be stale.
                     try:
-                        from app import has_opted_out
-                        if has_opted_out(s.recipient_phone):
+                        from app import is_opted_out
+                        if is_opted_out(s.recipient_phone):
                             s.status = "cancelled_optout"
                             _refund_released_smackagram(s)
                             db.session.commit()

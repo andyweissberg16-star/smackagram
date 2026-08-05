@@ -942,33 +942,6 @@ def _execute_send_smack(user, data: dict) -> dict:
     return {"order_id": order.id, "redirect": "/order-success"}
 
 
-def has_opted_out(phone):
-    """
-    Has this number asked not to be called?
-
-    THE ONE PLACE THIS QUESTION GETS ANSWERED.
-
-    Until now the opt-out list was checked by the BROWSER and nowhere
-    else. /api/check-optout exists and the send pages call it - but a
-    direct POST, a path that forgets, or an Auto-Smack firing from cron
-    hours later all skipped it entirely.
-
-    An opt-out that only the front end honours is not an opt-out. It is a
-    courtesy, and the law does not accept courtesies.
-
-    Compares the last ten digits, so +1, dashes, spaces and brackets do
-    not cause a miss - a formatting difference must never be the reason
-    somebody gets called after asking not to be.
-    """
-    from models import OptOut
-    d = "".join(c for c in (phone or "") if c.isdigit())
-    if len(d) < 10:
-        return False
-    tail = d[-10:]
-    return db.session.query(
-        OptOut.query.filter(OptOut.phone.endswith(tail)).exists()).scalar()
-
-
 @app.route("/api/orders", methods=["POST"])
 @login_required
 def create_order():
@@ -985,7 +958,7 @@ def create_order():
     # entirely, and so does any future path that forgets to call it.
     #
     # An opt-out that only the front end honours is not an opt-out.
-    if has_opted_out(data.get("recipient_phone")):
+    if is_opted_out(data.get("recipient_phone")):
         print("[optout] refused - recipient has opted out", flush=True)
         return jsonify({
             "error": ("This number has asked not to receive Smackagrams. "
@@ -4972,7 +4945,7 @@ def create_reply_order():
     # entirely, and so does any future path that forgets to call it.
     #
     # An opt-out that only the front end honours is not an opt-out.
-    if has_opted_out(data.get("recipient_phone")):
+    if is_opted_out(data.get("recipient_phone")):
         print("[optout] refused - recipient has opted out", flush=True)
         return jsonify({
             "error": ("This number has asked not to receive Smackagrams. "
@@ -5136,7 +5109,7 @@ def arm_smackagram():
     # entirely, and so does any future path that forgets to call it.
     #
     # An opt-out that only the front end honours is not an opt-out.
-    if has_opted_out(data.get("recipient_phone")):
+    if is_opted_out(data.get("recipient_phone")):
         print("[optout] refused - recipient has opted out", flush=True)
         return jsonify({
             "error": ("This number has asked not to receive Smackagrams. "
