@@ -215,7 +215,18 @@
      card is not enough - the buttons inside it have to stretch too. Without
      this they sat at their natural width with dead space beside them. */
   .g-act .actions{display:flex; gap:8px; width:100%;}
-  .g-act .actions > *{flex:1 1 0; min-width:0;}
+  /* CENTRED, NOT JUST EQUAL WIDTH.
+     
+     These were already flexed to equal widths, but nothing centred the
+     LABEL inside them - so a short team name sat left and a long one
+     filled the button, which is why they looked misaligned next to each
+     other.
+     
+     inline-flex with centring on both axes fixes it whatever the label
+     length, and keeps a long team name vertically centred when it wraps. */
+  .g-act .actions > *{flex:1 1 0; min-width:0;
+                      display:inline-flex; align-items:center;
+                      justify-content:center; text-align:center;}
   /* Always visible, never on hover. A button somebody has to discover is a
      button most people never press - and on touch there is no hover at all,
      so half the audience could not reach them. */
@@ -382,9 +393,9 @@ function actions(g){
 
   if (g.upcoming){
     return `<div class="actions">
-      <button class="btn-arm" data-team="${esc(home)}" data-sport="${esc(currentSport())}">ARM ${esc(home.toUpperCase())}</button>
-      <button class="btn-arm" data-team="${esc(away)}" data-sport="${esc(currentSport())}">ARM ${esc(away.toUpperCase())}</button>
-    </div><span class="hint">ARM →</span>`;
+      <button class="btn-arm" data-team="${esc(home)}" data-sport="${esc(currentSport())}">SET UP ${esc(home.toUpperCase())}</button>
+      <button class="btn-arm" data-team="${esc(away)}" data-sport="${esc(currentSport())}">SET UP ${esc(away.toUpperCase())}</button>
+    </div><span class="hint">SET UP →</span>`;
   }
 
   const smackLabel = name ? `SMACK A ${esc(name.toUpperCase())} FAN` : "SMACK SOMEBODY";
