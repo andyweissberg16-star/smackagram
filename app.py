@@ -7436,11 +7436,46 @@ def all_teams():
 
 @app.errorhandler(404)
 def page_not_found(e):
+    # NOT alerted, deliberately. The log already shows dozens of these an
+    # hour from bots probing for /wp-admin/install.php, and alerting on
+    # them would bury a real failure in noise within a day.
+    #
+    # A 404 on a path the site actually links to is a different matter -
+    # but that is caught by testing, not by an alert at three in the
+    # morning.
     return render_template("404.html"), 404
 
 
 @app.errorhandler(500)
 def internal_error(e):
+    # A CRASH SHOULD NOT BE SILENT.
+    #
+    # This showed a page and vanished. No log, no record, nothing - so a
+    # crash in production was invisible unless somebody happened to be
+    # watching the Render log at that moment.
+    #
+    # The traceback matters more than the message: "TypeError on
+    # /auto-smack" is something you can find; "something went wrong" is
+    # not.
+    try:
+        import traceback
+        tb = traceback.format_exc()
+        where = request.path
+        print(f"[500] {where}\n{tb}", flush=True)
+
+        from services import alerts
+        # The PATH is the alert key, not the message. Ten different errors
+        # on one broken page is one problem worth one alert; the same
+        # error on ten pages is ten problems.
+        alerts.record("site", f"error:{where[:40]}",
+                      tb.strip().split("\n")[-1][:200],
+                      severity="critical")
+    except Exception:
+        # An error handler that raises its own error takes the site down
+        # in a way nothing can report. Whatever happens above, the page
+        # below still renders.
+        pass
+
     # A 500 is often a database problem - and the site-wide context processor
     # that injects current_user queries the database on every render. So the
     # error page itself can fail for exactly the same reason. Fall back to
