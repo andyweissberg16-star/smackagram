@@ -97,27 +97,47 @@ def _maybe_alert(ev):
 
 def _notify(body):
     """
-    Text the admin.
+    Text whoever needs to know.
 
-    Uses the Twilio number the site already sends from. Silently skipped if
-    ADMIN_ALERT_PHONE is not set, so this cannot break anything by being
-    unconfigured - it simply does not alert until you want it to.
+    ADMIN_ALERT_PHONE takes ONE OR MORE numbers, comma separated:
+
+        +15551234567
+        +15551234567,+15559876543
+
+    Two people matters more than it sounds. One person is asleep, on a
+    plane, or has their phone face down - and a delivery failure at 2am is
+    still a customer who paid and got nothing. A second number is the
+    difference between "we knew at 2am" and "we knew at 9am".
+
+    Each number is tried SEPARATELY. One bad number does not stop the
+    others being told, which a single send loop would.
+
+    Silently skipped when unset, so this cannot break anything by being
+    unconfigured.
     """
-    to = os.environ.get("ADMIN_ALERT_PHONE")
-    if not to:
+    raw = os.environ.get("ADMIN_ALERT_PHONE") or ""
+    numbers = [n.strip() for n in raw.replace(";", ",").split(",") if n.strip()]
+    if not numbers:
         print(f"[safety] ALERT (no ADMIN_ALERT_PHONE set): {body}", flush=True)
         return
-    try:
-        from services import twilio_service
-        twilio_service.send_sms(to, body[:300])
-        print("[safety] admin alerted by SMS", flush=True)
-    except Exception as e:
-        # SMS is blocked on A2P approval, so this will fail for now. The
-        # event is still recorded and still visible in /admin - the alert is
-        # the convenience, the record is the point.
-        print(f"[safety] SMS alert failed ({e}). Event is still recorded.",
-              flush=True)
 
+    sent = 0
+    for to in numbers:
+        try:
+            from services import twilio_service
+            twilio_service.send_sms(to, body[:300])
+            sent += 1
+        except Exception as e:
+            # SMS is blocked on A2P approval, so this will fail for now.
+            # The event is still recorded and still visible in /admin -
+            # the alert is the convenience, the record is the point.
+            print(f"[safety] SMS to {to[-4:]} failed ({e}).", flush=True)
+
+    if sent:
+        print(f"[safety] alerted {sent} of {len(numbers)} by SMS", flush=True)
+    else:
+        print(f"[safety] could not reach anybody by SMS. Event is still "
+              f"recorded.", flush=True)
 
 def recent(limit=100, only_unreviewed=False):
     """For the admin panel."""

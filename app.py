@@ -6536,7 +6536,9 @@ def api_admin_alerts():
     return jsonify({
         "open": len(rows),
         "critical": sum(1 for r in rows if r.severity == "critical"),
-        "alerting_configured": bool(os.environ.get("ADMIN_ALERT_PHONE")),
+        "alert_recipients": len([
+            n for n in (os.environ.get("ADMIN_ALERT_PHONE") or "")
+            .replace(";", ",").split(",") if n.strip()]),
         "alerts": [{
             "id": r.id, "system": r.system, "kind": r.kind,
             "severity": r.severity, "detail": r.detail,
