@@ -1482,13 +1482,29 @@ document.addEventListener('DOMContentLoaded', () => {
     //
     // Now nothing moves unless the generator has actually left the viewport,
     // and when it has, it comes back to the same place every time.
-    if (hasMoved) {
-      var frame = document.getElementById('wizardCard') || card;
-      if (frame) {
-        var box = frame.getBoundingClientRect();
-        var offScreen = box.top < 0 || box.top > (window.innerHeight * 0.6);
-        if (offScreen) frame.scrollIntoView({behavior: 'smooth', block: 'start'});
-      }
+    // DO NOT MOVE THE PAGE.
+    //
+    // This watched the whole wizard card and scrolled whenever its top
+    // was off screen - but somebody working through the steps is scrolled
+    // INTO it, so its top is above them by definition. Every Next press
+    // pulled them back to the top of the generator.
+    //
+    // Two things move the page and they compounded: collapsing the
+    // previous step shortens the document above, pulling everything up on
+    // its own, and then the scroll fired on top of that.
+    //
+    // What somebody needs is to see THE STEP THAT JUST OPENED. It sits
+    // directly under the one that collapsed, so it is usually already
+    // there - and then nothing should happen at all.
+    var opened = steps[current];
+    if (hasMoved && opened) {
+      setTimeout(function () {
+        var box = opened.getBoundingClientRect();
+        var visible = box.top >= 0 && box.top < (window.innerHeight - 120);
+        if (visible) return;
+        // 'nearest' moves the least distance that does the job.
+        opened.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+      }, 60);
     }
 
     // Carry the recipient's name from step 1 into step 3, so it's obvious

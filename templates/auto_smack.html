@@ -814,6 +814,21 @@
       <div id="sensitivitySelectorLL" style="margin-bottom:16px;">
         <p style="color:var(--chalk-dim); font-size:12px; margin:0;">Loading...</p>
       </div>
+
+      {# THE AGE TICK BELONGS TO THE FADER, NOT TO STEP 4.
+
+         It lived in recipientCard - a whole step later. So somebody set
+         Brutal, saw nothing happen, moved on, and met an unexplained
+         checkbox a step further along with no obvious connection to the
+         choice that caused it.
+
+         A confirmation appearing the instant somebody raises the
+         intensity reads as a consequence of what they just did. The same
+         confirmation on a later page reads as an obstacle. #}
+      <label class="consent-row" id="ageConfirmRowLL" style="display:none;">
+        <input id="ageConfirmLL" type="checkbox">
+        <span>I confirm the recipient is 18 years of age or older.</span>
+      </label>
     </div>
 
     <!-- Voice picker and preview removed from the UI. The select survives
@@ -864,10 +879,6 @@
     </div>
 
     <div class="consent-box">
-      <label class="consent-row" id="ageConfirmRowLL" style="display:none;">
-        <input id="ageConfirmLL" type="checkbox">
-        <span>I confirm the recipient is 18 years of age or older.</span>
-      </label>
       <label class="consent-row" style="margin-top:10px;">
         <input id="consentLL" type="checkbox">
         <span>I know this person and this is a prank between friends. I understand the call may be recorded.</span>
@@ -1121,7 +1132,11 @@ function updateProgress(step) {
 function selectGame(game, el) {
   clearTimeout(liveRefreshTimer);
   document.querySelectorAll('.game-option').forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
+  // el is absent when a draft is restored after a login - the list of
+  // games has not been rendered, so there is no row to highlight. The
+  // rest of this still has to run: the team choice, the target, the
+  // summary all depend on it.
+  if (el) el.classList.add('selected');
   selectedGame = game;
   selectedTargetTeam = null;
 
@@ -1366,11 +1381,28 @@ document.getElementById('armBtn').addEventListener('click', async () => {
       })
     });
     const data = await resp.json();
+
+    // KEEP THE WORK IF THEY HAVE TO GO SOMEWHERE.
+    //
+    // Both of these navigate away: login_required returns login_required
+    // on a 401, and an empty wallet redirects to Refill. Either way they
+    // come back to this page, and without this they come back to nothing.
+    if (data.login_required || data.error === 'insufficient_balance') {
+      if (window.lnlSaveDraft) window.lnlSaveDraft();
+    }
+    if (data.login_required) {
+      window.location.href = '/login?next='
+        + encodeURIComponent(location.pathname + location.search);
+      return;
+    }
     if (data.error === 'insufficient_balance') {
       smkNavigate(data.redirect || '/refill');
       return;
     }
     if (data.redirect) {
+      // Sent. The draft has done its job and must not reappear on the
+      // next one, half-filled with somebody else's details.
+      if (window.lnlClearDraft) window.lnlClearDraft();
       smkNavigate(data.redirect);
     } else {
       showError(data.error || 'Something went wrong — try again.');
@@ -1538,13 +1570,34 @@ loadVoices();
     // a different amount each time and could leave the console off-screen
     // above you. Nothing moves now unless the console has actually scrolled
     // out of view.
-    var frame = document.getElementById('lnlConsole') || el(STEPS[n].card);
-    if (window.lnlHasMoved && frame) {
+    // DO NOT MOVE THE PAGE.
+    //
+    // This watched the CONSOLE and scrolled whenever its top was off
+    // screen - but somebody working through the steps is scrolled INTO
+    // the console, so its top is above them by definition. Every Next
+    // press yanked them back to the top of the whole generator.
+    //
+    // Two things move the page here and they compounded: the collapse of
+    // the previous step shortens the document above, pulling everything
+    // up on its own, and then the scroll fired on top of that.
+    //
+    // What somebody actually needs is to see THE STEP THAT JUST OPENED.
+    // If it is already on screen - which it usually is, since it sits
+    // directly under the one that collapsed - nothing should happen at
+    // all.
+    var opened = el(STEPS[n].card);
+    if (window.lnlHasMoved && opened) {
       setTimeout(function () {
-        var box = frame.getBoundingClientRect();
-        var offScreen = box.top < 0 || box.top > (window.innerHeight * 0.6);
-        if (offScreen) frame.scrollIntoView({behavior: 'smooth', block: 'start'});
-      }, 40);
+        var box = opened.getBoundingClientRect();
+        // Comfortably visible: starts on screen and is not jammed against
+        // the bottom edge.
+        var visible = box.top >= 0
+                   && box.top < (window.innerHeight - 120);
+        if (visible) return;              // leave the page alone
+        // Only when it genuinely is not visible, and 'nearest' rather than
+        // 'start' so it moves the least distance that does the job.
+        opened.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+      }, 60);
     }
   };
 
@@ -1580,6 +1633,29 @@ loadVoices();
           return;
         }
         if (nameEl) nameEl.classList.remove('field-missing');
+      }
+
+      // THE AGE TICK HAS TO STOP THIS STEP, not just the final send.
+      //
+      // It was only checked at submit - so somebody could set Brutal,
+      // pass three more steps, and be refused at the very end for
+      // something they were never asked about. Refusing here means the
+      // question is asked at the moment it arises, next to the control
+      // that caused it.
+      if (i === 2) {
+        var ageRow = document.getElementById('ageConfirmRowLL');
+        var ageBox = document.getElementById('ageConfirmLL');
+        var needed = ageRow && ageRow.style.display !== 'none';
+        if (needed && ageBox && !ageBox.checked) {
+          e.stopPropagation();
+          ageRow.classList.add('field-missing');
+          if (typeof showError === 'function') {
+            showError('Confirm the recipient is 18 or older before '
+                    + 'continuing.');
+          }
+          return;
+        }
+        if (ageRow) ageRow.classList.remove('field-missing');
       }
       // Stop here. Otherwise this click keeps travelling up to the card,
       // which by then is collapsed, and the card handler reopens the step
@@ -1747,6 +1823,146 @@ loadVoices();
     timer = setTimeout(check, 400);   // not on every keystroke
   });
   input.addEventListener('blur', check);
+})();
+
+// ---- keep their work through a login ----
+//
+// This page had NO draft saving at all. Somebody fills in four steps -
+// picks a game, picks the losing team, sets the intensity, enters a name
+// and a number - taps Lock It In, gets bounced to the login page, comes
+// back, AND EVERY FIELD IS EMPTY.
+//
+// The Smackagram generator has kept its work across a login for a while.
+// This one did not, which meant the more involved of the two products was
+// the one that punished you for not being logged in.
+//
+// sessionStorage rather than localStorage on purpose: it clears when the
+// tab closes, so a shared computer does not hand the next person a form
+// with somebody's phone number in it.
+(function () {
+  var KEY = 'smk-autosmack-draft';
+
+  var FIELDS = ['recipientNameLL', 'teamSearchInput',
+                'recipientPhoneLL', 'senderPhoneLL'];
+  var BOXES  = ['ageConfirmLL', 'replyOptInLL', 'consentLL', 'termsAgreeLL'];
+
+  window.lnlSaveDraft = function () {
+    try {
+      var d = {};
+      FIELDS.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el && el.value) d[id] = el.value;
+      });
+      d._checks = {};
+      BOXES.forEach(function (id) {
+        var c = document.getElementById(id);
+        if (c) d._checks[id] = c.checked;
+      });
+      if (typeof selectedSensitivityLL !== 'undefined') {
+        d._sens = selectedSensitivityLL;
+      }
+      if (typeof selectedMode !== 'undefined') d._mode = selectedMode;
+      if (typeof selectedTargetTeam !== 'undefined' && selectedTargetTeam) {
+        d._target = selectedTargetTeam;
+      }
+      // The whole game object, not an id. Restoring by id would mean
+      // fetching the board again and hoping the fixture is still listed -
+      // and by the time somebody has logged in, a game that has started
+      // may have dropped off it.
+      if (typeof selectedGame !== 'undefined' && selectedGame) {
+        d._game = selectedGame;
+      }
+      if (typeof window.lnlFurthest === 'number') d._far = window.lnlFurthest;
+      var v = document.getElementById('voiceSelectLL');
+      if (v && v.value) d._voice = v.value;
+      sessionStorage.setItem(KEY, JSON.stringify(d));
+    } catch (e) { /* storage unavailable - not worth breaking a send over */ }
+  };
+
+  window.lnlRestoreDraft = function () {
+    var d;
+    try {
+      var raw = sessionStorage.getItem(KEY);
+      if (!raw) return;
+      d = JSON.parse(raw);
+    } catch (e) { return; }
+    if (!d) return;
+
+    FIELDS.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && d[id]) el.value = d[id];
+    });
+
+    // click() rather than setting .checked - several of these have
+    // listeners that reveal a field or enable a button, and setting the
+    // property fires nothing. A box that looks ticked while the button
+    // stays dead is worse than an unticked one.
+    var boxes = d._checks || {};
+    Object.keys(boxes).forEach(function (id) {
+      var c = document.getElementById(id);
+      if (c && c.checked !== boxes[id]) c.click();
+    });
+
+    if (typeof d._voice === 'string') {
+      var v = document.getElementById('voiceSelectLL');
+      if (v) { v.value = d._voice; }
+    }
+    if (typeof d._mode === 'string' && typeof selectedMode !== 'undefined') {
+      selectedMode = d._mode;
+    }
+    if (typeof d._sens === 'number'
+        && typeof applyIntensityLL === 'function') {
+      // Through the real handler, so the fader, the heat colours AND the
+      // age row all update - setting the variable alone would leave the
+      // slider showing something else.
+      applyIntensityLL(d._sens);
+    }
+    if (d._game && typeof selectedGame !== 'undefined') {
+      selectedGame = d._game;
+      // Rebuilds the "which team must lose" options from the saved
+      // fixture. No element to pass - the game list has not rendered.
+      if (typeof selectGame === 'function') {
+        try { selectGame(d._game, null); } catch (e) {}
+      }
+    }
+    // Re-tap the losing team through the real handler, so the option
+    // lights up and the summary line reads correctly. selectGame() above
+    // has just rebuilt these, so the element exists by now.
+    if (d._target) {
+      var opts = document.querySelectorAll('#teamChoice .team-option');
+      for (var k = 0; k < opts.length; k++) {
+        if (opts[k].textContent.indexOf(d._target) === 0) {
+          if (typeof selectTeam === 'function') {
+            try { selectTeam(d._target, opts[k]); } catch (e) {}
+          }
+          break;
+        }
+      }
+    }
+    if (typeof updateAgeCheckboxVisibility === 'function') {
+      updateAgeCheckboxVisibility();
+    }
+    if (typeof d._far === 'number') {
+      window.lnlFurthest = d._far;
+      if (typeof window.lnlOpenStep === 'function') {
+        window.lnlHasMoved = true;
+        window.lnlOpenStep(d._far);
+      }
+    }
+  };
+
+  window.lnlClearDraft = function () {
+    try { sessionStorage.removeItem(KEY); } catch (e) {}
+  };
+
+  // Restore once everything else has defined its variables and handlers.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      setTimeout(window.lnlRestoreDraft, 120);
+    });
+  } else {
+    setTimeout(window.lnlRestoreDraft, 120);
+  }
 })();
 </script>
 
