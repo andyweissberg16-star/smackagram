@@ -6379,6 +6379,37 @@ def api_admin_shadow():
     })
 
 
+@app.route("/api/admin/email-test")
+@login_required
+def api_admin_email_test():
+    """
+    Is email working? Send one to yourself and find out.
+
+    ?to=you@example.com
+
+    Without ?to it only reports whether the settings are present, which is
+    the cheap check - no mail is sent.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    from services import email_service
+    out = email_service.status()
+
+    to = request.args.get("to")
+    if to:
+        ok, detail = email_service.send(
+            to, "Smackagram email test",
+            "If you are reading this, support replies will reach people.\n\n"
+            "Sent from the admin panel.")
+        out["sent"] = bool(ok)
+        out["detail"] = str(detail)
+    else:
+        out["note"] = ("Add ?to=your@email.com to actually send one. This "
+                       "only checks the settings exist.")
+    return jsonify(out)
+
+
 @app.route("/api/admin/support")
 @login_required
 def api_admin_support():
@@ -6401,6 +6432,16 @@ def api_admin_support():
     rows = q.order_by(SupportTicket.status.asc(),
                       SupportTicket.created_at.desc()).limit(200).all()
 
+    # All replies for these tickets in one query rather than one per
+    # ticket - two hundred tickets should not be two hundred round trips.
+    from models import SupportReply
+    reply_map = {}
+    if rows:
+        ids = [t.id for t in rows]
+        for r in SupportReply.query.filter(
+                SupportReply.ticket_id.in_(ids)).all():
+            reply_map.setdefault(r.ticket_id, []).append(r)
+
     return jsonify({
         "open": SupportTicket.query.filter_by(status="open").count(),
         "total": SupportTicket.query.count(),
@@ -6415,8 +6456,75 @@ def api_admin_support():
             "completed_at": utc_iso(t.completed_at),
             "resolution": t.resolution,
             "user_id": t.user_id,
+            # What was actually said to them, in order. The resolution
+            # note is a summary written afterwards; this is the record.
+            "replies": [{
+                "when": utc_iso(r.sent_at), "by": r.sent_by,
+                "body": r.body, "delivered": bool(r.delivered),
+                "error": r.error,
+            } for r in sorted(reply_map.get(t.id, []),
+                              key=lambda x: x.sent_at or datetime.min)],
         } for t in rows],
     })
+
+
+@app.route("/api/admin/support/<int:ticket_id>/reply", methods=["POST"])
+@login_required
+def api_admin_support_reply(ticket_id):
+    """
+    Email somebody about their ticket, from support@smackagram.com.
+
+    The reply is STORED whether or not the mail lands. A failed send that
+    left no trace is worse than a visible failure - the customer waits for
+    something that never left the building and nobody knows.
+
+    Does not close the ticket. Answering and resolving are different
+    things, and plenty of replies are questions.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+
+    d = request.get_json(silent=True) or {}
+    body = (d.get("body") or "").strip()
+    if not body:
+        return jsonify({"error": "Nothing to send."}), 400
+
+    from models import SupportTicket, SupportReply
+    t = SupportTicket.query.get(ticket_id)
+    if not t:
+        return jsonify({"error": "No such ticket"}), 404
+
+    from services import email_service
+    who = getattr(user, "email", None) or getattr(user, "username", "admin")
+
+    subject = f"Re: your Smackagram support request (#{t.id})"
+    # Their original message is quoted underneath so the reply makes sense
+    # on its own - somebody reading it a week later should not have to
+    # remember what they asked.
+    full = (f"{body}\n\n"
+            f"---\n"
+            f"You wrote to us about: {t.topic}\n\n"
+            f"{t.message}\n\n"
+            f"---\n"
+            f"Reply to this email and it comes straight back to us.\n"
+            f"Reference #{t.id}")
+
+    ok, detail = email_service.send(t.email, subject, full)
+
+    r = SupportReply(ticket_id=t.id, body=body, sent_by=who,
+                     delivered=bool(ok),
+                     error=(None if ok else str(detail)[:300]))
+    db.session.add(r)
+    db.session.commit()
+
+    if not ok:
+        print(f"[support] reply to #{t.id} FAILED: {detail}", flush=True)
+        return jsonify({"error": f"Saved, but the email did not send: "
+                                 f"{detail}", "stored": True}), 502
+
+    print(f"[support] replied to #{t.id} ({t.email}) by {who}", flush=True)
+    return jsonify({"ok": True, "ticket": t.id, "sent_to": t.email})
 
 
 @app.route("/api/admin/support/<int:ticket_id>/complete", methods=["POST"])

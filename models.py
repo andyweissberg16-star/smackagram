@@ -1291,3 +1291,32 @@ class SupportTicket(db.Model):
     # the browser and address that sent it.
     user_agent = db.Column(db.String(300))
     ip = db.Column(db.String(60))
+
+
+class SupportReply(db.Model):
+    """
+    A reply sent to somebody about their ticket.
+
+    Kept because "we told them X" is the thing you need when they come back
+    a week later, and because a note in the resolution field is a summary
+    written afterwards rather than what was actually said.
+
+    Only outbound. Their reply arrives in the mailbox, not here - catching
+    inbound mail needs a webhook from the mail host and is a separate job.
+    """
+    __tablename__ = "support_replies"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_id = db.Column(db.Integer, db.ForeignKey("support_tickets.id"),
+                          nullable=False, index=True)
+
+    body = db.Column(db.Text, nullable=False)
+    sent_by = db.Column(db.String(120))
+    sent_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    # False when the mail failed. The reply is still stored, because
+    # knowing an attempt was made and did not land matters more than a
+    # clean record - otherwise a customer waits for something that never
+    # left the building.
+    delivered = db.Column(db.Boolean, default=True)
+    error = db.Column(db.String(300))
