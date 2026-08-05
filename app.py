@@ -3939,7 +3939,20 @@ def publish_to_wall(record, product, audio_url=None):
         except Exception:
             pass
 
-        handle = (getattr(user, "screen_name", None) or "anonymous").strip()
+        # NO SCREEN NAME ON THE WALL. EVER.
+        #
+        # This published the SENDER'S screen name next to the actual call
+        # audio. A recipient who heard their smack could find that exact
+        # recording on the public wall and read off who sent it.
+        #
+        # "They never find out it was you" is on the homepage twice. It
+        # cannot be true while the wall names the sender.
+        #
+        # The field is kept and filled with a constant rather than
+        # removed, so nothing downstream that reads it breaks - and so
+        # anybody reading this later sees the reason rather than an
+        # unexplained gap.
+        handle = "anonymous"
 
         post = WallPost(
             user_id=getattr(record, "user_id", None),
@@ -6343,6 +6356,19 @@ with app.app_context():
                     conn.execute(db.text(stmt))
                 except Exception as _e:
                     print(f"[migrate] index skipped: {_e}", flush=True)
+
+            # SCRUB SCREEN NAMES ALREADY ON THE WALL.
+            #
+            # Publishing them stopped, but the ones already stored are
+            # still there and still being served. A promise that starts
+            # applying today is not a promise.
+            try:
+                conn.execute(db.text(
+                    "UPDATE wall_posts SET handle = 'anonymous' "
+                    "WHERE handle IS DISTINCT FROM 'anonymous'"))
+            except Exception as _e:
+                print(f"[migrate] wall handles: {_e}", flush=True)
+
 
             # Numbers that must never be called again. Checked before every
             # dial - see is_opted_out().
