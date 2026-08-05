@@ -7515,6 +7515,40 @@ def api_admin_highlightly_check():
                 info["box_score"] = f"neither worked (last HTTP {st})"
         out["segments"][sport] = info
 
+    # IS THERE A REAL FIRST-PITCH TIME ANYWHERE?
+    #
+    # The board shows "UPCOMING TODAY" with no clock for a lot of games,
+    # because the date field on a match list comes back as midnight UTC -
+    # a marker for WHICH DAY, not when it starts. Converted to Eastern
+    # that is 8pm the previous evening, which is why Wednesday's fixtures
+    # were labelled TUE.
+    #
+    # A full match record may carry a proper start. This reports every
+    # field on one so we can see rather than guess.
+    out["match_detail"] = {}
+    try:
+        st, body, _ = ask("baseball/matches",
+                          {"league": "MLB", "date": day, "limit": 3})
+        rows = body.get("data") if isinstance(body, dict) else []
+        if rows:
+            out["match_detail"]["list_date_field"] = rows[0].get("date")
+            out["match_detail"]["list_fields"] = sorted(rows[0].keys())
+            mid = rows[0].get("id")
+            st2, body2, _ = ask(f"baseball/matches/{mid}", {})
+            rec = body2.get("data") if isinstance(body2, dict) else body2
+            if isinstance(rec, list) and rec:
+                rec = rec[0]
+            if isinstance(rec, dict):
+                out["match_detail"]["detail_fields"] = sorted(rec.keys())
+                # Anything that looks like a time.
+                out["match_detail"]["time_like"] = {
+                    k: str(v)[:60] for k, v in rec.items()
+                    if any(w in k.lower() for w in
+                           ("date", "time", "start", "kick", "clock"))
+                }
+    except Exception as e:
+        out["match_detail"]["error"] = str(e)[:120]
+
     out["what_the_code_currently_assumes"] = {
         "paths": highlightly.PATHS,
         "league_params": {k: v[1] for k, v in highlightly.LEAGUES.items()},

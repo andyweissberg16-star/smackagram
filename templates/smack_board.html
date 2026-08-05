@@ -522,20 +522,35 @@ function startTime(g){
   try {
     var d = new Date(raw);
     if (isNaN(d.getTime())) return "";
+
+    // MIDNIGHT UTC IS A DATE, NOT A TIME.
+    //
+    // Both providers sometimes return "2026-08-05T00:00:00Z" - a marker
+    // for WHICH DAY, with no first pitch in it. Converted to Eastern
+    // that is 8pm the PREVIOUS evening, which is why Wednesday's games
+    // were labelled TUE.
+    //
+    // So a timestamp sitting exactly on midnight UTC is treated as
+    // having no time at all. Showing nothing beats showing a time that
+    // is wrong by four hours and a day.
+    if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0
+        && d.getUTCSeconds() === 0) {
+      return "TODAY";
+    }
+
     var now = new Date();
     var mins = Math.round((d - now) / 60000);
 
-    // Inside an hour, a countdown beats a clock time - "in 25 min" is
-    // immediately actionable in a way that "7:05 PM" is not.
+    // Inside an hour a countdown beats a clock - "in 25 min" is
+    // immediately actionable in a way "7:05 PM" is not.
     if (mins > 0 && mins <= 60) return "IN " + mins + " MIN";
 
     var time = d.toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
-    // Tomorrow's games appear on the board after 8pm Eastern, so saying
-    // only the time would be actively misleading.
-    var sameDay = d.toDateString() === now.toDateString();
-    return sameDay ? time.toUpperCase()
-                   : (d.toLocaleDateString([], {weekday: "short"}) + " "
-                      + time).toUpperCase();
+
+    // THE BOARD ONLY EVER SHOWS ONE DAY, so anything upcoming on it is
+    // today by definition. Naming the weekday was never useful and was
+    // actively wrong whenever the timestamp was a date marker.
+    return ("TODAY " + time).toUpperCase();
   } catch (e) { return ""; }
 }
 
