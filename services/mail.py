@@ -91,13 +91,42 @@ def send(to, subject, text, reply_to=None):
         except Exception as e:
             attempts.append(f"{fn.__name__}: {e}")
 
+    # SMTP LAST, AND IT IS THE ONE THAT SHOULD WORK NOW.
+    #
+    # Render blocks outbound SMTP on FREE web services only. On a paid
+    # instance ports 587 and 465 are open, so the existing email_service
+    # - correct all along, simply unable to connect - starts working.
+    #
+    # It goes last rather than first because an HTTP API is faster and
+    # gives a clearer failure. But with no Resend or Postmark key set,
+    # this is the path everything will take.
+    try:
+        from services import email_service
+        ok, detail = email_service.send(to, subject, text)
+        attempts.append(f"smtp: {detail}")
+        if ok:
+            print(f"[mail] to {to}: sent by SMTP", flush=True)
+            return True, "sent by smtp"
+    except Exception as e:
+        attempts.append(f"smtp: {e}")
+
     why = " | ".join(attempts) or "no provider configured"
     print(f"[mail] COULD NOT SEND to {to}: {why}", flush=True)
     return False, why
 
 
 def configured():
-    """Which providers are usable - for the admin panel to report."""
-    return [n for n, k in (("resend", "RESEND_API_KEY"),
-                           ("postmark", "POSTMARK_API_KEY"))
-            if os.environ.get(k)]
+    """
+    Which providers are usable - for the admin panel to report.
+
+    SMTP counts when a host is set, because on a PAID Render instance it
+    works. Reporting "no email configured" while SMTP is sitting there
+    ready would send somebody off to sign up for a service they do not
+    need.
+    """
+    out = [n for n, k in (("resend", "RESEND_API_KEY"),
+                          ("postmark", "POSTMARK_API_KEY"))
+           if os.environ.get(k)]
+    if os.environ.get("SMTP_HOST") or os.environ.get("SMTP_USER"):
+        out.append("smtp")
+    return out
