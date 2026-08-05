@@ -376,7 +376,7 @@ function heat(g){
   const n = Math.max(g.home.smacks || 0, g.away.smacks || 0);
   if (n < HEAT_FLOOR) return `<div class="g-heat"></div>`;
   const hot = n >= 10 ? "" : " cool";
-  return `<div class="g-heat${hot}"><span class="n">${n}</span> ARMED</div>`;
+  return `<div class="g-heat${hot}"><span class="n">${n}</span> WAITING</div>`;
 }
 
 function actions(g){
@@ -400,7 +400,7 @@ function actions(g){
 
   const smackLabel = name ? `SMACK A ${esc(name.toUpperCase())} FAN` : "SMACK SOMEBODY";
   const armBtn = (g.final || !loser) ? "" :
-    `<button class="btn-arm" data-team="${esc(loser.nick || loser.abbr)}" data-sport="${esc(currentSport())}">ARM THE FINAL</button>`;
+    `<button class="btn-arm" data-team="${esc(loser.nick || loser.abbr)}" data-sport="${esc(currentSport())}">SET UP THE FINAL</button>`;
 
   return `<div class="actions">
       <button class="btn-smack" data-team="${esc(name || home)}" data-sport="${esc(currentSport())}">${smackLabel}</button>

@@ -243,7 +243,7 @@ loadProfile();
       var armed = it.pending;
       var locked = it.kind === 'locked';
       var color = armed ? '#FFB800' : (locked ? '#FFB800' : '#E8142C');
-      var sub = armed ? 'Armed, waiting on the final'
+      var sub = armed ? 'Waiting on the final'
               : (locked && it.team ? esc(it.team) + ' lost' : 'Smackagram sent');
       return '<a class="vault-item" href="/locker">' +
         '<span class="vault-dot" style="background:' + color + '22; color:' + color + ';">&#9679;</span>' +

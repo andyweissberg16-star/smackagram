@@ -52,7 +52,7 @@ const pendingActionId = new URLSearchParams(window.location.search).get('pending
         }
 
         if (data.status === 'failed') {
-          heading.textContent = "Reload worked, but something went wrong.";
+          heading.textContent = "Refill worked, but something went wrong.";
           message.textContent = data.error_message || "Your balance was topped up, but we couldn't complete your original request. Please try again.";
           btn.textContent = 'Try again';
           // Back to whichever generator they were actually using. This was
@@ -65,7 +65,7 @@ const pendingActionId = new URLSearchParams(window.location.search).get('pending
         }
 
         if (attempts >= maxAttempts) {
-          heading.textContent = 'Reload confirmed.';
+          heading.textContent = 'Refill confirmed.';
           message.textContent = "Your balance is topped up. It's taking a little longer than usual to finish sending — check your account in a moment.";
           btn.style.display = 'inline-block';
           return;
@@ -76,7 +76,7 @@ const pendingActionId = new URLSearchParams(window.location.search).get('pending
       .catch(function(err) {
         console.error('Pending action status check failed:', err && err.message, err);
         if (attempts >= maxAttempts) {
-          heading.textContent = 'Reload confirmed.';
+          heading.textContent = 'Refill confirmed.';
           message.textContent = "Your balance is topped up. It's taking a little longer than usual to finish sending — check your account in a moment.";
           btn.style.display = 'inline-block';
           return;

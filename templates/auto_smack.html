@@ -8,14 +8,14 @@
 <meta name="description" content="Authorize a roast on your rival's next game. If their team loses, Smacky makes the call automatically. If they win, you pay nothing.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Smackagram">
-<meta property="og:title" content="Auto-Smack — arm a roast on the next game">
+<meta property="og:title" content="Auto-Smack — set up a roast on the next game">
 <meta property="og:description" content="Authorize a roast on your rival's next game. If their team loses, Smacky makes the call automatically. If they win, you pay nothing.">
 <meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="{{ request.base_url }}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Auto-Smack — arm a roast on the next game">
+<meta name="twitter:title" content="Auto-Smack — set up a roast on the next game">
 <meta name="twitter:description" content="Authorize a roast on your rival's next game. If their team loses, Smacky makes the call automatically. If they win, you pay nothing.">
 <meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
@@ -1166,7 +1166,7 @@ function selectTeam(team, el) {
   // THIS matchup rather than generic instructions.
   updateModeSummary();
   var sub = document.getElementById('loseSubtext');
-  if (sub) sub.textContent = `The call only fires if the ${team} lose \u2014 if they win, you're not charged.`;
+  if (sub) sub.textContent = `The call only goes out if the ${team} lose \u2014 if they win, you're not charged.`;
   var tNext = document.getElementById('nextFromTeam');
   if (tNext) tNext.classList.add('is-ready');
 
