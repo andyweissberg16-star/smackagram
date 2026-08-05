@@ -151,6 +151,35 @@ def inject_current_user():
     return {"current_user": get_current_user()}
 
 
+def cron_authorised():
+    """
+    May this caller run a cron job?
+
+    TWO WAYS IN, and the second is the point.
+
+    A SCHEDULER passes ?key= matching CRON_SECRET. That is how
+    cron-job.org calls in, and it has no session to offer.
+
+    AN ADMIN ALREADY LOGGED IN needs nothing. The panel used to prompt
+    for the secret every time somebody pressed a tool button - which
+    means typing a production credential into a browser prompt, where it
+    lands in autofill, in screenshots, and in muscle memory.
+
+    Somebody who can reach the admin panel can already spend money in
+    ten other ways. Asking them to retype a key protects nothing and
+    teaches a bad habit.
+    """
+    key = request.args.get("key")
+    expected = os.environ.get("CRON_SECRET")
+    if expected and key == expected:
+        return True
+    try:
+        user = get_current_user()
+        return bool(user and getattr(user, "is_admin", False))
+    except Exception:
+        return False
+
+
 def login_required(view_func):
     """
     Gates a route behind having a real account. API routes (path starts
@@ -3713,7 +3742,8 @@ def battle_share_card(challenge_code):
 @app.route("/api/admin/espn-probe")
 def espn_probe():
     """Diagnostic only. Delete once the roast extraction is built."""
-    if request.args.get("key") != os.environ.get("CRON_SECRET"):
+    # Either the scheduler's key or an admin who is already logged in.
+    if not cron_authorised():
         return jsonify({"error": "nope"}), 403
 
     from services import espn_scores
@@ -5435,8 +5465,10 @@ def cron_check_smackagrams():
     ?key=... matching the CRON_SECRET environment variable.
     """
     provided_key = request.args.get("key", "")
-    expected_key = os.environ.get("CRON_SECRET", "")
-    if not expected_key or provided_key != expected_key:
+    # The scheduler's key, or an admin already logged in - see
+    # cron_authorised(). Prompting a logged-in admin for a production
+    # credential protects nothing and teaches a bad habit.
+    if not cron_authorised():
         return jsonify({"error": "unauthorized"}), 401
 
     # GUARDED, SO A CRASH DOES NOT STOP THE CRON.
@@ -6171,7 +6203,8 @@ def cron_daily_show():
     five-minute TTS render takes far longer than a request is allowed to live.
     Progress and failures go to the logs; /admin/show-status reads the result.
     """
-    if request.args.get("key") != os.environ.get("CRON_SECRET"):
+    # Either the scheduler's key or an admin who is already logged in.
+    if not cron_authorised():
         return "Nope.", 403
 
     # ?dry=1 writes the script and reports the running order and where the
@@ -6254,8 +6287,10 @@ def cron_generate_smackcasts():
     recap before generating another.
     """
     provided_key = request.args.get("key", "")
-    expected_key = os.environ.get("CRON_SECRET", "")
-    if not expected_key or provided_key != expected_key:
+    # The scheduler's key, or an admin already logged in - see
+    # cron_authorised(). Prompting a logged-in admin for a production
+    # credential protects nothing and teaches a bad habit.
+    if not cron_authorised():
         return jsonify({"error": "unauthorized"}), 401
 
     # Runs in a background thread rather than inline. This loops over every
@@ -6286,8 +6321,10 @@ def admin_check_team_codes():
     Not linked from anywhere in the UI — visit directly to run it.
     """
     provided_key = request.args.get("key", "")
-    expected_key = os.environ.get("CRON_SECRET", "")
-    if not expected_key or provided_key != expected_key:
+    # The scheduler's key, or an admin already logged in - see
+    # cron_authorised(). Prompting a logged-in admin for a production
+    # credential protects nothing and teaches a bad habit.
+    if not cron_authorised():
         return jsonify({"error": "unauthorized"}), 401
 
     sport = request.args.get("sport", "mlb")
@@ -6342,8 +6379,10 @@ def admin_check_id_collisions():
     Not linked from anywhere in the UI — visit directly to run it.
     """
     provided_key = request.args.get("key", "")
-    expected_key = os.environ.get("CRON_SECRET", "")
-    if not expected_key or provided_key != expected_key:
+    # The scheduler's key, or an admin already logged in - see
+    # cron_authorised(). Prompting a logged-in admin for a production
+    # credential protects nothing and teaches a bad habit.
+    if not cron_authorised():
         return jsonify({"error": "unauthorized"}), 401
 
     orders_stats = db.session.execute(db.text(

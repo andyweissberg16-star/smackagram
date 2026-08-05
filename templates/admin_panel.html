@@ -1236,13 +1236,18 @@
       b.addEventListener('click', function () {
         var t = TOOL_ACTIONS[+b.dataset.act];
         if (!confirm(t[3])) return;
-        // The cron key lives in the environment, not in this page - asking
-        // for it is safer than embedding it in HTML any admin session can
-        // read.
-        var key = prompt('CRON_SECRET:');
-        if (!key) return;
-        var sep = t[0].indexOf('?') > -1 ? '&' : '?';
-        window.open(t[0] + sep + 'key=' + encodeURIComponent(key), '_blank');
+        // NO KEY PROMPT ANY MORE.
+        //
+        // These used to ask for CRON_SECRET on every press. That meant
+        // typing a production credential into a browser prompt, where it
+        // ends up in autofill, in screenshots, and in muscle memory - and
+        // it protected nothing, because anybody who can reach this panel
+        // can already spend money in ten other ways.
+        //
+        // The endpoints now accept an admin session as well as the
+        // scheduler's key. The confirm above is the real safeguard, since
+        // the risk here is a mis-click, not an intruder.
+        window.open(t[0], '_blank');
       });
     });
   }
