@@ -2235,6 +2235,23 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
           .catch(function () { list.classList.remove('open'); });
     }
 
+    // ESCAPE ANYTHING GOING INTO innerHTML.
+    //
+    // The attribute was escaped and the visible text was not, so a player
+    // name containing markup would have been executed rather than shown.
+    //
+    // These names come from a sports API rather than from a person typing,
+    // which makes it unlikely rather than impossible - and "unlikely"
+    // stops being a defence the moment a provider changes, a name is
+    // stored from somewhere else, or somebody finds a way to influence
+    // what gets saved. Escaping costs nothing.
+    function esc(v) {
+      return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+        return {'&': '&amp;', '<': '&lt;', '>': '&gt;',
+                '"': '&quot;', "'": '&#39;'}[c];
+      });
+    }
+
     function showHits(hits) {
       list.innerHTML = hits.map(function (p, n) {
         // "Out" is shown so the sender knows before they pick - and the
@@ -2246,9 +2263,9 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
                     (p.injured || p.away) ? 'out' : '']
                      .filter(Boolean).join(' \u00b7 ');
         return '<div class="pick' + (n === 0 ? ' hi' : '') + '" data-name="'
-             + p.name.replace(/"/g, '&quot;') + '"'
-             + (p.injured ? ' data-injured="1"' : '') + '>' + p.name
-             + '<small>' + meta + '</small></div>';
+             + esc(p.name) + '"'
+             + (p.injured ? ' data-injured="1"' : '') + '>' + esc(p.name)
+             + '<small>' + esc(meta) + '</small></div>';
       }).join('');
       list.classList.add('open');
       list.querySelectorAll('.pick').forEach(function (el) {

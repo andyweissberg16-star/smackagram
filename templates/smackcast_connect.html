@@ -204,6 +204,22 @@
 </div>
 
 <script>
+  // ESCAPE FANTASY LEAGUE NAMES.
+  //
+  // A league name is chosen by whoever set the league up - it is USER
+  // INPUT arriving through ESPN or Yahoo, not data we control. Dropping
+  // it into innerHTML unescaped means a league called
+  // "<img src=x onerror=...>" runs its script on this page.
+  //
+  // Nobody would name a league that by accident, which is exactly why
+  // somebody might on purpose.
+  function escLeague(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return {'&': '&amp;', '<': '&lt;', '>': '&gt;',
+              '"': '&quot;', "'": '&#39;'}[c];
+    });
+  }
+
 let selectedLeague = null;
 let selectedPlatform = 'sleeper';
 let selectedSport = 'nfl';
@@ -301,7 +317,7 @@ document.getElementById('connectEspnBtn').addEventListener('click', async () => 
       errorEl.style.display = 'block';
     } else {
       selectedLeague = {...data.league, season: data.season, swid: swid, espn_s2: espnS2};
-      resultEl.innerHTML = `<div class="league-option selected">${data.league.name}<p class="meta">${data.league.team_count} teams</p></div>`;
+      resultEl.innerHTML = `<div class="league-option selected">${escLeague(data.league.name)}<p class="meta">${escLeague(data.league.team_count)} teams</p></div>`;
       document.getElementById('deliveryCard').style.display = 'block';
     }
   } catch (err) {
@@ -353,7 +369,7 @@ document.getElementById('findLeaguesBtn').addEventListener('click', async () => 
       data.leagues.forEach(league => {
         const el = document.createElement('div');
         el.className = 'league-option';
-        el.innerHTML = `${league.name}<p class="meta">${league.team_count} teams</p>`;
+        el.innerHTML = `${escLeague(league.name)}<p class="meta">${escLeague(league.team_count)} teams</p>`;
         el.addEventListener('click', () => {
           document.querySelectorAll('.league-option').forEach(o => o.classList.remove('selected'));
           el.classList.add('selected');
