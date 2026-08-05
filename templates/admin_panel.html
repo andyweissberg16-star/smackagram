@@ -364,6 +364,33 @@
     var q = document.getElementById('q').value.trim();
     var box = document.getElementById('customerList');
     box.innerHTML = '<p class="empty">Loading&hellip;</p>';
+    function support(d) {
+      return (d.support || []).map(function (t) {
+        var replies = (t.replies || []).map(function (r) {
+          return '<div class="sub">&#8627; ' + esc(r.by || '') + ': '
+               + esc(r.body) + (r.delivered ? '' : ' <b>(not delivered)</b>')
+               + '</div>';
+        }).join('');
+        return '<div class="row"><b>' + esc(t.topic) + '</b> '
+             + '<span class="mono">[' + esc(t.status) + ']</span><br>'
+             + esc(t.message) + replies
+             + (t.resolution ? '<div class="sub">Resolved by '
+                 + esc(t.completed_by || '') + ': ' + esc(t.resolution)
+                 + '</div>' : '')
+             + '</div>';
+      }).join('');
+    }
+
+    function terms(d) {
+      return (d.terms_accepted || []).map(function (a) {
+        return '<div class="row"><span class="mono">' + esc(a.when || '')
+             + '</span> &middot; ' + esc(a.version || '')
+             + ' &middot; ' + esc(a.context || '')
+             + ' <span class="mono" style="color:var(--muted-2)">'
+             + esc(a.ip || '') + '</span></div>';
+      }).join('');
+    }
+
     fetch('/api/admin/customers?q=' + encodeURIComponent(q))
       .then(function (r) { return r.json(); })
       .then(function (d) {
@@ -437,7 +464,13 @@
             '<div class="panel"><h3>Wallet ledger</h3>' + ledger(d) + '</div>' +
           '</div>' +
 
-          (d.smackcast.length ? '<div class="panel"><h3>Smackcast</h3>' + smackcast(d) + '</div>' : '');
+          (d.smackcast.length ? '<div class="panel"><h3>Smackcast</h3>' + smackcast(d) + '</div>' : '') +
+          // Only shown when there is something to show - an empty
+          // "Support" heading on every customer is noise.
+          ((d.support || []).length
+            ? '<div class="panel"><h3>Support history</h3>' + support(d) + '</div>' : '') +
+          ((d.terms_accepted || []).length
+            ? '<div class="panel"><h3>Terms accepted</h3>' + terms(d) + '</div>' : '');
 
         document.getElementById('gBtn').addEventListener('click', function () {
           grant(this.dataset.id);

@@ -19,6 +19,7 @@ from sqlalchemy import func
 from models import (
     db, User, Order, Smackagram, WalletTransaction,
     SmackcastPurchase, SmackcastSubscription,
+    SupportTicket, SupportReply, TermsAcceptance,
 )
 
 # Ledger reasons that represent an admin giveaway rather than money taken.
@@ -331,6 +332,44 @@ def customer_detail(user_id: int) -> dict | None:
                         "status": s.status,
             "created_at": (utc_iso(s.created_at) or ""),
         } for s in armed],
+
+        # WHAT THEY HAVE SAID TO US, AND WHAT WE SAID BACK.
+        #
+        # Somebody on the phone about a charge is far better served by
+        # seeing they already wrote in twice and what they were told, than
+        # by being asked to explain it again. This is the difference
+        # between a customer record and a billing record.
+        "support": [{
+            "id": t.id,
+            "topic": t.topic,
+            "message": t.message[:400],
+            "status": t.status,
+            "resolution": t.resolution,
+            "completed_by": t.completed_by,
+            "created_at": utc_iso(t.created_at),
+            "replies": [{
+                "body": r.body[:400], "by": r.sent_by,
+                "delivered": bool(r.delivered),
+                "when": utc_iso(r.sent_at),
+            } for r in sorted(
+                SupportReply.query.filter_by(ticket_id=t.id).all(),
+                key=lambda x: x.sent_at or datetime.min)],
+        } for t in SupportTicket.query.filter(
+            (SupportTicket.user_id == user_id)
+            | (SupportTicket.email == u.email))
+          .order_by(SupportTicket.created_at.desc()).limit(20).all()],
+
+        # WHAT THEY AGREED TO, AND WHEN.
+        #
+        # The answer to a chargeback. "All sales are final" is only worth
+        # anything if you can show what they saw on the day they paid.
+        "terms_accepted": [{
+            "when": utc_iso(a.accepted_at),
+            "context": a.context,
+            "version": a.terms_version,
+            "ip": a.ip,
+        } for a in TermsAcceptance.query.filter_by(user_id=user_id)
+          .order_by(TermsAcceptance.accepted_at.desc()).limit(20).all()],
 
         "smackcast": [{
             "id": p.id,
