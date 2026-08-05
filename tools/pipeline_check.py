@@ -101,8 +101,33 @@ def samples():
         "periods": None, "facts": [], "deep_facts": [],
     }
 
+    # NO SCORELINE AT ALL.
+    #
+    # A postponed game, or a thin feed. This shape crashed a whole
+    # episode with "'>' not supported between instances of NoneType and
+    # NoneType", because max(None, None) raises - and .get(key, 0) does
+    # not help when the key EXISTS and holds None.
+    #
+    # It is here so that never surprises anybody again.
+    noscore = _base("highlightly")
+    noscore.update({
+        "winner_score": None, "loser_score": None,
+        "home_score": None, "away_score": None,
+        "margin": 0, "shutout": False, "one_run": False,
+    })
+
+    # A BLANK TEAM NAME.
+    #
+    # "".split() is an EMPTY LIST, so [-1] on it raises IndexError. Rare
+    # but entirely possible from a thin feed, and it would have taken the
+    # whole episode down.
+    blank = _base("highlightly")
+    blank.update({"winner": "", "loser": "Red Sox"})
+
     return {
         "RICH  (Highlightly + box score)": [rich],
+        "BLANK TEAM NAME": [blank],
+        "NO SCORELINE (postponed / thin feed)": [noscore],
         "PLAYS (balldontlie, no box)": [plays],
         "PLAIN (scoreline only)": [plain],
         "MINIMAL (least possible)": [minimal],
@@ -164,6 +189,22 @@ def run():
                     failures.append((label, "_hl_id", str(e)))
                     print(f"      _hl_id attached  FAILED  {e}")
 
+        # build_facts - where a None scoreline crashed a whole episode
+        if games:
+            from services import show_service
+            bad = None
+            for g in games:
+                ok, out, err = check_stage("build_facts",
+                                           show_service.build_facts, g)
+                if not ok:
+                    bad = err
+                    break
+            if bad:
+                failures.append((label, "build_facts", bad))
+                print(f"      build_facts      FAILED  {bad[:58]}")
+            else:
+                print(f"      build_facts      ok")
+
         # build - assigning games to slots
         ok, out, err = check_stage("build", show_layout.build, games)
         if ok:
@@ -173,6 +214,55 @@ def run():
             failures.append((label, "build", err))
             print(f"      build            FAILED  {err[:60]}")
         print()
+
+    # ---- THE STAGES AFTER THE LAYOUT ----
+    #
+    # The show has never got far enough to exercise these, because it
+    # kept crashing earlier. So they were completely untested - and one
+    # of them lost a whole episode on a one-segment night.
+    print("  SEGMENT STAGES (never reached in a real run until now)\n")
+    from services import show_service
+
+    seg_cases = {
+        "no segments":     [],
+        "ONE segment":     [{"league": "MLB", "text": "One game tonight."}],
+        "two segments":    [{"league": "MLB", "text": "A."},
+                            {"league": "WNBA", "text": "B."}],
+        "eight segments":  [{"league": "MLB", "text": f"Seg {i}."}
+                            for i in range(8)],
+    }
+    # The whole segment chain, not just one stage - each one hands its
+    # output to the next, so a count that survives one can still break
+    # the one after.
+    _quiet = lambda *a, **k: None
+    _plan = {"publish": True, "minutes": 5, "word_budget": 750}
+    chain = [
+        ("maybe_interruption",
+         lambda sg: show_service.maybe_interruption(sg)),
+        ("_flag_repeats",
+         lambda sg: show_service._flag_repeats(sg, _quiet) or sg),
+        ("_cap_construction",
+         lambda sg: show_service._cap_construction(sg)),
+        ("enforce_length",
+         lambda sg: show_service.enforce_length(sg, _plan, log=_quiet)),
+    ]
+    for label, segs in seg_cases.items():
+        current = [dict(x) for x in segs]
+        line = f"    {label:18}"
+        broke = False
+        for stage_name, fn in chain:
+            ok, out, err = check_stage(stage_name, fn, current)
+            if not ok:
+                failures.append((label, stage_name, err))
+                line += f"  {stage_name}: FAILED"
+                broke = True
+                break
+            if isinstance(out, list):
+                current = out
+        if not broke:
+            line += f"  all {len(chain)} stages ok, {len(current)} segment(s)"
+        print(line)
+    print()
 
     print("=" * 60)
     if failures:

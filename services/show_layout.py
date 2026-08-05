@@ -63,6 +63,22 @@ def _num(pattern, text, default=0):
     return int(m.group(1)) if m else default
 
 
+def _score_pair(game):
+    """
+    "7-2", or "" when the feed gave no scoreline.
+
+    Scores can legitimately be None - a postponed game, or a thin feed.
+    Formatting that as 0-0 would put a wrong result on air, and calling
+    max() on two Nones crashes the whole episode. Neither is acceptable,
+    so an unknown score simply is not spoken.
+    """
+    known = [v for v in (game.get("home_score"), game.get("away_score"))
+             if v is not None]
+    if len(known) < 2:
+        return ""
+    return f"{max(known)}-{min(known)}"
+
+
 def read_game(game: dict) -> dict:
     """
     Everything the layout needs to know, pulled out of the box score once.
@@ -72,7 +88,14 @@ def read_game(game: dict) -> dict:
     dramatic tenth.
     """
     text = _facts_text(game)
-    loser_runs = min(game.get("away_score") or 0, game.get("home_score") or 0)
+    # NOT min(a or 0, b or 0) - see loser_runs_of in show_service.
+    #
+    # Two missing scores become 0, zero means shutout, and a game with no
+    # scoreline gets called the funniest result of the night. That shape
+    # of bug has appeared four times now.
+    _known = [v for v in (game.get("away_score"), game.get("home_score"))
+              if v is not None]
+    loser_runs = min(_known) if len(_known) == 2 else None
     margin = game.get("margin") or 0
     periods = game.get("periods") or 9
 
@@ -707,9 +730,11 @@ def prompt_block(games: list, log=print, streaks=None,
     rows = []
     for sl in lay["slots"]:
         names = "; ".join(
+            # .get(key, 0) DOES NOT HELP when the key exists and holds
+            # None - the default only applies to a MISSING key. So this
+            # was max(None, None), which raises.
             f"{r['game'].get('winner')} beat {r['game'].get('loser')} "
-            f"{max(r['game'].get('home_score', 0), r['game'].get('away_score', 0))}-"
-            f"{min(r['game'].get('home_score', 0), r['game'].get('away_score', 0))}"
+            f"{_score_pair(r['game'])}"
             for r in sl["games"])
         rows.append(f"  [{sl['slot'].upper()}] about {sl['words']} words\n"
                     f"    {sl['brief']}\n"

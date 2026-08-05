@@ -110,6 +110,18 @@ def fetch_results(league: str, days_back: int = 1) -> list[dict]:
     return games
 
 
+def _nick(name):
+    """
+    The last word of a team name, lowercased, or "" when there is none.
+
+    "New York Yankees" -> "yankees". Written as a helper because the
+    inline version was (name or "").split()[-1] - and "".split() is an
+    EMPTY LIST, so [-1] raised IndexError on any blank name.
+    """
+    parts = (name or "").split()
+    return parts[-1].lower() if parts else ""
+
+
 def _attach_highlightly_ids(games, log=print):
     """
     Find each game's Highlightly match id, so its box score can be fetched.
@@ -172,13 +184,16 @@ def _attach_highlightly_ids(games, log=print):
     matched = 0
     for g in unmatched:
         lg = (g.get("league") or "").lower()
-        want = {(g.get("winner") or "").split()[-1].lower(),
-                (g.get("loser") or "").split()[-1].lower()}
-        if "" in want:
+        # "".split() IS AN EMPTY LIST, NOT [""].
+        #
+        # So [-1] on it raises IndexError, and the `if "" in want` guard
+        # below never got the chance to help - it ran after the crash.
+        # A team name arriving blank is rare and entirely possible.
+        want = {_nick(g.get("winner")), _nick(g.get("loser"))}
+        if "" in want or len(want) < 2:
             continue
         for hid, r in (by_league.get(lg) or {}).items():
-            got = {r["winner"].split()[-1].lower(),
-                   r["loser"].split()[-1].lower()}
+            got = {_nick(r.get("winner")), _nick(r.get("loser"))}
             if got == want:
                 g["_hl_id"] = hid
                 matched += 1
@@ -287,6 +302,27 @@ def enrich_with_detail(games, log=print, workers=6):
     return games
 
 
+def loser_runs_of(game):
+    """
+    What the losing side scored, or None when the feed did not say.
+
+    NOT min(a or 0, b or 0). That is the shape of a bug that has now
+    appeared four times: two missing scores become 0, zero means
+    shutout, and a postponed game gets called the funniest result of
+    the night AND put top of the running order.
+
+    Unknown is None. Callers must decide what to do with that, which is
+    the point - it forces the question rather than quietly answering it
+    wrong.
+    """
+    ls = game.get("loser_score")
+    if ls is not None:
+        return ls
+    known = [v for v in (game.get("away_score"), game.get("home_score"))
+             if v is not None]
+    return min(known) if len(known) == 2 else None
+
+
 def build_facts(game: dict) -> list[str]:
     """
     Plain-English facts about one game, ordered most roastable first.
@@ -296,11 +332,26 @@ def build_facts(game: dict) -> list[str]:
     """
     facts = []
     u = game["unit"]
-    facts.append(
-        f"{game['winner']} beat {game['loser']} "
-        f"{max(game['away_score'], game['home_score'])}-"
-        f"{min(game['away_score'], game['home_score'])}"
-    )
+    # SCORES CAN BE None, AND max(None, None) CRASHES.
+    #
+    # A provider that returns a game without a scoreline is not a fault -
+    # it happens on postponed games, and on anything where the feed is
+    # thin. But max() on two Nones raises "'>' not supported between
+    # instances of NoneType and NoneType", which killed a whole episode.
+    #
+    # Better: use the winner and loser scores this shape already
+    # computes, and fall back to nothing rather than inventing a 0-0.
+    _ws, _ls = game.get("winner_score"), game.get("loser_score")
+    if _ws is None or _ls is None:
+        _a, _h = game.get("away_score"), game.get("home_score")
+        _known = [v for v in (_a, _h) if v is not None]
+        _ws = max(_known) if _known else None
+        _ls = min(_known) if _known else None
+    if _ws is not None and _ls is not None:
+        facts.append(f"{game['winner']} beat {game['loser']} {_ws}-{_ls}")
+    else:
+        # No scoreline at all. Naming the result is still worth saying.
+        facts.append(f"{game['winner']} beat {game['loser']}")
 
     if game["margin"] >= 8:
         facts.append(f"a {game['margin']}-{u[:-1]} beating")
@@ -371,11 +422,15 @@ def _voice_block_for_show(material):
     def drama(g):
         # Nil beats a blowout beats a one-run game. A shutout is the funniest
         # scoreline available and should set the tone when there is one.
-        loser_runs = min(g.get("away_score") or 0, g.get("home_score") or 0)
+        # A game with NO scoreline is not a shutout - it is unknown, and
+        # it must not outrank a real result. Score it on margin alone.
+        loser_runs = loser_runs_of(g)
+        if loser_runs is None:
+            return 0
         return 100 if loser_runs == 0 else (g.get("margin") or 0)
 
     top = max(games, key=drama)
-    loser_runs = min(top.get("away_score") or 0, top.get("home_score") or 0)
+    loser_runs = loser_runs_of(top)
     errs = (top.get("home_errors") or 0) + (top.get("away_errors") or 0)
 
     # Read the box score for what actually happened, so the register comes
@@ -1542,6 +1597,26 @@ def write_script_per_league(material: dict, log=None) -> dict:
         return write_script(material, mood=_mood)
 
     log(f"writing {len(present)} league scripts in parallel: {', '.join(present)}")
+
+
+    # max_workers=0 RAISES, and present[0] below would too.
+
+    #
+
+    # present should never be empty here - the publish gate requires
+
+    # games, and present is derived from them. But "should never" is
+
+    # how four separate things broke today, and this costs one line.
+
+    if not present:
+
+        log("no leagues with games - nothing to write")
+
+        # "publish", not "published" - that is the key this function's
+        # other early returns use, and the caller checks.
+        return {"publish": False, "reason": "no leagues with games"}
+
 
     with ThreadPoolExecutor(max_workers=min(4, len(present))) as pool:
         def _one(lg):
@@ -3238,8 +3313,24 @@ def maybe_interruption(segments):
         if running > CUTOFF_WORDS:
             break
         hi = idx + 1
+    # max(lo + 1, ...) FORCES hi TO AT LEAST 2, EVEN WITH ONE SEGMENT.
+    #
+    # With a single segment, len(segments) - 1 is 0, min(hi, 0) is 0, and
+    # max(2, 0) is 2 - so the range yields index 1 and segments[1] does
+    # not exist. IndexError, whole episode lost.
+    #
+    # A thin night with one game is exactly when that happens, which is
+    # exactly when the show can least afford to fall over.
+    #
+    # An interruption needs somewhere to go: at least two segments, so it
+    # can land between them.
+    if len(segments) < 2:
+        return segments
+
     lo = 1
-    hi = max(lo + 1, min(hi, len(segments) - 1))
+    hi = min(hi, len(segments) - 1)
+    if hi <= lo:
+        return segments
     spots = [i for i in range(lo, hi)
              if (segments[i].get("league") or "") not in ("BREAK",)
              and (segments[i - 1].get("league") or "") not in ("BREAK",)]
