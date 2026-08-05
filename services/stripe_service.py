@@ -41,7 +41,7 @@ def create_wallet_topup_payment_intent(amount_cents: int, user_id: int, pack_key
     the price in their browser. Metadata identifies the user and pack
     so the webhook handler knows which wallet to credit and how much
     bonus to add once payment succeeds. pending_action_id, when present,
-    tells the webhook there's an original Send a Smack / Locked & Loaded
+    tells the webhook there's an original Send a Smack / Auto-Smack
     request waiting to be resumed automatically once the wallet is
     credited - the user shouldn't have to re-enter anything.
     """
@@ -186,15 +186,15 @@ def create_authorized_checkout_session(smackagram_id: int, amount_cents: int, ba
         line_items=[{
             "price_data": {
                 "currency": "usd",
-                "product_data": {"name": "Smackagram — Locked & Loaded"},
+                "product_data": {"name": "Smackagram — Auto-Smack"},
                 "unit_amount": amount_cents,
             },
             "quantity": 1,
         }],
         payment_intent_data={"capture_method": "manual"},
         metadata={"type": "smackagram", "smackagram_id": str(smackagram_id)},
-        success_url=f"{base_url}/locked-n-loaded/success?session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=f"{base_url}/locked-n-loaded",
+        success_url=f"{base_url}/auto-smack/success?session_id={{CHECKOUT_SESSION_ID}}",
+        cancel_url=f"{base_url}/auto-smack",
     )
 
 

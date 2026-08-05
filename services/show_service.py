@@ -799,7 +799,7 @@ def write_script(material: dict, only_league: str = None,
     # right words and nothing bleeds across - baseball terms in a basketball
     # segment is the fastest way to tell a fan nobody here watches the game.
     #
-    # This is the SHOW version, which is fuller than the one Locked & Loaded
+    # This is the SHOW version, which is fuller than the one Auto-Smack
     # uses. A roast call only ever covers a loss, so it skips the
     # celebratory material - the dunk words, the home run catchphrases, the
     # great-player terms. The show covers winners too and wants all of it.
@@ -2502,7 +2502,7 @@ def _show_vocabulary(league: str) -> str:
     """
     Smacky's vocabulary for the league being written about.
 
-    Kept separate from the Locked & Loaded blocks in trash_talk_service
+    Kept separate from the Auto-Smack blocks in trash_talk_service
     because the show has different needs: it covers winners as well as
     losers, so the celebratory half of every list is in play here and is
     dead weight in a roast call.

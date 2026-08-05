@@ -20,7 +20,7 @@ TOPUP_PACKS = {
 }
 
 SMACK_COST_CENTS = 100  # $1.00 per Send a Smack
-LOCKED_N_LOADED_COST_CENTS = 100  # $1.00 per Locked & Loaded arm - debited immediately, refunded to wallet if the hold releases (target team wins/game canceled)
+LOCKED_N_LOADED_COST_CENTS = 100  # $1.00 per Auto-Smack arm - debited immediately, refunded to wallet if the hold releases (target team wins/game canceled)
 
 
 def has_sufficient_balance(user, amount_cents: int) -> bool:

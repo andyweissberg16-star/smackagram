@@ -310,7 +310,7 @@
      
      NOT on the active tab, and that is deliberate: active Smackagram is
      white on red, so a red "agram" would vanish into its own background,
-     and active Locked & Loaded is black on silver where a red ampersand
+     and active Auto-Smack is black on silver where a red ampersand
      would be the only thing you could see. The active state already IS the
      brand colour - it does not need the wordmark as well. */
   /* A NOTE ON WHY THESE WORK.
@@ -336,7 +336,7 @@
      rather than flattening the whole word to white. */
   .gen-tab.is-active .wm-smackagram{color:#FFFFFF;}
   .gen-tab.is-active .wm-smackagram i{color:#0D0D0D;}
-  /* Locked & Loaded keeps its SILVER even when the tab is off. The silver
+  /* Auto-Smack keeps its SILVER even when the tab is off. The silver
      is the product's identity, not a highlight state - dimming it to grey
      made it look like a disabled button rather than the other generator. */
   .gen-tab:not(.is-active) .wm-locked{color:#C3CAD3;}
@@ -392,7 +392,7 @@
 
   /* Page frame repainted for whichever generator is showing. The frame
      itself lives in smackagram.css and is red by default; this overrides it
-     while Locked & Loaded is active so the two never stack. */
+     while Auto-Smack is active so the two never stack. */
   body.gen-locked{border-color:#C3CAD3 !important; box-shadow:0 0 26px rgba(190,200,212,0.25) !important;}
   body.gen-locked .gen-eyebrow{color:#C3CAD3;}
   body.gen-locked .gen-headline em{color:#C3CAD3;}
@@ -478,7 +478,7 @@
   }
   .fader-desc{display:block; font-size:13px; color:var(--muted); line-height:1.5; margin-top:5px;}
 
-  /* Numbered step circles, matching Locked & Loaded so the two generators
+  /* Numbered step circles, matching Auto-Smack so the two generators
      read as the same product. In this page's red rather than that page's
      amber. */
   .progress-bar{display:flex; align-items:center; justify-content:center; margin-bottom:22px;}
@@ -859,8 +859,8 @@
       </span>
 
       <button type="button" class="gen-tab gen-tab-alt" id="tabLocked">
-        <span class="gen-tab-kicker">Arm it for later</span>
-        <span class="gen-tab-name wm-locked">Locked <i>&amp;</i> Loaded</span>
+        <span class="gen-tab-kicker">Set it up for later</span>
+        <span class="gen-tab-name wm-locked">Auto-Smack</span>
       </button>
     </div>
   </div>
@@ -870,7 +870,7 @@
 {% endif %}
 
   <div class="card" id="lockedShell" style="display:none; padding:0; overflow:hidden;">
-    <iframe id="lockedFrame" title="Locked &amp; Loaded generator"
+    <iframe id="lockedFrame" title="Auto-Smack generator"
             style="width:100%; border:0; display:block;" scrolling="no"></iframe>
   </div>
 
@@ -938,7 +938,7 @@
        name can be CHOSEN but never typed, because an invented or misspelled
        player produces a call about somebody who does not exist and nobody
        finds out until it has been said down the phone. #}
-    <label><span class="fld-num">3.</span> Aim it at something
+    <label><span class="fld-num">3.</span> Tone it at something
       <span style="font-weight:400;opacity:.6;">(optional)</span></label>
     <div class="aim-row" id="aimRow">
       <button type="button" class="aim" data-aim="form">How they're playing</button>
@@ -1076,7 +1076,7 @@
       </button>
       <div class="explain-box" id="smackbackBox" hidden role="region" aria-label="What a Smackback is">
         <p><strong>A Smackback is their one shot at revenge.</strong></p>
-        <p>Tick this and the person you smacked gets a link to fire <strong>one</strong>
+        <p>Tick this and the person you smacked gets a link to send <strong>one</strong>
         Smackagram back at you. Just one &mdash; after that the door&rsquo;s closed.</p>
         <p><strong>They never see your number.</strong> It stays on our side &mdash; the
         call comes from us, not from you, so ticking this doesn&rsquo;t hand over your
@@ -1369,7 +1369,7 @@ document.addEventListener('DOMContentLoaded', () => {
     var pbar = document.getElementById('progressBar');
     if (pbar) pbar.setAttribute('aria-valuenow', String(current + 1));
 
-    // Numbered circles above the console. Same states as Locked & Loaded:
+    // Numbered circles above the console. Same states as Auto-Smack:
     // filled for where you are, outlined for steps already done.
     document.querySelectorAll('.progress-step').forEach(function (el) {
       var n = parseInt(el.dataset.step, 10);
@@ -1993,7 +1993,7 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
   // actually looking at.
   function preload() {
     if (loaded) return;
-    frame.src = '/locked-n-loaded?embed=1';
+    frame.src = '/auto-smack?embed=1';
     loaded = true;
   }
   if ('requestIdleCallback' in window) {
@@ -2009,14 +2009,14 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
     // different heights, so hiding one and showing the other moves the
     // document under the reader and throws them somewhere else on the page.
     var keep = window.scrollY;
-    // The site-wide page frame is red. Repaint it amber for Locked & Loaded
+    // The site-wide page frame is red. Repaint it amber for Auto-Smack
     // so there is ONE border that changes colour, not a red one wrapping an
     // amber one.
     document.body.classList.toggle('gen-locked', locked);
     // The step bar lives inside the card now, so it hides along with it.
     // Lazy: don't pay for a second generator until it's actually asked for.
     if (locked && !loaded) {
-      frame.src = '/locked-n-loaded?embed=1';
+      frame.src = '/auto-smack?embed=1';
       loaded = true;
     }
     document.getElementById('lockedShell').style.display = locked ? 'block' : 'none';

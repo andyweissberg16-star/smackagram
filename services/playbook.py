@@ -221,7 +221,7 @@ PLAYBOOK = {
 
 # There is no "referees" section, though it was on the list.
 #
-# On a Locked & Loaded call we work from a box score, and a box score does
+# On a Auto-Smack call we work from a box score, and a box score does
 # not contain a single officiating decision - so every ref line would be
 # invented, about a real named official, in a call somebody paid to have
 # delivered. That is the one category of made-up detail with a person on the
@@ -229,7 +229,7 @@ PLAYBOOK = {
 #
 # On a core Smackagram with no game attached, "the whistles are working
 # overtime" is a general gripe and harmless, but the same phrases would then
-# need to be blocked for Locked & Loaded, and a bank that is safe in one
+# need to be blocked for Auto-Smack, and a bank that is safe in one
 # generator and not the other is a bank somebody eventually wires into the
 # wrong one.
 

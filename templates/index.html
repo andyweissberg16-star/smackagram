@@ -446,14 +446,13 @@
   /* The embedded generators.
      
      Each frame is the real page at ?embed=1, so it arrives already carrying
-     that generator's own styling - red for Smackagram, silver for Locked &
-     Loaded. Nothing here restyles the contents; this only frames them. */
+     that generator's own styling - red for Smackagram, silver for Auto-Smack. Nothing here restyles the contents; this only frames them. */
   /* The frame comes from HERE, not from the embedded page.
      
      ?embed=1 deliberately strips each generator's own border so it does not
      double up inside a container - which left the homepage embeds with no
      frame at all. These match what each page paints on itself when visited
-     directly: red for Smackagram, silver for Locked & Loaded, 2px both. */
+     directly: red for Smackagram, silver for Auto-Smack, 2px both. */
 
 
   /* ---------------------------------------------------------------------
@@ -473,7 +472,7 @@
      cards were on var(--flare) and the pulse dimmed them through a dark maroon,
      which is what read as pink halfway through the fade.
      
-     Silver is the same #C3CAD3 the Locked & Loaded generator uses. */
+     Silver is the same #C3CAD3 the Auto-Smack generator uses. */
   .prod--smack{border:2px solid var(--flare);}
   .prod--locked{border:2px solid var(--silver,#C3CAD3);}
   .prod--cast{border:2px solid var(--flare);}
@@ -484,11 +483,11 @@
 
   /* Big enough to read as the headline of its own card, and on ONE line -
      a wrapped title makes the card below it start at a different height
-     from its neighbours. Locked & Loaded is the longest, so it takes the
+     from its neighbours. Auto-Smack is the longest, so it takes the
      smaller size rather than wrapping. */
   /* 44px.
      
-     "LOCKED & LOADED" is the constraint at fifteen characters and caps out
+     "AUTO-SMACK" is the constraint at fifteen characters and caps out
      around 51px on a 1240px container, so 44 leaves headroom without any of
      the three needing to be smaller than the others. */
   .prod h2{
@@ -496,7 +495,7 @@
     text-transform:uppercase; letter-spacing:0.5px; line-height:1;
     margin:0 0 17px; color:var(--chalk); white-space:nowrap;
   }
-  /* All three the same size. "LOCKED & LOADED" was dropped to 26px out of
+  /* All three the same size. "AUTO-SMACK" was dropped to 26px out of
      caution, but Anton is condensed enough that it fits on one line at 34px
      with room to spare - and three titles at three sizes looked accidental
      rather than deliberate. */
@@ -525,7 +524,7 @@
     font-family:'Anton',sans-serif; font-size:16px; line-height:1;
     color:#FFFFFF; text-transform:uppercase; letter-spacing:0.5px;
   }
-  /* The condition IS the offer on Locked & Loaded, so the whole phrase
+  /* The condition IS the offer on Auto-Smack, so the whole phrase
      carries the line rather than one word of it. */
   .prod-word u{
     text-decoration:underline; text-decoration-thickness:2px;
@@ -694,7 +693,7 @@
   .prod-sample .d{font-family:'JetBrains Mono',monospace; font-size:9px; color:#5A5E64;}
 
   /* All three buttons identical. The border carries each product's identity;
-     a silver button read as a secondary action, and Locked & Loaded is not
+     a silver button read as a secondary action, and Auto-Smack is not
      a secondary action. */
   .prod--smack .prod-cta,
   .prod--locked .prod-cta,
@@ -733,8 +732,8 @@
      stays red. */
   .prod--locked h2{color:var(--silver,#C3CAD3);}
   /* The ampersand was inheriting the house red from .t2, so the card read
-     "Locked & Loaded" with a red & in the middle of two silver words.
-     Locked & Loaded is silver THROUGHOUT - that separation from the red is
+     "Auto-Smack" with a red & in the middle of two silver words.
+     Auto-Smack is silver THROUGHOUT - that separation from the red is
      the whole point of it having its own colour. */
   .prod--locked h2 .t2{color:var(--silver,#C3CAD3);}
 
@@ -837,7 +836,7 @@
      =====================================================================
      Replaces the two embedded generators. Full generators in iframes meant
      the homepage pulled two entire pages on every visit, and neither one
-     explained what it was - somebody who has never heard of Locked & Loaded
+     explained what it was - somebody who has never heard of Auto-Smack
      was shown a game-search box with no idea why.
      Three cards, three prices, three explanations. The generators are one
      click away and load faster on their own pages. -->
@@ -875,7 +874,7 @@
     </div>
 
     <div class="prod prod--locked">
-      <h2>Locked <span class="t2">&amp;</span> Loaded</h2>
+      <h2>Auto-Smack</h2>
       <p class="prod-price"><span class="prod-word">Less than</span><span class="big">$1</span><span class="prod-word"><u>only if they lose!</u></span></p>
       <span class="prod-ctx">THEY WIN, YOU PAY NOTHING</span>
 
@@ -896,7 +895,7 @@
         </button>
       </div>
 
-      <a href="/locked-n-loaded#start" class="prod-cta">Arm one &rarr;</a>
+      <a href="/auto-smack#start" class="prod-cta">Arm one &rarr;</a>
     </div>
 
     <div class="prod prod--cast">
@@ -975,7 +974,7 @@
   <div class="home-steps">
     <div class="home-step">
       <span class="n">1</span>
-      <h4>Pick your target</h4>
+      <h4>Pick your mark</h4>
       <p>Their name, their number, and the team they&rsquo;d defend in an argument.</p>
     </div>
     <div class="home-step">
@@ -996,7 +995,7 @@
   <div class="home-free">
     <a href="/did-you-get-smacked">
       <h4>Smack Back</h4>
-      <p>Think somebody smacked you? Find out, and return fire.</p>
+      <p>Think somebody smacked you? Find out, and smack back.</p>
     </a>
     <a href="/smack-lab">
       <h4>Smack Lab</h4>
@@ -1046,7 +1045,7 @@
     // team goes by NAME because ESPN and SportsDataIO do not share ids, and
     // both generators already know how to prefill from a name.
     var href = g.upcoming
-      ? '/locked-n-loaded?team=' + encodeURIComponent(g.target)
+      ? '/auto-smack?team=' + encodeURIComponent(g.target)
       : '/send-a-smack?team=' + encodeURIComponent(g.target);
 
     // Only a game in progress gets the blinking dot. A finished or upcoming

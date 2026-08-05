@@ -17,7 +17,7 @@ def _refund_released_smackagram(s):
     if user:
         wallet_service.credit_wallet(
             user, wallet_service.LOCKED_N_LOADED_COST_CENTS, "locked_n_loaded_refund",
-            description=f"Locked & Loaded refund - {s.target_team} won, hold released",
+            description=f"Auto-Smack refund - {s.target_team} won, hold released",
         )
 
 
@@ -25,7 +25,7 @@ def shadow_compare_sources():
     """
     Ask BOTH sources what happened last night, and log where they differ.
 
-    RUNS ON ITS OWN, not inside the Locked & Loaded loop.
+    RUNS ON ITS OWN, not inside the Auto-Smack loop.
 
     The first version was wired into that loop, which meant it needed an
     ESPN event id before Highlightly was asked anything - so during an ESPN
@@ -444,7 +444,7 @@ def check_armed_smackagrams():
                         try:
                             from services import safety_service
                             safety_service.record(
-                                "locked-n-loaded", "fire-time", safety,
+                                "auto-smack", "fire-time", safety,
                                 user_id=getattr(s, "user_id", None),
                                 record_type="smackagram", record_id=s.id,
                                 refunded=True)
@@ -641,7 +641,7 @@ def send_scheduled_smackagrams():
     NOT IN USE. Nothing on the site sets a scheduled time.
 
     Built, then pulled, and the reason is worth keeping: Smackagram means
-    "send it now" and Locked & Loaded means "send it when they lose". A
+    "send it now" and Auto-Smack means "send it when they lose". A
     third option - "send it at eight" - blurs both and hands the buyer a
     decision they did not need.
 

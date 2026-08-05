@@ -28,7 +28,7 @@ class WallPost(db.Model):
     handle = db.Column(db.String(40), nullable=False)     # username, never a real name
     body = db.Column(db.Text, nullable=False)
     # Which product it came from, so the wall doubles as a menu - somebody
-    # reading a Locked & Loaded line learns that product exists.
+    # reading a Auto-Smack line learns that product exists.
     product = db.Column(db.String(20), default="smackagram")   # smackagram | smackback | locked
 
     # The GENERATED SMACK audio - Smacky's line as it was delivered. Never a
@@ -568,7 +568,7 @@ class User(db.Model):
 
 class PendingAction(db.Model):
     """
-    When a user tries to Send a Smack or arm Locked & Loaded but their
+    When a user tries to Send a Smack or arm Auto-Smack but their
     wallet balance is insufficient, the full original request payload
     gets stored here (as JSON) instead of being lost, before redirecting
     to /reload. Once the user successfully tops up, the Stripe webhook
@@ -644,7 +644,7 @@ class WalletTransaction(db.Model):
     """
     Append-only audit log of every wallet balance change — both
     top-ups (Stripe payments) and deductions (sending a smack, arming
-    Locked & Loaded). amount_cents is signed: positive for a credit
+    Auto-Smack). amount_cents is signed: positive for a credit
     (top-up), negative for a debit (spending). This exists specifically
     so the wallet's running balance is always reconstructable and
     auditable, rather than trusting a single mutable balance_cents
@@ -662,7 +662,7 @@ class WalletTransaction(db.Model):
     # What kind of transaction this was, for display/support purposes.
     # "topup" - a Stripe purchase credited the wallet
     # "smack" - a main-generator send debited the wallet
-    # "locked_n_loaded" - arming a Locked & Loaded hold debited the wallet
+    # "locked_n_loaded" - arming a Auto-Smack hold debited the wallet
     # "locked_n_loaded_refund" - a released hold credited the wallet back
     transaction_type = db.Column(db.String(30), nullable=False)
 
@@ -678,7 +678,7 @@ class WalletTransaction(db.Model):
     """
     Append-only audit log of every wallet balance change — both
     top-ups (Stripe payments) and deductions (sending a smack, arming
-    Locked & Loaded). amount_cents is signed: positive for a credit
+    Auto-Smack). amount_cents is signed: positive for a credit
     (top-up), negative for a debit (spending). This exists specifically
     so the wallet's running balance is always reconstructable and
     auditable, rather than trusting a single mutable balance_cents
@@ -696,7 +696,7 @@ class WalletTransaction(db.Model):
     # What kind of transaction this was, for display/support purposes.
     # "topup" - a Stripe purchase credited the wallet
     # "smack" - a main-generator send debited the wallet
-    # "locked_n_loaded" - arming a Locked & Loaded hold debited the wallet
+    # "locked_n_loaded" - arming a Auto-Smack hold debited the wallet
     transaction_type = db.Column(db.String(30), nullable=False)
 
     # Links back to the Stripe PaymentIntent for topups (for support/

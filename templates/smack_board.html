@@ -272,7 +272,7 @@
     <h1>Every game.<br><span>Every loser.</span></h1>
     <p>Live scores across every league we cover. Find a game, find a friend
        who cares about it, and let Smacky make the call — send one now, or
-       arm it and let it fire the second they lose.</p>
+       set it up and let it fire the second they lose.</p>
   </header>
 
   <div class="tabs" id="tabs"></div>
@@ -289,7 +289,7 @@
     <div class="empty"><p>Loading the board…</p></div>
   </div>
 
-  <p class="foot-note">SCORES REFRESH AUTOMATICALLY · ARMED CALLS FIRE ONLY IF THEY LOSE</p>
+  <p class="foot-note">SCORES REFRESH AUTOMATICALLY · A SET-UP CALL ONLY GOES IF THEY LOSE</p>
 
 </div>
 
@@ -508,7 +508,7 @@ document.addEventListener("click", (e) => {
           + "&sport=" + encodeURIComponent(btn.dataset.sport || "");
 
   window.location.href =
-    (btn.classList.contains("btn-arm") ? "/locked-n-loaded" : "/send-a-smack") + q;
+    (btn.classList.contains("btn-arm") ? "/auto-smack" : "/send-a-smack") + q;
 });
 
 buildTabs();

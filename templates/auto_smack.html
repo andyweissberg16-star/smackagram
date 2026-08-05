@@ -4,18 +4,18 @@
 <meta charset="UTF-8">
 {% if embed %}<base target="_top">{% endif %}
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Locked & Loaded — Smackagram</title>
+<title>Auto-Smack — Smackagram</title>
 <meta name="description" content="Authorize a roast on your rival's next game. If their team loses, Smacky makes the call automatically. If they win, you pay nothing.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Smackagram">
-<meta property="og:title" content="Locked & Loaded — arm a roast on the next game">
+<meta property="og:title" content="Auto-Smack — arm a roast on the next game">
 <meta property="og:description" content="Authorize a roast on your rival's next game. If their team loses, Smacky makes the call automatically. If they win, you pay nothing.">
 <meta property="og:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:url" content="{{ request.base_url }}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Locked & Loaded — arm a roast on the next game">
+<meta name="twitter:title" content="Auto-Smack — arm a roast on the next game">
 <meta name="twitter:description" content="Authorize a roast on your rival's next game. If their team loses, Smacky makes the call automatically. If they win, you pay nothing.">
 <meta name="twitter:image" content="{{ url_for('static', filename='img/og-default.jpg', _external=True) }}">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
@@ -26,7 +26,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
 <style>
   :root{
-    /* Locked & Loaded runs amber rather than the site red. Red reads as
+    /* Auto-Smack runs amber rather than the site red. Red reads as
        happening now, which is a Smackagram; amber reads as primed and
        waiting, which is what this does - it sits armed until a game ends. */
     /* Silver replaces the amber. Three stops rather than one flat grey -
@@ -400,7 +400,7 @@
      
      NOT on the active tab, and that is deliberate: active Smackagram is
      white on red, so a red "agram" would vanish into its own background,
-     and active Locked & Loaded is black on silver where a red ampersand
+     and active Auto-Smack is black on silver where a red ampersand
      would be the only thing you could see. The active state already IS the
      brand colour - it does not need the wordmark as well. */
   /* A NOTE ON WHY THESE WORK.
@@ -426,7 +426,7 @@
      rather than flattening the whole word to white. */
   .gen-tab.is-active .wm-smackagram{color:#FFFFFF;}
   .gen-tab.is-active .wm-smackagram i{color:#0D0D0D;}
-  /* Locked & Loaded keeps its SILVER even when the tab is off. The silver
+  /* Auto-Smack keeps its SILVER even when the tab is off. The silver
      is the product's identity, not a highlight state - dimming it to grey
      made it look like a disabled button rather than the other generator. */
   .gen-tab:not(.is-active) .wm-locked{color:#C3CAD3;}
@@ -662,7 +662,7 @@
           srcset="{{ url_for('static', filename='img/locked-hero-780.webp') }} 780w,
                   {{ url_for('static', filename='img/locked-hero-1560.webp') }} 1560w,
                   {{ url_for('static', filename='img/locked-hero-1983.webp') }} 1983w">
-  <img id="heroBanner" src="{{ url_for('static', filename='img/locked-hero-1560.jpg') }}" alt="Locked and Loaded — load it now, let the score do the rest"
+  <img id="heroBanner" src="{{ url_for('static', filename='img/locked-hero-1560.jpg') }}" alt="Auto-Smack — load it now, let the score do the rest"
        width="1983" height="793" style="width:100%; height:auto; display:block;">
 </picture>
 
@@ -689,8 +689,8 @@
 
     <div class="gen-tabs">
       <button type="button" class="gen-tab is-active" id="tabLockedLL">
-        <span class="gen-tab-kicker">Arm it for later</span>
-        <span class="gen-tab-name wm-locked">Locked <i>&amp;</i> Loaded</span>
+        <span class="gen-tab-kicker">Set it up for later</span>
+        <span class="gen-tab-name wm-locked">Auto-Smack</span>
       </button>
 
       <span class="gen-swap" aria-hidden="true">
@@ -725,7 +725,7 @@
          saying the same thing as the circles now beside it. -->
     <div class="lnl-bar">
       <span class="lnl-led" aria-hidden="true"></span>
-      <span class="lnl-status" id="lnlStatus">Armed</span>
+      <span class="lnl-status" id="lnlStatus">Waiting</span>
       <span class="lnl-spacer"></span>
       <div class="progress-bar" id="progressBar" role="progressbar" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1">
         <div class="progress-step active" data-step="1"><span>1</span></div>
@@ -738,7 +738,7 @@
       </div>
     </div>
 
-  <p class="gen-wordmark wm-locked">Locked <i>&amp;</i> Loaded</p>
+  <p class="gen-wordmark wm-locked">Auto-Smack</p>
 
   <div class="card" id="gameCard">
     <p class="step-label">Step 1</p>
@@ -754,7 +754,7 @@
         <li>Tell <span class="smacky">Smacky</span> <strong>who&rsquo;s getting smacked</strong>.</li>
         <li>Search for <strong>the team you want <span class="smacky">Smacky</span> to roast</strong>. (Theirs, obviously.)</li>
         <li>Select <strong>their current or upcoming game</strong>. (Only games happening now or in the next 48 hours.)</li>
-        <li>Pick <strong>which team has to lose</strong> for the call to fire.</li>
+        <li>Pick <strong>which team has to lose</strong> for the call to go out.</li>
       </ol>
 
       <label for="recipientNameLL"><span class="fld-num">1.</span> Who&rsquo;s receiving this</label>
@@ -805,7 +805,7 @@
     </div>
 
     <div id="modeCardContent">
-    <!-- Mode selection removed. Locked & Loaded is now always written by
+    <!-- Mode selection removed. Auto-Smack is now always written by
          Smacky AFTER the game ends, using what actually happened - a
          pre-written line can't reference a result that hasn't occurred yet,
          which was the whole point of the feature. -->
@@ -849,7 +849,7 @@
       </button>
       <div class="explain-box" id="smackbackBoxLL" hidden role="region" aria-label="What a Smackback is">
         <p><strong>A Smackback is their one shot at revenge.</strong></p>
-        <p>Tick this and the person you smacked gets a link to fire <strong>one</strong>
+        <p>Tick this and the person you smacked gets a link to send <strong>one</strong>
         Smackagram back at you. Just one &mdash; after that the door&rsquo;s closed.</p>
         <p><strong>They never see your number.</strong> It stays on our side &mdash; the
         call comes from us, not from you, so ticking this doesn&rsquo;t hand over your
@@ -880,11 +880,11 @@
 
     <div class="hold-note">
       <span>&#128274;</span>
-      <span>1 Smackagram ($1) comes out of your wallet the moment you lock this in. If <strong id="targetTeamNote">the selected team</strong> loses, that's it — the call fires. If they win instead, that 1 Smackagram goes straight back into your wallet.</span>
+      <span>1 Smackagram ($1) comes out of your wallet the moment you lock this in. If <strong id="targetTeamNote">the selected team</strong> loses, that's it — the call goes out. If they win instead, that 1 Smackagram goes straight back into your wallet.</span>
     </div>
 
     <div class="btn-center">
-      <button id="armBtn" class="btn btn-flare btn-narrow">Arm This Smackagram</button>
+      <button id="armBtn" class="btn btn-flare btn-narrow">Set Up This Smackagram</button>
     </div>
   </div>
 
@@ -1198,7 +1198,7 @@ document.addEventListener('DOMContentLoaded', function () {
 // League tabs and quick-team chips removed - search sweeps the leagues.
 
 // Pre-fill and auto-search when arriving with ?team=... — e.g. from the
-// home page's mini Locked & Loaded card, so the person doesn't have to
+// home page's mini Auto-Smack card, so the person doesn't have to
 // re-type what they already entered.
 (function prefillTeamFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -1624,7 +1624,7 @@ loadVoices();
     // left black space under the generator.
     var el = document.getElementById('lnlConsole');
     var h = el ? Math.ceil(el.getBoundingClientRect().height) : document.documentElement.scrollHeight;
-    window.parent.postMessage({smkFrameHeight: h, src: 'locked-n-loaded'}, '*');
+    window.parent.postMessage({smkFrameHeight: h, src: 'auto-smack'}, '*');
   }
   var target = document.getElementById('lnlConsole') || document.body;
   new ResizeObserver(report).observe(target);

@@ -334,7 +334,7 @@
       document.getElementById('actCards').innerHTML =
         card('', d.total_users, 'Customers', '+' + d.month.new_users + ' in 30 days') +
         card('', d.total_orders, 'Smacks sent', d.week.smacks_sent + ' this week') +
-        card('', d.armed_pending, 'Armed & waiting', 'Locked & Loaded');
+        card('', d.armed_pending, 'Armed & waiting', 'Auto-Smack');
 
       var rows = ['<tr><th>Period</th><th>Wallet</th><th>Smackcast</th><th>Total</th><th>Comped</th><th>New</th><th>Smacks</th></tr>'];
       [['Today','today'],['7 days','week'],['30 days','month'],['All time','all']].forEach(function (p) {
@@ -748,7 +748,7 @@
     // All generated rather than files: no request, no cache, nothing to
     // break because somebody moved an mp3.
     //
-    // Each takes a "low" flag so Locked & Loaded is always a shade below a
+    // Each takes a "low" flag so Auto-Smack is always a shade below a
     // Smackagram - you can tell them apart without looking.
     var SOUNDS = {
       chime:    'Chime (soft)',
@@ -788,7 +788,7 @@
         ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
         if (ctx.state === 'suspended') ctx.resume();
         var t = ctx.currentTime + 0.02;
-        var k = low ? 0.75 : 1;      // Locked & Loaded sits lower
+        var k = low ? 0.75 : 1;      // Auto-Smack sits lower
 
         if (name === 'register') {
           // Two bright metallic hits, like a till.
@@ -924,7 +924,7 @@
       test.addEventListener('click', function () {
         unlock();
         // Plays both variants back to back so you hear the difference
-        // between a Smackagram and a Locked & Loaded.
+        // between a Smackagram and a Auto-Smack.
         play(pick ? pick.value : 'chime', false);
         setTimeout(function () { play(pick ? pick.value : 'chime', true); }, 900);
       });

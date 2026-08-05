@@ -141,7 +141,7 @@
 {% include '_nav.html' %}
 
 {% if pending_action_type == 'locked_n_loaded' %}
-  {% set resume_url = '/locked-n-loaded?resume=' + pending_action_id %}
+  {% set resume_url = '/auto-smack?resume=' + pending_action_id %}
   {% set step_labels = ['Game', 'Target', 'Message'] %}
 {% else %}
   {% set resume_url = '/send-a-smack?resume=' + pending_action_id if pending_action_id else '/send-a-smack' %}
@@ -174,7 +174,7 @@
     <span class="kicker" id="heroKicker"><span class="pulse"></span>One step from your first Smackagram</span>
     <h1>Load your account <span class="hit">to get started.</span></h1>
     {% else %}
-    <span class="kicker" id="heroKicker"><span class="pulse"></span>Your Smackagram is locked &amp; ready to fire</span>
+    <span class="kicker" id="heroKicker"><span class="pulse"></span>Your Smackagram is set up and ready to go</span>
     <h1>You're out of <span class="hit">Smackagrams.</span></h1>
     {% endif %}
     <p id="heroSub">{% if is_first_time_buyer %}Pick a pack and let's go. The bigger you go, the more land <b>totally free</b>.{% else %}Reload and let it rip. The bigger you go, the more land <b>totally free</b>.{% endif %}</p>

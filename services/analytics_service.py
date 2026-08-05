@@ -35,7 +35,7 @@ from models import db, PageStat
 TRACKED = {
     "/": "home",
     "/send-a-smack": "send a smackagram",
-    "/locked-n-loaded": "locked & loaded",
+    "/auto-smack": "locked & loaded",
     "/smackcast": "smackcast",
     "/daily-smack": "the daily smack",
     "/smack-board": "smack board",
@@ -149,7 +149,7 @@ def summary(days=7):
 
     home = by_path.get("/", {}).get("visitors", 0)
     gens = sum(by_path.get(p, {}).get("visitors", 0)
-               for p in ("/send-a-smack", "/locked-n-loaded"))
+               for p in ("/send-a-smack", "/auto-smack"))
 
     since_dt = datetime.datetime.combine(
         datetime.date.today() - datetime.timedelta(days=days - 1),

@@ -84,7 +84,7 @@ def _pro_aliases(league, code, short, full):
     Everything worth matching against but not displaying. Includes the display
     name itself, which matters: the server matches games with `query in alias`,
     so a longer name typed into the box has to exist as an alias or the
-    Locked & Loaded game lookup finds nothing.
+    Auto-Smack game lookup finds nothing.
     """
     seen = {a.lower() for a in team_aliases.TEAM_ALIASES.get(league, {}).get(code, [])}
     seen.add(short.lower())

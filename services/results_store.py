@@ -27,8 +27,7 @@ FIRST WRITER WINS
 If a second provider later disagrees, the stored result is NOT changed. The
 disagreement is recorded and logged instead.
 
-Silently rewriting a result is worse than being wrong consistently: Locked
-& Loaded may already have called somebody and charged them based on the
+Silently rewriting a result is worse than being wrong consistently: Auto-Smack may already have called somebody and charged them based on the
 first answer. Changing it afterwards means the database and the customer's
 phone now tell different stories, and nothing anywhere would show why.
 """

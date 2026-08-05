@@ -404,7 +404,7 @@ def api_update_profile():
 
 # Pre-resolved audio URLs for calls about to be placed - see
 # call_audio_service.pending_call_audio for the actual dict and why it
-# lives there instead of here (scheduler.py's Locked & Loaded call path
+# lives there instead of here (scheduler.py's Auto-Smack call path
 # needs to reach it too, and importing app.py from there isn't viable).
 
 
@@ -466,7 +466,7 @@ def _store_pending_action(user, action_type: str, data: dict) -> str:
 def reload_page():
     """
     The wallet top-up page. Reached as the final step of Send a Smack
-    or Locked & Loaded when the wallet balance can't cover the action -
+    or Auto-Smack when the wallet balance can't cover the action -
     not a standalone destination someone browses to directly, though
     it works fine if they do. Shows different copy for a genuine
     first-time buyer ("Load Your Account") versus a returning user
@@ -477,7 +477,7 @@ def reload_page():
     has_topped_up_before = WalletTransaction.query.filter_by(user_id=user.id, transaction_type="topup").first() is not None
 
     # If there's a pending action, the step nav needs to know which
-    # flow it belongs to (Send a Smack vs Locked & Loaded) to show the
+    # flow it belongs to (Send a Smack vs Auto-Smack) to show the
     # right step labels and link back to the right page.
     pending_action_id = request.args.get("pending_action")
     pending_action_type = None
@@ -512,8 +512,7 @@ def reload_success():
 @login_required
 def api_pending_action_status(pending_action_id):
     """
-    Polled by reload_success.html while a resumed Send a Smack / Locked
-    & Loaded request may still be in flight (the webhook that actually
+    Polled by reload_success.html while a resumed Send a Smack / Auto-Smack request may still be in flight (the webhook that actually
     completes it can take a few seconds to arrive after payment
     confirms on the frontend). Scoped to the current user only - no
     one should be able to check another user's pending action status.
@@ -529,7 +528,7 @@ def api_pending_action_status(pending_action_id):
         "error_message": pending.error_message,
         # Which generator this came from. Without it the top-up page had no
         # way to know, so it sent everybody back to Send a Smack - including
-        # people who were part-way through arming a Locked & Loaded.
+        # people who were part-way through arming a Auto-Smack.
         "action_type": pending.action_type,
     })
 
@@ -1437,12 +1436,31 @@ def recording_done(record_id, record_type=None):
 # ---------- Locked-and-loaded smackagrams ----------
 
 @app.route("/locked-n-loaded")
+@app.route("/locked-n-loaded/success")
+def locked_n_loaded_moved():
+    """
+    The old address, kept alive.
+
+    The product was renamed from Locked & Loaded to Auto-Smack because
+    Twilio's A2P campaign review rejected the brand under the carriers'
+    SHAFT rules - Sex, Hate, Alcohol, Firearms, Tobacco. "Locked and
+    loaded" is a firearms idiom, and a filter reading the site had no way
+    to know it was about phone calls.
+
+    This redirect costs nothing and means an old link, a bookmark, a
+    Stripe session started before the rename, or anything Twilio still
+    holds does not land on a 404.
+    """
+    return redirect("/auto-smack", code=301)
+
+
+@app.route("/auto-smack")
 @login_required
 def locked_n_loaded_page():
     # ?embed=1 renders the generator alone, no nav/hero/footer, so the other
     # generator page can frame it. Kept as a flag on the same route rather
     # than a second template - two copies of a page this complex would drift.
-    return render_template("locked_n_loaded.html", embed=request.args.get("embed") == "1")
+    return render_template("auto_smack.html", embed=request.args.get("embed") == "1")
 
 
 @app.route("/send-a-smack")
@@ -3502,14 +3520,14 @@ def wall_headline(record, product):
     before they press play - "YANKEES LOST 9-2" tells you more in three words
     than the smack itself does in thirty.
 
-    Built from whatever the record actually has. Locked & Loaded knows the
+    Built from whatever the record actually has. Auto-Smack knows the
     fixture and the result; a plain Smackagram only knows the team, so it
     gets the shorter version rather than an invented scoreline.
     """
     def clean(v):
         return (v or "").strip()
 
-    # Whose fan caught this. Locked & Loaded records the target explicitly;
+    # Whose fan caught this. Auto-Smack records the target explicitly;
     # a standard smack only has the team that was being roasted, which comes
     # to the same thing from the recipient's side.
     team = (clean(getattr(record, "target_team", None))
@@ -3786,7 +3804,7 @@ def admin_call_timings():
 
     out = [{
         "when": utc_iso(t.dialed_at),
-        "product": "Locked & Loaded" if t.record_type == "smackagram" else "Smackagram",
+        "product": "Auto-Smack" if t.record_type == "smackagram" else "Smackagram",
         "answered_by": t.answered_by,
         "status": t.call_status,
         "gap_to_message_s": t.gap_seconds,
@@ -4036,7 +4054,7 @@ def api_board(league):
 
     # How many armed calls each team is carrying today.
     #
-    # Only Locked & Loaded records a team - a plain send-a-smack order does
+    # Only Auto-Smack records a team - a plain send-a-smack order does
     # not store one - so this counts armed calls rather than all smacks.
     # Counted by TEAM rather than game id because the two services do not
     # share ids, and the team is what actually resolves.
@@ -4627,10 +4645,10 @@ def create_reply_order():
     return jsonify({"checkout_url": session.url})
 
 
-@app.route("/locked-n-loaded/success")
+@app.route("/auto-smack/success")
 def locked_n_loaded_success():
     session_id = request.args.get("session_id")
-    return render_template("locked_n_loaded_success.html", session_id=session_id)
+    return render_template("auto_smack_success.html", session_id=session_id)
 
 
 @app.route("/api/games/upcoming")
@@ -4679,7 +4697,7 @@ def _execute_arm_smackagram(user, data: dict) -> dict:
 
     # auto_summary is the only supported mode. A pre-written line can't
     # reference a result that hasn't happened yet, which is the entire point
-    # of Locked & Loaded - so "custom" is refused rather than silently
+    # of Auto-Smack - so "custom" is refused rather than silently
     # accepted from a stale client.
     mode = data.get("mode") or "auto_summary"
     if mode != "auto_summary":
@@ -4709,7 +4727,7 @@ def _execute_arm_smackagram(user, data: dict) -> dict:
     db.session.add(smackagram)
     db.session.commit()
 
-    return {"smackagram_id": smackagram.id, "redirect": "/locked-n-loaded/success"}
+    return {"smackagram_id": smackagram.id, "redirect": "/auto-smack/success"}
 
 
 @app.route("/api/smackagrams", methods=["POST"])
@@ -4736,7 +4754,7 @@ def arm_smackagram():
 
     # auto_summary is the only supported mode. A pre-written line can't
     # reference a result that hasn't happened yet, which is the entire point
-    # of Locked & Loaded - so "custom" is refused rather than silently
+    # of Auto-Smack - so "custom" is refused rather than silently
     # accepted from a stale client.
     mode = data.get("mode") or "auto_summary"
     if mode != "auto_summary":
@@ -4766,7 +4784,7 @@ def arm_smackagram():
 
     txn = wallet_service.debit_wallet(
         user, wallet_service.LOCKED_N_LOADED_COST_CENTS, "locked_n_loaded",
-        description=f"Locked & Loaded - {data.get('target_team', 'target')} armed",
+        description=f"Auto-Smack - {data.get('target_team', 'target')} armed",
     )
     if txn is None:
         redirect = _store_pending_action(user, "locked_n_loaded", data)

@@ -5,7 +5,7 @@ from services import voice_options, elevenlabs_service
 # Lives here (not in app.py) specifically so scheduler.py's Locked &
 # Loaded call path can reach it too - previously it had no import path
 # to app.py's own module-level dict at all, meaning every single
-# Locked & Loaded call unconditionally generated its audio live inside
+# Auto-Smack call unconditionally generated its audio live inside
 # the /call-instructions webhook while the customer was already
 # holding the phone, rather than using the same pre-resolve-before-
 # placing-the-call approach the immediate "Send a Smack" flow used.

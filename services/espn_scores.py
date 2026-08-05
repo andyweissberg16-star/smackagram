@@ -5,7 +5,7 @@ WHY NOT SPORTSDATAIO. Verified against ten MLB finals on 2026-07-30: every
 winner was correct, every SCORE was wrong. Boston won 5-4; SportsDataIO
 reported 13-11. Seattle lost by 4; it reported an 11-run margin. The
 scrambling looks like a ~2.5-3x multiplier, which preserves ordering (so
-Locked & Loaded, which only asks who lost, is unaffected) but destroys the
+Auto-Smack, which only asks who lost, is unaffected) but destroys the
 actual numbers.
 
 That's fatal here, because margins ARE the content. A show announcing an
@@ -477,7 +477,7 @@ def select_facts(detail: dict, max_supporting: int = 3, avoid: list = None) -> l
     Pick what actually goes in the call, rather than handing over everything.
 
     Fourteen facts for a 175-word call reads like a stat sheet. Worse, if the
-    same facts are always present in the same order, every Locked & Loaded
+    same facts are always present in the same order, every Auto-Smack
     sounds identical - the analytics line in particular got stale after two
     listens.
 
@@ -936,7 +936,7 @@ def find_event_id(league: str, home_team: str, away_team: str,
     """
     Find ESPN's id for a game by TEAMS AND DATE rather than by id.
 
-    The two services do not share ids: a Locked & Loaded smackagram stores
+    The two services do not share ids: a Auto-Smack smackagram stores
     SportsDataIO's GameID, which will never resolve against ESPN. Matching on
     who played and when is the only bridge, and it is done at fire time
     rather than arm time because a game armed three days out may not exist in
@@ -1722,7 +1722,7 @@ def _made_attempted(v):
 # 40 minutes rather than 48 and scores roughly 84 a side against 114, so a
 # 25-point night there is the equivalent of about 34 in the NBA - almost
 # nobody clears it, and the call falls back to the scoreline with no player
-# named at all. Which is exactly what a real Locked & Loaded did.
+# named at all. Which is exactly what a real Auto-Smack did.
 #
 # Scaled by 0.74, the ratio of the two leagues' scoring.
 BALL_THRESHOLDS = {
@@ -2234,7 +2234,7 @@ _BOARD_CACHE = {}          # league -> (fetched_at, games)
 # This is a SCOREBOARD, not a play-by-play. Nobody can tell the difference
 # between a score that is 15 seconds old and one that is 30, and halving
 # it buys back ten requests a minute for the things that actually need
-# them - Locked & Loaded deciding whether somebody gets charged.
+# them - Auto-Smack deciding whether somebody gets charged.
 BOARD_CACHE_SECONDS = 30
 
 
@@ -2744,7 +2744,7 @@ def game_result(league: str, event_id: str) -> dict | None:
     """
     Who won, from ESPN, for one specific game.
 
-    Locked & Loaded has been deciding this from SportsDataIO, whose free tier
+    Auto-Smack has been deciding this from SportsDataIO, whose free tier
     scrambles scores by roughly 2.5x. The winner survived that - which is why
     it worked at all - but "who lost" surviving a scrambled score is luck, not
     a guarantee, and this is the one place on the site where getting it wrong
@@ -2764,12 +2764,12 @@ def game_result(league: str, event_id: str) -> dict | None:
     sport_path, league_path = cfg[0], cfg[1]
 
     url = (f"{BASE}/{sport_path}/{league_path}/summary?event={event_id}")
-    # Through the gate. This one decides whether a Locked & Loaded call
+    # Through the gate. This one decides whether a Auto-Smack call
     # fires and whether somebody gets charged, so it must fail CLEANLY -
     # returning None keeps the caller polling rather than firing on a
     # guess, which is exactly the right behaviour when ESPN is unavailable.
     from services import espn_gate
-    # CRITICAL. This decides whether a Locked & Loaded call fires and
+    # CRITICAL. This decides whether a Auto-Smack call fires and
     # whether somebody is charged or refunded. It gets the reserved budget
     # that scoreboard refreshes cannot touch.
     d = espn_gate.fetch(url, timeout=12, label=f"result {event_id}",
@@ -2824,7 +2824,7 @@ def game_result(league: str, event_id: str) -> dict | None:
 # ---------------------------------------------------------------------------
 #
 # NHL was armable but had NO fact path at all - roast_facts fell through and
-# returned nothing, so a Locked & Loaded on a hockey game got the scoreline
+# returned nothing, so a Auto-Smack on a hockey game got the scoreline
 # and silence. The same fault the WNBA had, for a different reason.
 
 NHL_GOALIE = [
@@ -3056,7 +3056,7 @@ def fetch_elsewhere(days_back: int = 1, limit: int = 6) -> list:
 # ONE CALL PER LEAGUE, NOT ONE PER GAME
 # ---------------------------------------------------------------------------
 #
-# Locked & Loaded polls for results every two minutes and made a request PER
+# Auto-Smack polls for results every two minutes and made a request PER
 # GAME. Fifteen armed games meant fifteen requests every two minutes -
 # traffic that scales with how well the product is selling, which is exactly
 # the wrong way round.

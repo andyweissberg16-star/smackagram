@@ -1,7 +1,7 @@
 """
 Smacky's voice, shared by every generator.
 ==========================================
-Smackagram, Locked & Loaded, the Daily Smack and Smackcast all pull from
+Smackagram, Auto-Smack, the Daily Smack and Smackcast all pull from
 here, so the character is the same everywhere. A different voice on each
 page is how a character stops being a character.
 

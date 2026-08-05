@@ -8,8 +8,7 @@ WHY WE MOVED
 ------------
 ESPN's endpoints are undocumented, unsupported, and have no published rate
 limits. They blocked this server for hours on 4 August after a burst of
-requests, which took down the team picker, the daily show and Locked &
-Loaded at once - and Locked & Loaded decides whether customers get charged.
+requests, which took down the team picker, the daily show and Auto-Smack at once - and Auto-Smack decides whether customers get charged.
 
 Highlightly publishes 99.993% uptime, runs a status page, and gives MORE
 than ESPN did: per-player box scores with season averages alongside game
@@ -23,7 +22,7 @@ codebase was built on ESPN's order.
     "13 - 29"  with home=New England, away=Seattle
     means New England 13, Seattle 29. Seattle won.
 
-Read it the other way and Locked & Loaded phones the WINNING fan to tell
+Read it the other way and Auto-Smack phones the WINNING fan to tell
 them they lost, and charges them for it. Every score this module returns is
 already normalised, so nothing downstream needs to know or care.
 
@@ -265,7 +264,7 @@ def box_score(sport, match_id):
 #
 # This exists because of one specific near-miss: their score string is
 # home-first and ESPN's is away-first. Wired up on the obvious assumption,
-# Locked & Loaded would have phoned every WINNING fan to say they lost and
+# Auto-Smack would have phoned every WINNING fan to say they lost and
 # charged them for it - and nothing would have looked wrong until the
 # refunds started.
 #
@@ -441,7 +440,7 @@ def roast_facts(sport, match_id, loser_nick):
     # WHO WAS MISSING, appended to the same fact list.
     #
     # This reaches every generator that uses roast_facts - the daily show,
-    # Locked & Loaded and the roast detail inside calls - rather than only
+    # Auto-Smack and the roast detail inside calls - rather than only
     # the send page picker.
     #
     # Phrased as ABSENCE, never injury. A writer handed "Sam Howell did not

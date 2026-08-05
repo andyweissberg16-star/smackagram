@@ -10,7 +10,7 @@ A 3MB league-wide injuries document was wired into roster lookups, which
 meant a visitor typing in a search box caused a live request to ESPN.
 Outbound traffic scaled with visitors, ESPN throttled the server, and
 EVERY lookup started failing - the team picker, the daily show, and
-Locked & Loaded, which handles money and refunds.
+Auto-Smack, which handles money and refunds.
 
 The specific fetch was the trigger. The real fault was that there was
 nothing anywhere saying "that is too much".
@@ -71,7 +71,7 @@ COOLDOWN_SECONDS = 900
 # A RESERVE THE COSMETIC STUFF CANNOT TOUCH.
 #
 # Not everything reading from a feed matters equally. A scoreboard
-# refreshing on the homepage is decoration. Locked & Loaded checking
+# refreshing on the homepage is decoration. Auto-Smack checking
 # whether a game finished decides whether somebody gets charged.
 #
 # Ordinary callers are refused at CASUAL_CEILING; the last few each minute

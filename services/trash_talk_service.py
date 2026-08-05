@@ -15,7 +15,7 @@ def _get_client():
 
 
 # Human-facing labels/descriptions — used by the frontend to render the
-# sensitivity selector on both the main generator and the Locked & Loaded
+# sensitivity selector on both the main generator and the Auto-Smack
 # auto-recap option. Keep these in sync with the tone instructions below.
 SENSITIVITY_LEVELS = {
     1: {
@@ -231,7 +231,7 @@ use a real but more general true fact instead of inventing a fake specific one
     # SMACKY'S OWN WORDS - the invented vocabulary.
     #
     # This existed and was only ever wired into Smack Battle. The core
-    # Smackagram and Locked & Loaded - the two products people actually pay
+    # Smackagram and Auto-Smack - the two products people actually pay
     # for - never saw it, so the character with the invented language was
     # only speaking it in the free game.
     own = ""
@@ -778,7 +778,7 @@ def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAU
     # THE FAST CHECK, at the source.
     #
     # Doing it here covers every caller at once - the core Smackagram,
-    # Locked & Loaded firing automatically at two in the morning, replies,
+    # Auto-Smack firing automatically at two in the morning, replies,
     # and anything added later. A check applied per-endpoint is one somebody
     # forgets on the next endpoint.
     #
@@ -1462,7 +1462,7 @@ def generate_game_recap_roast(team: str, recipient_name: str, key_facts: list[st
     # THE FAST CHECK, at the source.
     #
     # Doing it here covers every caller at once - the core Smackagram,
-    # Locked & Loaded firing automatically at two in the morning, replies,
+    # Auto-Smack firing automatically at two in the morning, replies,
     # and anything added later. A check applied per-endpoint is one somebody
     # forgets on the next endpoint.
     #

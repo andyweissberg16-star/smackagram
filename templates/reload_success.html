@@ -42,7 +42,7 @@ const pendingActionId = new URLSearchParams(window.location.search).get('pending
         // this was, so it is correct even if somebody clicks it before the
         // action finishes processing.
         if (btn && data.action_type === 'locked_n_loaded') {
-          btn.href = '/locked-n-loaded';
+          btn.href = '/auto-smack';
         }
         if (data.status === 'completed') {
           heading.textContent = 'All set!';
@@ -57,9 +57,9 @@ const pendingActionId = new URLSearchParams(window.location.search).get('pending
           btn.textContent = 'Try again';
           // Back to whichever generator they were actually using. This was
           // hardcoded to Send a Smack, so somebody part-way through arming a
-          // Locked & Loaded topped up and landed on the wrong product.
+          // Auto-Smack topped up and landed on the wrong product.
           btn.href = (data.action_type === 'locked_n_loaded')
-            ? '/locked-n-loaded' : '/send-a-smack';
+            ? '/auto-smack' : '/send-a-smack';
           btn.style.display = 'inline-block';
           return;
         }

@@ -5,7 +5,7 @@ The core Smackagram generator receives four things: a team name, a recipient
 name, a sensitivity level and some optional topics. No record, no streak, no
 last result, nothing from ESPN at all.
 
-So while Locked & Loaded gets full box scores and the Daily Smack gets
+So while Auto-Smack gets full box scores and the Daily Smack gets
 layouts and awards, the flagship product has been writing from the model's
 vague memory of a team. That is why every Cowboys smack sounds like every
 other Cowboys smack.
