@@ -1681,7 +1681,7 @@ def _call_instructions_handler(record_type, record_id):
     cached = call_audio_service.pending_call_audio.pop(cache_key, None)
     if cached is None:
         print(f"[twilio] CACHE MISS {record_type or 'legacy'}:{record_id} — generating audio live inside the webhook, expect dead air")
-        audio_urls = call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")))
+        audio_urls = call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")), answered_by)
     else:
         audio_urls = cached
 

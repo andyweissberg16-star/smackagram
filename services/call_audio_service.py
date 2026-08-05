@@ -16,12 +16,70 @@ from services import voice_options, elevenlabs_service
 pending_call_audio = {}
 
 
+def get_invite_url(base_url: str, answered_by: str = "") -> str:
+    """
+    The invitation that plays AFTER the outro, or "" for silence.
+
+    A SEPARATE FILE, DELIBERATELY.
+
+    The outro is a brand element - the slap and the tagline - and should
+    not change. This is marketing, which gets rewritten and tested. Two
+    <Play> verbs cost nothing and keep the two things independent.
+
+    It also means the invitation can be REMOVED IN ONE STEP. If a carrier
+    or an app reviewer ever objects to soliciting the recipient, deleting
+    one file turns it off without touching the outro or the code.
+
+    LIVE AND VOICEMAIL ARE DIFFERENT.
+
+    Somebody who answered can act on it. A machine cannot, and by the
+    time it plays the message back the joke has already outstayed its
+    welcome - so the default is SILENCE on voicemail unless somebody
+    deliberately adds the file.
+
+    Nothing plays until the audio exists. A missing file is not an error,
+    it is simply no invitation.
+    """
+    import os
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+    # ONE FILE FOR BOTH, with a voicemail version only if one is dropped
+    # in later.
+    #
+    # The case for playing it on voicemail is stronger than the case
+    # against: somebody interested can REPLAY a message, which they
+    # cannot do with a live call - so the voicemail listener may be the
+    # better prospect, not the worse one.
+    #
+    # A single mention of the address either way. Repeating it sounds
+    # like an infomercial to somebody who is actually listening.
+    machine = str(answered_by or "").lower().startswith("machine")
+    names = (["invite-voicemail.mp3", "invite-live.mp3"] if machine
+             else ["invite-live.mp3"])
+    for name in names:
+        if os.path.exists(os.path.join(here, "static", name)):
+            return f"{base_url}/static/{name}"
+
+    # No file, no invitation. A missing recording is not an error - it
+    # is simply the feature being off, which is also the one-step way to
+    # turn it off if a carrier ever objects.
+    return ""
+
+
 def get_outro_url(base_url: str) -> str:
     """The signature slap sound + closing tagline, combined into one static mp3."""
     return f"{base_url}/static/outro.mp3"
 
 
-def resolve_audio_url(record, base_url: str):
+def resolve_audio_url(record, base_url: str, answered_by: str = ""):
+    """
+    The pieces of a call, in order: message, outro, and the invitation
+    when there is one.
+
+    answered_by comes from Twilio's machine detection and defaults to
+    empty - so existing callers keep working and simply get the live
+    invitation, which is the one that exists.
+    """
     """
     Builds the full audio sequence for a call: the message (pre-recorded
     clip or generated TTS), then the outro (slap + tagline combined) —
@@ -41,7 +99,17 @@ def resolve_audio_url(record, base_url: str):
         message_url = scenario.audio_url
 
     outro_url = get_outro_url(base_url)
-    return [message_url, outro_url]
+
+    # THE INVITATION LAST, and only when the audio exists.
+    #
+    # Kept out of the stitched file on purpose: this is the piece most
+    # likely to be rewritten, and one that may need turning off at short
+    # notice. Deleting the file is the off switch.
+    parts = [message_url, outro_url]
+    invite = get_invite_url(base_url, answered_by)
+    if invite:
+        parts.append(invite)
+    return parts
 
 
 def stitch_full_call(message_url: str, base_url: str) -> str:
