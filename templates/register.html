@@ -66,6 +66,22 @@
   }
   .sms-consent input{width:20px; height:20px; flex-shrink:0; margin:0; accent-color:var(--flare);}
   .sms-consent a{color:var(--flare-text);}
+
+  /* SHOW PASSWORD.
+     
+     Six characters minimum and no confirm field means a typo is invisible
+     until somebody cannot log in - and then they do not know whether they
+     mistyped it now or when they registered. Letting them look is cheaper
+     than a password reset, and cheaper than a support ticket. */
+  .pw-wrap{position:relative;}
+  .pw-wrap input{padding-right:64px; width:100%;}
+  .pw-peek{
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    background:none; border:0; cursor:pointer; padding:6px 8px;
+    color:var(--chalk-dim,#9A9A96); font:inherit; font-size:13px;
+    font-weight:600; letter-spacing:.02em;
+  }
+  .pw-peek:hover{color:var(--chalk,#F5F5F3);}
 </style>
 </head>
 <body>
@@ -82,16 +98,19 @@
     <div class="row2">
       <div>
         <label for="firstNameInput">First Name</label>
-        <input id="firstNameInput" type="text" placeholder="Andy" autocomplete="given-name">
+        <input id="firstNameInput" type="text" placeholder="First name" autocomplete="given-name">
       </div>
       <div>
         <label for="lastNameInput">Last Name</label>
-        <input id="lastNameInput" type="text" placeholder="Weissberg" autocomplete="family-name">
+        <input id="lastNameInput" type="text" placeholder="Last name" autocomplete="family-name">
       </div>
     </div>
 
     <label for="screenNameInput">Screen Name</label>
-    <input id="screenNameInput" type="text" placeholder="ex. CowboysHater88" autocomplete="nickname">
+    <div class="pw-wrap"><input id="screenNameInput" type="text" placeholder="ex. CowboysHater88" autocomplete="nickname">
+      <button type="button" class="pw-peek" id="nameRoll"
+              aria-label="Suggest a screen name">Surprise me</button>
+    </div>
     <p class="field-hint">This is what shows up in chat and battles — must be unique.</p>
 
     <label for="emailInput">Email Address</label>
@@ -119,7 +138,10 @@
     <input id="dobInput" type="date" autocomplete="bday">
 
     <label for="passwordInput">Password</label>
-    <input id="passwordInput" type="password" placeholder="At least 6 characters" autocomplete="new-password">
+    <div class="pw-wrap"><input id="passwordInput" type="password" placeholder="At least 6 characters" autocomplete="new-password">
+      <button type="button" class="pw-peek" id="pwPeek"
+              aria-label="Show password">Show</button>
+    </div>
 
     <div class="terms-row">
       <input id="termsCheckbox" type="checkbox">
@@ -208,5 +230,67 @@ async function submitRegistration() {
 document.getElementById('registerBtn').addEventListener('click', submitRegistration);
 </script>
 {% include '_footer.html' %}
+<script>
+(function () {
+  var btn = document.getElementById('pwPeek');
+  var input = document.getElementById('passwordInput');
+  if (!btn || !input) return;
+  btn.addEventListener('click', function () {
+    var showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    btn.textContent = showing ? 'Show' : 'Hide';
+    btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    // Put the cursor back where it was - toggling the type moves it to
+    // the end, which is jarring mid-word.
+    var at = input.value.length;
+    input.focus();
+    try { input.setSelectionRange(at, at); } catch (e) {}
+  });
+})();
+</script>
+<script>
+(function () {
+  // A SCREEN NAME NOBODY HAS TO THINK OF.
+  //
+  // "Pick a screen name" is a surprising amount of friction at the exact
+  // moment somebody has decided to sign up. Giving them one they can
+  // accept or edit removes the pause.
+  //
+  // Built from three lists so the combinations run to thousands rather
+  // than a fixed set people would start recognising. Deliberately built
+  // from RIVALRY and SPORT words - no firearms vocabulary, given what the
+  // A2P review just cost us.
+  var OPENERS = ['Sunday','Monday','Fourth','Overtime','Cellar','Bench',
+                 'Backup','Bandwagon','Front','Practice','Preseason',
+                 'Garbage','Clutch','Rebuild','Tailgate','Bracket',
+                 'Waiver','Blackout','Homefield','Wildcard'];
+  var MIDDLES = ['Squad','Fan','Guy','Truther','Hater','Believer','Merchant',
+                 'Apologist','Historian','Scout','Skeptic','Prophet',
+                 'Enjoyer','Defender','Analyst','Loyalist','Doubter'];
+  var TAILS   = ['', '', '', '81','99','12','24','07','63','00','88','13'];
+
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+  function roll() {
+    return pick(OPENERS) + pick(MIDDLES) + pick(TAILS);
+  }
+
+  var btn = document.getElementById('nameRoll');
+  var input = document.getElementById('screenNameInput');
+  if (!btn || !input) return;
+
+  btn.addEventListener('click', function () {
+    // Never overwrite something they typed without warning - roll into an
+    // empty field, and ask first if there is anything there.
+    if (input.value.trim() &&
+        !confirm('Replace what you have typed with a suggestion?')) {
+      return;
+    }
+    input.value = roll();
+    btn.textContent = 'Again';
+    input.focus();
+  });
+})();
+</script>
 </body>
 </html>
