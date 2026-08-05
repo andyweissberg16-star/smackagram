@@ -7155,7 +7155,37 @@ def api_admin_highlightly_check():
         msg = body.get("message") if isinstance(body, dict) else str(body)
         valid[seg] = {"param": param, "api_says": str(msg)[:200]}
 
-    out = {"date_tested": day, "valid_leagues": valid, "segments": {}}
+    # WHAT LEAGUE NAMES ARE ACTUALLY IN THEIR DATA?
+    #
+    # valid_leagues only helps for baseball - it is the one segment that
+    # validates the value and names the alternatives. Everywhere else, a
+    # WRONG LEAGUE NAME RETURNS 200 WITH ZERO ROWS, which is
+    # indistinguishable from an empty day.
+    #
+    # That is the trap WNBA may be sitting in: the league plays through
+    # August, so "no fixtures on 4 August" is suspicious.
+    #
+    # So this asks for matches with NO league filter and reports the
+    # distinct league names that come back. Whatever their data calls a
+    # competition is the string we have to send.
+    seen_leagues = {}
+    for seg in ("baseball", "nba", "nhl", "american-football", "basketball"):
+        names = set()
+        for offset in (0, 30, 90):
+            st, body, _ = ask(f"{seg}/matches",
+                              {"limit": 40, "offset": offset})
+            rows = body.get("data") if isinstance(body, dict) else []
+            for r in (rows or []):
+                lg = r.get("league") or {}
+                nm = lg.get("name") if isinstance(lg, dict) else lg
+                if nm:
+                    names.add(str(nm)[:40])
+            if not rows:
+                break
+        seen_leagues[seg] = sorted(names) or ["(no matches returned)"]
+
+    out = {"date_tested": day, "valid_leagues": valid,
+           "leagues_seen_in_data": seen_leagues, "segments": {}}
 
     # Does the key work at all, and what does the plan say?
     st, body, hdrs = ask("baseball/matches",
@@ -7198,8 +7228,28 @@ def api_admin_highlightly_check():
         rows = got or []
         info["games_found"] = len(rows)
         if not rows:
-            info["result"] = ("works, but no fixtures on this date "
-                              "(out of season?)")
+            # AN EMPTY RESULT HAS TWO CAUSES AND THEY LOOK IDENTICAL.
+            #
+            # Either there are genuinely no fixtures, or the league name
+            # is wrong - because only baseball validates the value. The
+            # rest return 200 and nothing when the string does not match.
+            #
+            # So rather than assume "out of season", ask the same segment
+            # WITHOUT the league filter. If that returns games, the league
+            # name is the problem, not the calendar.
+            st2, body2, _ = ask(f"{seg}/matches", {"date": day, "limit": 5})
+            any_rows = body2.get("data") if isinstance(body2, dict) else []
+            if any_rows:
+                info["result"] = ("SEGMENT HAS GAMES BUT THIS LEAGUE NAME "
+                                  "MATCHES NONE - the name is likely wrong")
+                info["names_in_data_today"] = sorted({
+                    str((r.get("league") or {}).get("name"))[:40]
+                    for r in any_rows
+                    if isinstance(r.get("league"), dict)
+                })
+            else:
+                info["result"] = ("no fixtures anywhere on this segment "
+                                  "today - out of season")
             out["segments"][sport] = info
             continue
         info["result"] = "working"
