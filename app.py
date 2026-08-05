@@ -7133,6 +7133,7 @@ def api_admin_balldontlie_probe():
         "nfl":   "https://api.balldontlie.io/nfl/v1",
         "nhl":   "https://api.balldontlie.io/nhl/v1",
         "ncaab": "https://api.balldontlie.io/ncaab/v1",
+        "ncaaf": "https://api.balldontlie.io/ncaaf/v1",
     }
     out["coverage"] = {}
     for sport, base in BASES.items():
@@ -8030,7 +8031,13 @@ def api_admin_sources():
     from services import espn_gate, highlightly, balldontlie
 
     day = highlightly.sport_day(1)
-    out = {"date": day, "gate": espn_gate.status(), "leagues": {}}
+    # The gate reports nothing until a source has been used in THIS
+    # process - a fresh worker has no history. Say so rather than showing
+    # an empty object that reads like a fault.
+    _gate = espn_gate.status()
+    out = {"date": day,
+           "gate": _gate or "no requests yet since the last restart",
+           "leagues": {}}
     for lg in ("mlb", "nfl", "nba", "nhl", "ncaaf", "ncaab", "wnba"):
         row = {}
         try:
