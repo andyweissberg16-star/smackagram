@@ -6501,6 +6501,24 @@ def api_admin_email_test():
     return jsonify(out)
 
 
+@app.route("/api/admin/operations")
+@login_required
+def api_admin_operations():
+    """
+    The numbers that say whether this is working, and what it owes.
+
+    ACCOUNTS PAYABLE IS THE ONE TO WATCH. The wallet is prepaid, so every
+    unspent balance is a Smackagram somebody has already paid for and not
+    yet received. It is a liability, not revenue - and counting it as
+    income is how prepaid businesses get into trouble.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    from services import admin_service
+    return jsonify(admin_service.operations_summary())
+
+
 @app.route("/api/admin/terms-acceptances")
 @login_required
 def api_admin_terms():

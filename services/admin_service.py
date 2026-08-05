@@ -96,6 +96,122 @@ def accounting_summary() -> dict:
     return out
 
 
+# WHAT A DELIVERED CALL COSTS US.
+#
+# Rough, and deliberately configurable - a gross profit figure built on a
+# guess is worse than no figure if nobody knows it is a guess.
+#
+#   Twilio     a one-minute outbound call plus the number
+#   ElevenLabs the audio generation
+#   Anthropic  writing the script
+#
+# Set COST_PER_CALL_CENTS in the environment to override once real invoices
+# exist. Until then this is an estimate and the dashboard says so.
+import os as _os
+COST_PER_CALL_CENTS = int(_os.environ.get("COST_PER_CALL_CENTS", 18))
+
+
+def operations_summary() -> dict:
+    """
+    The numbers that say whether this is working and what it owes.
+
+    ACCOUNTS PAYABLE IS THE ONE THAT MATTERS MOST. The wallet is prepaid,
+    so every unspent balance is a Smackagram somebody has already bought
+    and not yet received. That is a liability, not revenue - and it is
+    money that has to be delivered on, at a cost, whenever they choose to
+    spend it.
+
+    Counting it as income is how prepaid businesses get into trouble.
+    """
+    from models import User, Order, Smackagram
+
+    # --- outstanding liability -------------------------------------
+    owed_cents = int(db.session.query(
+        db.func.coalesce(db.func.sum(User.balance_cents), 0)).scalar() or 0)
+    # What it would cost to fulfil every credit sitting in a wallet, at
+    # $1 a Smackagram.
+    owed_calls = owed_cents // 100
+    cost_to_fulfil = owed_calls * COST_PER_CALL_CENTS
+
+    # --- delivery ---------------------------------------------------
+    def _count(model, **kw):
+        return model.query.filter_by(**kw).count()
+
+    failed = 0
+    for model in (Order, Smackagram):
+        failed += model.query.filter(
+            model.call_status.in_(["failed", "busy", "no-answer",
+                                   "canceled"])).count()
+
+    delivered = 0
+    for model in (Order, Smackagram):
+        delivered += model.query.filter(
+            model.call_status.in_(["completed", "answered"])).count()
+
+    attempted = delivered + failed
+
+    # --- customers --------------------------------------------------
+    from datetime import datetime, timedelta
+    month_ago = datetime.utcnow() - timedelta(days=30)
+    total_users = User.query.count()
+    # "Active" means they have done something in the last month, not merely
+    # that an account exists. A dormant registration is not a customer.
+    active = (db.session.query(db.func.count(db.distinct(Order.user_id)))
+              .filter(Order.created_at >= month_ago,
+                      Order.user_id.isnot(None)).scalar() or 0)
+
+    # --- checkouts --------------------------------------------------
+    paid_orders = Order.query.filter_by(payment_status="paid")
+    registered = paid_orders.filter(Order.user_id.isnot(None)).count()
+    guest = paid_orders.filter(Order.user_id.is_(None)).count()
+
+    revenue_cents = int(db.session.query(
+        db.func.coalesce(db.func.sum(Order.price_cents), 0))
+        .filter(Order.payment_status == "paid").scalar() or 0)
+    order_count = registered + guest
+    avg_order = (revenue_cents // order_count) if order_count else 0
+
+    # --- profit -----------------------------------------------------
+    # Gross of delivered calls only. Money taken for calls not yet made is
+    # in the liability above, not here.
+    delivery_cost = delivered * COST_PER_CALL_CENTS
+    gross_profit = revenue_cents - delivery_cost
+
+    return {
+        "accounts_payable": {
+            "unspent_balance_cents": owed_cents,
+            "smackagrams_owed": owed_calls,
+            "estimated_cost_to_fulfil_cents": cost_to_fulfil,
+            "note": ("Prepaid balances are a liability, not revenue - every "
+                     "credit is a call still owed."),
+        },
+        "delivery": {
+            "delivered": delivered,
+            "failed": failed,
+            "attempted": attempted,
+            "failure_rate": (round(failed / attempted, 3)
+                             if attempted else None),
+        },
+        "customers": {
+            "registered_total": total_users,
+            "active_last_30_days": active,
+        },
+        "checkouts": {
+            "registered": registered,
+            "guest": guest,
+            "average_order_cents": avg_order,
+        },
+        "profit": {
+            "revenue_cents": revenue_cents,
+            "estimated_delivery_cost_cents": delivery_cost,
+            "estimated_gross_cents": gross_profit,
+            "cost_per_call_cents": COST_PER_CALL_CENTS,
+            "note": ("Cost per call is an ESTIMATE. Set COST_PER_CALL_CENTS "
+                     "from real invoices to make this figure real."),
+        },
+    }
+
+
 def customer_list(search: str = "", limit: int = 50) -> list[dict]:
     """Customers, newest first, optionally filtered by name, email or number."""
     q = User.query
