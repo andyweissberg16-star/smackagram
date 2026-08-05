@@ -4916,6 +4916,65 @@ def arm_smackagram():
 
 # ---------- Twilio status callbacks ----------
 
+def _refund_undeliverable(record, record_type, status):
+    """
+    Put the credit back when a call could not be delivered.
+
+    IDEMPOTENT. Twilio retries webhooks, and a retry that refunds a second
+    time is money walking out of the door. The flag on the record is what
+    stops that, checked before anything is credited.
+
+    Never raises - a refund failing should not break the webhook, because
+    a webhook that errors gets retried, and a retry loop on a payment path
+    is worse than a missed refund somebody can chase.
+    """
+    try:
+        if getattr(record, "refunded", False):
+            return
+        user_id = getattr(record, "user_id", None)
+        if not user_id:
+            # A guest checkout has no wallet to credit. Flag it loudly -
+            # somebody has to refund this by hand, and silence here is a
+            # complaint waiting to happen.
+            from services import alerts
+            alerts.record("delivery", "guest_refund_owed",
+                          f"{record_type} {record.id} was {status} - guest "
+                          f"checkout, needs a manual refund",
+                          severity="critical")
+            return
+
+        from models import User
+        user = User.query.get(user_id)
+        if not user:
+            return
+
+        cents = getattr(record, "price_cents", None) or 100
+        wallet_service.credit_wallet(
+            user, cents, "undeliverable_refund",
+            description=(f"Refund - call could not be delivered ({status})"))
+
+        record.refunded = True
+        db.session.commit()
+        print(f"[refund] {record_type} {record.id} was {status} - "
+              f"{cents}c returned to {user.email}", flush=True)
+
+        from services import alerts
+        alerts.record("delivery", "undeliverable",
+                      f"{record_type} {record.id}: {status}, refunded",
+                      severity="error")
+    except Exception as e:
+        db.session.rollback()
+        print(f"[refund] could not refund {record_type} {record.id}: {e}",
+              flush=True)
+        try:
+            from services import alerts
+            alerts.record("delivery", "refund_failed",
+                          f"{record_type} {record.id}: {e}",
+                          severity="critical")
+        except Exception:
+            pass
+
+
 @app.route("/call-status/<record_type>/<int:record_id>", methods=["POST"])
 def call_status(record_type, record_id):
     """
@@ -4928,6 +4987,21 @@ def call_status(record_type, record_id):
     if record:
         record.call_status = status
         db.session.commit()
+
+        # REFUND AN UNDELIVERABLE CALL.
+        #
+        # This webhook recorded the failure and did nothing else. Somebody
+        # paid a dollar, the call did not reach anybody, and they kept
+        # neither the money nor the smack.
+        #
+        # The terms promise a credit for anything undeliverable, so this
+        # is not generosity - it is the thing already agreed to, happening
+        # without anybody having to ask for it.
+        #
+        # "completed" is not in this list on purpose. A call that reached
+        # a voicemail IS delivered - that is the product working.
+        if status in ("failed", "busy", "no-answer", "canceled"):
+            _refund_undeliverable(record, record_type, status)
 
     # Duration closes the picture: with gap_seconds you can see how much of
     # the call was AMD deliberating versus the message actually playing, and
@@ -5917,6 +5991,15 @@ with app.app_context():
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS user_id INTEGER"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id INTEGER"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS team VARCHAR(80)"))
+            # Refund tracking. Twilio retries webhooks, so without a flag
+            # a retried failure notification refunds twice - and that is
+            # money leaving with nothing to show for it.
+            conn.execute(db.text(
+                "ALTER TABLE orders ADD COLUMN IF NOT EXISTS "
+                "refunded BOOLEAN DEFAULT FALSE"))
+            conn.execute(db.text(
+                "ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS "
+                "refunded BOOLEAN DEFAULT FALSE"))
 
             # Numbers that must never be called again. Checked before every
             # dial - see is_opted_out().

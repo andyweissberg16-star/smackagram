@@ -224,6 +224,11 @@ class Order(db.Model):
     scheduled_for = db.Column(db.DateTime, index=True)
     scheduled_sent = db.Column(db.Boolean, default=False)
 
+    # Set once a refund has been issued for an undeliverable call.
+    # Twilio RETRIES webhooks, and a retry that refunds a second time is
+    # money walking out of the door. This flag is what stops that.
+    refunded = db.Column(db.Boolean, default=False, index=True)
+
 
 class Smackagram(db.Model):
     """
@@ -292,6 +297,11 @@ class Smackagram(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     resolved_at = db.Column(db.DateTime, nullable=True)
+
+    # Set once a refund has been issued for an undeliverable call.
+    # Twilio RETRIES webhooks, and a retry that refunds a second time is
+    # money walking out of the door. This flag is what stops that.
+    refunded = db.Column(db.Boolean, default=False, index=True)
 
 
 class Battle(db.Model):
