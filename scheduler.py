@@ -211,6 +211,31 @@ def check_armed_smackagrams():
                             except Exception as _e:
                                 print(f"[locked] balldontlie failed: {_e}",
                                       flush=True)
+
+                        # BOTH SOURCES SILENT IS THE REAL EMERGENCY.
+                        #
+                        # One provider failing is a warning - the other
+                        # covers it, which is the entire point of having
+                        # two. BOTH failing means an Auto-Smack that was
+                        # PAID FOR cannot be resolved: we do not know who
+                        # lost, so the call cannot go out and the money is
+                        # sitting there.
+                        #
+                        # That is the moment somebody needs telling, and
+                        # it is different in kind from a single source
+                        # having a bad minute.
+                        if not _fin and _off == 1:
+                            try:
+                                from services import alerts
+                                alerts.record(
+                                    "data", f"no_source_{sport}",
+                                    f"Neither Highlightly nor balldontlie "
+                                    f"could return finished {sport.upper()} "
+                                    f"games for {_d}. Auto-Smack {_s.id} "
+                                    f"cannot be resolved.",
+                                    severity="critical")
+                            except Exception:
+                                pass
                         # Match on the two teams - their ids are their own.
                         for _hid, _r in _fin.items():
                             names = {_r["winner"].split()[-1].lower(),

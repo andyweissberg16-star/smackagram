@@ -107,12 +107,43 @@ def record(system, kind, detail="", severity="error", send=True):
             return                      # already told them, recently
         _last_sent[k] = now_t
 
+    line = f"{severity.upper()} {system}/{kind}: {(detail or '')[:200]}"
+    sent_by = []
+
+    # EMAIL FIRST, because it is the channel that actually works.
+    #
+    # SMS is blocked behind A2P approval, which has been rejected once
+    # and is not yet resubmitted. An alerting system whose only channel
+    # is blocked is not an alerting system - it is a log with ambition.
+    try:
+        from services import mail
+        if mail.configured():
+            ok, _ = mail.send(
+                os.environ.get("SUPPORT_INBOX", "owners@smackagram.com"),
+                f"[Smackagram {severity.upper()}] {system}/{kind}",
+                f"{line}\n\n"
+                f"Seen at {datetime.utcnow().isoformat()}Z\n\n"
+                f"This is an automatic alert. Open the admin panel to see "
+                f"what else is outstanding:\n"
+                f"https://smackagram.com/admin\n")
+            if ok:
+                sent_by.append("email")
+    except Exception as e:
+        print(f"[alert] email failed: {e}", flush=True)
+
+    # And SMS, for when A2P clears. Tried second because it is the one
+    # that currently cannot deliver.
     try:
         from services import safety_service
-        safety_service._notify(
-            f"{severity.upper()} {system}/{kind}: {(detail or '')[:100]}")
+        if safety_service._notify(line[:300]):
+            sent_by.append("sms")
     except Exception as e:
-        print(f"[alert] could not send: {e}", flush=True)
+        print(f"[alert] sms failed: {e}", flush=True)
+
+    if not sent_by:
+        print(f"[alert] NOBODY WAS TOLD about {system}/{kind} - no email "
+              f"provider and no working SMS. It is in the admin panel "
+              f"only.", flush=True)
 
 
 def open_alerts(limit=50):

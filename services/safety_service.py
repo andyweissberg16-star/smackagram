@@ -119,7 +119,10 @@ def _notify(body):
     numbers = [n.strip() for n in raw.replace(";", ",").split(",") if n.strip()]
     if not numbers:
         print(f"[safety] ALERT (no ADMIN_ALERT_PHONE set): {body}", flush=True)
-        return
+        # RETURN FALSE, not None. The caller needs to know whether anybody
+        # was actually told - a function that stays silent about failing
+        # lets an alerting system report success while reaching nobody.
+        return False
 
     sent = 0
     for to in numbers:
@@ -135,9 +138,10 @@ def _notify(body):
 
     if sent:
         print(f"[safety] alerted {sent} of {len(numbers)} by SMS", flush=True)
-    else:
-        print(f"[safety] could not reach anybody by SMS. Event is still "
-              f"recorded.", flush=True)
+        return True
+    print(f"[safety] could not reach anybody by SMS. Event is still "
+          f"recorded.", flush=True)
+    return False
 
 def recent(limit=100, only_unreviewed=False):
     """For the admin panel."""
