@@ -162,8 +162,24 @@
   @media (prefers-reduced-motion:reduce){
     .smackback-frame{animation:none; border-color:var(--flare); box-shadow:0 0 18px rgba(232,20,44,0.6);}
   }
-  @media (max-width:640px){
-    .smackback-frame{width:62%; height:38%;}
+  @media (max-width:700px){
+    /* ANCHORED, NOT CENTRED ON A PERCENTAGE.
+       
+       The frame sat at left:16.667% with translateX(-50%) and a
+       min-width of 230px. On a narrow screen that puts its left edge at a
+       NEGATIVE offset - at 390px it started 56px off-screen - and the
+       hero's overflow:hidden cut the red border clean off.
+       
+       That is why the border looked broken on every phone: it was not
+       overlapping anything, it was outside the box.
+       
+       Anchoring to the left edge instead of centring on a percentage
+       means it cannot escape however narrow the screen gets. */
+    .smackback-frame{
+      left:4%; transform:translateY(-50%);
+      width:auto; min-width:0; right:auto;
+      max-width:74%; height:38%;
+    }
   }
 
 
