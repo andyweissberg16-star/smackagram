@@ -1,0 +1,45 @@
+{#
+  SOCIAL LINKS - one place, used anywhere.
+
+  The handles live HERE and nowhere else. Put them on four pages by hand and
+  the day one changes you find three of them.
+
+  ASSUMED @smackagram ON EVERY PLATFORM. Correct any that differ - and if an
+  account does not exist yet, delete its line rather than leaving a link to
+  a page that is not there. A dead social link reads worse than no link.
+#}
+{% set SOCIAL = [
+  ('TikTok',    'https://www.tiktok.com/@smackagram'),
+  ('Instagram', 'https://www.instagram.com/smackagram'),
+  ('X',         'https://x.com/smackagram'),
+  ('YouTube',   'https://www.youtube.com/@smackagram'),
+] %}
+
+<div class="social-strip">
+  <span class="social-label">{{ social_label | default('Follow the Smack') }}</span>
+  <div class="social-links">
+    {% for name, url in SOCIAL %}
+    <a href="{{ url }}" target="_blank" rel="noopener noreferrer">{{ name }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+<style>
+  .social-strip{
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    padding:26px 20px 30px; text-align:center;
+  }
+  .social-label{
+    font-family:'Anton', Impact, sans-serif; font-size:13px;
+    letter-spacing:.16em; text-transform:uppercase;
+    color:var(--chalk-dim, #9A9A96);
+  }
+  .social-links{display:flex; flex-wrap:wrap; gap:10px; justify-content:center;}
+  .social-links a{
+    display:inline-block; padding:8px 16px;
+    border:1px solid #2A2D32; border-radius:20px;
+    color:var(--chalk, #F5F5F3); text-decoration:none;
+    font-size:14px; transition:border-color .15s, color .15s;
+  }
+  .social-links a:hover{border-color:#E8142C; color:#FF3B50;}
+</style>

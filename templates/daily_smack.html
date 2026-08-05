@@ -434,6 +434,10 @@
 <script src="{{ url_for('static', filename='js/share.js') }}"></script>
 {% include '_smacks_of_the_day.html' %}
 
+{% with social_label = 'Clip it. Share it. Tag us.' %}
+  {% include '_social.html' %}
+{% endwith %}
+
 {% include '_footer.html' %}
 </body>
 </html>
