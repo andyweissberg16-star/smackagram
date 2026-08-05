@@ -6264,6 +6264,30 @@ with app.app_context():
                 "ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS "
                 "refunded BOOLEAN DEFAULT FALSE"))
 
+            # INDEXES.
+            #
+            # db.create_all() adds indexes for NEW tables only - an index
+            # added to an existing model never reaches a live database
+            # without this, which is the same trap the wallet columns hit.
+            #
+            # CONCURRENTLY is deliberately NOT used: it cannot run inside a
+            # transaction, and these tables are small enough that a brief
+            # lock on deploy costs nothing.
+            for stmt in (
+                "CREATE INDEX IF NOT EXISTS ix_smackagrams_status "
+                "ON smackagrams (status)",
+                "CREATE INDEX IF NOT EXISTS ix_wallet_tx_user "
+                "ON wallet_transactions (user_id)",
+                "CREATE INDEX IF NOT EXISTS ix_wallet_tx_intent "
+                "ON wallet_transactions (stripe_payment_intent_id)",
+                "CREATE INDEX IF NOT EXISTS ix_battle_lines_battle "
+                "ON battle_lines (battle_id)",
+            ):
+                try:
+                    conn.execute(db.text(stmt))
+                except Exception as _e:
+                    print(f"[migrate] index skipped: {_e}", flush=True)
+
             # Numbers that must never be called again. Checked before every
             # dial - see is_opted_out().
             conn.execute(db.text("""CREATE TABLE IF NOT EXISTS famous_moments (

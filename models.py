@@ -287,7 +287,12 @@ class Smackagram(db.Model):
     auth_status = db.Column(db.String(20), default="authorized")  # authorized, captured, canceled, expired
 
     # Outcome + delivery
-    status = db.Column(db.String(20), default="armed")  # armed, fired, released, canceled
+    # INDEXED because the cron scans for armed smacks every two minutes,
+    # forever. Without it that is a full table scan on a table that only
+    # grows - fine at six rows, not fine at sixty thousand, and the cost
+    # arrives gradually rather than all at once, which is the kind that
+    # goes unnoticed.
+    status = db.Column(db.String(20), default="armed", index=True)  # armed, fired, released, canceled
     twilio_call_sid = db.Column(db.String(120), nullable=True)
     call_status = db.Column(db.String(20), nullable=True)  # raw Twilio CallStatus once the call completes
     recording_url = db.Column(db.String(500), nullable=True)
@@ -416,7 +421,7 @@ class BattleLine(db.Model):
     __tablename__ = "battle_lines"
 
     id = db.Column(db.Integer, primary_key=True)
-    battle_id = db.Column(db.Integer, db.ForeignKey("battles.id"), nullable=False)
+    battle_id = db.Column(db.Integer, db.ForeignKey("battles.id"), nullable=False, index=True)
     side = db.Column(db.String(1), nullable=False)   # "a" or "b"
     round_number = db.Column(db.Integer, nullable=False)
     message = db.Column(db.Text, nullable=False)
@@ -502,7 +507,7 @@ class BattleRoundResult(db.Model):
     __tablename__ = "battle_round_results"
 
     id = db.Column(db.Integer, primary_key=True)
-    battle_id = db.Column(db.Integer, db.ForeignKey("battles.id"), nullable=False)
+    battle_id = db.Column(db.Integer, db.ForeignKey("battles.id"), nullable=False, index=True)
     round_number = db.Column(db.Integer, nullable=False)
     winner = db.Column(db.String(4), nullable=False)  # "a", "b", or "tie"
     critique_a = db.Column(db.Text, nullable=True)  # a few sentences on side A's line specifically
@@ -664,7 +669,7 @@ class WalletTransaction(db.Model):
     __tablename__ = "wallet_transactions"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
 
     amount_cents = db.Column(db.Integer, nullable=False)  # signed: +credit, -debit
     balance_after_cents = db.Column(db.Integer, nullable=False)  # snapshot for easy auditing without replaying the whole log
@@ -678,44 +683,22 @@ class WalletTransaction(db.Model):
 
     # Links back to the Stripe PaymentIntent for topups (for support/
     # dispute lookup), nullable since deductions have no Stripe object.
-    stripe_payment_intent_id = db.Column(db.String(255), nullable=True)
+    stripe_payment_intent_id = db.Column(db.String(255), nullable=True, index=True)
 
     description = db.Column(db.String(255), nullable=True)  # human-readable note, e.g. "Loaded Package - $10 for 15 Smackagrams (5 free)"
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 
-    """
-    Append-only audit log of every wallet balance change — both
-    top-ups (Stripe payments) and deductions (sending a smack, arming
-    Auto-Smack). amount_cents is signed: positive for a credit
-    (top-up), negative for a debit (spending). This exists specifically
-    so the wallet's running balance is always reconstructable and
-    auditable, rather than trusting a single mutable balance_cents
-    field with no history behind it — important given real money is
-    involved here.
-    """
-    __tablename__ = "wallet_transactions"
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-
-    amount_cents = db.Column(db.Integer, nullable=False)  # signed: +credit, -debit
-    balance_after_cents = db.Column(db.Integer, nullable=False)  # snapshot for easy auditing without replaying the whole log
-
-    # What kind of transaction this was, for display/support purposes.
-    # "topup" - a Stripe purchase credited the wallet
-    # "smack" - a main-generator send debited the wallet
-    # "locked_n_loaded" - arming a Auto-Smack hold debited the wallet
-    transaction_type = db.Column(db.String(30), nullable=False)
-
-    # Links back to the Stripe PaymentIntent for topups (for support/
-    # dispute lookup), nullable since deductions have no Stripe object.
-    stripe_payment_intent_id = db.Column(db.String(255), nullable=True)
-
-    description = db.Column(db.String(255), nullable=True)  # human-readable note, e.g. "Loaded Package - $10 for 15 Smackagrams (5 free)"
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
+    # NOTE: this class body was DUPLICATED - every column defined twice,
+    # with a second copy of the docstring between them. Python takes the
+    # last assignment, so the second set was the live one and any edit to
+    # the first silently did nothing.
+    #
+    # That is exactly what happened when index=True was added here: the
+    # source said indexed, the model said not, and the two disagreed with
+    # no error anywhere. The duplicate has been removed.
 
 class SmackcastSubscription(db.Model):
     """
