@@ -1229,7 +1229,8 @@ def generate_trash_talk():
     # already limited to 3 — cap length per topic as a light guard
     # against someone pasting something huge into this field.
     raw_topics = data.get("roast_topics") or []
-    roast_topics = [str(t).strip()[:60] for t in raw_topics if str(t).strip()][:3]
+    roast_topics = [str(t).strip()[:60] for t in raw_topics if str(t).strip()][:4]
+
 
     if not team or not recipient_name:
         return jsonify({"error": "Both team and recipient name are required"}), 400
@@ -7026,6 +7027,59 @@ def api_admin_email_test():
         out["note"] = ("Add ?to=your@email.com to actually send one. This "
                        "only checks the settings exist.")
     return jsonify(out)
+
+
+@app.route("/api/admin/audio-check")
+@login_required
+def api_admin_audio_check():
+    """
+    Are the stored audio URLs actually reachable?
+
+    "The audio does not play" has several possible causes and they look
+    identical from the browser - a dead S3 key, a bucket policy that no
+    longer allows public reads, a file written under the wrong prefix, or
+    a URL that was never valid.
+
+    This asks each one and reports the status code, which distinguishes
+    them in one look.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+
+    import requests
+    from models import Order, Smackagram
+
+    rows = []
+    for model, kind in ((Order, "smackagram"), (Smackagram, "auto-smack")):
+        for r in model.query.order_by(model.created_at.desc()).limit(10).all():
+            url = getattr(r, "recording_url", None) or \
+                getattr(r, "message_audio_url", None)
+            if not url:
+                rows.append({"kind": kind, "id": r.id, "url": None,
+                             "status": "no url stored"})
+                continue
+            try:
+                # HEAD, not GET - no reason to download the audio to find
+                # out whether it exists.
+                resp = requests.head(url, timeout=6, allow_redirects=True)
+                rows.append({"kind": kind, "id": r.id, "url": url,
+                             "status": resp.status_code,
+                             "type": resp.headers.get("Content-Type"),
+                             "bytes": resp.headers.get("Content-Length")})
+            except Exception as e:
+                rows.append({"kind": kind, "id": r.id, "url": url,
+                             "status": f"{type(e).__name__}: {e}"[:120]})
+
+    ok = sum(1 for r in rows if r.get("status") == 200)
+    return jsonify({
+        "checked": len(rows),
+        "reachable": ok,
+        "note": ("403 means the bucket is not serving these publicly. "
+                 "404 means the file is not there. A timeout means the "
+                 "host is wrong."),
+        "items": rows,
+    })
 
 
 @app.route("/api/admin/login-guard")

@@ -291,3 +291,54 @@ def get_show_stories(sports=None, want=6) -> list[dict]:
 
     passed_model.sort(key=_juice_score, reverse=True)
     return passed_model[:want]
+
+
+def team_headlines(team: str, sport: str = "mlb", want: int = 3) -> list[str]:
+    """
+    Safe, recent headlines about one team, for the "something in the news"
+    option on the generator.
+
+    WHY THIS HAS TO EXIST RATHER THAN LETTING THE WRITER IMPROVISE.
+
+    The button tells Smacky to reference a recent story. Without real
+    headlines he will INVENT one - a trade that never happened, a firing
+    that did not occur - and say it down the phone as fact to somebody who
+    follows that team closely enough to know better.
+
+    A made-up story is worse than no news angle at all, so this returns an
+    empty list rather than anything uncertain, and the caller drops the
+    topic when it does.
+
+    BOTH SAFETY PASSES APPLY. keyword_safe catches the obvious, model_safe
+    catches "away from the team for personal reasons" - and it fails
+    closed, so an error means no stories rather than unscreened ones.
+    """
+    t = (team or "").strip()
+    if not t:
+        return []
+
+    try:
+        items = fetch_headlines(sport, days_back=3)
+    except Exception as e:
+        print(f"[news] could not fetch for {t}: {e}", flush=True)
+        return []
+    if not items:
+        return []
+
+    # Match on the nickname - "Yankees" appears in a headline where
+    # "New York Yankees" usually does not.
+    nick = t.split()[-1].lower()
+    mine = [i for i in items
+            if nick in (i.get("title", "") + " "
+                        + i.get("description", "")).lower()]
+    if not mine:
+        return []
+
+    try:
+        safe = model_safe([i for i in mine if keyword_safe(i)])
+    except Exception as e:
+        # Fails closed on purpose - see model_safe.
+        print(f"[news] screen failed for {t}, dropping all: {e}", flush=True)
+        return []
+
+    return [i["title"] for i in safe[:want]]

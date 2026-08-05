@@ -187,6 +187,18 @@
   /* The timestamp was pushed right by margin-left:auto; the badge now takes
      that job, so the date sits beside it rather than fighting for the slot. */
   .item-outcome + .item-when{margin-left:10px;}
+
+  /* Feedback on the play button. Without it a failure and a success look
+     identical - which is how "the audio does not play" became a mystery
+     rather than a message. */
+  .act-play.is-playing{background:var(--punch); color:#fff;}
+  .act-play.is-loading{opacity:.6;}
+  .play-error{
+    margin:8px 0 0; padding:8px 10px;
+    background:rgba(255,59,80,0.08); border-left:2px solid #FF3B50;
+    border-radius:4px; font-size:13px; line-height:1.45;
+    color:#FF8C99;
+  }
 </style>
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 
@@ -352,6 +364,40 @@
 (function () {
   var listEl = document.getElementById('list');
   var player = document.getElementById('player');
+
+  function stopAll() {
+    // One at a time. Two smacks talking over each other in a locker is
+    // nobody's idea of a good time.
+    try { player.pause(); } catch (e) {}
+    document.querySelectorAll('.act-play').forEach(function (b) {
+      b.classList.remove('is-playing', 'is-loading');
+      if (b.dataset.label) b.textContent = b.dataset.label;
+    });
+    document.querySelectorAll('.play-error').forEach(function (n) {
+      n.remove();
+    });
+  }
+
+  function showPlayError(btn, message) {
+    var item = btn.closest('.item') || btn.parentElement;
+    var old = item.querySelector('.play-error');
+    if (old) old.remove();
+    var p = document.createElement('p');
+    p.className = 'play-error';
+    p.textContent = message;
+    item.appendChild(p);
+  }
+
+  // When it finishes on its own, put the button back.
+  player.addEventListener('ended', stopAll);
+  player.addEventListener('error', function () {
+    var b = document.querySelector('.act-play.is-loading, .act-play.is-playing');
+    if (b) {
+      showPlayError(b, 'That audio could not be loaded. The file may have '
+                     + 'been moved or removed.');
+    }
+    stopAll();
+  });
   var filterEl = document.getElementById('filters');
   var all = [];
   var active = 'all';
@@ -454,8 +500,40 @@
   listEl.addEventListener('click', function (e) {
     var play = e.target.closest('[data-audio]');
     if (play) {
+      // SAY SOMETHING WHEN IT FAILS.
+      //
+      // player.play() returns a promise. When it rejects - a 403 from S3,
+      // a dead link, a format the browser will not take - NOTHING HAPPENS
+      // AT ALL. No error, no sound, no indication. The button looks
+      // broken and there is no way to tell why.
+      //
+      // That is the difference between "the audio does not play" and "the
+      // audio is a 403", which is the difference between guessing and
+      // fixing.
+      var wasPlaying = !player.paused && player.src === play.dataset.audio;
+      stopAll();
+      if (wasPlaying) return;          // second press stops it
+
       player.src = play.dataset.audio;
-      player.play();
+      play.classList.add('is-loading');
+      play.dataset.label = play.textContent;
+      play.textContent = 'Loading\u2026';
+
+      player.play().then(function () {
+        play.classList.remove('is-loading');
+        play.classList.add('is-playing');
+        play.textContent = '\u25a0  Stop';
+      }).catch(function (err) {
+        play.classList.remove('is-loading');
+        play.textContent = play.dataset.label || 'Play';
+        // The real reason, on screen, not only in the console.
+        var why = (err && err.name === 'NotSupportedError')
+          ? 'That audio file could not be loaded - it may have been moved '
+            + 'or deleted.'
+          : (err && err.message) || 'Could not play that.';
+        showPlayError(play, why);
+        console.error('[locker] play failed:', play.dataset.audio, err);
+      });
       return;
     }
     var share = e.target.closest('[data-share]');

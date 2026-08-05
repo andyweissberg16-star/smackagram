@@ -681,11 +681,44 @@
   .sensitivity-desc.show{display:block;}
 
   label{display:block; font-size:12px; color:var(--chalk-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;}
+  /* WHITE FIELDS ON A BLACK PAGE.
+     
+     The background used to be var(--ink) - the SAME colour as the page
+     behind it. The only thing saying "type here" was a one-pixel border,
+     which on a phone in daylight is nearly nothing.
+     
+     This page has one job: get somebody from curious to a dollar spent,
+     three fields deep, usually while a game is on. Anything ambiguous is
+     somewhere a first-time visitor hesitates, and hesitation is more
+     expensive here than aesthetic cohesion is.
+     
+     NO BORDER, deliberately. A white box with a grey border looks like a
+     form from 2009; a borderless white box on black looks intended. */
   input[type=text], input[type=tel], textarea, select{
-    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
-    padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; margin-bottom:14px;
+    width:100%;
+    background:#FFFFFF;
+    border:none;
+    color:#1A1A1A;
+    padding:12px 14px;
+    font-family:'Inter',sans-serif;
+    font-size:15px;
+    border-radius:6px;
+    margin-bottom:14px;
   }
-  input:focus, textarea:focus, select:focus{outline:none; border-color:var(--flare);}
+
+  /* Dark enough to read, light enough to be obviously not real input.
+     The browser default is far too pale on white. */
+  input::placeholder, textarea::placeholder{color:#6B6B68; opacity:1;}
+  select{color:#1A1A1A;}
+  /* A RING, NOT A BORDER.
+     
+     With no border to recolour, the focus state has to come from a
+     shadow - and it keeps the red on the field somebody is actually
+     using rather than on all four at once. */
+  input:focus, textarea:focus, select:focus{
+    outline:none;
+    box-shadow:0 0 0 2px var(--flare);
+  }
   textarea{resize:vertical; min-height:100px;}
   /* No ::placeholder rule existed anywhere, so placeholders fell back to the
      browser default (~60% of the text colour) and read as real input.
@@ -938,12 +971,12 @@
        name can be CHOSEN but never typed, because an invented or misspelled
        player produces a call about somebody who does not exist and nobody
        finds out until it has been said down the phone. #}
-    <label><span class="fld-num">3.</span> Tone it at something
+    <label><span class="fld-num">3.</span> What should he go after
       <span style="font-weight:400;opacity:.6;">(optional)</span></label>
     <div class="aim-row" id="aimRow">
       <button type="button" class="aim" data-aim="form">How they're playing</button>
       <button type="button" class="aim" data-aim="player">A player or coach</button>
-      <button type="button" class="aim" data-aim="brutal">Just be brutal</button>
+      <button type="button" class="aim" data-aim="history">Their history</button>
     </div>
 
     <div id="playerPick" style="display:none; margin-top:10px;">
@@ -1639,7 +1672,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
   // Built only from what was tapped, so nothing a person typed freely can
   // reach the generator.
   const roastTopics = (window.smkAim && window.smkAim.topics)
-    ? window.smkAim.topics().slice(0, 3)
+    ? window.smkAim.topics().slice(0, 4)
     : [];
   const output = document.getElementById('trashTalkOutput');
   const btn = document.getElementById('generateBtn');
@@ -2140,7 +2173,7 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
   // has already been said down the phone.
   window.smkAim = (function () {
     var aims = [];              // which buttons are lit
-    var chosenPlayer = null;    // a name only lands here by being CLICKED
+    var chosenPlayers = [];     // names only land here by being CLICKED
     var roster = [];
     var lastTeam = '';
 
@@ -2275,25 +2308,59 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       });
     }
 
+    // UP TO TWO.
+    //
+    // One name gets a fact. TWO names get a comparison - "your best
+    // hitter went 0 for 4 and your closer gave up three, and those are
+    // the two you pay the most" is a better joke than either alone,
+    // because the smack writes itself out of the gap between them.
+    //
+    // Three would be too many. Sixty seconds carries two names with
+    // detail or three with none, and detail is what makes it land.
+    var MAX_PLAYERS = 2;
+
     function choose(name, injured) {
-      // The marker goes to the generator with the name. Without it the
-      // writer has no idea the player is out, and the rule protecting them
-      // never fires.
-      chosenPlayer = injured ? name + ' (injured)' : name;
+      if (chosenPlayers.length >= MAX_PLAYERS) {
+        hint.textContent = 'Two is the limit - remove one to swap.';
+        hint.style.color = '';
+        return;
+      }
+      if (chosenPlayers.some(function (p) { return p.name === name; })) {
+        hint.textContent = 'Already picked.';
+        return;
+      }
+
+      // The marker travels with the name. Without it the writer has no
+      // idea the player is out, and the rule protecting them never fires.
+      var entry = {name: name, forWriter: injured ? name + ' (injured)' : name};
+      chosenPlayers.push(entry);
+
       list.classList.remove('open');
-      input.style.display = 'none';
+      input.value = '';
+
       var tag = document.createElement('div');
       tag.className = 'picked';
-      tag.innerHTML = name + ' <button type="button" aria-label="Remove">&times;</button>';
+      tag.innerHTML = esc(name) + ' <button type="button" aria-label="Remove">&times;</button>';
       tag.querySelector('button').addEventListener('click', function () {
-        chosenPlayer = null;
+        chosenPlayers = chosenPlayers.filter(function (p) {
+          return p.name !== name;
+        });
         tag.remove();
-        input.value = '';
         input.style.display = '';
         input.focus();
+        hint.textContent = chosenPlayers.length
+          ? 'One more if you want.' : '';
       });
       input.parentNode.insertBefore(tag, hint);
-      hint.textContent = 'Locked in.';
+
+      if (chosenPlayers.length >= MAX_PLAYERS) {
+        input.style.display = 'none';
+        hint.textContent = 'Two picked.';
+      } else {
+        input.style.display = '';
+        hint.textContent = 'One more if you want, or leave it there.';
+      }
+      hint.style.color = '';
     }
 
     row.addEventListener('click', function (e) {
@@ -2307,14 +2374,15 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       if (k === 'player') {
         wrap.style.display = aims.indexOf('player') > -1 ? '' : 'none';
         if (aims.indexOf('player') > -1) { loadRoster(); input.focus(); }
-        else { chosenPlayer = null; input.value = ''; }
+        else { chosenPlayers = []; input.value = ''; }
       }
     });
 
     if (input) {
       input.addEventListener('focus', loadRoster);
       input.addEventListener('input', function () {
-        chosenPlayer = null;          // typing invalidates a previous pick
+        // typing does NOT clear picks any more - somebody searching for a
+        // second name should not lose the first one they already tapped.
         draw(input.value);
       });
       input.addEventListener('keydown', function (e) {
@@ -2330,7 +2398,9 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       // The tapped buttons and the chosen player, so a login bounce does
       // not ask somebody to make the same choices twice.
       state: function () {
-        return {aims: aims.slice(), player: chosenPlayer};
+        return {aims: aims.slice(),
+                player: chosenPlayers.length ? chosenPlayers[0].name : null,
+                players: chosenPlayers.map(function (p) { return p.name; })};
       },
       restore: function (st) {
         if (!st) return;
@@ -2338,24 +2408,36 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
           var b = row.querySelector('[data-aim="' + k + '"]');
           if (b && aims.indexOf(k) === -1) b.click();
         });
-        if (st.player) {
-          // Straight to chosen - it was picked from the real roster once
-          // already, so it does not need picking again.
-          chosenPlayer = st.player;
+        // RESTORE BOTH, if there were two.
+        //
+        // Older drafts hold a single name; newer ones hold a list. Reading
+        // both shapes means somebody who started a smack before this
+        // change and came back after it does not lose their pick.
+        var restore = st.players || (st.player ? [st.player] : []);
+        restore.slice(0, 2).forEach(function (nm) {
+          // Straight to chosen - it came off the real roster once already,
+          // so it does not need picking again.
+          chosenPlayers.push({name: nm, forWriter: nm});
           if (wrap) wrap.style.display = '';
-          if (input) input.style.display = 'none';
           var tag = document.createElement('div');
           tag.className = 'picked';
-          tag.innerHTML = st.player
+          tag.innerHTML = esc(nm)
             + ' <button type="button" aria-label="Remove">&times;</button>';
           tag.querySelector('button').addEventListener('click', function () {
-            chosenPlayer = null; tag.remove();
+            chosenPlayers = chosenPlayers.filter(function (p) {
+              return p.name !== nm;
+            });
+            tag.remove();
             if (input) { input.value = ''; input.style.display = ''; }
           });
           if (input && input.parentNode) {
             input.parentNode.insertBefore(tag, hint);
           }
-          if (hint) hint.textContent = 'Locked in.';
+        });
+        if (input && chosenPlayers.length >= 2) input.style.display = 'none';
+        if (hint && chosenPlayers.length) {
+          hint.textContent = chosenPlayers.length >= 2
+            ? 'Two picked.' : 'One more if you want.';
         }
       },
       // TYPED BUT NOT CLICKED IS AN ERROR, not something to quietly drop.
@@ -2364,7 +2446,7 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       // call is about a player it never mentions. Better to stop them and
       // say so while it is still one tap away from being fixed.
       problem: function () {
-        if (aims.indexOf('player') > -1 && !chosenPlayer
+        if (aims.indexOf('player') > -1 && !chosenPlayers.length
             && input && input.value.trim()) {
           if (window.smkInvalid) window.smkInvalid(input);
           hint.textContent = 'Tap the name in the list so Smacky gets the '
@@ -2378,8 +2460,24 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       topics: function () {
         var out = [];
         if (aims.indexOf('form') > -1) out.push('how they are playing right now');
-        if (aims.indexOf('brutal') > -1) out.push('no mercy, go as hard as the level allows');
-        if (chosenPlayer) out.push(chosenPlayer);
+        // "Just be brutal" used to live here. It picked an INTENSITY in a
+        // step that chooses a SUBJECT - and it contradicted the sensitivity
+        // fader on the next page, where somebody could set Friendly and
+        // still have told Smacky to show no mercy. Two controls arguing
+        // about the same thing, and the writer had to pick a winner.
+        //
+        // "Something in the news" is a subject, which is what the other two
+        // are. Intensity belongs to the fader alone.
+        // "Their history" rather than news, because news can come back
+        // EMPTY - a quiet week gives the button nothing to do, and a
+        // control that sometimes does less than the others is worse than
+        // one that always works.
+        //
+        // Every fanbase has a defining wound. It needs no API, it is
+        // always available, and it cuts deeper than current form because
+        // it is the thing they have spent their life defending.
+        if (aims.indexOf('history') > -1) out.push('their history of failure - droughts, collapses, the one game everybody still brings up')
+        chosenPlayers.forEach(function (p) { out.push(p.forWriter); });
         return out;
       }
     };
