@@ -80,3 +80,46 @@ def record_hit(identifier: str):
 
 def previews_remaining(identifier: str) -> int:
     return remaining("preview", identifier, MAX_PREVIEWS_PER_HOUR)
+
+
+# A CEILING FOR LOGGED-IN PEOPLE TOO.
+#
+# Anonymous callers were limited by address; anybody with an account had
+# NO LIMIT AT ALL on the endpoints that cost money to serve.
+#
+# Registration is free. So the path to unlimited Anthropic and ElevenLabs
+# spend was: make an account, then call the generator in a loop. Nothing
+# would have stopped it and the first sign would have been the invoice.
+#
+# These are deliberately GENEROUS - high enough that no real person doing
+# real things will meet them, low enough that a script cannot run up a
+# bill worth having. A customer who hits one of these is either testing
+# something or is not a customer.
+MAX_USER_PER_HOUR = {
+    "anon_generate": 60,     # writing a smack
+    "anon_preview": 40,      # hearing a voice
+    "anon_lab": 60,          # Smack Lab
+    "anon_battle": 80,       # a battle is several turns
+}
+
+
+def user_limited(bucket, user_id):
+    """
+    Has this account had too many goes this hour?
+
+    Separate buckets per generator, so hammering one does not lock the
+    others - the same reasoning as the anonymous buckets.
+    """
+    cap = MAX_USER_PER_HOUR.get(bucket)
+    if not cap:
+        return False
+    ns, ident = f"user:{bucket}", str(user_id)
+    if is_limited(ns, ident, cap):
+        return True
+    # COUNT IT HERE, not in a separate call.
+    #
+    # is_limited only reads. The anonymous path records separately, and
+    # writing this the same way meant the counter never moved and the
+    # ceiling never arrived - it looked like it worked and did nothing.
+    record(ns, ident)
+    return False

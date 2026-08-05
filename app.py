@@ -1433,7 +1433,30 @@ def _anon_allowance(bucket, what="that"):
     # This app does NOT use Flask-Login. It has its own get_current_user()
     # reading the session, and I wrote current_user out of habit - which
     # crashed every generate request with a NameError.
-    if get_current_user() is not None:
+    _user = get_current_user()
+    if _user is not None:
+        # A CEILING FOR ACCOUNTS TOO.
+        #
+        # This returned None here - no limit whatsoever for anybody logged
+        # in. Registration is free, so the route to unlimited Anthropic
+        # and ElevenLabs spend was: make an account, call this in a loop.
+        # The first sign would have been the invoice.
+        #
+        # The cap is generous enough that no real person meets it.
+        if rate_limiter.user_limited(bucket, _user.id):
+            print(f"[limit] user {_user.id} hit the {bucket} ceiling",
+                  flush=True)
+            try:
+                from services import alerts
+                alerts.record("abuse", "generator_ceiling",
+                              f"user {_user.id} hit the {bucket} hourly cap",
+                              severity="warning")
+            except Exception:
+                pass
+            return jsonify({
+                "error": ("You have made a lot of these in the last hour. "
+                          "Give it a few minutes."),
+            }), 429
         return None
     ident = request.headers.get("X-Forwarded-For", request.remote_addr)
     cap = rate_limiter.MAX_ANON_PER_HOUR.get(bucket, 1)
