@@ -5319,7 +5319,25 @@ def cron_check_smackagrams():
     if not expected_key or provided_key != expected_key:
         return jsonify({"error": "unauthorized"}), 401
 
-    check_armed_smackagrams()
+    # GUARDED, SO A CRASH DOES NOT STOP THE CRON.
+    #
+    # This ran bare. An exception became a 500, cron-job.org logged a
+    # failure nobody reads, and the next run two minutes later hit the
+    # same thing. Delivery would stop and the only sign would be smacks
+    # not arriving.
+    try:
+        check_armed_smackagrams()
+    except Exception as e:
+        import traceback
+        print(f"[cron] check_armed_smackagrams FAILED\n{traceback.format_exc()}",
+              flush=True)
+        try:
+            from services import alerts
+            # Critical: nothing is being delivered while this is broken.
+            alerts.record("delivery", "cron_failed", str(e)[:200],
+                          severity="critical")
+        except Exception:
+            pass
 
     # Scheduled sends ride the SAME three-minute cron rather than needing a
     # second job to set up and forget about. Three minutes is close enough

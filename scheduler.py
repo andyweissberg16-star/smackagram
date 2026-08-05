@@ -293,18 +293,50 @@ def check_armed_smackagrams():
         matching = [s for s in armed if s.game_id == game_id and s.sport == sport]
 
         if result["status"] == "postponed":
+            # ONE BAD RECORD MUST NOT BLOCK THE BATCH.
+            #
+            # This ran unguarded: if a refund raised for one smack, the
+            # commit below never happened and NONE were released - then
+            # the same batch retried two minutes later, hit the same
+            # record, and failed again. A single corrupt row could hold
+            # every refund on the site indefinitely, and nothing would
+            # say so.
             for s in matching:
-                _refund_released_smackagram(s)
-                s.status = "canceled"
-                s.resolved_at = datetime.utcnow()
+                try:
+                    _refund_released_smackagram(s)
+                    s.status = "canceled"
+                    s.resolved_at = datetime.utcnow()
+                except Exception as _e:
+                    db.session.rollback()
+                    print(f"[locked] could not cancel {s.id}: {_e}",
+                          flush=True)
+                    try:
+                        from services import alerts
+                        alerts.record("delivery", "cancel_failed",
+                                      f"smackagram {s.id}: {_e}",
+                                      severity="critical")
+                    except Exception:
+                        pass
             db.session.commit()
             continue
 
         if result["status"] == "tie":
             for s in matching:
-                _refund_released_smackagram(s)
-                s.status = "released"
-                s.resolved_at = datetime.utcnow()
+                try:
+                    _refund_released_smackagram(s)
+                    s.status = "released"
+                    s.resolved_at = datetime.utcnow()
+                except Exception as _e:
+                    db.session.rollback()
+                    print(f"[locked] could not releas {s.id}: {_e}",
+                          flush=True)
+                    try:
+                        from services import alerts
+                        alerts.record("delivery", "release_failed",
+                                      f"smackagram {s.id}: {_e}",
+                                      severity="critical")
+                    except Exception:
+                        pass
             db.session.commit()
             continue
 
