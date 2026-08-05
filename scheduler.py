@@ -463,6 +463,32 @@ def check_armed_smackagrams():
                     # hears live. The script is already generated and stored;
                     # this run just leaves it armed and the next sweep picks
                     # it up once its slot arrives.
+                    # OPT-OUT, CHECKED AGAIN AT THE MOMENT OF SENDING.
+                    #
+                    # This is the case the front-end check cannot cover.
+                    # An Auto-Smack is armed days before it fires. The
+                    # recipient can opt out in between - and at arm time
+                    # they had not, so nothing earlier would catch it.
+                    #
+                    # Checking once, at purchase, is checking at the only
+                    # moment the answer is guaranteed to be stale.
+                    try:
+                        from app import has_opted_out
+                        if has_opted_out(s.recipient_phone):
+                            s.status = "cancelled_optout"
+                            _refund_released_smackagram(s)
+                            db.session.commit()
+                            print(f"[optout] Auto-Smack {s.id} cancelled - "
+                                  f"recipient opted out after it was set up. "
+                                  f"Refunded.", flush=True)
+                            continue
+                    except Exception as _e:
+                        # Never let this check stop a send by failing. A
+                        # refusal on a database hiccup would silently kill
+                        # paid smacks.
+                        print(f"[optout] check failed for {s.id}: {_e}",
+                              flush=True)
+
                     if s.send_after and datetime.utcnow() < s.send_after:
                         db.session.commit()
                         print(f"[locked] {s.id} queued - call {s.pile_position} "

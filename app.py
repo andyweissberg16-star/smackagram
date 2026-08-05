@@ -942,6 +942,33 @@ def _execute_send_smack(user, data: dict) -> dict:
     return {"order_id": order.id, "redirect": "/order-success"}
 
 
+def has_opted_out(phone):
+    """
+    Has this number asked not to be called?
+
+    THE ONE PLACE THIS QUESTION GETS ANSWERED.
+
+    Until now the opt-out list was checked by the BROWSER and nowhere
+    else. /api/check-optout exists and the send pages call it - but a
+    direct POST, a path that forgets, or an Auto-Smack firing from cron
+    hours later all skipped it entirely.
+
+    An opt-out that only the front end honours is not an opt-out. It is a
+    courtesy, and the law does not accept courtesies.
+
+    Compares the last ten digits, so +1, dashes, spaces and brackets do
+    not cause a miss - a formatting difference must never be the reason
+    somebody gets called after asking not to be.
+    """
+    from models import OptOut
+    d = "".join(c for c in (phone or "") if c.isdigit())
+    if len(d) < 10:
+        return False
+    tail = d[-10:]
+    return db.session.query(
+        OptOut.query.filter(OptOut.phone.endswith(tail)).exists()).scalar()
+
+
 @app.route("/api/orders", methods=["POST"])
 @login_required
 def create_order():
@@ -950,6 +977,20 @@ def create_order():
 
     if not data.get("consent_confirmed"):
         return jsonify({"error": "Consent confirmation required"}), 400
+
+    # OPT-OUT, CHECKED ON THE SERVER.
+    #
+    # The page asks /api/check-optout before letting somebody send. That
+    # is a courtesy to the sender, not a control - a direct POST skips it
+    # entirely, and so does any future path that forgets to call it.
+    #
+    # An opt-out that only the front end honours is not an opt-out.
+    if has_opted_out(data.get("recipient_phone")):
+        print("[optout] refused - recipient has opted out", flush=True)
+        return jsonify({
+            "error": ("This number has asked not to receive Smackagrams. "
+                      "We cannot send to it."),
+        }), 403
 
     custom_message = data.get("custom_message", "")
     safety = content_moderation.check_message_safety(custom_message)
@@ -4924,6 +4965,20 @@ def create_reply_order():
     if not data.get("consent_confirmed"):
         return jsonify({"error": "Consent confirmation required"}), 400
 
+    # OPT-OUT, CHECKED ON THE SERVER.
+    #
+    # The page asks /api/check-optout before letting somebody send. That
+    # is a courtesy to the sender, not a control - a direct POST skips it
+    # entirely, and so does any future path that forgets to call it.
+    #
+    # An opt-out that only the front end honours is not an opt-out.
+    if has_opted_out(data.get("recipient_phone")):
+        print("[optout] refused - recipient has opted out", flush=True)
+        return jsonify({
+            "error": ("This number has asked not to receive Smackagrams. "
+                      "We cannot send to it."),
+        }), 403
+
     custom_message = data.get("custom_message", "")
     safety = content_moderation.check_message_safety(custom_message)
     if not safety["safe"]:
@@ -5073,6 +5128,20 @@ def arm_smackagram():
 
     if not data.get("consent_confirmed"):
         return jsonify({"error": "Consent confirmation required"}), 400
+
+    # OPT-OUT, CHECKED ON THE SERVER.
+    #
+    # The page asks /api/check-optout before letting somebody send. That
+    # is a courtesy to the sender, not a control - a direct POST skips it
+    # entirely, and so does any future path that forgets to call it.
+    #
+    # An opt-out that only the front end honours is not an opt-out.
+    if has_opted_out(data.get("recipient_phone")):
+        print("[optout] refused - recipient has opted out", flush=True)
+        return jsonify({
+            "error": ("This number has asked not to receive Smackagrams. "
+                      "We cannot send to it."),
+        }), 403
 
     # auto_summary is the only supported mode. A pre-written line can't
     # reference a result that hasn't happened yet, which is the entire point
