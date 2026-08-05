@@ -120,6 +120,24 @@ def send(to, subject, body, reply_to=None, from_name="Smackagram Support"):
     msg["Message-ID"] = mid
     msg.set_content(body)
 
+    # FORCE IPv4.
+    #
+    # smtp.office365.com resolves to BOTH IPv6 and IPv4. Python tries IPv6
+    # first, and a host with no IPv6 route gets "Network is unreachable"
+    # immediately - which looks like the mail server is down when it is
+    # simply on a road this machine cannot drive.
+    #
+    # Resolving to an IPv4 address ourselves and connecting to that avoids
+    # it. The hostname is still used for TLS, so certificate validation is
+    # unaffected.
+    try:
+        import socket
+        info = socket.getaddrinfo(host, port, socket.AF_INET,
+                                  socket.SOCK_STREAM)
+        ipv4 = info[0][4][0] if info else None
+    except Exception as e:
+        return False, f"could not resolve {host}: {e}"
+
     try:
         # EIGHT SECONDS, NOT TWENTY.
         #
@@ -133,12 +151,22 @@ def send(to, subject, body, reply_to=None, from_name="Smackagram Support"):
         # outage.
         ctx = ssl.create_default_context()
         if port == 465:
+            # SMTP_SSL wraps the socket immediately and gives no way to
+            # connect by IP while validating the certificate against the
+            # name. So 465 uses the hostname - if IPv6 is the problem,
+            # 587 is the port to use anyway.
             with smtplib.SMTP_SSL(host, port, context=ctx, timeout=8) as s:
                 s.login(user, password)
                 s.send_message(msg)
         else:
-            with smtplib.SMTP(host, port, timeout=8) as s:
+            # Connect to the IPv4 address, then tell the TLS handshake the
+            # real hostname - otherwise the certificate is checked against
+            # a bare IP and fails.
+            with smtplib.SMTP(ipv4 or host, port, timeout=8) as s:
+                s._host = host
+                s.ehlo(host)
                 s.starttls(context=ctx)
+                s.ehlo(host)
                 s.login(user, password)
                 s.send_message(msg)
     except smtplib.SMTPAuthenticationError:

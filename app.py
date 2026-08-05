@@ -6414,6 +6414,20 @@ def api_admin_email_test():
             "Sent from the admin panel.")
         out["sent"] = bool(ok)
         out["detail"] = str(detail)
+        # Translate the errors that mean something specific, because
+        # "Network is unreachable" tells you nothing about what to change.
+        d = str(detail)
+        if "unreachable" in d:
+            out["likely_cause"] = ("the host has no route to that server - "
+                                   "usually IPv6, now handled, or the "
+                                   "provider blocks outbound SMTP")
+        elif "timed out" in d:
+            out["likely_cause"] = ("nothing is listening on that host and "
+                                   "port - the SMTP_HOST is probably wrong")
+        elif "Authentication" in d or "authentication" in d:
+            out["likely_cause"] = ("the connection works. Only the username "
+                                   "or password is wrong - which is real "
+                                   "progress")
     else:
         out["note"] = ("Add ?to=your@email.com to actually send one. This "
                        "only checks the settings exist.")
