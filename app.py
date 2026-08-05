@@ -2706,6 +2706,31 @@ def conversation_data(reply_id):
     if not original:
         return jsonify({"error": "Conversation not found"}), 404
 
+    # WHOSE CONVERSATION IS THIS?
+    #
+    # There was no check at all. Any logged-in account could walk
+    # reply_id 1, 2, 3 and read other people's smacks and replies, with
+    # the audio URLs - and the ids are sequential, so it was a for-loop
+    # away from every private message on the site.
+    #
+    # Two people are entitled to see this: whoever sent the original, and
+    # whoever sent the reply. Nobody else, admins aside.
+    _viewer = get_current_user()
+    _mine = (
+        (getattr(original, "user_id", None) is not None
+         and original.user_id == _viewer.id)
+        or (getattr(reply, "user_id", None) is not None
+            and reply.user_id == _viewer.id)
+        or getattr(_viewer, "is_admin", False)
+    )
+    if not _mine:
+        # 404, not 403. There is no reason to confirm a conversation
+        # exists to somebody with no business seeing it - a 403 tells a
+        # script which ids are real.
+        print(f"[idor] user {_viewer.id} tried conversation {reply_id}",
+              flush=True)
+        return jsonify({"error": "Conversation not found"}), 404
+
     return jsonify({
         "original": {
             "message": original.custom_message,
