@@ -56,7 +56,16 @@ BASES = {
     "wnba":  "https://api.balldontlie.io/wnba/v1",
     "mlb":   "https://api.balldontlie.io/mlb/v1",
     "nfl":   "https://api.balldontlie.io/nfl/v1",
-    "nhl":   "https://api.balldontlie.io/nhl/v1",
+    # NHL GAMES ARE NOT ON THE FREE TIER EITHER. Confirmed live:
+    #
+    #   401 Unauthorized for /nhl/v1/games
+    #
+    # Same shape as NCAAF: /teams answers and /games does not, which is
+    # why the probe passed both. TEAMS ARE FREE AND GAMES ARE NOT.
+    #
+    # Left out rather than left to 401 every night - it costs a request,
+    # fills the log with errors that look like faults, and returns
+    # nothing anyway. Highlightly covers NHL properly.
     "ncaab": "https://api.balldontlie.io/ncaab/v1",
     # NCAAF IS NOT ON THE FREE TIER. Confirmed live: their /ncaaf/v1
     # endpoint returns 401 Unauthorized with this key, even though the

@@ -340,9 +340,18 @@ def finals(sport, date_str):
     That is why a show asking for yesterday found ZERO finished games on
     a night that had fourteen.
     """
-    from datetime import timedelta as _td4
+    # IMPORT BOTH, LOCALLY.
+    #
+    # _dt is imported inside OTHER functions in this file, not at module
+    # level - so referring to it here raised NameError, the except
+    # swallowed it, and only one day was ever tried. Which is the entire
+    # bug this code exists to fix.
+    #
+    # The log said "(tried 2026-08-04)" with one date, which is what gave
+    # it away.
+    from datetime import datetime as _dtl, timedelta as _td4
     try:
-        _want = _dt.strptime(date_str, "%Y-%m-%d").date()
+        _want = _dtl.strptime(date_str, "%Y-%m-%d").date()
     except Exception:
         _want = None
     days = [date_str]
@@ -661,11 +670,43 @@ def board(sport, date_str=None):
         _now = _dt.utcnow() - _td(hours=5)
     date_str = date_str or _now.strftime("%Y-%m-%d")
 
-    d = _matches_for(sport, {"date": date_str, "limit": 100}, ttl=30)
-    if not d:
-        return []
+    # BOTH UTC DAYS, same as finals().
+    #
+    # Their filter is UTC and an Eastern day spans two of them. A Tuesday
+    # 8:40pm first pitch carries a UTC timestamp of WEDNESDAY 00:40 - so
+    # asking for one date returns the PREVIOUS evening's games and misses
+    # tonight's entirely.
+    #
+    # That is why the board showed fixtures labelled TUE on a Wednesday.
+    #
+    # Note the local import: _dt is imported inside other functions in
+    # this file rather than at module level, and referring to it without
+    # one raises NameError. That exact mistake made the first version of
+    # this fix silently try a single day.
+    from datetime import datetime as _dtb, timedelta as _tdb
 
-    rows = d.get("data") if isinstance(d, dict) else d
+    days = [date_str]
+    try:
+        _w = _dtb.strptime(date_str, "%Y-%m-%d").date()
+        days.append((_w + _tdb(days=1)).strftime("%Y-%m-%d"))
+    except Exception:
+        pass
+
+    rows = []
+    seen_ids = set()
+    for _q in days:
+        _d = _matches_for(sport, {"date": _q, "limit": 100}, ttl=30)
+        for _r in ((_d.get("data") if isinstance(_d, dict) else _d) or []):
+            _i = str(_r.get("id"))
+            if _i in seen_ids:
+                continue
+            seen_ids.add(_i)
+            rows.append(_r)
+
+    if not rows:
+        print(f"[highlightly] {sport} board {date_str}: nothing "
+              f"(tried {', '.join(days)})", flush=True)
+        return []
     out = []
     for m in (rows or []):
         state = m.get("state") or {}

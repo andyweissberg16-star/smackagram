@@ -6162,6 +6162,17 @@ def _generate_smackcasts_async():
 # A plain flag rather than a lock: a second caller should be TOLD NO and
 # go away, not queue up and run the whole thing again a minute later.
 _show_running = {"since": None}
+
+# THE LAST DRY RUN, KEPT SO SOMEBODY CAN READ IT.
+#
+# A dry run writes the WHOLE SCRIPT - every segment, every league, the
+# planned running order - and then printed one summary line and threw
+# the rest away. The one thing worth looking at ended up buried in a log
+# stream.
+#
+# In memory rather than the database: it is a scratch result, and a
+# restart losing it costs nothing but another free run.
+_last_dry_run = {"at": None, "result": None}
 _show_lock = threading.Lock()
 
 
@@ -6209,6 +6220,10 @@ def _produce_daily_show_async(app_obj, dry_run: bool = False, days_back: int = 1
                 return
 
             if result.get("dry_run"):
+                # Kept so /api/admin/dry-run can show it. Printing alone
+                # meant the script was only readable in the Render log.
+                _last_dry_run["at"] = utc_iso(datetime.utcnow())
+                _last_dry_run["result"] = result
                 print(f"[show] dry run complete - {result.get('segment_count')} segments, "
                       f"no audio generated, nothing published", flush=True)
                 return
@@ -6295,6 +6310,32 @@ def cron_daily_show():
                 ("Producing in the background. Check /api/show/current in a few minutes, "
                  "or the logs for [show] lines.")
     }), 202
+
+
+@app.route("/api/admin/dry-run")
+@login_required
+def api_admin_dry_run():
+    """
+    The last dry run, in full.
+
+    ?dry=1 writes the entire script and generates no audio - which makes
+    it the right way to test a change to the writing or to the data
+    behind it, because it costs tokens rather than ElevenLabs credits.
+
+    It used to print one line and discard the script. This shows what was
+    actually written.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    if not _last_dry_run["result"]:
+        return jsonify({
+            "note": ("No dry run since the last restart. Start one at "
+                     "/api/cron/daily-show?dry=1 - it writes the whole "
+                     "script and makes no audio."),
+        })
+    return jsonify({"at": _last_dry_run["at"],
+                    **(_last_dry_run["result"] or {})})
 
 
 @app.route("/api/admin/show-status")
