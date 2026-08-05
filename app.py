@@ -1608,6 +1608,14 @@ def _resolve_record(record_type, record_id):
 
 
 def _call_instructions_handler(record_type, record_id):
+    # Verified for the same reason as call-status: these are Twilio's
+    # endpoints and nobody else's. An unsigned request here could replay
+    # a recording URL or make a call read back somebody else's audio.
+    from services import twilio_auth
+    if not twilio_auth.is_from_twilio(request):
+        print(f"[twilio] REJECTED an unsigned call-instructions", flush=True)
+        return "", 403
+
     order = _resolve_record(record_type, record_id)
 
     # With machine_detection='DetectMessageEnd' set at call-creation time,
@@ -5240,6 +5248,28 @@ def _refund_undeliverable(record, record_type, status):
 
 @app.route("/call-status/<record_type>/<int:record_id>", methods=["POST"])
 def call_status(record_type, record_id):
+    # PROVE IT CAME FROM TWILIO.
+    #
+    # This endpoint now triggers a REFUND on a failed call. Without
+    # verification, anybody could send a smack, receive it, then post
+    # "failed" here and get their dollar back - free smacks for the cost
+    # of an email address.
+    #
+    # Twilio signs the full URL and every parameter, so a signature
+    # cannot be replayed against a different order id.
+    from services import twilio_auth
+    if not twilio_auth.is_from_twilio(request):
+        print(f"[twilio] REJECTED an unsigned call-status for "
+              f"{record_type}:{record_id}", flush=True)
+        try:
+            from services import alerts
+            alerts.record("twilio", "forged_webhook",
+                          f"unsigned call-status for {record_type} "
+                          f"{record_id}", severity="critical")
+        except Exception:
+            pass
+        return "", 403
+
     """
     Twilio's real call-completion webhook — registered at call-creation
     time in place_prank_call(). Namespaced by record_type so this never
@@ -5290,6 +5320,14 @@ def call_status(record_type, record_id):
 
 @app.route("/recording-ready/<record_type>/<int:record_id>", methods=["POST"])
 def recording_ready(record_type, record_id):
+    # Verified for the same reason as call-status: these are Twilio's
+    # endpoints and nobody else's. An unsigned request here could replay
+    # a recording URL or make a call read back somebody else's audio.
+    from services import twilio_auth
+    if not twilio_auth.is_from_twilio(request):
+        print(f"[twilio] REJECTED an unsigned recording-ready", flush=True)
+        return "", 403
+
     """Namespaced by record_type so this never has to guess which table an id belongs to."""
     recording_url = request.form.get("RecordingUrl")
     target = _resolve_record(record_type, record_id)
