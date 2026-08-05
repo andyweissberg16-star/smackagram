@@ -106,13 +106,17 @@ LEAGUES = {
 # host, which genuinely has no box scores - so we concluded basketball
 # had none. The NBA segment DOES, and the documentation lists it plainly.
 # WNBA stays on the general basketball segment and still has none.
+# CONFIRMED LIVE on 5 August, not inferred: baseball answers on
+# "box-scores" PLURAL. Their documentation says singular; the API
+# disagrees, and the API wins. Plural is tried first everywhere now
+# because it is the only spelling we have actually seen work.
 BOX_PATH_CANDIDATES = {
-    "mlb":   ["box-score", "box-scores"],
-    "nfl":   ["box-score", "box-scores"],
-    "ncaaf": ["box-score", "box-scores"],
-    "nba":   ["box-score", "box-scores"],
-    "ncaab": ["box-score", "box-scores"],
-    "nhl":   ["box-score", "box-scores"],
+    "mlb":   ["box-scores", "box-score"],
+    "nfl":   ["box-scores", "box-score"],
+    "ncaaf": ["box-scores", "box-score"],
+    "nba":   ["box-scores", "box-score"],
+    "ncaab": ["box-scores", "box-score"],
+    "nhl":   ["box-scores", "box-score"],
 }
 _box_path_found = {}
 

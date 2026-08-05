@@ -7129,7 +7129,39 @@ def api_admin_highlightly_check():
         except Exception as e:
             return None, f"{type(e).__name__}: {e}"[:150], {}
 
-    out = {"date_tested": day, "segments": {}}
+    # WHAT DOES A 400 ACTUALLY SAY?
+    #
+    # The first run of this returned 400 for the nba, nhl and
+    # american-football segments on both parameter names. A 400 means the
+    # request SHAPE is wrong, not that there is no data - wnba returned
+    # 200 with nothing, which is what an empty day looks like.
+    #
+    # So rather than guess again at what they want, this asks with no
+    # league parameter at all, and reports the error body verbatim. Their
+    # message usually names the offending field.
+    probe = []
+    for seg in ("nba", "nhl", "american-football", "basketball", "baseball"):
+        for label, params in (
+            ("no league param", {"date": day, "limit": 3}),
+            ("league", {"league": seg.upper(), "date": day, "limit": 3}),
+            ("leagueName", {"leagueName": seg.upper(), "date": day,
+                            "limit": 3}),
+            ("no date at all", {"limit": 3}),
+        ):
+            st, body, _ = ask(f"{seg}/matches", params)
+            n = None
+            if isinstance(body, dict):
+                rows = body.get("data")
+                n = len(rows) if isinstance(rows, list) else None
+            elif isinstance(body, list):
+                n = len(body)
+            probe.append({
+                "segment": seg, "tried": label, "status": st,
+                "rows": n,
+                "said": (body if isinstance(body, str)
+                         else str(body)[:180]) if st != 200 or not n else "",
+            })
+    out = {"date_tested": day, "probe": probe, "segments": {}}
 
     # Does the key work at all, and what does the plan say?
     st, body, hdrs = ask("baseball/matches",
