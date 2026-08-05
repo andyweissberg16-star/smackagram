@@ -256,42 +256,54 @@ def enrich_with_detail(games, log=print, workers=6):
     from services import espn_scores
 
     def _one(g):
-        eid = g.get("espn_id")
-        if not eid:
-            return g
-        try:
-            detail = espn_scores.fetch_game_detail(g.get("league", ""), eid)
-            facts = espn_scores.roast_facts(detail) if detail else []
+        """
+        Attach whatever detail we can get, from whichever source has it.
 
-            # HIGHLIGHTLY FIRST, where it has the game.
-            #
-            # Their box scores carry SEASON AVERAGES alongside the game
-            # line, which ESPN's do not - so "he went 0 for 3 and he is
-            # hitting .269 on the season" comes from one call rather than
-            # two, and the contrast is the joke.
-            #
-            # Only used when it actually returns something. ESPN's facts
-            # stay as the fallback, so a Highlightly outage costs detail
-            # rather than the whole show.
-            try:
-                from services import highlightly
-                if highlightly.enabled() and g.get("_hl_id"):
-                    hl = highlightly.roast_facts(
-                        (g.get("league") or "").lower(), g["_hl_id"],
-                        g.get("loser") or "")
-                    if hl:
-                        facts = hl + [f for f in facts if f not in hl]
-            except Exception as e:
-                print(f"[show] highlightly facts unavailable: {e}", flush=True)
-            if facts:
-                g["deep_facts"] = facts
-            # The structured detail is kept too. Picking a player of the
-            # NIGHT means comparing performances across every game, and that
-            # cannot be done against prose - it needs the numbers.
-            if detail:
-                g["_detail"] = detail
+        THIS USED TO BAIL OUT IF THERE WAS NO ESPN ID:
+
+            eid = g.get("espn_id")
+            if not eid:
+                return g
+
+        And no game has an ESPN id any more. The Highlightly box-score
+        path sat INSIDE this function, after that early return, so it was
+        never reached - not once, all day.
+
+        That is why every episode has been thin: "deep detail on 0/6
+        games", and the Smack Ball skipped for want of hitter data on
+        every single run.
+
+        Highlightly first now, because it is the source that answers.
+        """
+        facts, detail = [], None
+
+        try:
+            from services import highlightly
+            if highlightly.enabled() and g.get("_hl_id"):
+                hl = highlightly.roast_facts(
+                    (g.get("league") or "").lower(), g["_hl_id"],
+                    g.get("loser") or "")
+                if hl:
+                    facts = list(hl)
         except Exception as e:
-            print(f"[show] no detail for {g.get('espn_id')}: {e}", flush=True)
+            print(f"[show] highlightly facts unavailable: {e}", flush=True)
+
+        # ESPN after, for as long as it is there at all. Costs nothing
+        # when there is no id, and fails fast while the gate is cooling.
+        eid = g.get("espn_id")
+        if eid:
+            try:
+                detail = espn_scores.fetch_game_detail(
+                    g.get("league", ""), eid)
+                espn_facts = espn_scores.roast_facts(detail) if detail else []
+                facts = facts + [f for f in espn_facts if f not in facts]
+            except Exception as e:
+                print(f"[show] no ESPN detail for {eid}: {e}", flush=True)
+
+        if facts:
+            g["deep_facts"] = facts
+        if detail:
+            g["_detail"] = detail
         return g
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -1998,6 +2010,12 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
     # Rotated on the DATE rather than at random, so a re-render of the same
     # episode does not move it - and consecutive days always differ.
     try:
+        # IMPORTED LOCALLY, like the other two call sites in this file.
+        #
+        # This one was missed, so the whole around-the-grounds segment
+        # died with "name 'espn_scores' is not defined" - caught by the
+        # try, logged, and silently dropped from every episode.
+        from services import espn_scores
         _else = espn_scores.fetch_elsewhere()
         if _else:
             _rows = []
