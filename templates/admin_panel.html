@@ -1236,18 +1236,47 @@
       b.addEventListener('click', function () {
         var t = TOOL_ACTIONS[+b.dataset.act];
         if (!confirm(t[3])) return;
-        // NO KEY PROMPT ANY MORE.
+
+        // FETCH, NOT window.open.
         //
-        // These used to ask for CRON_SECRET on every press. That meant
-        // typing a production credential into a browser prompt, where it
-        // ends up in autofill, in screenshots, and in muscle memory - and
-        // it protected nothing, because anybody who can reach this panel
-        // can already spend money in ten other ways.
+        // Opening a tab looked fine and silently did nothing: Safari
+        // blocks popups that are not a direct result of a click it
+        // recognises, and a click handler that first shows a confirm()
+        // no longer counts. The request never left the browser - no
+        // error, no tab, nothing in the server log.
         //
-        // The endpoints now accept an admin session as well as the
-        // scheduler's key. The confirm above is the real safeguard, since
-        // the risk here is a mis-click, not an intruder.
-        window.open(t[0], '_blank');
+        // Fetching also means the answer appears HERE rather than in a
+        // tab of raw JSON somebody has to close.
+        //
+        // No key: the endpoints accept an admin session now. Typing a
+        // production credential into a browser prompt protected nothing
+        // and put it in autofill and screenshots.
+        var was = b.textContent;
+        b.textContent = 'Starting...';
+        b.disabled = true;
+        fetch(t[0], {credentials: 'same-origin'})
+          .then(function (r) { return r.text().then(function (txt) {
+            return {ok: r.ok, status: r.status, txt: txt};
+          }); })
+          .then(function (res) {
+            b.disabled = false;
+            b.textContent = was;
+            if (!res.ok) {
+              alert('Did not start (HTTP ' + res.status + '):\n\n'
+                    + res.txt.slice(0, 300));
+              return;
+            }
+            // Most of these return immediately and work in the
+            // background, so "started" is the honest word - not "done".
+            alert('Started.\n\n' + res.txt.slice(0, 300)
+                  + '\n\nThis runs in the background. Watch the Render '
+                  + 'logs, or /admin/show for the Daily Smack.');
+          })
+          .catch(function (e) {
+            b.disabled = false;
+            b.textContent = was;
+            alert('Could not reach the server: ' + e);
+          });
       });
     });
   }

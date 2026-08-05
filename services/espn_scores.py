@@ -62,6 +62,61 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
 
     day = datetime.now(EASTERN) - timedelta(days=days_back)
     date_str = day.strftime("%Y%m%d")
+    iso_day = day.strftime("%Y-%m-%d")
+
+    # HIGHLIGHTLY FIRST. THIS IS WHY THE DAILY SHOW HAD NO GAMES.
+    #
+    # The board was moved onto Highlightly weeks ago. This function - the
+    # one THE SHOW depends on - never moved with it, so it stayed
+    # ESPN-only.
+    #
+    # That did not matter while ESPN answered. It matters completely now
+    # that ESPN returns 403 to this server on every request: the show had
+    # NO WORKING SOURCE AT ALL. It reported "0 finished games" on a night
+    # with fourteen MLB finals, held the previous episode, and looked like
+    # it was behaving correctly.
+    def _shape(r, source):
+        win_is_home = r.get("winner") == r.get("home")
+        hs, aws = r.get("home_score"), r.get("away_score")
+        return {
+            "league": league, "label": label, "unit": unit,
+            "winner": r.get("winner"), "loser": r.get("loser"),
+            "winner_score": hs if win_is_home else aws,
+            "loser_score": aws if win_is_home else hs,
+            "home": r.get("home"), "away": r.get("away"),
+            "id": r.get("id"), "highlightly_id": r.get("id"),
+            "venue": r.get("venue"),
+            # Plain-language scoring lines where a source gives them -
+            # better raw material for a joke than a box score.
+            "plays": r.get("plays") or [],
+            "source": source,
+        }
+
+    try:
+        from services import highlightly
+        hl = highlightly.finals(league, iso_day)
+        if hl:
+            out = [_shape(r, "highlightly") for r in hl.values()]
+            print(f"[finals] {league} {iso_day}: {len(out)} via highlightly",
+                  flush=True)
+            return out
+    except Exception as e:
+        print(f"[finals] highlightly failed for {league}: {e}", flush=True)
+
+    # Then balldontlie - the ONLY source for WNBA, and a real fallback
+    # everywhere else now that ESPN cannot answer.
+    try:
+        from services import balldontlie
+        if balldontlie.covers(league):
+            bd = balldontlie.finals(league, iso_day)
+            if bd:
+                out = [_shape(r, "balldontlie") for r in bd.values()]
+                print(f"[finals] {league} {iso_day}: {len(out)} via "
+                      f"balldontlie", flush=True)
+                return out
+    except Exception as e:
+        print(f"[finals] balldontlie failed for {league}: {e}", flush=True)
+
     url = f"{BASE}/{sport_path}/{league_path}/scoreboard"
 
     # Through the gate. This is the show's main scoreboard call - one per
@@ -2349,6 +2404,17 @@ def fetch_board(league: str, force: bool = False) -> list:
     except Exception as e:
         print(f"[board] highlightly unavailable for {lg}: {e}", flush=True)
 
+    # BALLDONTLIE IS THE WNBA SOURCE, NOT A GENERAL BOARD FALLBACK.
+    #
+    # It allows FIVE REQUESTS A MINUTE. The homepage asks for seven
+    # leagues at once, and on a cold cache every one of them falls
+    # through to here - so three get refused and the log fills with
+    # ceiling warnings that look like faults.
+    #
+    # For WNBA it is the only source there is, so it must be tried. For
+    # everything else Highlightly already covers it, and an empty board
+    # in August means the season has not started rather than that
+    # something is broken.
     # BALLDONTLIE BEFORE ESPN, because ESPN cannot answer at all.
     #
     # ESPN now returns 403 to this server on the FIRST request - an IP
@@ -2360,12 +2426,26 @@ def fetch_board(league: str, force: bool = False) -> list:
     # carry. Without it that league shows an empty board every night.
     try:
         from services import balldontlie
-        if balldontlie.covers(lg):
+        # WNBA ONLY on the board. Everything else falls through without
+        # spending a request - see the note above.
+        if lg == "wnba" and balldontlie.covers(lg):
             from services import highlightly as _hl
             bd = balldontlie.board(lg, _hl.sport_day(0))
             if bd:
                 _BOARD_CACHE[lg] = (_t.time(), bd)
                 return bd
+            # CACHE THE EMPTY ANSWER TOO.
+            #
+            # Four of these leagues are out of season, so every board load
+            # asked balldontlie about all of them and burned the whole
+            # five-a-minute budget on questions whose answer was already
+            # "nothing on". NHL and college basketball then got refused
+            # for no reason.
+            #
+            # An empty night is a fact worth remembering for as long as a
+            # full one.
+            _BOARD_CACHE[lg] = (_t.time(), [])
+            return []
     except Exception as e:
         print(f"[board] balldontlie unavailable for {lg}: {e}", flush=True)
 

@@ -6152,6 +6152,28 @@ def _generate_smackcasts_async():
             print(f"[smackcast cron] weekly run FAILED: {e}")
 
 
+# ONE SHOW AT A TIME.
+#
+# There was no guard at all. Two presses of the admin button - or the
+# button while the 5:55 cron is running - started TWO FULL RENDERS in
+# parallel. Both write scripts through Claude and both render five
+# minutes of speech through ElevenLabs, so a double-click cost double.
+#
+# A plain flag rather than a lock: a second caller should be TOLD NO and
+# go away, not queue up and run the whole thing again a minute later.
+_show_running = {"since": None}
+_show_lock = threading.Lock()
+
+
+def show_in_progress():
+    """Seconds the current render has been going, or None."""
+    with _show_lock:
+        started = _show_running["since"]
+    if not started:
+        return None
+    return int(time.time() - started)
+
+
 def _produce_daily_show_async(app_obj, dry_run: bool = False, days_back: int = 1):
     """
     The actual work, off the request thread.
@@ -6160,38 +6182,62 @@ def _produce_daily_show_async(app_obj, dry_run: bool = False, days_back: int = 1
     a request off long before that - the endpoint has to hand off and return.
     Same pattern already used for battle recaps and smackcast generation.
     """
-    with app_obj.app_context():
-        try:
-            result = show_service.produce_daily_show(days_back=days_back, dry_run=dry_run)
-        except Exception as e:
-            # Swallowed on purpose. Yesterday's episode keeps playing and the
-            # error is in the logs, rather than the home page losing its player.
-            print(f"[show] production failed, keeping previous episode: {e}")
+    # ONE AT A TIME - claim the slot or go home.
+    #
+    # A second render started while the first is going costs a second
+    # full set of Claude and ElevenLabs charges for an episode that will
+    # be thrown away, because only one can be published.
+    #
+    # Refusing beats queueing: somebody who double-clicks wants one show,
+    # not two three minutes apart.
+    with _show_lock:
+        if _show_running["since"]:
+            been = int(time.time() - _show_running["since"])
+            print(f"[show] ALREADY RUNNING for {been}s - refusing this one. "
+                  f"Two renders in parallel means paying twice.", flush=True)
             return
+        _show_running["since"] = time.time()
 
-        if result.get("dry_run"):
-            print(f"[show] dry run complete - {result.get('segment_count')} segments, "
-                  f"no audio generated, nothing published", flush=True)
-            return
+    try:
+        with app_obj.app_context():
+            try:
+                result = show_service.produce_daily_show(days_back=days_back, dry_run=dry_run)
+            except Exception as e:
+                # Swallowed on purpose. Yesterday's episode keeps playing and the
+                # error is in the logs, rather than the home page losing its player.
+                print(f"[show] production failed, keeping previous episode: {e}")
+                return
 
-        if not result.get("published"):
-            print(f"[show] not published: {result.get('reason')}")
-            return
+            if result.get("dry_run"):
+                print(f"[show] dry run complete - {result.get('segment_count')} segments, "
+                      f"no audio generated, nothing published", flush=True)
+                return
 
-        show = DailyShow(
-            audio_url=result["audio_url"],
-            date_label=result.get("date_label", ""),
-            minutes=result.get("minutes"),
-            game_count=result.get("game_count"),
-            leagues=", ".join(result.get("leagues", [])),
-            best_line=result.get("best_line", ""),
-            is_live=True,
-        )
-        DailyShow.query.filter_by(is_live=True).update({"is_live": False})
-        db.session.add(show)
-        db.session.commit()
-        print(f"[show] published #{show.id}: {result['minutes']}min, {result['game_count']} games")
+            if not result.get("published"):
+                print(f"[show] not published: {result.get('reason')}")
+                return
 
+            show = DailyShow(
+                audio_url=result["audio_url"],
+                date_label=result.get("date_label", ""),
+                minutes=result.get("minutes"),
+                game_count=result.get("game_count"),
+                leagues=", ".join(result.get("leagues", [])),
+                best_line=result.get("best_line", ""),
+                is_live=True,
+            )
+            DailyShow.query.filter_by(is_live=True).update({"is_live": False})
+            db.session.add(show)
+            db.session.commit()
+            print(f"[show] published #{show.id}: {result['minutes']}min, {result['game_count']} games")
+
+
+    finally:
+        # ALWAYS release, including on a crash. A flag left set would
+        # block every future render until the next deploy - which is a
+        # worse failure than the one it prevents.
+        with _show_lock:
+            _show_running["since"] = None
 
 @app.route("/api/cron/daily-show", methods=["GET", "POST"])
 def cron_daily_show():
@@ -6222,6 +6268,21 @@ def cron_daily_show():
     except (TypeError, ValueError):
         days_back = 1
 
+    # TELL THE CALLER, rather than starting a thread that will refuse.
+    #
+    # The thread guard alone would return 202 "started" and then quietly
+    # decline - so somebody pressing twice sees two successes and waits
+    # for an episode that is not coming from the second one.
+    been = show_in_progress()
+    if been is not None:
+        return jsonify({
+            "started": False,
+            "already_running_for_seconds": been,
+            "note": ("A render is already going. Starting a second costs a "
+                     "second full set of Claude and ElevenLabs charges for "
+                     "an episode that would be thrown away."),
+        }), 409
+
     threading.Thread(
         target=_produce_daily_show_async, args=(app,),
         kwargs={"dry_run": dry, "days_back": days_back}, daemon=True
@@ -6245,7 +6306,24 @@ def admin_show_status():
         return jsonify({"error": "Not authorized."}), 403
 
     shows = DailyShow.query.order_by(DailyShow.id.desc()).limit(10).all()
-    return jsonify({"shows": [{
+
+    # IS ONE RUNNING RIGHT NOW?
+    #
+    # A deploy kills the worker and the render dies with it - silently,
+    # since the work happens in a background thread. That has already
+    # cost one full render today.
+    #
+    # Nothing in the app can stop Render restarting, but it can at least
+    # say "do not deploy for another two minutes".
+    running = show_in_progress()
+
+    return jsonify({
+        "rendering_now": running is not None,
+        "rendering_for_seconds": running,
+        "warning": ("A render is in progress - DO NOT DEPLOY. A restart "
+                    "kills it and the Claude and ElevenLabs spend is lost."
+                    if running is not None else None),
+        "shows": [{
         "id": s.id, "audio_url": s.audio_url, "date_label": s.date_label,
         "minutes": s.minutes, "game_count": s.game_count, "leagues": s.leagues,
         "best_line": s.best_line, "is_live": s.is_live,

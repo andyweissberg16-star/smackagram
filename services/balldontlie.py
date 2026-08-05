@@ -58,12 +58,13 @@ BASES = {
     "nfl":   "https://api.balldontlie.io/nfl/v1",
     "nhl":   "https://api.balldontlie.io/nhl/v1",
     "ncaab": "https://api.balldontlie.io/ncaab/v1",
-    # UNVERIFIED. Their site lists NCAAF among the covered leagues and
-    # every other sport follows this pattern, but this exact path has not
-    # been confirmed against the live API - the probe will say either way,
-    # and until it does a wrong path simply returns nothing rather than
-    # breaking anything.
-    "ncaaf": "https://api.balldontlie.io/ncaaf/v1",
+    # NCAAF IS NOT ON THE FREE TIER. Confirmed live: their /ncaaf/v1
+    # endpoint returns 401 Unauthorized with this key, even though the
+    # teams endpoint answered during the probe.
+    #
+    # Left out rather than left in, because every attempt spends a
+    # request from a five-a-minute budget and fills the log with an error
+    # that looks like a fault. College football has Highlightly anyway.
 }
 
 # Their field names differ by sport - WNBA says visitor_team where MLB

@@ -332,14 +332,39 @@ def finals(sport, date_str):
     """
     Every finished game in a league on a date, keyed by match id.
 
-    One call covers the whole league, the same shape as the ESPN batching -
-    so this does not scale with how many people are being smacked.
+    BOTH UTC DAYS ARE FETCHED. Their filter is UTC and an Eastern day
+    spans two of them - a Tuesday 8:40pm first pitch carries a UTC
+    timestamp of WEDNESDAY 00:40. Asking for one date misses the whole
+    evening, which for baseball is most of the card.
+
+    That is why a show asking for yesterday found ZERO finished games on
+    a night that had fourteen.
     """
-    d = _matches_for(sport, {"date": date_str, "limit": 100})
-    if not d:
+    from datetime import timedelta as _td4
+    try:
+        _want = _dt.strptime(date_str, "%Y-%m-%d").date()
+    except Exception:
+        _want = None
+    days = [date_str]
+    if _want:
+        days.append((_want + _td4(days=1)).strftime("%Y-%m-%d"))
+
+    rows = []
+    for _q in days:
+        d = _matches_for(sport, {"date": _q, "limit": 100})
+        r = (d.get("data") if isinstance(d, dict) else d) or []
+        rows.extend(r)
+
+    # SAY SOMETHING EVEN WHEN THERE IS NOTHING.
+    #
+    # This returned {} silently when the fetch came back empty, so the
+    # log showed no line at all - indistinguishable from the function
+    # never being called. Twenty minutes went into working out which.
+    if not rows:
+        print(f"[highlightly] {sport} {date_str}: NO MATCHES RETURNED "
+              f"(tried {', '.join(days)})", flush=True)
         return {}
 
-    rows = d.get("data") if isinstance(d, dict) else d
     out = {}
     for m in (rows or []):
         state = (m.get("state") or {})
