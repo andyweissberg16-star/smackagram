@@ -53,6 +53,38 @@ def _valid(address):
     return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", (address or "").strip()))
 
 
+# Common hosts, so a wrong one is easier to spot than to debug.
+KNOWN_HOSTS = {
+    "smtpout.secureserver.net": "GoDaddy's own mail platform (older plans)",
+    "smtp.office365.com": "Microsoft 365 - what most GoDaddy email is now",
+    "smtp.gmail.com": "Google Workspace",
+}
+
+
+def send_async(to, subject, body, **kw):
+    """
+    Send without making anybody wait.
+
+    A mail server that is slow, or simply the wrong address, holds the
+    connection open - and with one worker that means the whole site stops
+    answering. Nothing about a support reply needs the sender to wait for
+    the SMTP handshake.
+
+    The result is logged rather than returned, which is the trade: the
+    caller finds out from the log rather than immediately.
+    """
+    import threading
+
+    def _go():
+        ok, detail = send(to, subject, body, **kw)
+        if not ok:
+            print(f"[email] background send to {to} failed: {detail}",
+                  flush=True)
+
+    threading.Thread(target=_go, daemon=True).start()
+    return True, "queued"
+
+
 def send(to, subject, body, reply_to=None, from_name="Smackagram Support"):
     """
     Send one plain-text email.
@@ -89,13 +121,23 @@ def send(to, subject, body, reply_to=None, from_name="Smackagram Support"):
     msg.set_content(body)
 
     try:
+        # EIGHT SECONDS, NOT TWENTY.
+        #
+        # This server runs a SINGLE gunicorn worker, so while a mail
+        # connection hangs, NOTHING ELSE ON THE SITE IS SERVED. A wrong
+        # SMTP host does not refuse the connection - it hangs - and twenty
+        # seconds of that took the whole site down while a test ran.
+        #
+        # Eight is plenty for a mail server that is actually listening,
+        # and short enough that a wrong one is an annoyance rather than an
+        # outage.
         ctx = ssl.create_default_context()
         if port == 465:
-            with smtplib.SMTP_SSL(host, port, context=ctx, timeout=20) as s:
+            with smtplib.SMTP_SSL(host, port, context=ctx, timeout=8) as s:
                 s.login(user, password)
                 s.send_message(msg)
         else:
-            with smtplib.SMTP(host, port, timeout=20) as s:
+            with smtplib.SMTP(host, port, timeout=8) as s:
                 s.starttls(context=ctx)
                 s.login(user, password)
                 s.send_message(msg)

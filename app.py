@@ -6396,6 +6396,16 @@ def api_admin_email_test():
     from services import email_service
     out = email_service.status()
 
+    # A hint when the host looks wrong, because a timeout tells you
+    # nothing and this is the mistake everybody makes with GoDaddy.
+    from services.email_service import KNOWN_HOSTS
+    h = out.get("host")
+    if h in KNOWN_HOSTS:
+        out["host_is"] = KNOWN_HOSTS[h]
+    elif h:
+        out["host_is"] = ("not a host I recognise - GoDaddy is usually "
+                          "smtp.office365.com on port 587 these days")
+
     to = request.args.get("to")
     if to:
         ok, detail = email_service.send(
@@ -6510,6 +6520,13 @@ def api_admin_support_reply(ticket_id):
             f"Reply to this email and it comes straight back to us.\n"
             f"Reference #{t.id}")
 
+    # Sent in the foreground here ON PURPOSE, unlike everywhere else.
+    #
+    # Somebody clicking reply needs to know whether it went. A background
+    # send would return "queued" and leave them thinking a customer was
+    # answered when the mail may have bounced.
+    #
+    # The eight-second timeout keeps the worst case short.
     ok, detail = email_service.send(t.email, subject, full)
 
     r = SupportReply(ticket_id=t.id, body=body, sent_by=who,
