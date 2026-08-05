@@ -7130,68 +7130,79 @@ def api_admin_roster_probe():
         return {"status": 200, "shape": str(body)[:200]}
 
     seg, league = "baseball", "MLB"
-    out = {"segment": seg, "league": league, "teams": {}, "players": {}}
+    out = {"segment": seg, "league": league, "teams": {}, "players": {},
+           "coaches": {}}
 
-    # ---- listing teams ----
-    for label, path, params in (
-        ("teams?league", f"{seg}/teams", {"league": league, "limit": 5}),
-        ("teams bare", f"{seg}/teams", {"limit": 5}),
-        ("standings", f"{seg}/standings", {"league": league,
-                                           "season": 2026}),
-    ):
-        out["teams"][label] = summarise(*ask(path, params))
+    # THEIR VALIDATOR IS STRICT, AND THAT IS USEFUL.
+    #
+    # It rejects any property it does not recognise - "property limit
+    # should not exist" - so an endpoint's accepted parameters can be
+    # found by elimination rather than guessed. Start with nothing and
+    # add one at a time; the error names the offender every time.
+    ladders = {
+        "teams": [
+            ("no params", {}),
+            ("league", {"league": league}),
+            ("leagueName", {"leagueName": league}),
+            ("season", {"season": 2026}),
+            ("league+season", {"league": league, "season": 2026}),
+            ("name", {"name": "Yankees"}),
+        ],
+        "standings": [
+            ("no params", {}),
+            ("league", {"league": league}),
+            ("leagueName", {"leagueName": league}),
+            ("year", {"year": 2026}),
+            ("league+year", {"league": league, "year": 2026}),
+        ],
+    }
+    for ep, tries in ladders.items():
+        out["teams"][ep] = {}
+        for label, params in tries:
+            out["teams"][ep][label] = summarise(*ask(f"{seg}/{ep}", params))
 
+    # A team id from whichever call worked.
     team_id = None
-    for v in out["teams"].values():
-        s_ = v.get("sample")
-        if isinstance(s_, dict):
-            team_id = s_.get("id") or (s_.get("team") or {}).get("id")
-            if team_id:
-                out["team_id_used"] = team_id
-                break
+    for ep_result in out["teams"].values():
+        for v in ep_result.values():
+            s_ = v.get("sample")
+            if isinstance(s_, dict):
+                team_id = s_.get("id") or (s_.get("team") or {}).get("id")
+                if team_id:
+                    out["team_id_used"] = team_id
+                    break
+        if team_id:
+            break
 
-    # ---- players on one team ----
     if not team_id:
-        out["players"] = {"skipped": "no team id found above"}
+        out["players"] = {"skipped": "no team id found - see teams above"}
     else:
+        # Same ladder approach for players.
         for label, path, params in (
-            ("players?teamId", f"{seg}/players", {"teamId": team_id,
-                                                  "limit": 60}),
-            ("players?team", f"{seg}/players", {"team": team_id,
-                                                "limit": 60}),
+            ("players?teamId", f"{seg}/players", {"teamId": team_id}),
+            ("players?team", f"{seg}/players", {"team": team_id}),
+            ("players bare", f"{seg}/players", {}),
+            ("teams/{id}", f"{seg}/teams/{team_id}", {}),
             ("teams/{id}/players", f"{seg}/teams/{team_id}/players", {}),
-            ("squads/{id}", f"{seg}/squads/{team_id}", {}),
-            ("rosters?teamId", f"{seg}/rosters", {"teamId": team_id,
-                                                  "limit": 60}),
+            ("squads?teamId", f"{seg}/squads", {"teamId": team_id}),
+            ("rosters?teamId", f"{seg}/rosters", {"teamId": team_id}),
+            ("lineups?teamId", f"{seg}/lineups", {"teamId": team_id}),
         ):
             out["players"][label] = summarise(*ask(path, params))
 
-    # ---- ARE COACHES IN HERE ANYWHERE? ----
-    #
-    # A losing team's fans are usually angrier at the manager than at any
-    # player, so a coach is often the better target. Their documentation
-    # does not mention coaches at all - they may sit inside the team
-    # record, in a lineup, or nowhere.
-    out["coaches"] = {}
-    if team_id:
+        # Coaches: read the whole team record and report its field names.
         st, body = ask(f"{seg}/teams/{team_id}", {})
         if st == 200:
             rec = body.get("data") if isinstance(body, dict) else body
             if isinstance(rec, list) and rec:
                 rec = rec[0]
-            out["coaches"]["team_record_fields"] = (
-                sorted(rec.keys()) if isinstance(rec, dict)
-                else str(rec)[:140])
             if isinstance(rec, dict):
+                out["coaches"]["team_record_fields"] = sorted(rec.keys())
                 out["coaches"]["likely"] = {
                     k: str(v)[:80] for k, v in rec.items()
                     if any(w in k.lower() for w in
                            ("coach", "manager", "staff", "head"))
                 } or "no coach-like field on the team record"
-        for label, path in (("lineups", f"{seg}/lineups"),
-                            ("coaches endpoint", f"{seg}/coaches")):
-            out["coaches"][label] = summarise(
-                *ask(path, {"teamId": team_id, "limit": 3}))
 
     out["note"] = ("Baseball only, deliberately - it is the one league in "
                    "season, so a wrong answer elsewhere would be ambiguous "
