@@ -636,10 +636,61 @@ def board(sport, date_str=None):
         _now = _dt.utcnow() - _td(hours=5)
     date_str = date_str or _now.strftime("%Y-%m-%d")
 
-    d = _matches_for(sport, {"date": date_str, "limit": 100}, ttl=30)
-    if not d:
+    # AN EASTERN DAY SPANS TWO UTC DAYS, AND THEIR FILTER IS UTC.
+    #
+    # A Tuesday 8:40pm Eastern first pitch has a UTC timestamp of
+    # WEDNESDAY 00:40. So asking their API for "Wednesday" returns
+    # Tuesday night's late games - and misses Wednesday's own late games,
+    # which land on Thursday in UTC.
+    #
+    # That is why the board showed fixtures labelled TUE on a Wednesday.
+    # Not a formatting fault: it was genuinely serving the wrong day's
+    # baseball, and the evening is the busiest part of a baseball night.
+    #
+    # So both UTC days are fetched and the result filtered back to the
+    # Eastern day actually asked for. Two requests instead of one,
+    # against 7500 a day.
+    from datetime import date as _date, timedelta as _td3
+    try:
+        _want = _dt.strptime(date_str, "%Y-%m-%d").date()
+    except Exception:
+        _want = _now.date()
+    _next = (_want + _td3(days=1)).strftime("%Y-%m-%d")
+
+    rows = []
+    for _q in (date_str, _next):
+        _d = _matches_for(sport, {"date": _q, "limit": 100}, ttl=30)
+        if not _d:
+            continue
+        _r = _d.get("data") if isinstance(_d, dict) else _d
+        rows.extend(_r or [])
+
+    if not rows:
         return []
 
+    # Keep only what actually falls on the requested Eastern day.
+    def _eastern_day(iso):
+        if not iso:
+            return None
+        try:
+            t = _dt.strptime(str(iso)[:19], "%Y-%m-%dT%H:%M:%S")
+            try:
+                from zoneinfo import ZoneInfo as _Z
+                from datetime import timezone as _tz
+                return (t.replace(tzinfo=_tz.utc)
+                        .astimezone(_Z("America/New_York")).date())
+            except Exception:
+                return (t - _td3(hours=4)).date()
+        except Exception:
+            return None
+
+    _kept = [r for r in rows if _eastern_day(r.get("date")) == _want]
+    # If the timestamps are date markers rather than real times, the
+    # filter would throw everything away. Better a board with a stray
+    # game on it than an empty one.
+    rows = _kept if _kept else rows
+
+    d = {"data": rows}
     rows = d.get("data") if isinstance(d, dict) else d
     out = []
     for m in (rows or []):

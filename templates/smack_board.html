@@ -523,34 +523,31 @@ function startTime(g){
     var d = new Date(raw);
     if (isNaN(d.getTime())) return "";
 
-    // MIDNIGHT UTC IS A DATE, NOT A TIME.
+    // MIDNIGHT UTC IS A DATE MARKER, NOT A TIME.
     //
-    // Both providers sometimes return "2026-08-05T00:00:00Z" - a marker
-    // for WHICH DAY, with no first pitch in it. Converted to Eastern
-    // that is 8pm the PREVIOUS evening, which is why Wednesday's games
-    // were labelled TUE.
+    // Most fixtures now carry a real first pitch - 23:40 UTC is 7:40pm
+    // Eastern. But some come back as "2026-08-05T00:00:00Z", which is a
+    // marker for WHICH DAY with no time in it, and rendering that gives
+    // 8pm the previous evening.
     //
-    // So a timestamp sitting exactly on midnight UTC is treated as
-    // having no time at all. Showing nothing beats showing a time that
-    // is wrong by four hours and a day.
+    // Those say TODAY and no clock. Showing nothing beats showing a time
+    // that is wrong by four hours.
     if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0
         && d.getUTCSeconds() === 0) {
       return "TODAY";
     }
 
-    var now = new Date();
-    var mins = Math.round((d - now) / 60000);
-
+    var mins = Math.round((d - new Date()) / 60000);
     // Inside an hour a countdown beats a clock - "in 25 min" is
-    // immediately actionable in a way "7:05 PM" is not.
+    // actionable in a way "7:05 PM" is not.
     if (mins > 0 && mins <= 60) return "IN " + mins + " MIN";
 
-    var time = d.toLocaleTimeString([], {hour: "numeric", minute: "2-digit"});
-
-    // THE BOARD ONLY EVER SHOWS ONE DAY, so anything upcoming on it is
-    // today by definition. Naming the weekday was never useful and was
-    // actively wrong whenever the timestamp was a date marker.
-    return ("TODAY " + time).toUpperCase();
+    // THE BOARD IS ONE DAY, AND NOW GENUINELY IS. The fetch pulls both
+    // UTC days and filters back to the Eastern one asked for, so
+    // anything upcoming here really is today - no weekday needed.
+    return ("TODAY " + d.toLocaleTimeString([], {
+      hour: "numeric", minute: "2-digit"
+    })).toUpperCase();
   } catch (e) { return ""; }
 }
 
