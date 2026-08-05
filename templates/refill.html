@@ -128,6 +128,31 @@
     .back-btn{order:1}
     .secure{order:2}
   }
+
+  /* T&C ACKNOWLEDGEMENT AT THE POINT OF PAYMENT.
+     
+     Registration already collects agreement, but somebody who signed up
+     months ago has not acknowledged "all sales are final" at the moment
+     they are actually spending - and that is the term most likely to be
+     disputed later.
+     
+     Naming the consequence in the sentence rather than hiding it behind a
+     link is the point. "I agree to the Terms" is easy to click past;
+     "refunds are issued as credit rather than money back" is not. */
+  .terms-ack{
+    display:flex; align-items:flex-start; gap:10px;
+    margin:14px 0 4px; padding:12px 14px;
+    background:rgba(255,255,255,0.03); border:1px solid #2A2D32;
+    border-radius:8px; cursor:pointer;
+    font-size:13px; line-height:1.5; color:var(--chalk-dim,#9A9A96);
+    text-align:left;
+  }
+  .terms-ack input{
+    margin-top:2px; width:17px; height:17px; flex:0 0 auto;
+    accent-color:#E8142C; cursor:pointer;
+  }
+  .terms-ack a{color:#FF3B50;}
+  .terms-ack strong{color:var(--chalk,#F5F5F3);}
 </style>
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 
@@ -245,6 +270,15 @@
       <div id="express-element"></div>
       <div class="or-divider" id="orDivider">or pay with card</div>
       <div id="payment-element"></div>
+      <label class="terms-ack">
+        <input type="checkbox" id="termsAck">
+        <span>I agree to the
+          <a href="/terms" target="_blank" rel="noopener">Terms &amp; Conditions</a>.
+          I understand <strong>all sales are final</strong> and that any refund
+          for an undeliverable Smackagram is issued as account credit rather
+          than money back.</span>
+      </label>
+
       <button class="pay-btn" id="payBtn" disabled>
         Pay <span class="amt" id="btn-amt">$10.00</span> — Send my Smackagram
       </button>
@@ -275,6 +309,24 @@ if (pendingActionId) {
 
 async function initPaymentForPack(packKey) {
   const payBtn = document.getElementById('payBtn');
+
+  // BOTH CONDITIONS, NOT EITHER.
+  //
+  // The button needs the payment form ready AND the terms ticked. Tracking
+  // them separately means ticking the box before Stripe finishes loading
+  // does not enable a button that cannot yet take a payment.
+  let paymentReady = false;
+  function syncPayButton() {
+    paymentReady = true;
+    const ack = document.getElementById('termsAck');
+    payBtn.disabled = !(paymentReady && ack && ack.checked);
+  }
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.id === 'termsAck') {
+      const ack = e.target;
+      payBtn.disabled = !(paymentReady && ack.checked);
+    }
+  });
   const errorEl = document.getElementById('payError');
   errorEl.style.display = 'none';
   payBtn.disabled = true;
@@ -293,7 +345,13 @@ async function initPaymentForPack(packKey) {
     const resp = await fetch('/api/wallet/create-payment-intent', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({pack: packKey, pending_action_id: pendingActionId})
+      body: JSON.stringify({
+        pack: packKey,
+        pending_action_id: pendingActionId,
+        // Sent so the server has a record of what was ticked, not to be
+        // trusted as proof - the server records it either way.
+        terms_ack: !!(document.getElementById('termsAck') || {}).checked
+      })
     });
     const data = await resp.json();
     if (data.error) {
@@ -325,7 +383,9 @@ async function initPaymentForPack(packKey) {
       document.getElementById('orDivider').style.display = 'none';
     }
 
-    payBtn.disabled = false;
+    // The button stays disabled until the terms are ticked as well as the
+    // payment form being ready. Both conditions, not either.
+    syncPayButton();
   } catch (err) {
     console.error('Payment setup failed:', err && err.message, err);
     errorEl.textContent = "Couldn't set up payment — try again.";

@@ -1252,6 +1252,32 @@ class Player(db.Model):
     )
 
 
+class TermsAcceptance(db.Model):
+    """
+    Somebody agreeing to the terms at the moment they spend.
+
+    Registration already records one acceptance. This records another at
+    each PURCHASE, which matters for a different reason: the term most
+    likely to be disputed is "all sales are final, refunds are issued as
+    credit" - and a dispute six months later is answered by showing what
+    they agreed to on the day, not what they agreed to when they signed up.
+
+    Stores the version of the terms text so a later revision does not
+    rewrite what somebody actually saw.
+    """
+    __tablename__ = "terms_acceptances"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), index=True)
+
+    context = db.Column(db.String(30), default="purchase")
+    terms_version = db.Column(db.String(20))
+
+    accepted_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    ip = db.Column(db.String(60))
+    user_agent = db.Column(db.String(300))
+
+
 class SupportTicket(db.Model):
     """
     A message from the contact form.

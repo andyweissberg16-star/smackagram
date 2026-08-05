@@ -56,6 +56,10 @@ db.init_app(app)
 # When the shadow comparison last ran. The cron that triggers it fires
 # every two minutes; comparing yesterday's finished games that often would
 # be thirty pointless requests an hour, so it is gated to once.
+# Bumped whenever the terms change materially, so an acceptance record
+# says WHICH terms were agreed to rather than merely that something was.
+TERMS_VERSION = "2026-08"
+
 _LAST_SHADOW = 0.0
 
 
@@ -585,6 +589,34 @@ def api_wallet_create_payment_intent():
     data = request.json or {}
     pack_key = data.get("pack")
     pending_action_id = data.get("pending_action_id")
+
+    # RECORD THE ACKNOWLEDGEMENT, SERVER-SIDE.
+    #
+    # The checkbox on the page can be defeated by anybody with a browser
+    # console, so the tick itself proves nothing. What matters is a record
+    # - timestamped, with an address - that this person was shown "all
+    # sales are final, refunds are issued as credit" at the moment they
+    # paid, because that is the term a chargeback six months later turns
+    # on.
+    #
+    # NOT refused when missing. A payment failing because a checkbox did
+    # not serialise is worse than one recorded as unacknowledged, and the
+    # record shows which happened either way.
+    try:
+        from models import TermsAcceptance
+        db.session.add(TermsAcceptance(
+            user_id=getattr(user, "id", None),
+            context=("purchase" if data.get("terms_ack")
+                     else "purchase-unticked"),
+            terms_version=TERMS_VERSION,
+            ip=(request.headers.get("X-Forwarded-For")
+                or request.remote_addr or "")[:60],
+            user_agent=(request.headers.get("User-Agent") or "")[:300],
+        ))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[terms] could not record acceptance: {e}", flush=True)
 
     if pack_key not in wallet_service.TOPUP_PACKS:
         return jsonify({"error": "Invalid pack selected."}), 400
@@ -6467,6 +6499,38 @@ def api_admin_email_test():
         out["note"] = ("Add ?to=your@email.com to actually send one. This "
                        "only checks the settings exist.")
     return jsonify(out)
+
+
+@app.route("/api/admin/terms-acceptances")
+@login_required
+def api_admin_terms():
+    """
+    Who agreed to what, and when.
+
+    This is the record a chargeback is answered with: a timestamp, an
+    address, and which version of the terms was in force. "They agreed
+    when they signed up" is a weaker answer than "they agreed at 19:42 on
+    the day they paid, to these terms".
+
+    Anything marked purchase-unticked is a payment where the box did not
+    come through - worth looking at rather than assuming.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    from models import TermsAcceptance
+    rows = (TermsAcceptance.query
+            .order_by(TermsAcceptance.accepted_at.desc()).limit(100).all())
+    return jsonify({
+        "current_version": TERMS_VERSION,
+        "total": TermsAcceptance.query.count(),
+        "unticked": TermsAcceptance.query.filter_by(
+            context="purchase-unticked").count(),
+        "recent": [{
+            "when": utc_iso(r.accepted_at), "user_id": r.user_id,
+            "context": r.context, "version": r.terms_version, "ip": r.ip,
+        } for r in rows],
+    })
 
 
 @app.route("/api/admin/support")
