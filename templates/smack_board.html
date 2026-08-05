@@ -259,6 +259,24 @@
     .btn-smack, .btn-arm{flex:1; text-align:center;}
     .game.is-live:hover{padding-left:14px;}
   }
+
+  /* GAME COUNT BUBBLES.
+     
+     Without these, finding out whether the NHL has anything on means
+     clicking the tab and waiting. In August that is four dead clicks
+     before somebody finds baseball.
+     
+     A zero is dimmed rather than hidden - "NHL 0" is useful information,
+     and hiding it would leave somebody wondering if it had loaded. */
+  .tab{position:relative;}
+  .tab-count{
+    display:inline-block; margin-left:6px; min-width:18px;
+    padding:1px 5px; border-radius:9px;
+    background:var(--flare,#E8142C); color:#fff;
+    font-size:10px; font-weight:800; line-height:16px;
+    text-align:center; vertical-align:middle;
+  }
+  .tab-count.zero{background:#2A2D32; color:#7A7D82;}
 </style>
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 </head>
@@ -333,9 +351,46 @@ function esc(s){
     c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 }
 
+// HOW MANY GAMES EACH LEAGUE HAS TODAY.
+//
+// Without this, finding out whether the NHL has anything on means
+// clicking the NHL tab and waiting. In August that is four dead clicks
+// before somebody finds baseball.
+//
+// Filled in as leagues are loaded, and by one background pass on open.
+const GAME_COUNTS = {};
+
 function buildTabs(){
-  document.getElementById("tabs").innerHTML = LEAGUES.map(l =>
-    `<button class="tab" data-lg="${l.key}">${esc(l.label)}</button>`).join("");
+  document.getElementById("tabs").innerHTML = LEAGUES.map(l => {
+    const n = GAME_COUNTS[l.key];
+    // No bubble at all when the count is unknown - an empty circle
+    // reads as "none" and would be a lie while it is still loading.
+    const bubble = (n === undefined) ? ""
+      : `<span class="tab-count${n ? "" : " zero"}">${n}</span>`;
+    return `<button class="tab" data-lg="${l.key}">${esc(l.label)}${bubble}</button>`;
+  }).join("");
+  // Rebuilding the tabs loses which one was active.
+  if (current) {
+    const btn = document.querySelector(`.tab[data-lg="${current}"]`);
+    if (btn) btn.classList.add("on");
+  }
+}
+
+async function countGames(){
+  // One quiet pass so the bubbles are there before anybody clicks. Runs
+  // after the visible league has loaded, so it never delays what somebody
+  // is actually looking at.
+  for (const l of LEAGUES) {
+    if (GAME_COUNTS[l.key] !== undefined) continue;
+    try {
+      const r = await fetch(`/api/board/${encodeURIComponent(l.key)}`);
+      const d = await r.json();
+      GAME_COUNTS[l.key] = (d.games || []).length;
+    } catch (e) {
+      // Leave it undefined - no bubble beats a wrong bubble.
+    }
+    buildTabs();
+  }
 }
 
 function teamRow(t, isLosing, gameOver){
@@ -491,7 +546,12 @@ async function load(lg){
   try{
     const r = await fetch(`/api/board/${lg}`);
     const d = await r.json();
+    // Record the count while we have it - the league somebody is looking
+    // at should never need a second request just to fill its own bubble.
+    const before = GAME_COUNTS[lg];
+    GAME_COUNTS[lg] = (d.games || []).length;
     if (lg === current) render(d);
+    if (before !== GAME_COUNTS[lg]) buildTabs();
   }catch(e){
     document.getElementById("summary").textContent = "COULD NOT LOAD SCORES";
   }
@@ -534,6 +594,11 @@ try{
   // if (saved && LEAGUES.some(l => l.key === saved)) start = saved;
 }catch(e){}
 select(start);
+
+// Count the other leagues once the visible one is up. Deliberately after
+// select() rather than before, so nothing anybody is looking at waits on
+// seven background requests.
+setTimeout(countGames, 1200);
 
 // Refresh while the tab is visible. Polling a hidden tab wastes requests on
 // somebody who is not looking. Matched to the 15s server cache, so worst
