@@ -719,15 +719,27 @@
     outline:none;
     box-shadow:0 0 0 2px var(--flare);
   }
-  textarea{resize:vertical; min-height:100px;}
+  /* TALLER NOW THE BUTTONS SIT BELOW IT.
+     
+     100px showed roughly three lines of a smack that runs to eight - so
+     somebody had to scroll a box to read the thing they were about to
+     send, which is the one moment they most want to see all of it.
+     
+     180px shows most of a typical smack without scrolling, and it still
+     resizes if somebody wants more. */
+  textarea{resize:vertical; min-height:180px;}
   /* No ::placeholder rule existed anywhere, so placeholders fell back to the
      browser default (~60% of the text colour) and read as real input.
      Low-alpha chalk plus italics makes them unmistakably examples. */
   input::placeholder, textarea::placeholder{
-    color:rgba(245,245,243,0.26); opacity:1; font-style:italic;
+    /* The dark-page value was here. With white fields it made the
+       placeholder nearly invisible - 26% white on white. */
+    color:#6B6B68; opacity:1; font-style:italic;
   }
   input::-moz-placeholder, textarea::-moz-placeholder{
-    color:rgba(245,245,243,0.26); opacity:1; font-style:italic;
+    /* The dark-page value was here. With white fields it made the
+       placeholder nearly invisible - 26% white on white. */
+    color:#6B6B68; opacity:1; font-style:italic;
   }
   .field-hint{font-size:11px; color:var(--chalk-dim); margin:-8px 0 14px; line-height:1.4;}
 
@@ -794,6 +806,40 @@
           padding:7px 14px; font-size:14px; font-weight:600; margin-top:8px;}
   .picked button{background:none; border:none; color:#fff; cursor:pointer;
                  font-size:16px; line-height:1; padding:0;}
+
+  /* TWO BUTTONS, ONE SHAPE.
+     
+     Generate used to sit ABOVE the box and Listen below it, which put a
+     gap between two actions that belong to the same moment - write it,
+     hear it. Now they sit together under the thing they both act on.
+     
+     flex:1 on both is what makes them identical. Sizing them by their
+     own text would give "Generate" a narrower button than "Listen",
+     and two buttons of different widths side by side read as one being
+     more important than the other. */
+  .pair-row{
+    display:flex; gap:10px; align-items:stretch;
+    margin:14px 0 4px;
+  }
+  .btn-pair{
+    flex:1 1 0; min-width:0;
+    display:inline-flex; align-items:center; justify-content:center;
+    text-align:center;
+    font-size:14px; letter-spacing:1px;
+    padding:14px 10px;
+    min-height:52px;
+  }
+  @media(max-width:420px){
+    /* Below this the two labels start wrapping, and a wrapped button is
+       worse than a stacked one. */
+    .pair-row{flex-direction:column;}
+  }
+
+  @keyframes errFlash{
+    0%{background:rgba(232,20,44,0.30);}
+    100%{background:rgba(232,20,44,0.08);}
+  }
+  .err-flash{animation:errFlash 0.7s ease-out;}
 </style>
 <script>
 // Runs before paint. If this page is inside a frame, strip the chrome itself
@@ -1061,16 +1107,13 @@
     <audio id="voiceSampleAudio" style="display:none;"></audio>
 
 
-    <div class="btn-center">
-      <button id="generateBtn" class="btn btn-flare btn-narrow">Generate smack talk</button>
-    </div>
-
     <p class="field-group-label" style="border-top:none; background-image:none; padding-top:0; margin-top:22px;">What Smacky will say</p>
     <textarea id="trashTalkOutput" placeholder="Smacky’s line lands here"></textarea>
 
 
-    <div class="btn-center">
-      <button id="previewBtn" class="btn btn-outline btn-narrow no-spinner" disabled>Listen to your Smackagram</button>
+    <div class="pair-row">
+      <button id="generateBtn" class="btn btn-flare btn-pair">Generate</button>
+      <button id="previewBtn" class="btn btn-outline btn-pair no-spinner" disabled>Listen</button>
     </div>
     <p id="previewStatus" style="font-size:12px; color:var(--chalk-dim); text-align:center; margin-top:8px;"></p>
     <audio id="previewAudio" style="width:100%; margin-top:10px; display:none;" controls></audio>
@@ -1212,6 +1255,7 @@ function validateStep2(showErrors) {
   err.textContent = 'Still need the 18-or-older confirmation.';
   if (showErrors) gate.classList.add('field-missing');
   err.style.display = 'block';
+  smkShowError(err);
   return false;
 }
 
@@ -1247,6 +1291,7 @@ function validateStep1(showErrors) {
     ? 'Still need ' + missing[0] + '.'
     : 'Still need ' + missing.slice(0, -1).join(', ') + ' and ' + missing[missing.length - 1] + '.';
   err.style.display = 'block';
+  smkShowError(err);
   return false;
 }
 
@@ -1880,6 +1925,30 @@ document.getElementById('orderReplyOptIn').addEventListener('change', (e) => {
   document.getElementById('orderReplyPhoneRow').style.display = e.target.checked ? 'block' : 'none';
 });
 
+// AN ERROR NOBODY CAN SEE IS THE SAME AS NO ERROR.
+//
+// Five things can stop a send, and not one of them scrolled into view.
+// So somebody presses Send, a message appears further down a long page,
+// and from where they are looking NOTHING HAPPENED AT ALL. They press it
+// again, and again, and conclude the button is broken.
+//
+// That is exactly what it looks like coming back from a login, because
+// that is when the ticks most often need redoing.
+function smkShowError(el) {
+  if (!el) return;
+  try {
+    var r = el.getBoundingClientRect();
+    var visible = r.top >= 0 && r.bottom <= window.innerHeight;
+    if (!visible) el.scrollIntoView({behavior: 'smooth', block: 'center'});
+  } catch (e) {
+    el.scrollIntoView();
+  }
+  // A flash, so a message that WAS on screen still registers as new.
+  el.classList.remove('err-flash');
+  void el.offsetWidth;
+  el.classList.add('err-flash');
+}
+
 document.getElementById('orderSubmitBtn').addEventListener('click', async () => {
   // These live on steps 1 and 2 now; the modal used to re-ask for all three.
   const message = document.getElementById('trashTalkOutput').value.trim();
@@ -1907,27 +1976,32 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
     // actually missing rather than naming all three.
     errorEl.textContent = smkMissingWhere(message, recipientName, recipientPhone);
     errorEl.style.display = 'block';
+    smkShowError(errorEl);
     return;
   }
   if (replyOptIn && !senderPhone) {
     errorEl.textContent = 'Please enter your number, or uncheck the reply option. (Step 4)';
     smkInvalid(document.getElementById('orderSenderPhone'));
     errorEl.style.display = 'block';
+    smkShowError(errorEl);
     return;
   }
   if (ageRow.style.display !== 'none' && !ageConfirmed) {
     errorEl.textContent = 'Please confirm the recipient is 18 or older before continuing. (Step 2)';
     errorEl.style.display = 'block';
+    smkShowError(errorEl);
     return;
   }
   if (!consent) {
     errorEl.textContent = 'Please confirm you know this person before continuing. (Step 4)';
     errorEl.style.display = 'block';
+    smkShowError(errorEl);
     return;
   }
   if (!termsAgree) {
     errorEl.textContent = 'Please agree to the Terms & Conditions before continuing. (Step 4)';
     errorEl.style.display = 'block';
+    smkShowError(errorEl);
     return;
   }
 
@@ -1982,12 +2056,14 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
     } else {
       errorEl.textContent = data.error || 'Something went wrong — try again.';
       errorEl.style.display = 'block';
+      smkShowError(errorEl);
       btn.textContent = 'Continue to payment';
       btn.disabled = false;
     }
   } catch (err) {
     errorEl.textContent = 'Something went wrong — try again.';
     errorEl.style.display = 'block';
+    smkShowError(errorEl);
     btn.textContent = 'Continue to payment';
     btn.disabled = false;
   }
@@ -2515,8 +2591,22 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
         }
         var v = document.getElementById('voiceSelect');
         if (v && v.value) d._voice = v.value;
-        var chk = document.getElementById('orderReplyOptIn');
-        if (chk) d._reply = chk.checked;
+        // EVERY CHECKBOX, NOT JUST ONE.
+        //
+        // Only orderReplyOptIn was saved. So somebody who filled the whole
+        // thing in, hit send, was asked to log in, and came back found the
+        // age confirmation and the consent tick both cleared - and had to
+        // agree to the same things a second time.
+        //
+        // That is the worst possible moment for friction: they have
+        // already decided to spend, already logged in, and the form is
+        // asking them to prove they meant it.
+        d._checks = {};
+        ['ageConfirm', 'orderReplyOptIn', 'orderConsent',
+         'orderTermsAgree'].forEach(function (id) {
+          var c = document.getElementById(id);
+          if (c) d._checks[id] = c.checked;
+        });
         // WHICH STEP THEY WERE ON. Coming back to step one having already
         // filled in everything is the same as losing the data - they still
         // have to click through it all again.
@@ -2550,10 +2640,22 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
           var v = document.getElementById('voiceSelect');
           if (v) { v.value = d._voice; v.dispatchEvent(new Event('change', {bubbles: true})); }
         }
-        if (typeof d._reply === 'boolean') {
-          var chk = document.getElementById('orderReplyOptIn');
-          if (chk && chk.checked !== d._reply) chk.click();
+        // RESTORE EVERY BOX THEY TICKED.
+        //
+        // click() rather than setting .checked, deliberately - several of
+        // these have listeners that enable the send button or reveal a
+        // field, and setting the property fires nothing. A box that looks
+        // ticked while the button stays disabled is worse than an
+        // unticked box, because there is nothing left to press.
+        var boxes = d._checks || {};
+        // Older drafts stored only the reply opt-in under its own key.
+        if (typeof d._reply === 'boolean' && !('orderReplyOptIn' in boxes)) {
+          boxes.orderReplyOptIn = d._reply;
         }
+        Object.keys(boxes).forEach(function (id) {
+          var c = document.getElementById(id);
+          if (c && c.checked !== boxes[id]) c.click();
+        });
         if (typeof d._sens !== 'undefined' && typeof selectedSensitivity !== 'undefined') {
           selectedSensitivity = d._sens;
           // The fader is BUILT BY JAVASCRIPT after the levels load, so
@@ -2570,6 +2672,21 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
         // top of a long page with the generator somewhere below is the same
         // problem as losing the data - they have to hunt for where they
         // were.
+        // RUN THE GATES BEFORE MOVING.
+        //
+        // Setting .value on a field fires NO events, so nothing that
+        // listens for input ever hears about a restored draft. The send
+        // button is enabled by refreshOutputState() reading the textarea -
+        // which never ran, so somebody came back to a complete form with
+        // a dead Send button and no way to tell why.
+        //
+        // Both gates, in order: output state enables Send and Listen,
+        // gate state handles the age tick and the step-1 fields.
+        try {
+          if (typeof refreshOutputState === 'function') refreshOutputState();
+          if (typeof refreshGateState === 'function') refreshGateState();
+        } catch (e) { /* a gate that throws must not lose the draft */ }
+
         if (typeof d._step === 'number' && window.smkGoToStep) {
           window.smkGoToStep(d._step);
         }
