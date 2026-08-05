@@ -816,7 +816,17 @@
   .pick small{color:var(--chalk-dim); font-size:12px; white-space:nowrap;}
   .picked{display:inline-flex; align-items:center; gap:8px;
           background:var(--flare); color:#fff; border-radius:20px;
-          padding:7px 14px; font-size:14px; font-weight:600; margin-top:8px;}
+          padding:7px 14px; font-size:14px; font-weight:600; margin-top:8px;
+    margin-bottom:6px;
+    margin-right:6px;
+  }
+
+  /* THE HINT WAS SITTING ON TOP OF THE PILL.
+     .field-hint carries margin-top:-8px, right when a hint sits under an
+     input. But a picked name is inserted BETWEEN input and hint, so that
+     -8px pulled the hint up over the pill - grey text on red. */
+  #playerPick:has(.picked) #playerHint{margin-top:8px;}
+  #playerHint.has-picks{margin-top:8px;}
   .picked button{background:none; border:none; color:#fff; cursor:pointer;
                  font-size:16px; line-height:1; padding:0;}
 
@@ -1041,7 +1051,9 @@ window.smkTop = function (url) {
            maxlength="20" autocomplete="off">
 
     <label for="teamInput"><span class="fld-num">2.</span> Team to trash talk</label>
-    <input id="teamInput" type="text" placeholder="ex - Yankees" data-team-search>
+    <input id="teamInput" type="text"
+           placeholder="ex - Yankees (their favorite team)"
+           autocomplete="off" data-team-search>
 
     {# WHAT TO AIM IT AT.
        
@@ -1099,7 +1111,7 @@ window.smkTop = function (url) {
        the promise this product is built on. #}
     <label for="fromTeamInput"><span class="fld-num">4.</span> Your favorite team</label>
     <input id="fromTeamInput" type="text"
-           placeholder="ex - Giants (optional)" data-team-search>
+           placeholder="ex - Giants (optional)" data-team-search autocomplete="off">
     {# Two paragraphs became one line.
        
        Both said the same thing twice - fill it in, or do not - and the
@@ -1200,7 +1212,7 @@ window.smkTop = function (url) {
     <h3 id="callingSub">Last thing &mdash; where do we reach them?</h3>
 
     <label for="orderRecipientPhone" id="phoneLabel">Their phone number</label>
-    <input id="orderRecipientPhone" type="tel" inputmode="tel" placeholder="1 (555) 555-5555" maxlength="17">
+    <input id="orderRecipientPhone" type="tel" inputmode="tel" placeholder="1 (555) 555-5555" maxlength="17" autocomplete="tel-national">
     <p class="field-hint">We won’t call this number for anything other than delivering your Smackagram.</p>
 
     <div style="border-top:1px solid var(--hairline); padding-top:16px; margin-top:6px;">
@@ -1227,7 +1239,7 @@ window.smkTop = function (url) {
       </div>
       <div id="orderReplyPhoneRow" style="display:none; margin:8px 0 14px;">
         <label for="orderSenderPhone">Your number (only used if they reply)</label>
-        <input id="orderSenderPhone" type="tel" inputmode="tel" placeholder="1 (555) 555-5555" maxlength="17">
+        <input id="orderSenderPhone" type="tel" inputmode="tel" placeholder="1 (555) 555-5555" maxlength="17" autocomplete="tel">
       </div>
 
       <label class="consent-row" for="orderConsent">
@@ -1380,6 +1392,31 @@ document.addEventListener('DOMContentLoaded', () => {
     var el = document.getElementById(id);
     if (el) el.addEventListener('input', refreshGateState);
   });
+
+  // THE TEAM PLACEHOLDER USES THEIR FRIEND'S NAME.
+  //
+  // This field sits directly above "your favorite team" and people do
+  // confuse the two. "Mike's favorite team" removes the only ambiguity
+  // it has - and a smack about the wrong team is a wasted dollar.
+  (function () {
+    var name = document.getElementById('recipientNameInput');
+    var team = document.getElementById('teamInput');
+    if (!name || !team) return;
+    function apostrophe(n) {
+      // Chris' rather than Chris's - the alternative looks like a typo
+      // to anybody called Chris.
+      return /s$/i.test(n) ? n + "\u2019" : n + "\u2019s";
+    }
+    function sync() {
+      var n = (name.value || '').trim().split(/\s+/)[0];
+      var ok = n && n.length <= 14 && /^[A-Za-z\u00C0-\u024F'\-]+$/.test(n);
+      team.placeholder = ok
+        ? 'ex - Yankees (' + apostrophe(n) + ' favorite team)'
+        : 'ex - Yankees (their favorite team)';
+    }
+    name.addEventListener('input', sync);
+    sync();   // and on load, so a restored draft shows it immediately
+  })();
 
   // Arriving from the Smack Board with the team already chosen. The board
   // knows who is losing, so it hands over that name and this page starts a
@@ -2508,10 +2545,15 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
         tag.remove();
         input.style.display = '';
         input.focus();
+        if (!chosenPlayers.length) hint.classList.remove('has-picks');
         hint.textContent = chosenPlayers.length
-          ? 'One more if you want.' : '';
+          ? 'One more if you want.'
+          : 'Tap a name from the list so Smacky gets the spelling right.';
       });
       input.parentNode.insertBefore(tag, hint);
+
+      // Stop the hint tucking up under the input now a pill sits between.
+      hint.classList.add('has-picks');
 
       if (chosenPlayers.length >= MAX_PLAYERS) {
         input.style.display = 'none';
@@ -2594,6 +2636,7 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
             input.parentNode.insertBefore(tag, hint);
           }
         });
+        if (hint && chosenPlayers.length) hint.classList.add('has-picks');
         if (input && chosenPlayers.length >= 2) input.style.display = 'none';
         if (hint && chosenPlayers.length) {
           hint.textContent = chosenPlayers.length >= 2

@@ -2329,7 +2329,9 @@ function render(battle) {
       }
     }
     tick();
-    turnTimerInterval = setInterval(tick, 250);
+    turnTimerInterval = // Four times a second is right for a countdown somebody is watching,
+    // and pointless when they are not. Highest-frequency timer on the site.
+    setInterval(function () { if (!document.hidden) tick(); }, 250);
   }
 
   if (battle.status === 'complete') {

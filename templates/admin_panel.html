@@ -1049,7 +1049,9 @@
     function start() {
       clearInterval(timer);
       poll();                        // primes the marks, fires nothing
-      timer = setInterval(poll, 10000);
+      timer = // Only while somebody is looking. An admin panel left open in a
+    // background tab all day is 8,640 requests nobody reads.
+    setInterval(function () { if (!document.hidden) poll(); }, 10000);
       feed.textContent = unlocked ? 'listening' : 'listening (click to enable sound)';
     }
 

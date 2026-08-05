@@ -167,11 +167,20 @@ def board(sport, date_str):
             continue
         hs, aws = _scores(r)
         status = str(r.get("status", ""))
+        final = ("final" in status.lower() or status == "post")
+        live = status.lower() in ("in", "in_progress", "live")
         games.append({
             "home_team": home, "away_team": away,
             "home_score": hs, "away_score": aws,
-            "final": ("final" in status.lower() or status == "post"),
-            "is_live": status.lower() in ("in", "in_progress", "live"),
+            "final": final,
+            "is_live": live,
+            "live": live,
+            # The board shows a start time on anything not yet played.
+            # Without this a WNBA fixture would say UPCOMING and nothing
+            # else - which is the one thing somebody needs to decide
+            # whether to set a smack up now or later.
+            "upcoming": not final and not live,
+            "start": r.get("date"),
             "id": r.get("id"),
             "source": "balldontlie",
         })
