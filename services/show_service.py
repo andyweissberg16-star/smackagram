@@ -122,7 +122,7 @@ def _nick(name):
     return parts[-1].lower() if parts else ""
 
 
-def _attach_highlightly_ids(games, log=print):
+def _attach_highlightly_ids(games, log=print, day=None):
     """
     Find each game's Highlightly match id, so its box score can be fetched.
 
@@ -168,8 +168,18 @@ def _attach_highlightly_ids(games, log=print):
     except Exception:
         return games
 
+    # THE DAY MUST MATCH THE GAMES, NOT BE ASSUMED.
+    #
+    # This hardcoded "yesterday". If the show is run for any other day,
+    # the lookup fetched the wrong day's results and matched them by team
+    # name - so a box score could be attached to a DIFFERENT GAME
+    # between the same two teams, and its stats read out as fact.
+    #
+    # Two teams meeting twice in a series makes that likely rather than
+    # unlikely.
     from datetime import datetime as _dt, timedelta as _td
-    day = (_dt.now(EASTERN) - _td(days=1)).strftime("%Y-%m-%d")
+    if not day:
+        day = (_dt.now(EASTERN) - _td(days=1)).strftime("%Y-%m-%d")
 
     by_league = {}
     for g in unmatched:
@@ -194,10 +204,28 @@ def _attach_highlightly_ids(games, log=print):
             continue
         for hid, r in (by_league.get(lg) or {}).items():
             got = {_nick(r.get("winner")), _nick(r.get("loser"))}
-            if got == want:
-                g["_hl_id"] = hid
-                matched += 1
-                break
+            if got != want:
+                continue
+
+            # THE SCORE HAS TO AGREE TOO.
+            #
+            # Team names alone are not unique within a day - a
+            # doubleheader is the same two teams twice, and this loop
+            # takes the FIRST match. Attaching the wrong game's box score
+            # means reading another game's stats out as fact.
+            #
+            # When either side gives no score we accept the name match,
+            # because a name match is still better than nothing - but a
+            # score that DISAGREES is a positive signal it is the wrong
+            # game, and we skip it.
+            ws, ls = g.get("winner_score"), g.get("loser_score")
+            rws, rls = r.get("winner_score"), r.get("loser_score")
+            if None not in (ws, ls, rws, rls) and (ws, ls) != (rws, rls):
+                continue
+
+            g["_hl_id"] = hid
+            matched += 1
+            break
 
     if matched:
         log(f"highlightly: matched {matched}/{len(games)} games")
@@ -645,9 +673,29 @@ def find_streaks(leagues, days_back: int = 1, lookback: int = 7, minimum: int = 
         return []
 
     results = {}
+    # EVERY GAME ONCE, NOT ONCE PER OFFSET IT APPEARS IN.
+    #
+    # fetch_results now returns TWO UTC days per call, because an Eastern
+    # day spans two of them. So consecutive offsets OVERLAP - offset 1
+    # returns Aug 4 and Aug 5, offset 2 returns Aug 3 and Aug 4 - and
+    # every game was counted twice.
+    #
+    # That is how the show announced an ELEVEN GAME LOSING STREAK, which
+    # is not possible from a seven-day lookback. An honest five or six
+    # became eleven.
+    #
+    # A wrong stat said with confidence is worse than no stat, because
+    # anybody who follows that team knows immediately.
+    seen_games = set()
     for offset in range(days_back, days_back + lookback):
         for lg in active:
             for g in fetch_results(lg, days_back=offset):
+                gid = str(g.get("id") or g.get("highlightly_id") or
+                          f"{g.get('winner')}|{g.get('loser')}|"
+                          f"{g.get('winner_score')}|{g.get('loser_score')}")
+                if gid in seen_games:
+                    continue
+                seen_games.add(gid)
                 for team, won in ((g["winner"], True), (g["loser"], False)):
                     results.setdefault(team, []).append((offset, won, g["league"]))
 
@@ -1731,7 +1779,12 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
     log(f"results in: {material['game_count']} games, planning {plan['minutes']:g} min")
     # Box scores before writing, not after - the writer needs them.
     try:
-        material["games"] = _attach_highlightly_ids(material["games"], log)
+        # The day the show is ABOUT, not an assumed yesterday. Matching
+        # against the wrong day can attach another game's box score.
+        from datetime import datetime as _d2, timedelta as _t2
+        _show_day = (_d2.now(EASTERN) - _t2(days=days_back)).strftime("%Y-%m-%d")
+        material["games"] = _attach_highlightly_ids(
+            material["games"], log, day=_show_day)
         material["games"] = enrich_with_detail(material["games"], log)
     except Exception as e:
         log(f"deep detail unavailable, using scorelines only: {e}")

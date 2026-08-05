@@ -128,7 +128,19 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
             # did not happen.
             "periods": r.get("periods"),
             "home": r.get("home"), "away": r.get("away"),
-            "id": r.get("id"), "highlightly_id": r.get("id"),
+            # THE KEY IS match_id, NOT id.
+            #
+            # _norm_score returns {"match_id": ...}. Reading "id" gave
+            # None on every Highlightly game - so highlightly_id was
+            # never set, the direct path never fired, and every game fell
+            # through to matching by TEAM NAME against a hardcoded
+            # "yesterday".
+            #
+            # Which means a box score could be attached to the WRONG
+            # GAME, and its stats read out as fact. That is worse than
+            # having no stats at all.
+            "id": r.get("match_id") or r.get("id"),
+            "highlightly_id": r.get("match_id") or r.get("id"),
             "venue": r.get("venue"),
             # Plain-language scoring lines where a source gives them -
             # better raw material for a joke than a box score.
@@ -165,31 +177,89 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
             "deep_facts": [],
         }
 
+    # BOTH SOURCES, MERGED - NOT ONE THEN THE OTHER.
+    #
+    # HIGHLIGHTLY LAGS ON RECENT RESULTS. Measured from a real run:
+    #
+    #     mlb 2026-08-04:  5 finals   <- yesterday
+    #     mlb 2026-08-03:  8
+    #     mlb 2026-08-02: 23
+    #     mlb 2026-08-01: 37
+    #
+    # The older the date, the more complete. Yesterday's card came back
+    # with 5 of about 15 because the rest were still marked "Scheduled".
+    #
+    # The show runs on YESTERDAY. So it was building a 2.6-minute episode
+    # out of a third of the night, and balldontlie - which had the same
+    # games marked final - was never consulted, because it was only tried
+    # when Highlightly returned NOTHING.
+    #
+    # Merged on the two team names, since the providers use different
+    # ids. Highlightly wins on conflict: it carries box scores, which
+    # balldontlie does not.
+    out, seen = [], set()
+
+    def _pair(r):
+        w = (r.get("winner") or "").split()[-1].lower()
+        l = (r.get("loser") or "").split()[-1].lower()
+        return tuple(sorted((w, l)))
+
     try:
         from services import highlightly
         hl = highlightly.finals(league, iso_day)
-        if hl:
-            out = [_shape(r, "highlightly") for r in hl.values()]
+        for r in (hl or {}).values():
+            k = _pair(r)
+            if k in seen or "" in k:
+                continue
+            seen.add(k)
+            out.append(_shape(r, "highlightly"))
+        if out:
             print(f"[finals] {league} {iso_day}: {len(out)} via highlightly",
                   flush=True)
-            return out
     except Exception as e:
         print(f"[finals] highlightly failed for {league}: {e}", flush=True)
 
     # Then balldontlie - the ONLY source for WNBA, and a real fallback
     # everywhere else now that ESPN cannot answer.
+    # ADDED TO, not fallen back to. Anything Highlightly has not marked
+    # finished yet may well be settled here.
+    # ONLY ON THE DAY THE SHOW IS ABOUT.
+    #
+    # find_streaks walks seven days across five leagues. Merging on every
+    # one of them means 35 balldontlie calls at FOUR A MINUTE - nine
+    # minutes of waiting, which is the hang this show has already had
+    # once tonight.
+    #
+    # And it is not needed there: streaks care about who lost, and the
+    # older days are the ones Highlightly has complete. The lag only
+    # affects yesterday, which is exactly the day the show is about.
+    _merge = days_back <= 1
+
     try:
         from services import balldontlie
-        if balldontlie.covers(league):
+        if _merge and balldontlie.covers(league):
             bd = balldontlie.finals(league, iso_day)
-            if bd:
-                out = [_shape(r, "balldontlie") for r in bd.values()]
-                print(f"[finals] {league} {iso_day}: {len(out)} via "
-                      f"balldontlie", flush=True)
-                return out
+            added = 0
+            for r in (bd or {}).values():
+                k = _pair(r)
+                if k in seen or "" in k:
+                    continue
+                seen.add(k)
+                out.append(_shape(r, "balldontlie"))
+                added += 1
+            if added:
+                print(f"[finals] {league} {iso_day}: +{added} from "
+                      f"balldontlie that highlightly did not have",
+                      flush=True)
     except Exception as e:
         print(f"[finals] balldontlie failed for {league}: {e}", flush=True)
 
+    if out:
+        return out
+
+    # ESPN last, and only if neither answered. It cannot at the moment -
+    # it refuses this server outright - but the path costs nothing when
+    # the gate is cooling and fails fast.
     url = f"{BASE}/{sport_path}/{league_path}/scoreboard"
 
     # Through the gate. This is the show's main scoreboard call - one per
