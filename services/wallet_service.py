@@ -35,7 +35,20 @@ def credit_wallet(user, amount_cents: int, transaction_type: str, stripe_payment
     (the webhook handler) is trusted to pass the right sign, but every
     real call site should only ever credit a positive amount.
     """
-    user.balance_cents += amount_cents
+    # ATOMIC HERE TOO, for the opposite reason.
+    #
+    # A debit racing loses money for the customer. A CREDIT racing loses
+    # it for you: two refunds arriving together both read 0, both write
+    # 100, and one of them vanishes - so somebody is owed a dollar that
+    # the ledger says was paid.
+    #
+    # Same statement, same protection.
+    from models import User
+    db.session.query(User).filter(User.id == user.id).update(
+        {User.balance_cents: User.balance_cents + amount_cents},
+        synchronize_session="fetch",
+    )
+    db.session.refresh(user)
     txn = WalletTransaction(
         user_id=user.id,
         amount_cents=amount_cents,
@@ -57,10 +70,41 @@ def debit_wallet(user, amount_cents: int, transaction_type: str, description: st
     raising an exception, since "insufficient balance" is an expected,
     routine outcome here, not an error condition.
     """
-    if not has_sufficient_balance(user, amount_cents):
+    # ONE ATOMIC STATEMENT, NOT READ-THEN-WRITE.
+    #
+    # This checked the balance, then subtracted - separate steps. Two
+    # requests arriving together both read 100, both decide 100 >= 100,
+    # and both write 0. Two smacks sent, one dollar taken.
+    #
+    # TODAY THAT IS PREVENTED ONLY BY RUNNING A SINGLE GUNICORN WORKER,
+    # which handles requests one at a time. Safe by accident, not by
+    # design - and the accident ends the moment WEB_CONCURRENCY goes above
+    # one, which is exactly what "stress test to 1000 simultaneous
+    # deliveries" involves doing.
+    #
+    # The database decides now. The UPDATE only matches a row that still
+    # has enough, so if two arrive together one matches and the other does
+    # not. There is no window between the check and the subtraction
+    # because they are the same statement.
+    if amount_cents <= 0:
         return None
 
-    user.balance_cents -= amount_cents
+    from models import User
+    updated = db.session.query(User).filter(
+        User.id == user.id,
+        User.balance_cents >= amount_cents,
+    ).update(
+        {User.balance_cents: User.balance_cents - amount_cents},
+        synchronize_session="fetch",
+    )
+    if not updated:
+        return None
+
+    # Pull the real value back before writing the ledger. The UPDATE
+    # happened in the database, so the object in memory may still hold
+    # what it was - and a ledger line recording the wrong balance is
+    # worse than no ledger line, because it looks authoritative.
+    db.session.refresh(user)
     txn = WalletTransaction(
         user_id=user.id,
         amount_cents=-amount_cents,  # stored as negative for a debit
