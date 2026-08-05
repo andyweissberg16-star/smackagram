@@ -59,6 +59,9 @@ BASE = "https://sports.highlightly.net"
 # score endpoint and the general basketball segment does not - which is
 # why box scores looked unavailable for basketball when they were simply
 # behind a different path.
+# Not in their data at all - see the note in _get().
+NOT_COVERED = {"wnba"}
+
 PATHS = {
     "mlb":   "baseball",
     "nfl":   "american-football",
@@ -90,10 +93,21 @@ LEAGUES = {
     "nfl":   ("NFL", "league"),
     "ncaaf": ("NCAA", "league"),
     "nba":   ("NBA", "league"),
-    "ncaab": ("NCAAB", "league"),
+    # "NCAA", not "NCAAB". Confirmed from their own data on 5 August:
+    # american-football carries ["NCAA", "NFL"] and nhl carries
+    # ["NCAA", "NHL"]. They use the bare "NCAA" for every college
+    # competition, and a wrong name here would have returned 200 with
+    # nothing - looking like an empty day rather than a mistake.
+    "ncaab": ("NCAA", "league"),
     "nhl":   ("NHL", "league"),
-    # The general basketball segment is the ONLY one taking leagueName,
-    # and it is the one WNBA lives on.
+    # WNBA IS NOT IN HIGHLIGHTLY'S DATA. Confirmed 5 August: their
+    # basketball segment had fixtures that day, and they were MPBL and
+    # PBA Governors Cup - Philippine leagues. No WNBA anywhere.
+    #
+    # Left mapped so nothing crashes if it is called, but WNBA MUST STAY
+    # ON ESPN. That is not a fallback, it is the only source we have for
+    # it - and the general basketball segment has no box scores either,
+    # so there would be nothing to gain even if the fixtures appeared.
     "wnba":  ("WNBA", "leagueName"),
 }
 
@@ -228,6 +242,20 @@ def _get(sport, path, params=None, ttl=45, timeout=10):
     key = os.environ.get("HIGHLIGHTLY_KEY")
     if not key:
         return None
+    # LEAGUES HIGHLIGHTLY DOES NOT CARRY.
+    #
+    # Confirmed 5 August: their basketball segment had fixtures that day
+    # and they were Philippine leagues - MPBL and PBA Governors Cup. No
+    # WNBA at all.
+    #
+    # Without this guard every WNBA lookup makes a request that cannot
+    # succeed, spends quota, and returns 200 with nothing - which reads
+    # as "no games today" rather than "not covered". Returning early
+    # makes the gap explicit and lets the ESPN path take over
+    # immediately.
+    if sport in NOT_COVERED:
+        return None
+
     seg = PATHS.get(sport)
     if not seg:
         return None
