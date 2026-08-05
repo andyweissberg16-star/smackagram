@@ -7077,6 +7077,121 @@ def api_admin_email_test():
     return jsonify(out)
 
 
+@app.route("/api/admin/balldontlie-probe")
+@login_required
+def api_admin_balldontlie_probe():
+    """
+    What does the balldontlie key actually get us?
+
+    ESPN now returns 403 to Render on the first request - a single call,
+    instantly refused, which is an IP block rather than rate limiting.
+    Verified: the same URL returns 200 from a laptop. So the fallback
+    that was meant to catch a Highlightly outage has been dead in
+    production, and waiting will not fix it.
+
+    That leaves Highlightly as a single point of failure for every sport,
+    and Auto-Smack TAKES MONEY for calls that depend on knowing a result.
+
+    Before building against another API, find out what this one gives
+    us - the same mistake with Highlightly cost days. This asks their
+    API directly rather than trusting a pricing page: rate limits come
+    from the response headers, and coverage from what actually answers.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+
+    import requests
+    key = os.environ.get("BALLDONTLIE_KEY")
+    if not key:
+        return jsonify({"error": "BALLDONTLIE_KEY is not set in Render."}), 400
+
+    HEAD = {"Authorization": key}
+
+    def ask(url, params=None):
+        try:
+            r = requests.get(url, params=params or {}, headers=HEAD,
+                             timeout=15)
+            try:
+                body = r.json()
+            except Exception:
+                body = r.text[:160]
+            return r.status_code, body, dict(r.headers)
+        except Exception as e:
+            return None, f"{type(e).__name__}: {e}"[:140], {}
+
+    out = {"tested": utc_iso(datetime.utcnow())}
+
+    # ---- which sports answer at all? ----
+    #
+    # Their leagues live on separate hosts. A 401 means the tier does not
+    # include that sport; a 200 means it does.
+    BASES = {
+        "nba":   "https://api.balldontlie.io/v1",
+        "wnba":  "https://api.balldontlie.io/wnba/v1",
+        "mlb":   "https://api.balldontlie.io/mlb/v1",
+        "nfl":   "https://api.balldontlie.io/nfl/v1",
+        "nhl":   "https://api.balldontlie.io/nhl/v1",
+        "ncaab": "https://api.balldontlie.io/ncaab/v1",
+    }
+    out["coverage"] = {}
+    for sport, base in BASES.items():
+        st, body, hdrs = ask(f"{base}/teams", {"per_page": 3})
+        rows = body.get("data") if isinstance(body, dict) else None
+        info = {"status": st, "teams": len(rows) if rows else 0}
+        if st != 200:
+            info["said"] = (body.get("message") if isinstance(body, dict)
+                            else str(body))[:120]
+        elif rows:
+            # Do they carry logos? That is the other thing worth knowing.
+            info["team_fields"] = sorted(rows[0].keys())
+            info["sample"] = {k: str(v)[:50]
+                              for k, v in list(rows[0].items())[:8]}
+        # THE RATE LIMIT, FROM THE HEADERS RATHER THAN A PRICING PAGE.
+        limits = {k: v for k, v in hdrs.items()
+                  if "ratelimit" in k.lower() or "x-rate" in k.lower()}
+        if limits:
+            info["rate_limit"] = limits
+        out["coverage"][sport] = info
+
+    # ---- can it do the two things we actually need? ----
+    #
+    # 1. finished games on a date, so Auto-Smack knows who lost
+    # 2. per-player box scores, so a smack has detail rather than
+    #    "your team lost"
+    out["what_we_need"] = {}
+    day = request.args.get("date") or "2026-08-04"
+
+    for sport, base in (("wnba", BASES["wnba"]), ("mlb", BASES["mlb"])):
+        block = {}
+        st, body, _ = ask(f"{base}/games", {"dates[]": day, "per_page": 5})
+        rows = body.get("data") if isinstance(body, dict) else None
+        block["games_on_" + day] = {
+            "status": st, "rows": len(rows) if rows else 0,
+            "sample": rows[0] if rows else (
+                body.get("message") if isinstance(body, dict) else None),
+        }
+        gid = (rows[0].get("id") if rows else None)
+        if gid:
+            st, body, _ = ask(f"{base}/stats", {"game_ids[]": gid,
+                                                "per_page": 3})
+            srows = body.get("data") if isinstance(body, dict) else None
+            block["box_score"] = {
+                "status": st, "rows": len(srows) if srows else 0,
+                "sample": srows[0] if srows else (
+                    body.get("message") if isinstance(body, dict) else None),
+            }
+        out["what_we_need"][sport] = block
+
+    out["why_this_matters"] = (
+        "ESPN 403s from Render on the first request - an IP block, not "
+        "rate limiting, confirmed by the same URL returning 200 from a "
+        "laptop. So Highlightly is currently a single point of failure "
+        "for every sport, and WNBA has no source at all since Highlightly "
+        "does not carry it.")
+    return jsonify(out)
+
+
 @app.route("/api/admin/roster-probe")
 @login_required
 def api_admin_roster_probe():
