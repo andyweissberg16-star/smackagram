@@ -70,24 +70,33 @@ PATHS = {
 }
 
 # What they call each league, and which query parameter carries it.
+# CONFIRMED LIVE, 5 August 2026 - not inferred from documentation.
+#
+# Their API names its own valid values when you send a wrong one:
+#
+#   league must be one of the following values: MLB, NCAA
+#   property leagueName should not exist
+#   property league should not exist
+#
+# So this table is read off their own error messages rather than guessed.
+#
+#   baseball, nba, nhl, american-football  ->  league
+#   basketball                             ->  leagueName
+#
+# NHL WAS WRONG BEFORE. It was set to leagueName, which that segment
+# rejects outright with a 400. It has never worked.
 LEAGUES = {
     "mlb":   ("MLB", "league"),
     "nfl":   ("NFL", "league"),
     "ncaaf": ("NCAA", "league"),
-    # Hockey rejects "league" with a 400 - verified live. It takes
-    # leagueName, the same as basketball. Each sport differs and there is
-    # no pattern to it.
-    "nhl":   ("NHL", "leagueName"),
-    # The dedicated NBA segment takes "league" like the other American
-    # ones, per their docs. leagueName was what the GENERAL basketball
-    # host wanted, which is a different endpoint.
     "nba":   ("NBA", "league"),
     "ncaab": ("NCAAB", "league"),
-    # WNBA stays on the general basketball segment, which does use
-    # leagueName - and has no box scores. That limitation is real, unlike
-    # the NBA one, which was an artefact of calling the wrong host.
+    "nhl":   ("NHL", "league"),
+    # The general basketball segment is the ONLY one taking leagueName,
+    # and it is the one WNBA lives on.
     "wnba":  ("WNBA", "leagueName"),
 }
+
 
 # Baseball says "box-scores", football says "box-score". Verified against
 # the live API - the plural form 404s on football and vice versa.
@@ -145,10 +154,18 @@ def _matches_for(sport, params, ttl=45):
         return None
     league_name, first_guess = cfg
 
+    # NO MORE TRYING BOTH.
+    #
+    # The values above are now confirmed against the live API rather than
+    # guessed, and sending the wrong one earns a 400 - so a fallback
+    # attempt is a wasted request that also pollutes the logs with errors
+    # that look like faults.
+    #
+    # An EMPTY result is not a wrong parameter. NBA and NHL return 200
+    # with no rows all summer because they are out of season, and the old
+    # fallback treated that as failure and retried with a parameter that
+    # cannot work.
     order = [_league_param_found.get(sport) or first_guess]
-    other = "leagueName" if order[0] == "league" else "league"
-    if not _league_param_found.get(sport):
-        order.append(other)
 
     for param in order:
         q = dict(params)

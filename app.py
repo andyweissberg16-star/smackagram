@@ -7139,29 +7139,23 @@ def api_admin_highlightly_check():
     # So rather than guess again at what they want, this asks with no
     # league parameter at all, and reports the error body verbatim. Their
     # message usually names the offending field.
-    probe = []
-    for seg in ("nba", "nhl", "american-football", "basketball", "baseball"):
-        for label, params in (
-            ("no league param", {"date": day, "limit": 3}),
-            ("league", {"league": seg.upper(), "date": day, "limit": 3}),
-            ("leagueName", {"leagueName": seg.upper(), "date": day,
-                            "limit": 3}),
-            ("no date at all", {"limit": 3}),
-        ):
-            st, body, _ = ask(f"{seg}/matches", params)
-            n = None
-            if isinstance(body, dict):
-                rows = body.get("data")
-                n = len(rows) if isinstance(rows, list) else None
-            elif isinstance(body, list):
-                n = len(body)
-            probe.append({
-                "segment": seg, "tried": label, "status": st,
-                "rows": n,
-                "said": (body if isinstance(body, str)
-                         else str(body)[:180]) if st != 200 or not n else "",
-            })
-    out = {"date_tested": day, "probe": probe, "segments": {}}
+    # ASK THEIR API TO NAME ITS OWN VALID VALUES.
+    #
+    # Sending a deliberately wrong league earns a message like
+    # "league must be one of the following values: MLB, NCAA" - which is
+    # better documentation than their documentation. One request per
+    # segment and we stop guessing at league names entirely.
+    valid = {}
+    for seg, param in (("baseball", "league"), ("nba", "league"),
+                       ("nhl", "league"),
+                       ("american-football", "league"),
+                       ("basketball", "leagueName")):
+        st, body, _ = ask(f"{seg}/matches",
+                          {param: "ZZZ_NOT_A_LEAGUE", "limit": 1})
+        msg = body.get("message") if isinstance(body, dict) else str(body)
+        valid[seg] = {"param": param, "api_says": str(msg)[:200]}
+
+    out = {"date_tested": day, "valid_leagues": valid, "segments": {}}
 
     # Does the key work at all, and what does the plan say?
     st, body, hdrs = ask("baseball/matches",
@@ -7178,22 +7172,37 @@ def api_admin_highlightly_check():
 
     for sport, (seg, league) in SEGMENTS.items():
         info = {"segment": seg}
-        rows = None
-        for param in ("league", "leagueName"):
-            st, body, _ = ask(f"{seg}/matches",
-                              {param: league, "date": day, "limit": 20})
-            got = body.get("data") if isinstance(body, dict) else (
-                body if isinstance(body, list) else None)
-            if st == 200 and got:
-                info["league_param"] = param
-                info["games_found"] = len(got)
-                rows = got
-                break
-            info["last_status"] = st
-        if not rows:
-            info["result"] = "no data"
+        # EMPTY IS NOT BROKEN.
+        #
+        # The first version of this tried both parameter names and
+        # recorded the LAST status - so a segment that answered 200 with
+        # no rows, then 400 on the second attempt, was reported as a 400
+        # failure. NBA and NHL looked broken all summer when they were
+        # simply out of season.
+        #
+        # Now it uses the confirmed parameter and distinguishes three
+        # outcomes: working with games, working but empty, and refused.
+        _name, param = highlightly.LEAGUES.get(sport, (league, "league"))
+        st, body, _ = ask(f"{seg}/matches",
+                          {param: _name, "date": day, "limit": 20})
+        got = body.get("data") if isinstance(body, dict) else (
+            body if isinstance(body, list) else None)
+        info["league_param"] = param
+        info["http"] = st
+        if st != 200:
+            info["result"] = "REFUSED"
+            info["api_says"] = (body.get("message")
+                                if isinstance(body, dict) else str(body))[:160]
             out["segments"][sport] = info
             continue
+        rows = got or []
+        info["games_found"] = len(rows)
+        if not rows:
+            info["result"] = ("works, but no fixtures on this date "
+                              "(out of season?)")
+            out["segments"][sport] = info
+            continue
+        info["result"] = "working"
 
         # A finished game, to test box scores against.
         mid = next((r.get("id") for r in rows
