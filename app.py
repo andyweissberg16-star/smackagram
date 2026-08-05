@@ -6312,6 +6312,36 @@ def cron_daily_show():
     }), 202
 
 
+@app.route("/api/admin/pipeline-check")
+@login_required
+def api_admin_pipeline_check():
+    """
+    Does the show pipeline survive the data it will actually get?
+
+    Runs the whole layout against games shaped like each source really
+    returns - rich Highlightly with a box score, balldontlie with plays
+    but no box, scoreline only, and the least any source could send.
+
+    NO NETWORK AND NO COST. Worth running after any change to the show,
+    or to a data source, BEFORE spending three minutes of TTS finding
+    out at runtime.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    import io, contextlib, sys as _sys
+    _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    buf = io.StringIO()
+    try:
+        from tools import pipeline_check
+        with contextlib.redirect_stdout(buf):
+            code = pipeline_check.run()
+    except Exception as e:
+        return jsonify({"error": f"{type(e).__name__}: {e}"}), 500
+    return jsonify({"passed": code == 0,
+                    "report": buf.getvalue().split("\n")})
+
+
 @app.route("/api/admin/dry-run")
 @login_required
 def api_admin_dry_run():

@@ -384,7 +384,26 @@ def finals(sport, date_str):
         if got:
             out[str(m.get("id"))] = got
 
-    print(f"[highlightly] {sport} {date_str}: {len(out)} final(s)", flush=True)
+    # SAY WHAT WAS REJECTED, NOT JUST WHAT WAS KEPT.
+    #
+    # MLB reported 5 finals on a day with roughly fourteen games, across
+    # two queried dates. Either most games are genuinely not finished, or
+    # they are marked with a word this filter does not recognise - and a
+    # bare count cannot tell those apart.
+    #
+    # The filter accepts a description containing "finish", or a report
+    # of exactly "final". If the provider says "FT" or "Completed",
+    # everything else is silently discarded.
+    if len(out) < len(rows):
+        from collections import Counter
+        seen = Counter(((m.get("state") or {}).get("description") or "?")
+                       for m in rows)
+        detail = ", ".join(f"{k} x{v}" for k, v in seen.most_common(6))
+        print(f"[highlightly] {sport} {date_str}: {len(out)} final(s) "
+              f"from {len(rows)} rows - states seen: {detail}", flush=True)
+    else:
+        print(f"[highlightly] {sport} {date_str}: {len(out)} final(s)",
+              flush=True)
     return out
 
 

@@ -121,6 +121,34 @@ def _attach_highlightly_ids(games, log=print):
 
     One call per league, cached. Silent no-op when Highlightly is off.
     """
+
+    # IF THE GAME CAME FROM HIGHLIGHTLY, IT ALREADY HAS ITS ID.
+    #
+    # This runs BEFORE the enabled() check below, on purpose: copying a
+    # field that is already on the record needs no API and no key.
+    #
+    # The whole matching dance underneath was written when games came
+    # from ESPN and the two providers had to be reconciled by team name.
+    # Games from Highlightly carry highlightly_id in the shape already,
+    # so re-fetching every league to rediscover it is a wasted round
+    # trip - and it matched against a HARDCODED "yesterday", which may
+    # not be the day the game is from.
+    #
+    # That is why the Smack Ball segment kept being skipped for want of
+    # hitter data: the id never got attached, so the box score was never
+    # fetched, so there was never any detail to work with.
+    direct = 0
+    for g in games:
+        if not g.get("_hl_id") and g.get("highlightly_id"):
+            g["_hl_id"] = str(g["highlightly_id"])
+            direct += 1
+    if direct:
+        log(f"highlightly ids: {direct} already known, no lookup needed")
+
+    unmatched = [g for g in games if not g.get("_hl_id")]
+    if not unmatched:
+        return games
+
     try:
         from services import highlightly
         if not highlightly.enabled():
@@ -132,7 +160,7 @@ def _attach_highlightly_ids(games, log=print):
     day = (_dt.now(EASTERN) - _td(days=1)).strftime("%Y-%m-%d")
 
     by_league = {}
-    for g in games:
+    for g in unmatched:
         lg = (g.get("league") or "").lower()
         if lg and lg not in by_league:
             try:
@@ -142,7 +170,7 @@ def _attach_highlightly_ids(games, log=print):
                 by_league[lg] = {}
 
     matched = 0
-    for g in games:
+    for g in unmatched:
         lg = (g.get("league") or "").lower()
         want = {(g.get("winner") or "").split()[-1].lower(),
                 (g.get("loser") or "").split()[-1].lower()}
