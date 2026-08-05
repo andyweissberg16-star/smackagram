@@ -122,29 +122,7 @@
     text-shadow:0 0 9px rgba(255,27,45,0.9);}
   .live-dot{width:7px; height:7px; border-radius:50%; background:#FF1B2D;
     box-shadow:0 0 8px rgba(255,27,45,1); flex:0 0 7px;
-    animation:board-blink 1.3s ease-in-out infinite;
-    animation:liveBlink 1.4s ease-in-out infinite;
-  }
-
-  /* A BLINKING DOT, because a static one reads as decoration.
-     
-     Opacity rather than display, so the dot never disappears entirely -
-     something that vanishes and returns draws the eye harder than
-     something that pulses, and this sits next to a score somebody is
-     trying to read.
-     
-     1.4s is slow enough not to be irritating on a page that may have
-     fifteen of them at once. */
-  @keyframes liveBlink{
-    0%, 100%{opacity:1;   box-shadow:0 0 8px rgba(255,27,45,1);}
-    50%     {opacity:.35; box-shadow:0 0 3px rgba(255,27,45,0.5);}
-  }
-
-  /* Somebody who has asked for less movement gets a steady dot. The
-     information is the colour, not the blinking. */
-  @media (prefers-reduced-motion: reduce){
-    .live-dot{animation:none;}
-  }
+    animation:board-blink 1.3s ease-in-out infinite;}
   @keyframes board-blink{
     0%,100%{opacity:1; transform:scale(1);}
     50%{opacity:0.35; transform:scale(0.75);}
@@ -327,16 +305,6 @@
   .div-head.dh-al .div-line{background:rgba(255,23,68,0.35);}
   .div-head.dh-nl h3{color:#00B8FF; text-shadow:0 0 8px rgba(0,184,255,0.5);}
   .div-head.dh-nl .div-line{background:rgba(0,184,255,0.35);}
-
-  /* UPCOMING in the label colour, the time beside it in white - so the
-     eye lands on the number, which is the part somebody is reading for. */
-  .soon{display:inline-flex; align-items:baseline; gap:7px;}
-  .soon b{font-weight:700; letter-spacing:1px;}
-  .soon-at{
-    color:var(--chalk,#F5F5F3);
-    font-weight:700;
-    letter-spacing:0.5px;
-  }
 </style>
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 </head>
@@ -489,81 +457,24 @@ const AL_TEAMS = [
 
 function mlbLeague(g) {
   if (currentSport() !== 'mlb') return '';
-
-  // g.home IS AN OBJECT, not a string.
-  //
-  // It carries {nick, abbr, city, score, logo}. String(g.home) gives
-  // "[object Object]", which matches no team - so every game fell
-  // through to National League and the American section vanished
-  // entirely.
-  var h = g.home || {};
-  var name = [h.nick, h.city, h.abbr].filter(Boolean).join(' ').toLowerCase();
-  if (!name) return '';
-
+  var home = String(g.home || '').toLowerCase();
+  // Match on the nickname, since the data sometimes carries the city and
+  // sometimes does not.
   for (var i = 0; i < AL_TEAMS.length; i++) {
-    if (name.indexOf(AL_TEAMS[i]) > -1) return 'lg-al';
+    if (home.indexOf(AL_TEAMS[i]) > -1) return 'lg-al';
   }
-  return 'lg-nl';
-}
-
-// WHEN DOES IT START?
-//
-// "SCHEDULED" tells somebody nothing they can act on. The whole point of
-// this board is deciding whether to set up a smack, and that decision
-// needs a time - a game starting in twenty minutes is a very different
-// proposition from one at ten tonight.
-//
-// Their feed gives a UTC timestamp. Converted to the reader's own clock,
-// because a board that says 01:00 to somebody in Florida is worse than
-// saying nothing.
-function startTime(g){
-  var raw = g.start || g.date;
-  if (!raw) return "";
-  try {
-    var d = new Date(raw);
-    if (isNaN(d.getTime())) return "";
-
-    // MIDNIGHT UTC IS A DATE MARKER, NOT A TIME.
-    //
-    // Most fixtures now carry a real first pitch - 23:40 UTC is 7:40pm
-    // Eastern. But some come back as "2026-08-05T00:00:00Z", which is a
-    // marker for WHICH DAY with no time in it, and rendering that gives
-    // 8pm the previous evening.
-    //
-    // Those say TODAY and no clock. Showing nothing beats showing a time
-    // that is wrong by four hours.
-    if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0
-        && d.getUTCSeconds() === 0) {
-      return "TODAY";
-    }
-
-    var mins = Math.round((d - new Date()) / 60000);
-    // Inside an hour a countdown beats a clock - "in 25 min" is
-    // actionable in a way "7:05 PM" is not.
-    if (mins > 0 && mins <= 60) return "IN " + mins + " MIN";
-
-    // THE BOARD IS ONE DAY, AND NOW GENUINELY IS. The fetch pulls both
-    // UTC days and filters back to the Eastern one asked for, so
-    // anything upcoming here really is today - no weekday needed.
-    return ("TODAY " + d.toLocaleTimeString([], {
-      hour: "numeric", minute: "2-digit"
-    })).toUpperCase();
-  } catch (e) { return ""; }
+  return home ? 'lg-nl' : '';
 }
 
 function statusCell(g){
+  // Live gets a blinking dot as its own element rather than a bullet
+  // character, so it can pulse. FINAL glows too - it is the state that means
+  // "you can send one right now", which is worth the eye finding first.
   if (g.live)
-    return `<span class="live"><span class="live-dot"></span>${
-      esc(g.status || "LIVE")}</span>`;
+    return `<span class="live"><span class="live-dot"></span>${esc(g.status || "LIVE")}</span>`;
   if (g.final)
     return `<span class="done">FINAL</span>`;
-
-  // UPCOMING plus the time, rather than whatever word the feed happened
-  // to use. Every league says it differently - "Scheduled", "pre",
-  // "STATUS_SCHEDULED" - and none of them says when.
-  var when = startTime(g);
-  return `<span class="soon"><b>UPCOMING</b>${
-    when ? `<span class="soon-at">${esc(when)}</span>` : ""}</span>`;
+  return `<span class="soon">${esc(g.status || "SCHEDULED")}</span>`;
 }
 
 // Armed calls riding on this game. Shown only once it is a real number -

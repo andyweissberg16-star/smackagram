@@ -219,31 +219,12 @@
 
 
   label{display:block; font-size:12px; color:var(--chalk-dim); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;}
-  /* WHITE FIELDS, matching the Smackagram generator exactly. These two
-     pages sit behind a tab - the same form in two colour schemes reads
-     as one of them being unfinished. */
   input[type=text], input[type=tel], textarea, select{
-    width:100%;
-    background:#FFFFFF;
-    border:none;
-    color:#1A1A1A;
-    padding:12px 14px;
-    font-family:'Inter',sans-serif;
-    font-size:15px;
-    border-radius:6px;
-    margin-bottom:16px;
+    width:100%; background:var(--ink); border:1px solid var(--line-strong); color:var(--chalk);
+    padding:12px 14px; font-family:'Inter',sans-serif; font-size:14px; border-radius:2px; margin-bottom:16px;
   }
-  input::placeholder, textarea::placeholder{color:#6B6B68; opacity:1;}
-  input::-moz-placeholder, textarea::-moz-placeholder{
-    color:#6B6B68; opacity:1;
-  }
-  select{color:#1A1A1A;}
-  /* A ring, not a border - there is none left to recolour. */
-  input:focus, textarea:focus, select:focus{
-    outline:none;
-    box-shadow:0 0 0 2px var(--flare);
-  }
-  textarea{min-height:180px; resize:vertical;}
+  input:focus, textarea:focus, select:focus{outline:none; border-color:var(--flare);}
+  textarea{min-height:90px; resize:vertical;}
 
   .btn{font-weight:600; font-size:14px; padding:12px 24px; border-radius:2px; border:none; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; width:100%; transition:transform 0.12s ease;}
   .btn:hover{transform:scale(1.03) rotate(-0.5deg);}
@@ -604,12 +585,10 @@
   #lnlConsole .btn-flare:hover:not(:disabled){filter:brightness(1.08);}
 
   input::placeholder, textarea::placeholder{
-    /* Was 26% white - invisible on a white field. */
-    color:#6B6B68; opacity:1; font-style:italic;
+    color:rgba(245,245,243,0.26); opacity:1; font-style:italic;
   }
   input::-moz-placeholder, textarea::-moz-placeholder{
-    /* Was 26% white - invisible on a white field. */
-    color:#6B6B68; opacity:1; font-style:italic;
+    color:rgba(245,245,243,0.26); opacity:1; font-style:italic;
   }
 
   /* EMBEDDED. The parent page supplies the frame, so drop ours - otherwise
@@ -784,7 +763,7 @@
              maxlength="20" autocomplete="off">
 
       <label for="teamSearchInput"><span class="fld-num">2.</span> Search for their game</label>
-      <input id="teamSearchInput" type="text" placeholder="Search any team — ex. Yankees, Cowboys, Lakers..." style="margin-bottom:12px;" data-team-search autocomplete="off">
+      <input id="teamSearchInput" type="text" placeholder="Search any team — ex. Yankees, Cowboys, Lakers..." style="margin-bottom:12px;" data-team-search>
 
       <div class="game-list" id="gameList">
         <p class="game-empty">Search for a team above to see their upcoming or live game.</p>
@@ -873,7 +852,7 @@
     <h3 id="callingSubLL">Last thing &mdash; where do we reach them?</h3>
 
     <label for="recipientPhoneLL" id="phoneLabelLL">Their phone number</label>
-    <input id="recipientPhoneLL" type="tel" inputmode="tel" placeholder="1 (555) 555-5555" maxlength="17" autocomplete="tel-national">
+    <input id="recipientPhoneLL" type="tel" inputmode="tel" placeholder="1 (555) 555-5555" maxlength="17">
     <p class="field-hint">We won&rsquo;t call this number for anything other than delivering your Smackagram.</p>
 
     <div class="consent-box">
@@ -897,7 +876,7 @@
       </div>
       <div id="replyPhoneRowLL" style="display:none; margin-top:10px;">
         <label for="senderPhoneLL">Your phone number (only used if they reply)</label>
-        <input id="senderPhoneLL" type="tel" placeholder="+1 555 555 5555" autocomplete="tel">
+        <input id="senderPhoneLL" type="tel" placeholder="+1 555 555 5555">
       </div>
     </div>
 

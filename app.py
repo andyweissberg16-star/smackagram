@@ -6733,7 +6733,7 @@ def api_player_search():
     q = (request.args.get("q") or "").strip()
     team = (request.args.get("team") or "").strip()
     if len(q) < 2:
-        return jsonify({"players": []})
+        return jsonify({"players": coach_hits})
 
     league = (request.args.get("league") or "").lower()
     if not league and team:
@@ -6746,6 +6746,37 @@ def api_player_search():
             pass
     league = league or "mlb"
 
+    # THE COACH FIRST, BEFORE ANY PLAYER.
+    #
+    # A losing fanbase is usually angrier at the manager than at any
+    # player - "your season is Aaron Boone's fault" is the argument they
+    # are already having with each other.
+    #
+    # Neither provider has coaches: Highlightly's support confirmed it in
+    # writing on 5 August, and balldontlie does not carry them. So this
+    # comes from a maintained list.
+    #
+    # Ahead of the players rather than mixed in, because somebody looking
+    # for the manager should not have to scroll past twelve relievers.
+    coach_hits = []
+    try:
+        from services import coaches as _coaches
+        _c = _coaches.for_team(league, team) if team else None
+        if _c and q.lower() in _c["name"].lower():
+            _t = ("interim " + _c["title"]) if _c["interim"] else _c["title"]
+            coach_hits.append({
+                "name": _c["name"],
+                # What the writer is told, so Smacky calls him the right
+                # thing. Baseball says MANAGER; everything else says head
+                # coach, and getting that wrong is the kind of mistake
+                # only somebody who does not watch the sport makes.
+                "forWriter": f"{_c['name']} ({_t})",
+                "position": _t.title(),
+                "is_coach": True,
+            })
+    except Exception:
+        pass
+
     # THE DATABASE FIRST. A name searched once is a name we keep.
     try:
         from services import player_store
@@ -6753,7 +6784,9 @@ def api_player_search():
             local = [p for p in player_store.squad(league, team)
                      if q.lower() in p["name"].lower()]
             if local:
-                return jsonify({"players": local[:12], "source": "stored"})
+                # Coach ahead of the squad, not lost inside it.
+                return jsonify({"players": (coach_hits + local)[:12],
+                                "source": "stored"})
     except Exception as e:
         print(f"[search] store lookup failed: {e}", flush=True)
 
@@ -6781,8 +6814,11 @@ def api_player_search():
     except Exception as e:
         print(f"[search] {q}: {e}", flush=True)
 
-    resp = jsonify({"players": out[:12],
-                    "source": "highlightly" if out else "none"})
+    merged = coach_hits + out
+    resp = jsonify({"players": merged[:12],
+                    "source": ("coach+highlightly" if coach_hits and out
+                               else "coach" if coach_hits
+                               else "highlightly" if out else "none")})
     resp.headers["Cache-Control"] = "no-store" if not out else "public, max-age=600"
     return resp
 
@@ -7514,40 +7550,6 @@ def api_admin_highlightly_check():
             else:
                 info["box_score"] = f"neither worked (last HTTP {st})"
         out["segments"][sport] = info
-
-    # IS THERE A REAL FIRST-PITCH TIME ANYWHERE?
-    #
-    # The board shows "UPCOMING TODAY" with no clock for a lot of games,
-    # because the date field on a match list comes back as midnight UTC -
-    # a marker for WHICH DAY, not when it starts. Converted to Eastern
-    # that is 8pm the previous evening, which is why Wednesday's fixtures
-    # were labelled TUE.
-    #
-    # A full match record may carry a proper start. This reports every
-    # field on one so we can see rather than guess.
-    out["match_detail"] = {}
-    try:
-        st, body, _ = ask("baseball/matches",
-                          {"league": "MLB", "date": day, "limit": 3})
-        rows = body.get("data") if isinstance(body, dict) else []
-        if rows:
-            out["match_detail"]["list_date_field"] = rows[0].get("date")
-            out["match_detail"]["list_fields"] = sorted(rows[0].keys())
-            mid = rows[0].get("id")
-            st2, body2, _ = ask(f"baseball/matches/{mid}", {})
-            rec = body2.get("data") if isinstance(body2, dict) else body2
-            if isinstance(rec, list) and rec:
-                rec = rec[0]
-            if isinstance(rec, dict):
-                out["match_detail"]["detail_fields"] = sorted(rec.keys())
-                # Anything that looks like a time.
-                out["match_detail"]["time_like"] = {
-                    k: str(v)[:60] for k, v in rec.items()
-                    if any(w in k.lower() for w in
-                           ("date", "time", "start", "kick", "clock"))
-                }
-    except Exception as e:
-        out["match_detail"]["error"] = str(e)[:120]
 
     out["what_the_code_currently_assumes"] = {
         "paths": highlightly.PATHS,

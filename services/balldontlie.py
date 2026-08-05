@@ -157,94 +157,25 @@ def finals(sport, date_str):
 
 
 def board(sport, date_str):
-    """
-    Everything on a date, in THE EXACT SHAPE the Smack Board renders.
-
-    THIS IS WHY WNBA SHOWED NO GAMES.
-
-    The first version returned flat strings - {"home_team": "Chicago Sky"}.
-    The board renders NESTED OBJECTS: g.home.nick, g.home.score,
-    g.home.logo. So it received rows it could not read and drew nothing,
-    which looks exactly like a night with no fixtures.
-
-    That is the worst kind of break: no error, no empty state, just a
-    quiet lie about there being no basketball on.
-
-    Matching highlightly.board() exactly means the page cannot tell which
-    source answered - which is the whole point of a fallback.
-    """
+    """Everything on a date, finished or not, for the Smack Board."""
     d = _get(sport, "games", {"dates[]": date_str, "per_page": 50})
     rows = (d or {}).get("data") if isinstance(d, dict) else None
-
-    def side(team, pts):
-        t = team or {}
-        full = t.get("full_name") or t.get("display_name") or t.get("name") or ""
-        nick = t.get("name") or (full.split()[-1] if full else "")
-        city = (t.get("city") or t.get("location")
-                or (full[:-len(nick)].strip() if nick and full.endswith(nick)
-                    else ""))
-        return {
-            "nick": nick,
-            "abbr": t.get("abbreviation") or "",
-            "city": city,
-            "score": pts,
-            "record": "",
-            "colour": None,
-            # They give no logos, and an empty string is what the board
-            # already expects when one is missing.
-            "logo": "",
-        }
-
-    out = []
+    games = []
     for r in (rows or []):
-        status = str(r.get("status", ""))
-        low = status.lower()
-        final = ("final" in low) or low == "post"
-        live = low in ("in", "in_progress", "live") or low.startswith("status_in")
-
-        hs, aws = _scores(r)
-        home_block = r.get("home_team")
-        away_block = None
-        for k in _AWAY_KEYS:
-            if r.get(k):
-                away_block = r[k]
-                break
-        h = side(home_block, hs)
-        a = side(away_block, aws)
-        if not h["nick"] or not a["nick"]:
+        home, away = _sides(r)
+        if not home or not away:
             continue
-
-        # Which side is behind, so the board can dim them and offer the
-        # right team to smack.
-        losing = None
-        if final or live:
-            if hs is not None and aws is not None and hs != aws:
-                losing = "home" if hs < aws else "away"
-
-        out.append({
-            "espn_id": None,
-            "highlightly_id": None,
-            "balldontlie_id": str(r.get("id")),
-            "state": "post" if final else ("in" if live else "pre"),
-            "final": final,
-            "live": live,
-            "upcoming": not final and not live,
-            "status": status.replace("STATUS_", "").replace("_", " ").title()
-                      if status else "",
-            "clock": r.get("time") or r.get("display_clock"),
-            "period": r.get("period"),
-            "start": r.get("date"),
-            "venue": r.get("venue"),
-            "home": h, "away": a,
-            "losing": losing,
+        hs, aws = _scores(r)
+        status = str(r.get("status", ""))
+        games.append({
+            "home_team": home, "away_team": away,
+            "home_score": hs, "away_score": aws,
+            "final": ("final" in status.lower() or status == "post"),
+            "is_live": status.lower() in ("in", "in_progress", "live"),
+            "id": r.get("id"),
             "source": "balldontlie",
         })
-
-    # Live first, then upcoming, then finished - the order somebody
-    # opening a scoreboard actually wants. Same as the other source.
-    order = {"in": 0, "pre": 1, "post": 2}
-    out.sort(key=lambda g: order.get(g["state"], 3))
-    return out
+    return games
 
 
 def covers(sport):
