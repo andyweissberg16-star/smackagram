@@ -1937,7 +1937,7 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       // up and would come back to nothing. This one is arguably worse:
       // they have just been asked for money AND lost their work.
       if (window.smkSaveDraft) window.smkSaveDraft();
-      window.location.href = data.redirect || '/reload';
+      window.location.href = data.redirect || '/refill';
       return;
     }
     if (data.redirect) {

@@ -776,7 +776,7 @@
   <div class="card" id="teamCard" style="display:none;">
     <p class="step-label">Step 2</p>
     <h3>Which team needs to lose</h3>
-    <p class="card-sub" id="loseSubtext">Pick the team that has to go down &mdash; the call only fires if they lose, and you&rsquo;re not charged if they win.</p>
+    <p class="card-sub" id="loseSubtext">Pick the team that has to go down &mdash; the call only goes out if they lose, and you&rsquo;re not charged if they win.</p>
 
     <div id="teamCardSummary" class="step-summary" style="display:none;">
       <span class="step-summary-text" id="teamCardSummaryText"></span>
@@ -1367,7 +1367,7 @@ document.getElementById('armBtn').addEventListener('click', async () => {
     });
     const data = await resp.json();
     if (data.error === 'insufficient_balance') {
-      smkNavigate(data.redirect || '/reload');
+      smkNavigate(data.redirect || '/refill');
       return;
     }
     if (data.redirect) {

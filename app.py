@@ -446,7 +446,7 @@ def home():
 def _store_pending_action(user, action_type: str, data: dict) -> str:
     """
     Saves the original request payload so the action can be resumed
-    automatically once the wallet is topped up, and returns the /reload
+    automatically once the wallet is topped up, and returns the /refill
     redirect URL carrying the pending action's id. See PendingAction's
     docstring in models.py for why this is server-side/webhook-driven
     rather than client-side storage.
@@ -458,10 +458,27 @@ def _store_pending_action(user, action_type: str, data: dict) -> str:
     )
     db.session.add(pending)
     db.session.commit()
-    return f"/reload?pending_action={pending.id}"
+    return f"/refill?pending_action={pending.id}"
 
 
 @app.route("/reload")
+@app.route("/reload-success")
+def reload_moved():
+    """
+    The old wallet address, kept alive.
+
+    Renamed from Reload to Refill for the same reason the product was
+    renamed: "reload" is a firearms word, and the A2P campaign was already
+    rejected once under the carriers' SHAFT rules.
+
+    Stripe builds return URLs at checkout time, so a session started
+    before this deploy would come back to the old path. The redirect means
+    that lands correctly rather than on a 404 after somebody has paid.
+    """
+    return redirect("/refill", code=301)
+
+
+@app.route("/refill")
 @login_required
 def reload_page():
     """
@@ -470,7 +487,7 @@ def reload_page():
     not a standalone destination someone browses to directly, though
     it works fine if they do. Shows different copy for a genuine
     first-time buyer ("Load Your Account") versus a returning user
-    topping back up ("Reload") - "reload" doesn't make sense for
+    topping back up ("Refill") - "reload" doesn't make sense for
     someone who's never had a balance to begin with.
     """
     user = get_current_user()
@@ -487,7 +504,7 @@ def reload_page():
             pending_action_type = pending.action_type
 
     return render_template(
-        "reload.html",
+        "refill.html",
         stripe_publishable_key=os.environ["STRIPE_PUBLISHABLE_KEY"],
         is_first_time_buyer=not has_topped_up_before,
         pending_action_id=pending_action_id,
@@ -495,7 +512,7 @@ def reload_page():
     )
 
 
-@app.route("/reload-success")
+@app.route("/refill-success")
 @login_required
 def reload_success():
     """
@@ -505,14 +522,14 @@ def reload_success():
     since the webhook is the authoritative source of truth here, not
     this page.
     """
-    return render_template("reload_success.html")
+    return render_template("refill_success.html")
 
 
 @app.route("/api/wallet/pending-action-status/<int:pending_action_id>")
 @login_required
 def api_pending_action_status(pending_action_id):
     """
-    Polled by reload_success.html while a resumed Send a Smack / Auto-Smack request may still be in flight (the webhook that actually
+    Polled by refill_success.html while a resumed Send a Smack / Auto-Smack request may still be in flight (the webhook that actually
     completes it can take a few seconds to arrive after payment
     confirms on the frontend). Scoped to the current user only - no
     one should be able to check another user's pending action status.
@@ -539,7 +556,7 @@ def api_get_pending_action(pending_action_id):
     """
     Returns a pending action's stored payload and type, so a page the
     user navigates back to (e.g. the generator, after clicking "Roast"
-    in the Reload page's step nav) can repopulate its form fields with
+    in the Refill page's step nav) can repopulate its form fields with
     whatever they'd already typed, instead of making them start over.
     Scoped to the current user only.
     """

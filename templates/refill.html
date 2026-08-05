@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{% if is_first_time_buyer %}Load Your Account{% else %}Reload{% endif %} — Smackagram</title>
+<title>{% if is_first_time_buyer %}Load Your Account{% else %}Refill{% endif %} — Smackagram</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -160,7 +160,7 @@
           <a href="{{ resume_url }}" class="step-link done">{{ label }}</a><span class="dot"></span>
         {% endfor %}
       {% endif %}
-      <span class="now">{% if is_first_time_buyer %}Load Account{% else %}Reload{% endif %}</span>
+      <span class="now">{% if is_first_time_buyer %}Load Account{% else %}Refill{% endif %}</span>
     </div>
     <div class="secure">
       <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -177,12 +177,12 @@
     <span class="kicker" id="heroKicker"><span class="pulse"></span>Your Smackagram is set up and ready to go</span>
     <h1>You're out of <span class="hit">Smackagrams.</span></h1>
     {% endif %}
-    <p id="heroSub">{% if is_first_time_buyer %}Pick a pack and let's go. The bigger you go, the more land <b>totally free</b>.{% else %}Reload and let it rip. The bigger you go, the more land <b>totally free</b>.{% endif %}</p>
+    <p id="heroSub">{% if is_first_time_buyer %}Pick a pack and let's go. The bigger you go, the more land <b>totally free</b>.{% else %}Refill and let it rip. The bigger you go, the more land <b>totally free</b>.{% endif %}</p>
   </div>
 
   <div class="tiers" id="tiers">
     <div class="tier" data-pack="starter" data-pay="5" data-smacks="6" data-free="1" tabindex="0" role="button" aria-pressed="false">
-      <div class="plan-name">Starter Plan</div>
+      <div class="plan-name">Rookie</div>
       <div class="price">$5</div>
       <div class="divider"></div>
       <div class="smacks">6<small>Smackagrams</small></div>
@@ -192,7 +192,7 @@
     </div>
     <div class="tier tier--anchor selected" data-pack="loaded" data-pay="10" data-smacks="15" data-free="5" tabindex="0" role="button" aria-pressed="true">
       <div class="ribbon">Most Popular</div>
-      <div class="plan-name">Loaded Package</div>
+      <div class="plan-name">All-Star</div>
       <div class="price">$10</div>
       <div class="divider"></div>
       <div class="smacks">15<small>Smackagrams</small></div>
@@ -202,7 +202,7 @@
     </div>
     <div class="tier" data-pack="arsenal" data-pay="20" data-smacks="30" data-free="10" tabindex="0" role="button" aria-pressed="false">
       <div class="ribbon best">Best Value</div>
-      <div class="plan-name">Arsenal Package</div>
+      <div class="plan-name">MVP</div>
       <div class="price">$20</div>
       <div class="divider"></div>
       <div class="smacks">30<small>Smackagrams</small></div>
@@ -214,9 +214,9 @@
 
   <div class="grid">
     <div class="panel">
-      <h3>{% if is_first_time_buyer %}Your order{% else %}Your reload{% endif %}</h3>
+      <h3>{% if is_first_time_buyer %}Your order{% else %}Your refill{% endif %}</h3>
       <div class="sum-row">
-        <div class="label">Smackagrams<small id="s-pack">Loaded pack</small></div>
+        <div class="label">Smackagrams<small id="s-pack">All-Star pack</small></div>
         <div class="val" id="s-smacks">15</div>
       </div>
       <div class="sum-row">
@@ -229,7 +229,7 @@
       </div>
       <div class="reload-toggle">
         <div class="rt-text">
-          <b>Auto-Reload</b>
+          <b>Auto-Refill</b>
           <p>Top me up automatically when I run low. (Coming soon)</p>
         </div>
         <button class="switch" id="autoReload" role="switch" aria-checked="false" aria-label="Auto-Reload" disabled></button>
@@ -265,7 +265,7 @@ let elements = null;
 let paymentElementInstance = null;
 let expressElementInstance = null;
 let currentPack = 'loaded';
-const packNames = {starter:'Starter pack', loaded:'Loaded pack', arsenal:'Arsenal pack'};
+const packNames = {starter:'Rookie pack', loaded:'All-Star pack', arsenal:'MVP pack'};
 const tiers = Array.prototype.slice.call(document.querySelectorAll('.tier'));
 const pendingActionId = new URLSearchParams(window.location.search).get('pending_action');
 
@@ -338,7 +338,7 @@ async function handleExpressConfirm() {
   try {
     const {error} = await stripe.confirmPayment({
       elements,
-      confirmParams: {return_url: window.location.origin + '/reload-success' + (pendingActionId ? '?pending_action=' + pendingActionId : '')},
+      confirmParams: {return_url: window.location.origin + '/refill-success' + (pendingActionId ? '?pending_action=' + pendingActionId : '')},
     });
     if (error) {
       console.error('Express confirmPayment returned an error:', error.type, error.code, error.message, error);
@@ -410,7 +410,7 @@ document.getElementById('payBtn').addEventListener('click', async function() {
 
     const {error} = await stripe.confirmPayment({
       elements,
-      confirmParams: {return_url: window.location.origin + '/reload-success' + (pendingActionId ? '?pending_action=' + pendingActionId : '')},
+      confirmParams: {return_url: window.location.origin + '/refill-success' + (pendingActionId ? '?pending_action=' + pendingActionId : '')},
     });
 
     if (error) {

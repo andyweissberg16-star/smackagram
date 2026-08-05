@@ -14,9 +14,9 @@ from models import db, WalletTransaction
 # agree on these exact numbers, and the amount charged must always be
 # looked up server-side from this dict, never trusted from the browser.
 TOPUP_PACKS = {
-    "starter": {"pay_cents": 500, "credit_cents": 600, "free_smackagrams": 1, "label": "Starter Plan"},
-    "loaded": {"pay_cents": 1000, "credit_cents": 1500, "free_smackagrams": 5, "label": "Loaded Package"},
-    "arsenal": {"pay_cents": 2000, "credit_cents": 3000, "free_smackagrams": 10, "label": "Arsenal Package"},
+    "starter": {"pay_cents": 500, "credit_cents": 600, "free_smackagrams": 1, "label": "Rookie"},
+    "loaded": {"pay_cents": 1000, "credit_cents": 1500, "free_smackagrams": 5, "label": "All-Star"},
+    "arsenal": {"pay_cents": 2000, "credit_cents": 3000, "free_smackagrams": 10, "label": "MVP"},
 }
 
 SMACK_COST_CENTS = 100  # $1.00 per Send a Smack
@@ -53,7 +53,7 @@ def debit_wallet(user, amount_cents: int, transaction_type: str, description: st
     Deducts from the user's balance and logs the transaction. Returns
     None (and does NOT touch the balance) if the user doesn't have
     enough — the caller is responsible for checking the return value
-    and redirecting to Reload if it's None, rather than this function
+    and redirecting to Refill if it's None, rather than this function
     raising an exception, since "insufficient balance" is an expected,
     routine outcome here, not an error condition.
     """
