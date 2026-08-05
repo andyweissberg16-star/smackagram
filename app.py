@@ -880,7 +880,7 @@ def _execute_send_smack(user, data: dict) -> dict:
         custom_message=data.get("custom_message", ""),
         voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
         team=(data.get("team") or "").strip() or None,
-        recipient_name=data["recipient_name"],
+        recipient_name=first_name_only(data["recipient_name"]),
         recipient_phone=data["recipient_phone"],
         consent_confirmed=True,
         price_cents=wallet_service.SMACK_COST_CENTS,
@@ -4084,6 +4084,29 @@ def _digits(phone):
     return "".join(ch for ch in str(phone or "") if ch.isdigit())
 
 
+def first_name_only(name):
+    """
+    Keep the first name, drop the rest.
+
+    Every smack opens by addressing the recipient, and the wall publishes
+    the smack text - so whatever is typed here ends up on a public page
+    about somebody who never agreed to be on one.
+
+    A first name in a sports joke is not identifying. "Mike Sullivan"
+    beside a team and the audio of the call is a different thing, and the
+    old placeholder asked for exactly that.
+
+    Enforced here as well as in the form, because a placeholder is a
+    suggestion and this is the only place it becomes true.
+    """
+    n = (name or "").strip()
+    if not n:
+        return n
+    # Hyphenated and apostrophed first names survive intact;
+    # "Mike Sullivan" becomes "Mike".
+    return n.split()[0][:20]
+
+
 def is_opted_out(phone):
     """
     Has this number asked never to be called?
@@ -5087,7 +5110,7 @@ def _execute_arm_smackagram(user, data: dict) -> dict:
         sensitivity=data.get("sensitivity", trash_talk_service.DEFAULT_SENSITIVITY),
         custom_message=data.get("custom_message") if mode == "custom" else None,
         voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
-        recipient_name=data["recipient_name"],
+        recipient_name=first_name_only(data["recipient_name"]),
         recipient_phone=data["recipient_phone"],
         consent_confirmed=True,
         reply_opt_in=bool(data.get("reply_opt_in")),
