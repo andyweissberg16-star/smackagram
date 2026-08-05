@@ -2329,7 +2329,7 @@ function render(battle) {
       }
     }
     tick();
-    turnTimerInterval = setInterval(tick, 250);
+    turnTimerInterval = setInterval(function () { if (!document.hidden) tick(); }, 250);
   }
 
   if (battle.status === 'complete') {

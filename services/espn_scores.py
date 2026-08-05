@@ -76,13 +76,57 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
     # with fourteen MLB finals, held the previous episode, and looked like
     # it was behaving correctly.
     def _shape(r, source):
+        """
+        EVERY FIELD THE SHOW PIPELINE READS, not just the ones this
+        source happens to have.
+
+        The pipeline was written against ESPN's shape and reads a lot of
+        it with hard brackets - r["margin"], game["loser_at_home"],
+        game["home_hits"]. This shape provided fourteen keys and the
+        pipeline wanted forty, so the moment ESPN stopped answering the
+        show crashed on the first missing one.
+
+        It failed as 'margin', which reads like a data problem and is
+        actually a shape mismatch. And it failed QUIETLY - "keeping the
+        previous episode" - so the show simply stopped updating and
+        nothing said why.
+
+        Defaults are conservative: a fact we do not have is FALSE or
+        ZERO, never invented. A missing stat should cost that game a
+        detail, not put a wrong one on air.
+        """
         win_is_home = r.get("winner") == r.get("home")
         hs, aws = r.get("home_score"), r.get("away_score")
+        w_score = hs if win_is_home else aws
+        l_score = aws if win_is_home else hs
+
+        margin = None
+        if w_score is not None and l_score is not None:
+            try:
+                margin = int(abs(int(w_score) - int(l_score)))
+            except (TypeError, ValueError):
+                margin = None
+
         return {
             "league": league, "label": label, "unit": unit,
             "winner": r.get("winner"), "loser": r.get("loser"),
-            "winner_score": hs if win_is_home else aws,
-            "loser_score": aws if win_is_home else hs,
+            "winner_score": w_score,
+            "loser_score": l_score,
+            # BY SIDE AS WELL AS BY RESULT.
+            #
+            # read_game() computes loser_runs as
+            #     min(game.get("away_score") or 0, game.get("home_score") or 0)
+            # and this shape only had winner_score/loser_score - so both
+            # came back None, min(0, 0) was 0, and EVERY GAME LOOKED LIKE
+            # A SHUTOUT.
+            #
+            # Not a crash. Worse: Smacky would have said it out loud.
+            "home_score": hs,
+            "away_score": aws,
+            # Nine for baseball unless a source says otherwise. Used to
+            # spot extra innings, so a wrong default invents drama that
+            # did not happen.
+            "periods": r.get("periods"),
             "home": r.get("home"), "away": r.get("away"),
             "id": r.get("id"), "highlightly_id": r.get("id"),
             "venue": r.get("venue"),
@@ -90,6 +134,35 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
             # better raw material for a joke than a box score.
             "plays": r.get("plays") or [],
             "source": source,
+
+            # ---- what the layout and writer read ----
+            "margin": margin if margin is not None else 0,
+            "one_run": bool(margin == 1),
+            # A shutout is visible from the scoreline alone.
+            "shutout": l_score == 0 if l_score is not None else False,
+            # WHO LOST AT HOME. The one piece of context that makes a
+            # loss worse, and it is derivable without any box score.
+            "at_home": (r.get("loser") == r.get("home")),
+            "loser_at_home": (r.get("loser") == r.get("home")),
+
+            # ---- things only a box score knows ----
+            #
+            # False and zero rather than absent. The layout scores a game
+            # by adding points for each of these, so a missing one should
+            # cost that game a point rather than stop the show.
+            "extras": False,
+            "starter_short": False,
+            "big_hitter": False,
+            "quality_start": False,
+            "stranded": 0,
+            "strikeouts": 0,
+            "errors": 0,
+            "home_hits": 0, "away_hits": 0,
+            "home_errors": 0, "away_errors": 0,
+
+            # Filled in later by the detail pass, when there is one.
+            "facts": [],
+            "deep_facts": [],
         }
 
     try:

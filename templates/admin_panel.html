@@ -1049,7 +1049,7 @@
     function start() {
       clearInterval(timer);
       poll();                        // primes the marks, fires nothing
-      timer = setInterval(poll, 10000);
+      timer = setInterval(function () { if (!document.hidden) poll(); }, 10000);
       feed.textContent = unlocked ? 'listening' : 'listening (click to enable sound)';
     }
 
