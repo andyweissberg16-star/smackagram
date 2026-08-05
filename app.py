@@ -7077,6 +7077,130 @@ def api_admin_email_test():
     return jsonify(out)
 
 
+@app.route("/api/admin/roster-probe")
+@login_required
+def api_admin_roster_probe():
+    """
+    Which endpoints give us whole rosters, and are coaches in there?
+
+    A full player database needs two things the match data does not
+    provide: every TEAM in a league, and every PLAYER on a team.
+
+    squad() currently infers a roster from recent box scores. That finds
+    who PLAYED - genuinely better for the picker in season - but it
+    cannot find a rookie who has not appeared, or anybody at all during
+    the off-season.
+
+    Their documentation mentions Teams and Players without giving paths,
+    and says nothing about coaches. This API has already cost days
+    through guessing, so this asks. About 20 requests, read once.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+
+    import requests
+    key = os.environ.get("HIGHLIGHTLY_KEY")
+    if not key:
+        return jsonify({"error": "HIGHLIGHTLY_KEY not set"}), 400
+
+    BASE = "https://sports.highlightly.net"
+    HEAD = {"x-rapidapi-key": key}
+
+    def ask(path, params=None):
+        try:
+            r = requests.get(f"{BASE}/{path}", params=params or {},
+                             headers=HEAD, timeout=15)
+            try:
+                body = r.json()
+            except Exception:
+                body = r.text[:150]
+            return r.status_code, body
+        except Exception as e:
+            return None, f"{type(e).__name__}: {e}"[:120]
+
+    def summarise(st, body):
+        if st != 200:
+            msg = body.get("message") if isinstance(body, dict) else body
+            return {"status": st, "said": str(msg)[:140]}
+        rows = body.get("data") if isinstance(body, dict) else body
+        if isinstance(rows, list):
+            return {"status": 200, "rows": len(rows),
+                    "sample": rows[0] if rows else None}
+        return {"status": 200, "shape": str(body)[:200]}
+
+    seg, league = "baseball", "MLB"
+    out = {"segment": seg, "league": league, "teams": {}, "players": {}}
+
+    # ---- listing teams ----
+    for label, path, params in (
+        ("teams?league", f"{seg}/teams", {"league": league, "limit": 5}),
+        ("teams bare", f"{seg}/teams", {"limit": 5}),
+        ("standings", f"{seg}/standings", {"league": league,
+                                           "season": 2026}),
+    ):
+        out["teams"][label] = summarise(*ask(path, params))
+
+    team_id = None
+    for v in out["teams"].values():
+        s_ = v.get("sample")
+        if isinstance(s_, dict):
+            team_id = s_.get("id") or (s_.get("team") or {}).get("id")
+            if team_id:
+                out["team_id_used"] = team_id
+                break
+
+    # ---- players on one team ----
+    if not team_id:
+        out["players"] = {"skipped": "no team id found above"}
+    else:
+        for label, path, params in (
+            ("players?teamId", f"{seg}/players", {"teamId": team_id,
+                                                  "limit": 60}),
+            ("players?team", f"{seg}/players", {"team": team_id,
+                                                "limit": 60}),
+            ("teams/{id}/players", f"{seg}/teams/{team_id}/players", {}),
+            ("squads/{id}", f"{seg}/squads/{team_id}", {}),
+            ("rosters?teamId", f"{seg}/rosters", {"teamId": team_id,
+                                                  "limit": 60}),
+        ):
+            out["players"][label] = summarise(*ask(path, params))
+
+    # ---- ARE COACHES IN HERE ANYWHERE? ----
+    #
+    # A losing team's fans are usually angrier at the manager than at any
+    # player, so a coach is often the better target. Their documentation
+    # does not mention coaches at all - they may sit inside the team
+    # record, in a lineup, or nowhere.
+    out["coaches"] = {}
+    if team_id:
+        st, body = ask(f"{seg}/teams/{team_id}", {})
+        if st == 200:
+            rec = body.get("data") if isinstance(body, dict) else body
+            if isinstance(rec, list) and rec:
+                rec = rec[0]
+            out["coaches"]["team_record_fields"] = (
+                sorted(rec.keys()) if isinstance(rec, dict)
+                else str(rec)[:140])
+            if isinstance(rec, dict):
+                out["coaches"]["likely"] = {
+                    k: str(v)[:80] for k, v in rec.items()
+                    if any(w in k.lower() for w in
+                           ("coach", "manager", "staff", "head"))
+                } or "no coach-like field on the team record"
+        for label, path in (("lineups", f"{seg}/lineups"),
+                            ("coaches endpoint", f"{seg}/coaches")):
+            out["coaches"][label] = summarise(
+                *ask(path, {"teamId": team_id, "limit": 3}))
+
+    out["note"] = ("Baseball only, deliberately - it is the one league in "
+                   "season, so a wrong answer elsewhere would be ambiguous "
+                   "between 'wrong endpoint' and 'no data right now'. "
+                   "Their API uses one naming scheme throughout, so "
+                   "whatever works here works everywhere.")
+    return jsonify(out)
+
+
 @app.route("/api/admin/highlightly-check")
 @login_required
 def api_admin_highlightly_check():
