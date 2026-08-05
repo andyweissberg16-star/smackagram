@@ -82,21 +82,61 @@
   var out = document.getElementById('smacksTodayN');
   if (!box || !out) return;
 
-  function load() {
+  function load(then) {
     fetch('/api/smacks-today').then(function (r) { return r.json(); }).then(function (d) {
-      if (!d.show) { box.hidden = true; return; }
+      if (!d.show) { box.hidden = true; if (then) then(null); return; }
       out.textContent = d.count;
       box.hidden = false;
-    }).catch(function () { /* stays hidden */ });
+      if (then) then(d.count);
+    }).catch(function () { if (then) then(null); });
   }
 
-  load();
+  // BACK OFF WHEN NOTHING IS HAPPENING.
+  //
+  // This polled every twenty seconds forever, on EIGHTEEN PAGES. Somebody
+  // leaving a tab open all afternoon made 720 requests to watch a number
+  // that might change twice.
+  //
+  // The count is "smacks sent today". It does not need twenty-second
+  // freshness - nobody is watching it tick. So: start at 30 seconds, and
+  // double the gap each time the number has not moved, up to five
+  // minutes. An active site keeps refreshing quickly because the number
+  // keeps changing; a quiet one settles down and stops asking.
+  var MIN_GAP = 30000;
+  var MAX_GAP = 300000;
+  var gap = MIN_GAP;
+  var lastCount = null;
+  var timer = null;
 
-  // Every twenty seconds while the tab is visible. Polling a hidden tab
-  // spends requests on nobody, so it pauses and catches up on return.
-  setInterval(function () { if (!document.hidden) load(); }, 20000);
+  function schedule() {
+    clearTimeout(timer);
+    timer = setTimeout(tick, gap);
+  }
+
+  function tick() {
+    if (document.hidden) { schedule(); return; }
+    load(function (count) {
+      if (count === lastCount) {
+        gap = Math.min(gap * 2, MAX_GAP);
+      } else {
+        // Something happened - watch closely again.
+        gap = MIN_GAP;
+        lastCount = count;
+      }
+      schedule();
+    });
+  }
+
+  load(function (c) { lastCount = c; schedule(); });
+
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) load();
+    // Coming back to the tab is the one moment somebody actually looks,
+    // so refresh immediately and reset the backoff.
+    if (!document.hidden) {
+      gap = MIN_GAP;
+      load(function (c) { lastCount = c; });
+      schedule();
+    }
   });
 })();
 </script>

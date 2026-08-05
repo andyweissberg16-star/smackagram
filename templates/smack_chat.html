@@ -426,8 +426,22 @@ function enterRoom(teamCode, teamName, league) {
   document.getElementById('roomTitle').textContent = teamName;
   loadPosts(true);
   if (pollInterval) clearInterval(pollInterval);
-  pollInterval = setInterval(() => loadPosts(), 8000);
+  // ONLY WHILE SOMEBODY IS LOOKING.
+  //
+  // This polled every eight seconds regardless of whether the tab was
+  // even visible - a chat room left open in a background tab made 450
+  // requests an hour for nobody. Every other poll on the site already
+  // checks this; this one was missed.
+  pollInterval = setInterval(() => {
+    if (!document.hidden) loadPosts();
+  }, 8000);
 }
+
+// Coming back to the tab is when somebody wants to see what they missed,
+// so refresh immediately rather than waiting out the interval.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && pollInterval) loadPosts();
+});
 
 document.getElementById('backBtn').addEventListener('click', () => {
   document.getElementById('roomView').style.display = 'none';
