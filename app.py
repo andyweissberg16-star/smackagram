@@ -49,7 +49,47 @@ if app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgres://"):
 # by other database engines.
 if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite"):
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"connect_args": {"check_same_thread": False}}
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-me")
+# THE SESSION SIGNING KEY.
+#
+# This fell back to "dev-only-change-me" - a value published in the
+# repository. The SECRET_KEY is what stops somebody FORGING a session
+# cookie, so a known key means anybody who reads the code can mint a
+# cookie saying they are user 1, or an admin, and simply walk in.
+#
+# Forgetting to set an environment variable should not silently downgrade
+# a site to no authentication.
+#
+# If it is missing now, a random key is generated instead. Everybody gets
+# logged out on each restart, which is ANNOYING AND OBVIOUS - and being
+# annoying is the point, because a silent fallback to a published key is
+# not survivable and a forced logout is.
+_secret = os.environ.get("SECRET_KEY")
+if not _secret:
+    import secrets as _secrets
+    _secret = _secrets.token_urlsafe(48)
+    print("[config] SECRET_KEY IS NOT SET. Using a random key for this "
+          "process - everybody will be logged out on every restart. "
+          "Set SECRET_KEY in the environment.", flush=True)
+app.config["SECRET_KEY"] = _secret
+
+# COOKIE FLAGS.
+#
+# Flask sets HttpOnly by default and nothing else. Explicit is better than
+# inherited here, because these are the settings that decide whether a
+# session cookie can be stolen.
+#
+#   SECURE    never send the cookie over plain HTTP. The site is HTTPS,
+#             so this costs nothing and closes a downgrade attack.
+#   HTTPONLY  JavaScript cannot read it, so an injected script cannot
+#             steal a logged-in session.
+#   SAMESITE  "Lax" stops another site silently making a request that
+#             carries the cookie. Not "Strict", because that would break
+#             somebody arriving from a Stripe redirect or an emailed link
+#             and finding themselves logged out.
+app.config["SESSION_COOKIE_SECURE"] = (
+    os.environ.get("COOKIE_INSECURE", "").lower() not in ("1", "true"))
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 db.init_app(app)
 
 
