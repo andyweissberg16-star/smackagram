@@ -251,9 +251,36 @@ def api_login():
     if not email or not password:
         return jsonify({"error": "Email and password are required."}), 400
 
+    # BRUTE FORCE PROTECTION.
+    #
+    # There was none. A script could try a thousand passwords a minute
+    # against every email it knows and nothing anywhere would notice.
+    from services import login_guard
+    _ip = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip() \
+        or request.remote_addr or ""
+
+    allowed, wait = login_guard.check(email, _ip)
+    if not allowed:
+        # DELIBERATELY VAGUE. Saying "you are locked out" confirms the
+        # email exists, and saying which limit was hit tells an attacker
+        # how to route around it.
+        return jsonify({"error": "Too many attempts. Try again shortly."}), 429
+
     user = User.query.filter_by(email=email).first()
     if not user or not user.check_password(password):
+        if login_guard.record_failure(email, _ip):
+            try:
+                from services import alerts
+                alerts.record("auth", "brute_force",
+                              f"repeated failures from {_ip} / {email[:40]}",
+                              severity="warning")
+            except Exception:
+                pass
+        # Same message whether the email exists or the password is wrong.
+        # Anything more specific enumerates accounts.
         return jsonify({"error": "Incorrect email or password."}), 401
+
+    login_guard.record_success(email, _ip)
 
     # Admins NO LONGER skip 2FA. That exemption was fine when /admin was a
     # couple of diagnostic pages; it is not fine now that the admin panel
@@ -303,6 +330,21 @@ def api_verify_2fa():
     if not user:
         return jsonify({"error": "Something went wrong — please log in again."}), 400
 
+    # GUARDED TOO.
+    #
+    # A six-digit code is a million possibilities, which sounds like a lot
+    # until you realise an unguarded endpoint can be tried a thousand
+    # times a second. Rate limiting is the ONLY thing that makes a short
+    # code safe - the length does not.
+    from services import login_guard
+    _ip = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip() \
+        or request.remote_addr or ""
+    _key = f"2fa:{pending_user_id}"
+
+    allowed, wait = login_guard.check(_key, _ip)
+    if not allowed:
+        return jsonify({"error": "Too many attempts. Try again shortly."}), 429
+
     code = (request.json or {}).get("code", "").strip()
     if not code:
         return jsonify({"error": "Enter the code we texted you."}), 400
@@ -311,6 +353,9 @@ def api_verify_2fa():
     if datetime.utcnow() > user.two_factor_expires_at:
         return jsonify({"error": "That code expired — request a new one."}), 400
     if code != user.two_factor_code:
+        # Count it. Without this the guard above never trips, because
+        # nothing tells it an attempt failed.
+        login_guard.record_failure(_key, _ip)
         return jsonify({"error": "Incorrect code."}), 400
 
     # Correct — clear the code so it can't be reused, complete login.
@@ -6506,6 +6551,24 @@ def api_admin_email_test():
         out["note"] = ("Add ?to=your@email.com to actually send one. This "
                        "only checks the settings exist.")
     return jsonify(out)
+
+
+@app.route("/api/admin/login-guard")
+@login_required
+def api_admin_login_guard():
+    """
+    Who is currently locked out of the login, and why.
+
+    An address appearing here repeatedly is somebody working through a
+    list. An email appearing here is either a customer who has forgotten
+    their password or somebody targeting them - and the count tells you
+    which.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    from services import login_guard
+    return jsonify(login_guard.status())
 
 
 @app.route("/api/admin/alerts")
