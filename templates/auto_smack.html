@@ -758,7 +758,9 @@
       </ol>
 
       <label for="recipientNameLL"><span class="fld-num">1.</span> Their first name</label>
-      <input id="recipientNameLL" type="text" placeholder="ex - Mike" maxlength="20" autocomplete="off">
+      <input id="recipientNameLL" type="text"
+             placeholder="ex - Mike (the friend you want to roast)"
+             maxlength="20" autocomplete="off">
 
       <label for="teamSearchInput"><span class="fld-num">2.</span> Search for their game</label>
       <input id="teamSearchInput" type="text" placeholder="Search any team — ex. Yankees, Cowboys, Lakers..." style="margin-bottom:12px;" data-team-search>
@@ -1391,8 +1393,16 @@ document.getElementById('armBtn').addEventListener('click', async () => {
       if (window.lnlSaveDraft) window.lnlSaveDraft();
     }
     if (data.login_required) {
-      window.location.href = '/login?next='
-        + encodeURIComponent(location.pathname + location.search);
+      // smkNavigate, NOT window.location.
+      //
+      // This page runs inside an iframe when somebody arrives via the
+      // other generator's tab. Setting window.location navigates THE
+      // FRAME - so the login page, and then the whole site afterwards,
+      // renders inside a small box with no scrolling.
+      //
+      // smkNavigate exists for exactly this and moves window.top.
+      smkNavigate('/login?next='
+        + encodeURIComponent(location.pathname + location.search));
       return;
     }
     if (data.error === 'insufficient_balance') {

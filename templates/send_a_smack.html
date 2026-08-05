@@ -792,8 +792,21 @@
        border-radius:20px; padding:9px 15px; font:inherit; font-size:14px;
        cursor:pointer; transition:border-color .15s, background .15s;}
   .aim:hover{border-color:var(--flare);}
+  /* A TICK, NOT JUST A COLOUR.
+     
+     Filling the pill red already made selection visible. What it did not
+     do was say HOW MANY you may pick - three pills in a row look like
+     tabs, and tabs are one-at-a-time. Somebody could reasonably assume
+     choosing one drops the others.
+     
+     A tick is the thing everybody already reads as "any that apply". */
   .aim.on{background:var(--flare); border-color:var(--flare); color:#fff;
           font-weight:600;}
+  .aim.on::before{
+    content:"\2713";
+    margin-right:6px;
+    font-weight:700;
+  }
   .pick-list{max-height:190px; overflow-y:auto; border:1px solid #2A2D32;
              border-radius:8px; margin-top:6px; display:none;}
   .pick-list.open{display:block;}
@@ -840,8 +853,34 @@
     100%{background:rgba(232,20,44,0.08);}
   }
   .err-flash{animation:errFlash 0.7s ease-out;}
+
+  .aim-hint{
+    margin:0 0 8px;
+    font-size:12.5px;
+    line-height:1.45;
+    color:var(--chalk-dim);
+  }
 </style>
 <script>
+// BREAK OUT OF THE FRAME.
+//
+// This page loads inside an iframe when somebody arrives via the
+// Auto-Smack tab. Setting window.location navigates THE FRAME - so the
+// login page, and then the whole site afterwards, renders inside a small
+// box with no scrolling.
+//
+// Auto-Smack has had this helper for a while. This page did not, so the
+// same trip in the other direction was broken the same way.
+// On window, not a bare declaration - the uses are in a different
+// script block and a function declaration does not cross one.
+window.smkTop = function (url) {
+  if (window.top !== window.self) {
+    window.top.location.href = url;
+  } else {
+    window.location.href = url;
+  }
+};
+
 // Runs before paint. If this page is inside a frame, strip the chrome itself
 // rather than trusting ?embed=1 to have arrived - a lost query param would
 // otherwise render the whole page inside a generator-sized box, cropped and
@@ -997,7 +1036,9 @@
     </ol>
 
     <label for="recipientNameInput"><span class="fld-num">1.</span> Their first name</label>
-    <input id="recipientNameInput" type="text" placeholder="ex - Mike" maxlength="20" autocomplete="off">
+    <input id="recipientNameInput" type="text"
+           placeholder="ex - Mike (the friend you want to roast)"
+           maxlength="20" autocomplete="off">
 
     <label for="teamInput"><span class="fld-num">2.</span> Team to trash talk</label>
     <input id="teamInput" type="text" placeholder="ex - Yankees" data-team-search>
@@ -1017,33 +1058,57 @@
        name can be CHOSEN but never typed, because an invented or misspelled
        player produces a call about somebody who does not exist and nobody
        finds out until it has been said down the phone. #}
-    <label><span class="fld-num">3.</span> What should he go after
+    <label><span class="fld-num">3.</span> What should Smacky roast?
       <span style="font-weight:400;opacity:.6;">(optional)</span></label>
+    {# Say it in words as well as showing it with ticks.
+       
+       Three pills in a row read as tabs, and tabs are one-at-a-time. The
+       tick on a selected pill hints that more than one is allowed; this
+       removes the guessing. #}
+    <p class="aim-hint">Pick any that apply &mdash; or none, and Smacky
+      decides.</p>
     <div class="aim-row" id="aimRow">
-      <button type="button" class="aim" data-aim="form">How they're playing</button>
+      {# Player LAST, because it is the only one that opens a picker.
+         The name field appears directly beneath this row, so the button
+         that summons it should be the one nearest to it - otherwise a
+         field materialises below two buttons that have nothing to do
+         with it.
+         The two team-level options also read as a pair this way, with
+         the one that asks for more sitting apart at the end. #}
+      <button type="button" class="aim" data-aim="form">Team performance</button>
+      <button type="button" class="aim" data-aim="history">Team history</button>
       <button type="button" class="aim" data-aim="player">A player or coach</button>
-      <button type="button" class="aim" data-aim="history">Their history</button>
     </div>
 
     <div id="playerPick" style="display:none; margin-top:10px;">
       <input id="playerInput" type="text" autocomplete="off"
              placeholder="Start typing a name, then pick from the list">
       <div id="playerList" class="pick-list"></div>
-      <p class="field-hint" id="playerHint">Pick a name from the list &mdash;
-        Smacky needs the real spelling.</p>
+      {# The limit is stated BEFORE they pick, not after.
+      
+         Somebody who does not know two are allowed picks one and moves
+         on - the feature exists and never gets used. Telling them
+         afterwards is telling them once it is too late to matter. #}
+      <p class="field-hint" id="playerHint">Tap a name from the list so
+        Smacky gets the spelling right. <b>You can pick up to two.</b></p>
     </div>
 
     {# Optional rivalry framing. Which team the SENDER supports turns an
        anonymous roast into a specific one - and it does NOT reveal who they
        are. Which team you support is not who you are, and the anonymity is
        the promise this product is built on. #}
-    <label for="fromTeamInput"><span class="fld-num">4.</span> Your team
-      <span style="font-weight:400;opacity:.6;">(optional)</span></label>
-    <input id="fromTeamInput" type="text" placeholder="ex - Giants" data-team-search>
-    <p class="field-hint">Add it and Smacky mentions it&rsquo;s coming from a
-      rival. Your name never comes up either way.</p>
-
-    <p class="field-hint">Leave blank and Smacky&rsquo;ll roast them generally, using whatever real history and current events fit.</p>
+    <label for="fromTeamInput"><span class="fld-num">4.</span> Your favorite team</label>
+    <input id="fromTeamInput" type="text"
+           placeholder="ex - Giants (optional)" data-team-search>
+    {# Two paragraphs became one line.
+       
+       Both said the same thing twice - fill it in, or do not - and the
+       important half was buried at the end of the first: THE NAME NEVER
+       COMES UP. That is the promise somebody is looking for at this
+       exact moment, standing over an optional box wondering what it
+       gives away. #}
+    <p class="field-hint">Lets Smacky roast them as a rival instead of a
+      stranger. <strong>Your name never appears either way.</strong></p>
 
     <div id="step1Error" role="alert" style="display:none;"></div>
 
@@ -1774,7 +1839,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
       // about to be sent away; coming back to an empty page is how you lose
       // somebody who had already decided to pay.
       if (window.smkSaveDraft) window.smkSaveDraft();
-      window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+      window.smkTop(`/login?next=${encodeURIComponent(window.location.pathname)}`);
       return;
     }
     if (data.generated_text) {
@@ -2052,7 +2117,7 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       // about to be sent away; coming back to an empty page is how you lose
       // somebody who had already decided to pay.
       if (window.smkSaveDraft) window.smkSaveDraft();
-      window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+      window.smkTop(`/login?next=${encodeURIComponent(window.location.pathname)}`);
       return;
     }
     if (data.error === 'insufficient_balance') {
@@ -2060,7 +2125,7 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       // up and would come back to nothing. This one is arguably worse:
       // they have just been asked for money AND lost their work.
       if (window.smkSaveDraft) window.smkSaveDraft();
-      window.location.href = data.redirect || '/refill';
+      window.smkTop(data.redirect || '/refill');
       return;
     }
     if (data.redirect) {
@@ -2068,7 +2133,7 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       // would refill the form on their next visit with a smack they have
       // already paid for and sent.
       if (window.smkClearDraft) window.smkClearDraft();
-      window.location.href = data.redirect;
+      window.smkTop(data.redirect);
     } else {
       errorEl.textContent = data.error || 'Something went wrong — try again.';
       errorEl.style.display = 'block';
@@ -2290,8 +2355,11 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
         .then(function (r) { return r.json(); })
         .then(function (d) {
           roster = d.players || [];
-          hint.textContent = roster.length
-            ? 'Pick a name from the list \u2014 Smacky needs the real spelling.'
+          // Says the limit here too - this replaces the markup hint the
+        // moment a squad loads, which is exactly when somebody starts
+        // looking for a name.
+        hint.textContent = roster.length
+            ? 'Tap a name so Smacky gets the spelling right. You can pick up to two.'
             : "Couldn't load that squad. Skip this one and Smacky will still "
               + 'have plenty to work with.';
         })
