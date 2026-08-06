@@ -227,6 +227,52 @@ def _allow(source, critical, label):
         st["sent"] += 1
         return True
 
+def _allow_quiet(source, critical):
+    """Would _allow say yes right now? No printing, no counters."""
+    now = time.time()
+    with _lock:
+        st = _src(source)
+        if now < st["blocked_until"]:
+            return False
+        recent = [t for t in st["recent"] if now - t <= 60]
+        hard, casual = SOURCE_LIMITS.get(source,
+                                         (MAX_PER_MINUTE, CASUAL_CEILING))
+        return len(recent) < (hard if critical else casual)
+
+
+def wait_for_slot(source, max_wait=90, critical=False):
+    """
+    Sleep until this source's per-minute ceiling has room, or give up.
+
+    FOR BACKGROUND WORK ONLY - the daily show's detail pass, not a web
+    request. The show found 15 games and got box scores for NONE: the
+    finals fetches had already spent the 25-a-minute budget, and the
+    gate refuses rather than waits. A three-minute render can afford to
+    stand in line for thirty seconds; it cannot afford to ship an
+    episode with no stats.
+
+    Returns True when a slot is free, False when max_wait ran out.
+    """
+    deadline = time.time() + max_wait
+    while time.time() < deadline:
+        if _allow_quiet(source, critical):
+            return True
+        with _lock:
+            st = _src(source)
+            now = time.time()
+            if now < st["blocked_until"]:
+                sleep_for = min(5.0, st["blocked_until"] - now)
+            elif st["recent"]:
+                # until the oldest request ages out of the 60s window
+                sleep_for = max(0.5, 61 - (now - st["recent"][0]))
+            else:
+                sleep_for = 0.5
+        time.sleep(max(0.2, min(sleep_for, deadline - time.time())))
+    print(f"[gate] {source} wait_for_slot gave up after {max_wait}s",
+          flush=True)
+    return False
+
+
 def fetch(url, timeout=DEFAULT_TIMEOUT, label="", critical=False,
           source="espn"):
     """
@@ -265,13 +311,18 @@ def reset(source=None):
           flush=True)
 
 def get(url, params=None, timeout=DEFAULT_TIMEOUT, label="",
-        critical=False, headers=None, source="espn"):
+        critical=False, headers=None, source="espn", wait=False):
     """
     The requests-library route through the same gate.
 
     Several callers use requests rather than urlopen, which is why a sweep
     for urlopen alone missed six of them.
+
+    wait=True stands in line at the ceiling instead of refusing -
+    BACKGROUND CALLERS ONLY, never a web request.
     """
+    if wait and not _allow_quiet(source, critical):
+        wait_for_slot(source, critical=critical)
     if not _allow(source, critical, label or url[:48]):
         return None
     try:

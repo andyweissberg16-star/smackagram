@@ -231,7 +231,7 @@ def status():
         return {"enabled": enabled(), "cached_keys": len(_cache), **_stats}
 
 
-def _get(sport, path, params=None, ttl=45, timeout=10):
+def _get(sport, path, params=None, ttl=45, timeout=10, wait=False):
     """
     One request, cached briefly.
 
@@ -274,7 +274,7 @@ def _get(sport, path, params=None, ttl=45, timeout=10):
     d = espn_gate.get(url, params=params, timeout=timeout,
                       label=f"hl {sport}/{path}",
                       headers={"x-rapidapi-key": key},
-                      source="highlightly")
+                      source="highlightly", wait=wait)
     with _lock:
         if d is None:
             _stats["errors"] += 1
@@ -422,7 +422,13 @@ def box_score(sport, match_id):
 
     d = None
     for path in candidates:
-        d = _get(sport, f"{path}/{match_id}", ttl=300)
+        # STAND IN LINE rather than lose the stats.
+        #
+        # This runs in the show's background render, where waiting
+        # thirty seconds is fine and shipping an episode with no box
+        # scores is not. The finals fetches often spend the minute's
+        # budget just before this runs.
+        d = _get(sport, f"{path}/{match_id}", ttl=300, wait=True)
         if d:
             if not known:
                 _box_path_found[sport] = path

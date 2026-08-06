@@ -584,7 +584,11 @@ def plan_runtime(game_count: int) -> dict:
                 "reason": f"only {game_count} finished games - keeping the previous show"}
 
     # Enough words to give every game a line, then held inside the bounds.
-    wanted = 60 + (3 * 55) + (max(0, game_count - 3) * 26)
+    # THIS NUMBER IS THE EPISODE LENGTH. At 26 words per non-headline
+    # game a full card planned 4.7 minutes; the episodes David and Andy
+    # were happy with ran seven to nine. 45 words per game restores that
+    # once the per-league blocks and the bits are on top.
+    wanted = 60 + (3 * 55) + (max(0, game_count - 3) * 45)
     words = max(int(MIN_MINUTES * SPOKEN_WORDS_PER_MINUTE),
                 min(int(MAX_MINUTES * SPOKEN_WORDS_PER_MINUTE), wanted))
     minutes = round(words / SPOKEN_WORDS_PER_MINUTE, 1)
@@ -734,8 +738,40 @@ def find_streaks(leagues, days_back: int = 1, lookback: int = 7, minimum: int = 
 # The writer and the daily job
 # ---------------------------------------------------------------------------
 
+AUDIENCE_NAMES = [
+    "Smackheads", "Smackers", "Smackaholics", "the Smackerdome",
+    "Smacknation", "the Smack Pack", "Smackadelics", "Smackerinos",
+    "the Smack Faithful", "Smacktators", "Smackateers", "Smackaneers",
+    "the Smack Squad", "Smack City", "Smackamaniacs", "the Smack Mob",
+]
+
+
+def pick_audience_name(day=None):
+    """
+    Tonight's name for the audience - chosen in CODE, not by the model.
+
+    "Rotate, never the same two days running" was an INSTRUCTION in the
+    prompt, and the model cannot remember yesterday - so it settled on
+    "Smackateers" and opened every single episode with it. The signature
+    move became a catchphrase by accident.
+
+    Same mechanism as the WNBA award title: the order is shuffled ONCE
+    from a fixed seed, then walked by date. Every name is used before
+    any repeats, consecutive nights always differ, and a re-render of
+    the same day keeps the same name.
+    """
+    import datetime
+    import random as _r
+    d = day or datetime.date.today()
+    rng = _r.Random(20260806)          # fixed seed - the cycle, not the day
+    order = AUDIENCE_NAMES[:]
+    rng.shuffle(order)
+    return order[d.toordinal() % len(order)]
+
+
 def write_script(material: dict, only_league: str = None,
-                 leagues_after: list = None, mood: tuple = None) -> dict:
+                 leagues_after: list = None, mood: tuple = None,
+                 opens_show: bool = None) -> dict:
     """
     Turns a night's facts into Smacky's on-air script.
 
@@ -758,7 +794,10 @@ def write_script(material: dict, only_league: str = None,
         by_league.setdefault(g["league"], []).append(g)
 
     if only_league:
-        by_league = {k: v for k, v in by_league.items() if k == only_league}
+        # Case-insensitive - an exact compare left this EMPTY: a league
+        # writer with no games in its prompt.
+        by_league = {k: v for k, v in by_league.items()
+                     if k.upper() == only_league.upper()}
 
     # THE LAYOUT decides which games go where, in code, before the writer
     # sees anything. Structure decided by the model is structure that cannot
@@ -825,8 +864,20 @@ def write_script(material: dict, only_league: str = None,
 
     total_games = max(1, len(material["games"]))
     if only_league:
-        mine = sum(1 for g in material["games"] if g["league"] == only_league)
-        share = int(plan["word_budget"] * mine / total_games)
+        # Case-insensitive - an exact compare counted ZERO games here,
+        # which is a zero word budget.
+        mine = sum(1 for g in material["games"]
+                   if (g.get("league") or "").upper() == only_league.upper())
+        # EACH LEAGUE EARNS ITS OWN TIME FROM ITS OWN SLATE - the game
+        # plan David and Andy actually ran with. A share of one pot
+        # meant a busy WNBA night would DILUTE baseball's block.
+        #
+        #   BASEBALL: up to ~7 minutes from its own game count.
+        #   WNBA: rarely more than six games, so naturally shorter -
+        #   no cap needed, and baseball cannot squeeze it.
+        _heads = min(3, mine)
+        share = (_heads * 55) + (max(0, mine - _heads) * 45)
+        share = min(share, int(7.0 * SPOKEN_WORDS_PER_MINUTE))
         # A FLOOR, not pure proportion.
         #
         # Nobody listens to this for results - they listen for Smacky. In that
@@ -947,6 +998,26 @@ def write_script(material: dict, only_league: str = None,
     # celebratory material - the dunk words, the home run catchphrases, the
     # great-player terms. The show covers winners too and wants all of it.
     system += _show_vocabulary(only_league)
+
+    # THE OPENING BELONGS TO THE LEAD LEAGUE ONLY.
+    #
+    # In per-league mode every league writer receives this same prompt.
+    # The parallel path never fired until the case fix - the first
+    # morning it runs, the WNBA block would greet the audience and
+    # re-introduce the whole show mid-episode.
+    #
+    # The lead is the call that receives leagues_after (a list, even an
+    # empty one); every other league gets None and opens cold. The
+    # single-call path has only_league=None and stays the lead.
+    # WHO OPENS AND WHO CLOSES.
+    #
+    # opens_show is explicit from the per-league caller; the single-call
+    # path leaves it None and does both. leagues_after is now every
+    # block's TRUE after-list, so "nothing after me" - an empty list -
+    # means this block ends the show and owns the sign-off. With three
+    # leagues in autumn, the middle block neither opens nor closes.
+    _lead = opens_show if opens_show is not None else (only_league is None)
+    _closes = not leagues_after
 
     user = (
         f"You are Smacky, hosting THE DAILY SMACK - a daily sports comedy "
@@ -1320,33 +1391,24 @@ def write_script(material: dict, only_league: str = None,
         "ones are a show. Short segments may cover more than one quick game; "
         "that is the intended way to fit them.\n\n"
 
+        + ((
         "THE OPENING - three beats, in this order, before a single result.\n\n"
 
-        "  1. A GREETING, and it must be DIFFERENT EVERY SINGLE DAY.\n\n"
+        "  1. A GREETING.\n\n"
 
-        "  Address the audience by a smack-word name. This is the signature "
-        "move and it ROTATES - a different one every episode, never the same "
-        "two days running.\n\n"
+        # TONIGHT'S NAME IS CHOSEN IN CODE, NOT BY THE MODEL - see
+        # pick_audience_name(). The old wording asked the model to
+        # rotate through the set, and a model cannot remember
+        # yesterday, so it settled on "Smackateers" every episode.
+        f"  Address the audience as \"{pick_audience_name()}\" - "
+        "tonight's name, exactly as written. Do not swap it for another "
+        "smack-word name; the rotation is handled for you and this is "
+        "tonight's turn in it.\n\n"
 
-        "  The approved set:\n"
-        "    Smackheads / Smackers / Smackaholics / the Smackerdome /\n"
-        "    Smacknation / the Smack Pack / Smackadelics / Smackerinos /\n"
-        "    the Smack Faithful / Smacktators / Smackateers / Smackaneers /\n"
-        "    the Smack Squad / Smack City / Smackamaniacs / the Smack Mob\n\n"
-
-        "  Work through the set rather than favouring two or three. You may "
-        "also coin a NEW one in the same shape when it fits the day - that is "
-        "encouraged - but it has to sound like it belongs on that list.\n\n"
-
-        "  Tone: affectionate needling, not abuse. He is pleased to see them "
-        "and about to ruin their morning. Mild profanity is fine in the rest "
-        "of the greeting. Do NOT call them shitheads or losers - too blunt, "
-        "and it is not the joke.\n\n"
-
-        "  Shape: \"Good morning, Smacknation.\" / \"Rise and shine, "
-        "Smackademics.\" / \"Welcome back, Smacktators - somebody had a "
-        "rough night and I have the numbers.\" / \"Morning, Smack Faithful. "
-        "I've read the scores and I'm so sorry.\"\n\n"
+        "  Tone: affectionate needling, not abuse. He is pleased to see "
+        "them and about to ruin their morning. Mild profanity is fine in "
+        "the rest of the greeting. Do NOT call them shitheads or losers - "
+        "too blunt, and it is not the joke.\n\n"
 
         "  2. Then this, WORD FOR WORD, never reworded, never shortened, "
         "never improvised on:\n"
@@ -1390,6 +1452,14 @@ def write_script(material: dict, only_league: str = None,
         "the sponsor or the tagline later, and do not close with them - they "
         "open the show, that's all.\n\n"
 
+        ) if _lead else (
+        "YOUR BLOCK STARTS MID-SHOW. The audience has already been "
+        "greeted and the show introduced by an earlier block. NO "
+        "greeting, NO welcome, NO introducing yourself or the show, NO "
+        "signing off as if the show is starting. Your first words land "
+        "straight on your first result.\n\n"
+        )) +
+        + ((
         "THE CLOSE - the last thing you say, WORD FOR WORD, never reworded, "
         "never shortened. Say something of your own first if you want, then "
         "land on exactly this. But the phrase \"That's The Daily Smack\" "
@@ -1410,6 +1480,12 @@ def write_script(material: dict, only_league: str = None,
         "add a farewell after it. The actual sign-off is appended "
         "automatically after your close and is identical in every episode - "
         "anything you write past this point duplicates it.\n\n"
+        ) if _closes else (
+        "YOUR BLOCK DOES NOT END THE SHOW - another league's block "
+        "follows yours. NO sign-off of any kind: never say \"That's The "
+        "Daily Smack\", no farewell, no wrapping up. Your last segment "
+        "ends on your league's last result and simply stops.\n\n"
+        )) +
 
         "HOW HARD TO GO: all the way. This is an uncensored late-night podcast "
         "for adults who came here to hear teams get destroyed. Curse freely "
@@ -1642,9 +1718,15 @@ def write_script_per_league(material: dict, log=None) -> dict:
     if not plan["publish"]:
         return {"publish": False, "reason": plan["reason"]}
 
+    # CASE-INSENSITIVE: LEAGUE_ORDER says "MLB", games carry "mlb". The
+    # exact compare matched NOTHING, so this fell through to the single
+    # shared call every run - the per-league system never fired once.
+    # The proof: "writing N league scripts in parallel" has never
+    # appeared in a log.
     present = []
     for lg in LEAGUE_ORDER:
-        if any(g["league"] == lg for g in material["games"]):
+        if any((g.get("league") or "").upper() == lg.upper()
+               for g in material["games"]):
             present.append(lg)
 
     # One mood for the whole episode. Chosen HERE rather than inside each
@@ -1680,9 +1762,13 @@ def write_script_per_league(material: dict, log=None) -> dict:
 
     with ThreadPoolExecutor(max_workers=min(4, len(present))) as pool:
         def _one(lg):
-            after = present[present.index(lg) + 1:] if lg == present[0] else None
+            # EVERY block gets its true after-list - the last one's is
+            # empty, which is how it knows the sign-off is its job.
+            _idx = present.index(lg)
+            after = present[_idx + 1:]
             return (lg, write_script(material, only_league=lg,
-                                     leagues_after=after, mood=_mood))
+                                     leagues_after=after, mood=_mood,
+                                     opens_show=(_idx == 0)))
 
         results = list(pool.map(_one, present))
 
@@ -1965,6 +2051,80 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
             log(f"WARNING: leagues played but NOT covered in the script: "
                 f"{', '.join(sorted(missing))} - the model ran out of room")
 
+        # DID THE BRANDED SEGMENTS ACTUALLY GET WRITTEN?
+        #
+        # The layouts allocate named slots - Smack Ball, Certified
+        # Cooker, Clown Show, Winners and Whiners, the WNBA's rotating
+        # award - but segments come back tagged by LEAGUE only, so
+        # nothing confirmed a named bit survived into the script. A
+        # dropped award was invisible until somebody listened for it.
+        #
+        # Matched PER LEAGUE (both leagues have a Winners and Whiners,
+        # so a whole-script match cannot tell whose landed); untagged
+        # segments count toward every league to err away from crying
+        # wolf. One log line per run: what landed, what went missing.
+        try:
+            _by = {}
+            _untagged = []
+            for sg in segments:
+                _t = (sg.get("text") or "").lower()
+                _lgt = (sg.get("league") or "").strip().upper()
+                if _lgt and _lgt not in ("BREAK", "ELSEWHERE"):
+                    _by.setdefault(_lgt, []).append(_t)
+                else:
+                    _untagged.append(_t)
+
+            def _league_text(lg):
+                return " ".join(_by.get(lg, []) + _untagged)
+
+            _expected = []
+            if any((g.get("league") or "").upper() == "MLB"
+                   for g in material.get("games", [])):
+                _expected += [("MLB Smack Ball", "smack ball"),
+                              ("MLB Certified Cooker", "certified cooker"),
+                              ("MLB Clown Show", "clown show"),
+                              ("MLB Winners and Whiners",
+                               "winners and whiners")]
+            if any((g.get("league") or "").upper() == "WNBA"
+                   for g in material.get("games", [])):
+                try:
+                    from services.wnba_layout import pick_award_title
+                    _title = pick_award_title()
+                    _expected.append((f"WNBA award '{_title}'",
+                                      _title.lower()))
+                except Exception:
+                    pass
+                _expected.append(("WNBA Winners and Whiners",
+                                  "winners and whiners"))
+
+            _landed, _dropped = [], []
+            _report_rows = []
+            for _name, _phrase in _expected:
+                _lg = _name.split()[0].upper()
+                _hit = _phrase in _league_text(_lg)
+                (_landed if _hit else _dropped).append(_name)
+                _report_rows.append({"name": _name, "hit": _hit})
+            if _landed:
+                log(f"branded segments in the script: {', '.join(_landed)}")
+            if _dropped:
+                log(f"WARNING: branded segments MISSING from the script: "
+                    f"{', '.join(_dropped)}")
+
+            # STRUCTURED, so the admin panel can render it as a
+            # checklist rather than anybody hunting the log line.
+            material["_segment_report"] = {
+                "checked_at": __import__("datetime").datetime.utcnow()
+                              .isoformat() + "Z",
+                "greeting": pick_audience_name(),
+                # More than one league in the material means the
+                # parallel per-league writers ran.
+                "parallel": len({(g.get("league") or "").upper()
+                                 for g in material.get("games", [])}) > 1,
+                "segments": _report_rows,
+            }
+        except Exception as _e:
+            log(f"segment coverage check unavailable: {_e}")
+
         # The break goes after the LEAD league's block, whichever league that
         # is - not after MLB specifically. Hardcoding baseball fell apart the
         # moment the show was pointed at a football Sunday: no MLB meant the
@@ -1973,8 +2133,10 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
         # break_out's job, and break_out runs AFTER the advert. The prompt now
         # forbids it, but a prompt is a request; this makes the failure
         # visible in the logs instead of only in the audio.
+        # Same case trap as above.
         _later = [lg for lg in LEAGUE_ORDER
-                  if any(g["league"] == lg for g in material.get("games", []))]
+                  if any((g.get("league") or "").upper() == lg.upper()
+                         for g in material.get("games", []))]
         if len(_later) > 1:
             _lead, _rest = _later[0], _later[1:]
             _tease = re.compile(
@@ -2232,6 +2394,10 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
     return {
         "published": True,
         "audio_url": audio_url,
+        # The checklist the panel renders - which branded segments made
+        # the script, tonight's greeting, and whether the parallel
+        # writers ran.
+        "segment_report": material.get("_segment_report"),
         "minutes": plan["minutes"],
         "game_count": material["game_count"],
         "leagues": material["leagues_played"],

@@ -651,6 +651,12 @@ class DailyShow(db.Model):
     game_count = db.Column(db.Integer)
     leagues = db.Column(db.String(200))
     best_line = db.Column(db.Text)
+    # JSON: the segment checklist from the run that produced this episode.
+    # [{"name": "MLB Smack Ball", "hit": true}, ...] plus greeting/meta.
+    # Written by the show, read by /api/admin/segment-checklist - so
+    # "did every segment air" is a yes/no list in the panel rather than
+    # a line to hunt for in the logs.
+    segment_report = db.Column(db.Text)
     is_live = db.Column(db.Boolean, default=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

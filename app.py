@@ -6239,6 +6239,10 @@ def _produce_daily_show_async(app_obj, dry_run: bool = False, days_back: int = 1
                 game_count=result.get("game_count"),
                 leagues=", ".join(result.get("leagues", [])),
                 best_line=result.get("best_line", ""),
+                # The segment checklist from this run, as JSON - what
+                # the admin panel's daily list reads.
+                segment_report=json.dumps(result.get("segment_report"))
+                               if result.get("segment_report") else None,
                 is_live=True,
             )
             DailyShow.query.filter_by(is_live=True).update({"is_live": False})
@@ -6310,6 +6314,55 @@ def cron_daily_show():
                 ("Producing in the background. Check /api/show/current in a few minutes, "
                  "or the logs for [show] lines.")
     }), 202
+
+
+@app.route("/api/admin/segment-checklist")
+@login_required
+def api_admin_segment_checklist():
+    """
+    The daily yes/no list: did every branded segment make the episode?
+
+    Reads the report saved with the latest live show - Smack Ball,
+    Certified Cooker, Clown Show, both Winners and Whiners, the WNBA's
+    rotating award - plus tonight's greeting name and whether the
+    parallel writers ran. Episodes produced before this existed say so
+    rather than pretending.
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    show = (DailyShow.query.filter_by(is_live=True)
+            .order_by(DailyShow.id.desc()).first())
+    if not show:
+        return jsonify({"episode": None,
+                        "note": "No live episode yet."})
+    report = None
+    if show.segment_report:
+        try:
+            report = json.loads(show.segment_report)
+        except Exception:
+            report = None
+    out = {
+        "episode": {
+            "date_label": show.date_label,
+            "minutes": show.minutes,
+            "game_count": show.game_count,
+            "leagues": show.leagues,
+            "produced_at": utc_iso(show.created_at)
+                           if show.created_at else None,
+        },
+    }
+    if not report:
+        out["note"] = ("This episode was produced before the checklist "
+                       "existed - the next episode will carry one.")
+        return jsonify(out)
+    segs = report.get("segments") or []
+    out["greeting"] = report.get("greeting")
+    out["parallel_writers"] = report.get("parallel")
+    out["segments"] = [{"name": r.get("name"),
+                        "delivered": bool(r.get("hit"))} for r in segs]
+    out["all_delivered"] = all(r.get("hit") for r in segs) if segs else None
+    return jsonify(out)
 
 
 @app.route("/api/admin/pipeline-check")
@@ -6592,6 +6645,10 @@ with app.app_context():
             conn.execute(db.text(
                 "ALTER TABLE support_replies ADD COLUMN IF NOT EXISTS "
                 "channel VARCHAR(10) DEFAULT 'email'"))
+            # The daily show's segment checklist (JSON text).
+            conn.execute(db.text(
+                "ALTER TABLE daily_shows ADD COLUMN IF NOT EXISTS "
+                "segment_report TEXT"))
 
             # INDEXES.
             #

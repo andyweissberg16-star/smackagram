@@ -140,7 +140,16 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
             # GAME, and its stats read out as fact. That is worse than
             # having no stats at all.
             "id": r.get("match_id") or r.get("id"),
-            "highlightly_id": r.get("match_id") or r.get("id"),
+            # ONLY A HIGHLIGHTLY ID IS A HIGHLIGHTLY ID.
+            #
+            # This shape serves every source. Labelling balldontlie's id
+            # as highlightly_id sent THEIR ids to Highlightly's
+            # box-score endpoint - a different provider's id space - and
+            # 404'd five times per run. Harmless-looking, but it burns
+            # five requests of a 25-a-minute ceiling on guaranteed
+            # failures.
+            "highlightly_id": ((r.get("match_id") or r.get("id"))
+                               if source == "highlightly" else None),
             "venue": r.get("venue"),
             # Plain-language scoring lines where a source gives them -
             # better raw material for a joke than a box score.
