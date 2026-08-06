@@ -135,9 +135,14 @@
 {# hero-band, matching every other page - a full-bleed image wants the red
    band top and bottom rather than a four-sided frame that would run off the
    edges of the screen. #}
-<img src="{{ url_for('static', filename='img/smack-lab-hero.jpg') }}" class="hero-band"
-     alt="Smack Lab — 1 on 1 coaching with Smacky to take your smack to the big leagues"
-     style="width:100%; height:auto; display:block;">
+<picture class="hero-band">
+  <source type="image/webp" sizes="100vw"
+          srcset="{{ url_for('static', filename='img/hero-smack-lab-768.webp') }} 768w,
+                  {{ url_for('static', filename='img/hero-smack-lab-1280.webp') }} 1280w,
+                  {{ url_for('static', filename='img/hero-smack-lab.webp') }} 1774w">
+  <img src="{{ url_for('static', filename='img/hero-smack-lab.webp') }}" alt="Smack Lab — 1-on-1 trash talk coaching with Smacky"
+       width="1774" height="887" style="width:100%; height:auto; display:block;">
+</picture>
 
 {% include '_smacks_today.html' %}
 

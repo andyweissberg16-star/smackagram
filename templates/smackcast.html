@@ -79,14 +79,22 @@
 
 {% include '_nav.html' %}
 
+<picture class="hero-band">
+  <source type="image/webp" sizes="100vw"
+          srcset="{{ url_for('static', filename='img/hero-smackcast-768.webp') }} 768w,
+                  {{ url_for('static', filename='img/hero-smackcast-1280.webp') }} 1280w,
+                  {{ url_for('static', filename='img/hero-smackcast.webp') }} 1774w">
+  <img src="{{ url_for('static', filename='img/hero-smackcast.webp') }}" alt="The Smackcast — weekly fantasy football trash talk, roasts and recaps"
+       width="1774" height="887" style="width:100%; height:auto; display:block;">
+</picture>
+
 <div class="wrap">
 
 {% include '_smacks_today.html' %}
 
   <div class="hero">
-    <p class="label">Smackcast</p>
-    <h1>Your League's Weekly Recap</h1>
-    <p>Fully automated. Zero mercy. Connect your league, and every Tuesday at 9AM Smackcast pulls the real scores and Smacky roasts your whole league — by name, in his own voice. One payment, one season, no renewals.</p>
+    {# Headline and pitch now live in the hero art above; the price and
+       the library link stay because they are function, not copy. #}
     <p class="price-tag wm-price">$39<i>.99</i> once. Savage every week.</p>
     <p style="margin-top:14px; font-size:13px;">Already set up? <a href="/smackcast/library" style="color:var(--gold); font-weight:600;">Open your library &rarr;</a></p>
   </div>

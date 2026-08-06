@@ -143,14 +143,23 @@
 
 {% include '_nav.html' %}
 
+{# The new hero art carries the title and tagline BAKED IN - the HTML
+   h1 and lede came out so the page does not say everything twice. The
+   explicit note stays: it is policy, not decoration. #}
+<picture class="hero-band">
+  <source type="image/webp" sizes="100vw"
+          srcset="{{ url_for('static', filename='img/hero-daily-smack-768.webp') }} 768w,
+                  {{ url_for('static', filename='img/hero-daily-smack-1280.webp') }} 1280w,
+                  {{ url_for('static', filename='img/hero-daily-smack.webp') }} 2048w">
+  <img src="{{ url_for('static', filename='img/hero-daily-smack.webp') }}" alt="The Daily Smack — your daily dose of sports trash talk"
+       width="2048" height="1024" style="width:100%; height:auto; display:block;">
+</picture>
+
 <div class="wrap">
 
 {% include '_smacks_today.html' %}
 
   <div class="lede-block">
-    <h1>The Daily<br><span>Smack</span></h1>
-    <p class="lede">Every score from last night, and every team that deserved
-    what it got. Five minutes with Smacky, new every morning at 6am.</p>
     <!-- Advisory, not a gate - the podcast "Explicit" tag model. Deliberate:
          a hard age wall on the show would break the top-of-funnel, and a
          self-attested one stops nobody anyway. -->

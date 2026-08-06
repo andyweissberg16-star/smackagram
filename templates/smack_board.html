@@ -335,9 +335,14 @@
 {# Same hero-band treatment as every other page: full bleed with the red
    band top and bottom. Sits above the counter, which is where the counter
    lives on every page that has a hero. #}
-<img src="{{ url_for('static', filename='img/smack-board-hero-1560.png') }}"
-     class="hero-band" alt="The Smack Board &mdash; live scores across every league"
-     style="width:100%; height:auto; display:block;">
+<picture class="hero-band">
+  <source type="image/webp" sizes="100vw"
+          srcset="{{ url_for('static', filename='img/hero-smack-board-768.webp') }} 768w,
+                  {{ url_for('static', filename='img/hero-smack-board-1280.webp') }} 1280w,
+                  {{ url_for('static', filename='img/hero-smack-board.webp') }} 2048w">
+  <img src="{{ url_for('static', filename='img/hero-smack-board.webp') }}" alt="The Smack Board — live scores, real-time smack"
+       width="2048" height="1024" style="width:100%; height:auto; display:block;">
+</picture>
 
 <div class="wrap">
 

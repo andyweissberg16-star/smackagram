@@ -126,7 +126,9 @@
   }
 
   @media (min-width:721px){
-    #heroBanner{aspect-ratio:2.6/1; object-fit:cover; object-position:center;}
+    /* The new hero art is 2:1 with its copy BAKED IN - the old 2.6:1
+       crop would slice the top and bottom text clean off. */
+    #heroBanner{aspect-ratio:2/1; object-fit:cover; object-position:center;}
   }
   .smackback-frame{
     position:absolute; z-index:5;
@@ -804,11 +806,10 @@
   </a>
   <picture class="hero-band">
   <source type="image/webp" sizes="100vw"
-          srcset="{{ url_for('static', filename='img/hero-mascot-780.webp') }} 780w,
-                  {{ url_for('static', filename='img/hero-mascot-1560.webp') }} 1560w,
-                  {{ url_for('static', filename='img/hero-mascot-1672.webp') }} 1672w">
-  <img id="heroBanner" src="{{ url_for('static', filename='img/hero-mascot-1560.jpg') }}" alt="Smackagram — let the smack talk begin"
-       width="1672" height="941" style="width:100%; height:auto; display:block;">
+          srcset="{{ url_for('static', filename='img/hero-home-768.webp') }} 768w,
+                  {{ url_for('static', filename='img/hero-home-1280.webp') }} 1280w,
+                  {{ url_for('static', filename='img/hero-home.webp') }} 1774w">
+  <img id="heroBanner" src="{{ url_for('static', filename='img/hero-home.webp') }}" alt="Smackagram — trash talk that rings" width="1774" height="887" style="width:100%; height:auto; display:block;">
 </picture>
 </div>
 
