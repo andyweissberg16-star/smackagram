@@ -130,58 +130,53 @@
        crop would slice the top and bottom text clean off. */
     #heroBanner{aspect-ratio:2/1; object-fit:cover; object-position:center;}
   }
-  .smackback-frame{
-    position:absolute; z-index:5;
-    top:50%; left:16.667%; transform:translate(-50%,-50%);
-    width:25%; min-width:230px; height:26%; min-height:96px;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:8px; padding:11px 14px; box-sizing:border-box;
-    background:rgba(13,13,13,0.62);
-    backdrop-filter:blur(2px); -webkit-backdrop-filter:blur(2px);
-    border:3px solid var(--flare); border-radius:6px;
+  /* THE FLOATING SMACK BACK PILL - variant C, David's pick Aug 6 2026.
+     The old frame sat ON the hero and covered its baked-in art; the
+     new hero has copy edge to edge, so ANY overlay covers something.
+     This is fixed to the VIEWPORT instead: never touches the hero,
+     rides with the visitor the whole visit (the old frame vanished on
+     first scroll), and lands where thumbs live on a phone. */
+  .smackback-pill{
+    position:fixed; right:22px; bottom:22px; z-index:60;
+    display:flex; flex-direction:column; align-items:center; gap:5px;
+    padding:15px 26px 13px; box-sizing:border-box;
+    background:rgba(20,20,22,0.95);
+    border:3px solid var(--flare); border-radius:46px;
     text-decoration:none; line-height:1.15;
-    animation:smackback-edge 1.8s ease-in-out infinite;
+    box-shadow:0 0 18px rgba(232,20,44,0.55), 0 6px 24px rgba(0,0,0,0.6);
+    /* slides in half a second after load - an entrance draws the eye
+       harder than something that is simply there */
+    transform:translateY(140%);
+    animation:smackback-in .45s ease .5s forwards,
+              smackback-glow 2.6s ease-in-out 1s infinite;
   }
-  .smackback-frame:hover{background:rgba(13,13,13,0.74);}
+  .smackback-pill:hover{background:rgba(28,28,30,0.98);}
   .smackback-banner{
     font-family:'Anton',sans-serif; color:var(--chalk);
-    font-size:clamp(15px,1.6vw,26px); text-align:center;
-    letter-spacing:0.5px; text-transform:uppercase;
-    text-shadow:0 2px 10px rgba(0,0,0,0.9);
+    font-size:clamp(14px,1.15vw,19px); text-align:center;
+    letter-spacing:0.6px; text-transform:uppercase;
   }
   .smackback-btn{
     font-family:'Inter',sans-serif; font-weight:800;
-    font-size:clamp(10px,0.85vw,14px); letter-spacing:0.6px;
-    color:#fff; background:var(--flare);
-    padding:9px 16px; border-radius:4px; text-align:center;
+    font-size:clamp(10px,0.75vw,13px); letter-spacing:0.7px;
+    color:var(--flare); text-align:center;
     white-space:nowrap; text-transform:uppercase;
   }
-  @keyframes smackback-edge{
-    0%,100%{border-color:var(--flare); box-shadow:0 0 18px rgba(232,20,44,0.6);}
-    33%{border-color:var(--gold); box-shadow:0 0 34px rgba(255,212,0,0.85);}
-    66%{border-color:#F5F5F3; box-shadow:0 0 30px rgba(245,245,243,0.75);}
+  @keyframes smackback-in{to{transform:translateY(0);}}
+  @keyframes smackback-glow{
+    0%,100%{box-shadow:0 0 14px rgba(232,20,44,0.45), 0 6px 24px rgba(0,0,0,0.6);}
+    50%{box-shadow:0 0 30px rgba(232,20,44,0.85), 0 6px 24px rgba(0,0,0,0.6);}
   }
   @media (prefers-reduced-motion:reduce){
-    .smackback-frame{animation:none; border-color:var(--flare); box-shadow:0 0 18px rgba(232,20,44,0.6);}
+    .smackback-pill{transform:none; animation:none;}
   }
   @media (max-width:700px){
-    /* ANCHORED, NOT CENTRED ON A PERCENTAGE.
-       
-       The frame sat at left:16.667% with translateX(-50%) and a
-       min-width of 230px. On a narrow screen that puts its left edge at a
-       NEGATIVE offset - at 390px it started 56px off-screen - and the
-       hero's overflow:hidden cut the red border clean off.
-       
-       That is why the border looked broken on every phone: it was not
-       overlapping anything, it was outside the box.
-       
-       Anchoring to the left edge instead of centring on a percentage
-       means it cannot escape however narrow the screen gets. */
-    .smackback-frame{
-      left:4%; transform:translateY(-50%);
-      width:auto; min-width:0; right:auto;
-      max-width:74%; height:38%;
+    .smackback-pill{
+      right:12px; bottom:12px; padding:11px 18px 10px;
+      border-width:2px; border-radius:34px;
     }
+    .smackback-banner{font-size:13px;}
+    .smackback-btn{font-size:10px;}
   }
 
 
@@ -800,10 +795,8 @@
 </div>
 
 <div style="width:100%; overflow:hidden; line-height:0; position:relative;">
-  <a href="/did-you-get-smacked" class="smackback-frame" aria-label="Did you just get smacked? Click here to smack back">
-    <div class="smackback-banner">DID YOU JUST GET SMACKED?</div>
-    <div class="smackback-btn">CLICK HERE TO SMACK BACK</div>
-  </a>
+  {# The Smack Back frame moved OFF the hero - it lives as a fixed
+     pill at the end of the body now, so the art stays clean. #}
   <picture class="hero-band">
   <source type="image/webp" sizes="100vw"
           srcset="{{ url_for('static', filename='img/hero-home-768.webp') }} 768w,
@@ -1021,6 +1014,12 @@
   </div>
 
 </div>
+
+<a href="/did-you-get-smacked" class="smackback-pill"
+   aria-label="Did you just get smacked? Tap to smack back">
+  <span class="smackback-banner">Did You Just Get Smacked?</span>
+  <span class="smackback-btn">Tap to Smack Back &rarr;</span>
+</a>
 
 {% include '_footer.html' %}
 

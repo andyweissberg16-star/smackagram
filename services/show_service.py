@@ -259,6 +259,19 @@ def _attach_highlightly_ids(games, log=print, day=None):
     return games
 
 
+def _detail_day(g):
+    """
+    The Eastern day a game belongs to, for schedule matchup resolution.
+    Games from fetch_finals carry "date" (YYYYMMDD); fall back to
+    yesterday Eastern, which is the day every show is about.
+    """
+    raw = str(g.get("date") or "")
+    if len(raw) == 8 and raw.isdigit():
+        return f"{raw[:4]}-{raw[4:6]}-{raw[6:8]}"
+    from datetime import datetime as _dt, timedelta as _td
+    return (_dt.now(EASTERN) - _td(days=1)).strftime("%Y-%m-%d")
+
+
 def enrich_with_detail(games, log=print, workers=6):
     """
     Pull the deep box score for every game and hang the roast facts on it.
@@ -305,9 +318,31 @@ def enrich_with_detail(games, log=print, workers=6):
         """
         facts, detail = [], None
 
+        # MLB: THE LEAGUE'S OWN BOX SCORE FIRST.
+        #
+        # statsapi has the box within minutes of the final; Highlightly
+        # lags a day, which is why the player awards never fired at
+        # 5:55am. The gamePk rides on statsapi-sourced games directly;
+        # anything that arrived from another source is resolved by
+        # matchup through the day's schedule. Emitted in the ESPN shape
+        # the layout already parses, so the awards work unchanged.
+        if (g.get("league") or "").lower() == "mlb":
+            try:
+                from services import mlb_statsapi
+                _pk = (g.get("id") if g.get("source") == "mlb_statsapi"
+                       else mlb_statsapi.game_pk_for(
+                           _detail_day(g), g.get("home") or "",
+                           g.get("away") or ""))
+                if _pk:
+                    detail = mlb_statsapi.game_detail(
+                        _pk, g.get("winner") or "", g.get("loser") or "")
+            except Exception as e:
+                print(f"[show] statsapi detail unavailable: {e}",
+                      flush=True)
+
         try:
             from services import highlightly
-            if highlightly.enabled() and g.get("_hl_id"):
+            if detail is None and highlightly.enabled() and g.get("_hl_id"):
                 hl = highlightly.roast_facts(
                     (g.get("league") or "").lower(), g["_hl_id"],
                     g.get("loser") or "")
@@ -848,6 +883,13 @@ def write_script(material: dict, only_league: str = None,
                              streaks=_streak_rows, league=_lg)
             material.setdefault("_layout_budgets", {})[_lg] = sum(
                 x["words"] for x in _lay["slots"])
+            # And WHICH slots, so the checklist can tell "allocated but
+            # the writer dropped it" (a failure) from "not allocated
+            # tonight" (correct - e.g. Winners and Whiners only exists
+            # when a losing streak qualifies, and the stats awards only
+            # when a box score arrived).
+            material.setdefault("_layout_slots", {})[_lg] = [
+                x.get("slot") for x in _lay["slots"]]
         except Exception as e:
             print(f"[show] {_lg} layout unavailable, writer decides: {e}",
                   flush=True)
@@ -2082,38 +2124,62 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
             def _league_text(lg):
                 return " ".join(_by.get(lg, []) + _untagged)
 
+            # (name, phrase to find, the layout slot that allocates it)
             _expected = []
             if any((g.get("league") or "").upper() == "MLB"
                    for g in material.get("games", [])):
-                _expected += [("MLB Smack Ball", "smack ball"),
-                              ("MLB Certified Cooker", "certified cooker"),
-                              ("MLB Clown Show", "clown show"),
-                              ("MLB Winners and Whiners",
-                               "winners and whiners")]
+                _expected += [
+                    ("MLB Smack Ball", "smack ball", "smack_ball"),
+                    ("MLB Certified Cooker", "certified cooker",
+                     "certified_cooker"),
+                    ("MLB Clown Show", "clown show", "clown_show"),
+                    ("MLB Winners and Whiners", "winners and whiners",
+                     "winners_and_whiners")]
             if any((g.get("league") or "").upper() == "WNBA"
                    for g in material.get("games", [])):
                 try:
                     from services.wnba_layout import pick_award_title
                     _title = pick_award_title()
                     _expected.append((f"WNBA award '{_title}'",
-                                      _title.lower()))
+                                      _title.lower(), "player_award"))
                 except Exception:
                     pass
                 _expected.append(("WNBA Winners and Whiners",
-                                  "winners and whiners"))
+                                  "winners and whiners",
+                                  "winners_and_whiners"))
 
-            _landed, _dropped = [], []
+            # ALLOCATED-BUT-ABSENT IS A FAILURE. NOT-ALLOCATED IS NOT.
+            #
+            # Winners and Whiners only exists when a losing streak
+            # qualifies; the stats awards only when a box score arrived.
+            # The first version of this check listed those as MISSING on
+            # a night the layout had correctly not scheduled them - a
+            # checklist that cries wolf on a correct night teaches
+            # nobody to trust it on a bad one.
+            _slots = material.get("_layout_slots") or {}
+            _landed, _dropped, _unalloc = [], [], []
             _report_rows = []
-            for _name, _phrase in _expected:
+            for _name, _phrase, _slot in _expected:
                 _lg = _name.split()[0].upper()
+                _lg_slots = _slots.get(_lg)
+                _allocated = (_slot in _lg_slots) if _lg_slots else None
+                if _allocated is False:
+                    _unalloc.append(_name)
+                    _report_rows.append({"name": _name, "hit": False,
+                                         "allocated": False})
+                    continue
                 _hit = _phrase in _league_text(_lg)
                 (_landed if _hit else _dropped).append(_name)
-                _report_rows.append({"name": _name, "hit": _hit})
+                _report_rows.append({"name": _name, "hit": _hit,
+                                     "allocated": True})
             if _landed:
                 log(f"branded segments in the script: {', '.join(_landed)}")
+            if _unalloc:
+                log(f"not scheduled tonight (layout had no material for "
+                    f"them): {', '.join(_unalloc)}")
             if _dropped:
-                log(f"WARNING: branded segments MISSING from the script: "
-                    f"{', '.join(_dropped)}")
+                log(f"WARNING: branded segments the layout ALLOCATED but "
+                    f"the writer DROPPED: {', '.join(_dropped)}")
 
             # STRUCTURED, so the admin panel can render it as a
             # checklist rather than anybody hunting the log line.

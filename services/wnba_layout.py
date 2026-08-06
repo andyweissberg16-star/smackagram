@@ -194,10 +194,21 @@ def build(games: list, log=print, streaks=None, league="WNBA") -> dict:
         + (story_w if beating else 0)
     per_rest = max(20, (total - used) // len(rest)) if rest else 0
 
+    # COMPUTED, NOT COUNTED - same fix as the MLB layout. Asking the
+    # model "how many games" without stating the number is how a
+    # 15-game night got announced as 12 over there.
+    n_games = len(reads)
+    n_close = sum(1 for r in reads if (r.get("margin") or 99) <= 4)
+    widest_m = max((r.get("margin") or 0) for r in reads) if reads else 0
     slots = [{
         "slot": "opening", "words": opening, "games": [],
-        "brief": "The shape of the night. How many games, how many were "
-                 "close, the widest margin. No scores yet."}]
+        "brief": f"The shape of the night. THERE WERE {n_games} GAMES - "
+                 f"that is the number, do not count for yourself. "
+                 + (f"{n_close} finished within four points. "
+                    if n_close else "")
+                 + (f"The widest margin was {widest_m}. "
+                    if widest_m >= 15 else "")
+                 + "No scores yet."}]
 
     if headline:
         slots.append({

@@ -244,6 +244,31 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
     # affects yesterday, which is exactly the day the show is about.
     _merge = days_back <= 1
 
+    # MLB: THE LEAGUE'S OWN API ANSWERS FIRST.
+    #
+    # Both third parties put wrong results on air - balldontlie's UTC
+    # days swapped a Tuesday Padres score into Wednesday, and
+    # Highlightly lags a day so box scores never arrive by showtime.
+    # statsapi.mlb.com has real local dates, finals within minutes, and
+    # season records on the schedule rows. The others remain as
+    # fallbacks and for leagues statsapi does not cover.
+    if league == "mlb" and _merge:
+        try:
+            from services import mlb_statsapi
+            sa = mlb_statsapi.finals(iso_day)
+            for r in (sa or {}).values():
+                k = _pair(r)
+                if k in seen or "" in k:
+                    continue
+                seen.add(k)
+                out.append(_shape(r, "mlb_statsapi"))
+            if sa:
+                print(f"[finals] mlb {iso_day}: {len(sa)} from "
+                      f"statsapi.mlb.com (primary)", flush=True)
+        except Exception as e:
+            print(f"[finals] statsapi failed, falling back: {e}",
+                  flush=True)
+
     try:
         from services import balldontlie
         if _merge and balldontlie.covers(league):

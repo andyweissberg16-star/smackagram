@@ -266,8 +266,14 @@ def api_register():
     password = data.get("password") or ""
     terms_accepted = bool(data.get("terms_accepted"))
 
-    if not all([first_name, last_name, screen_name, email, phone, dob_str, password]):
-        return jsonify({"error": "All fields are required."}), 400
+    # PHONE IS OPTIONAL AT REGISTRATION - David's call, Aug 6 2026.
+    # Twilio's A2P review is dragging, and an account does not need a
+    # verified phone to exist; it will need one when a PAID feature
+    # demands it, which is checkout's job, not signup's. The 2FA
+    # machinery stays intact behind the twofactor_customers toggle for
+    # the day Twilio clears.
+    if not all([first_name, last_name, screen_name, email, dob_str, password]):
+        return jsonify({"error": "All fields except phone are required."}), 400
     if not terms_accepted:
         return jsonify({"error": "You must agree to the Terms & Conditions."}), 400
     if len(password) < 6:
@@ -319,7 +325,9 @@ def api_register():
     # Customer 2FA is now a runtime setting, changeable from the admin panel
     # rather than a constant needing a deploy. The old TWO_FACTOR_ENABLED
     # constant remains as the seed value only.
-    if not settings_service.get_bool("twofactor_customers"):
+    # No phone means no text can be sent - regardless of the 2FA
+    # toggle, this account registers without a verification step.
+    if not phone or not settings_service.get_bool("twofactor_customers"):
         session["user_id"] = user.id
         return jsonify({"ok": True})
 
@@ -1944,6 +1952,18 @@ def locker_page():
                 .filter_by(user_id=user.id)
                 .order_by(VerifiedPhone.id.desc())
                 .first())
+    # SAME RULE AS SMACK BACK while verification is off: the phone on
+    # the account counts as the key. A logged-in user who typed their
+    # number at registration should not see an emptier page than a
+    # stranger typing the same number on /did-you-get-smacked. Flips
+    # back to code-verified the moment the admin toggle does.
+    from services import settings_service as _ss2
+    if not _ss2.get_bool("smackback_requires_verification"):
+        verification_live = True
+        if not verified and user.phone:
+            class _P:  # shaped like VerifiedPhone for the code below
+                phone = user.phone
+            verified = _P()
 
     received = []
     if verified and verification_live:
@@ -2375,7 +2395,8 @@ def api_admin_settings_set():
     key = (data.get("key") or "").strip()
     value = bool(data.get("value"))
 
-    if key not in ("twofactor_customers", "twofactor_admins"):
+    if key not in ("twofactor_customers", "twofactor_admins",
+                   "smackback_requires_verification"):
         return jsonify({"error": "Unknown setting."}), 400
 
     if key == "twofactor_admins" and value:
@@ -2733,7 +2754,10 @@ def api_support_submit():
         from services import mail
         mail.send(
             os.environ.get("SUPPORT_INBOX", "owners@smackagram.com"),
-            f"[Smackagram #{t.id}] {topic}",
+            # Subject format is David's spec (Aug 6 2026): the ticket
+            # number IS the subject, so the inbox sorts and searches by
+            # it. The topic still leads the body's first lines.
+            f"Smackagram Support Ticket #{t.id}",
             f"{first} {last} <{email}>\n"
             f"Phone: {phone or 'not given'}\n"
             f"Topic: {topic}\n"
@@ -4891,7 +4915,14 @@ def check_if_smacked():
     all_matches.sort(key=lambda r: r.created_at, reverse=True)
 
     user = get_current_user()
-    is_verified = False
+    # WHILE VERIFICATION IS OFF, the number itself is the key.
+    # David's call, Aug 6 2026 - Twilio cannot text codes until A2P
+    # clears, and a recipient hitting "found: 3 smacks" followed by a
+    # code button that cannot work is a dead end at the exact moment
+    # of highest interest. Flip smackback_requires_verification in the
+    # admin panel and this line stops mattering.
+    from services import settings_service as _ss
+    is_verified = not _ss.get_bool("smackback_requires_verification")
     if user:
         is_verified = VerifiedPhone.query.filter_by(user_id=user.id, phone_digits=digits[-10:]).first() is not None
 
@@ -8197,7 +8228,9 @@ def api_admin_support_reply(ticket_id):
     from services import email_service
     who = getattr(user, "email", None) or getattr(user, "username", "admin")
 
-    subject = f"Re: your Smackagram support request (#{t.id})"
+    # Matches the notification's subject family so a thread about
+    # ticket 12 reads "Smackagram Support Ticket #12" end to end.
+    subject = f"Re: Smackagram Support Ticket #{t.id}"
     # Their original message is quoted underneath so the reply makes sense
     # on its own - somebody reading it a week later should not have to
     # remember what they asked.

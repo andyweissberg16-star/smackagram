@@ -15,6 +15,9 @@
     <a href="/terms">Terms</a>
     <a href="/privacy">Privacy</a>
     <a href="/opt-out">Opt Out</a>
-    <a href="/contact">Support</a>
+    {# CONTACT, by name - it was labelled "Support", which hid it in
+       plain sight. Suppressed on the contact page itself: a Contact
+       button on the contact page points at where you already are. #}
+    {% if request.path != '/contact' %}<a href="/contact">Contact</a>{% endif %}
   </div>
 </footer>

@@ -328,6 +328,37 @@ def _norm_score(match):
     }
 
 
+def _on_eastern_day(match, date_str):
+    """
+    Does this match belong to the requested EASTERN day?
+
+    Both UTC days are fetched because an Eastern evening spills into the
+    next UTC date - but UTC "Wednesday" ALSO CONTAINS TUESDAY NIGHT. A
+    Tuesday 8:40pm ET first pitch is 00:40 UTC Wednesday. Fetching two
+    days and keeping everything meant a Wednesday request returned
+    Tuesday evening's games too - and a series is the SAME TWO TEAMS on
+    consecutive nights, so both results rode in side by side and
+    Tuesday's score could be read out as Wednesday's.
+
+    Every row carries its own UTC timestamp. Convert it to Eastern and
+    keep only rows whose Eastern date is the one asked for. Rows whose
+    timestamp cannot be parsed are KEPT - dropping them would mean a
+    provider-side format change silently empties the whole source.
+    """
+    raw = match.get("date")
+    if not raw:
+        return True
+    try:
+        from datetime import datetime as _dtz
+        from zoneinfo import ZoneInfo
+        t = _dtz.fromisoformat(str(raw).replace("Z", "+00:00"))
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=ZoneInfo("UTC"))
+        return t.astimezone(ZoneInfo("America/New_York"))                 .strftime("%Y-%m-%d") == date_str
+    except Exception:
+        return True
+
+
 def finals(sport, date_str):
     """
     Every finished game in a league on a date, keyed by match id.
@@ -359,10 +390,19 @@ def finals(sport, date_str):
         days.append((_want + _td4(days=1)).strftime("%Y-%m-%d"))
 
     rows = []
+    _off_day = 0
     for _q in days:
         d = _matches_for(sport, {"date": _q, "limit": 100})
-        r = (d.get("data") if isinstance(d, dict) else d) or []
-        rows.extend(r)
+        for _r in ((d.get("data") if isinstance(d, dict) else d) or []):
+            # BOTH UTC days are fetched; only THIS Eastern day is kept.
+            if not _on_eastern_day(_r, date_str):
+                _off_day += 1
+                continue
+            rows.append(_r)
+    if _off_day:
+        print(f"[highlightly] {sport} {date_str}: dropped {_off_day} "
+              f"row(s) from a neighbouring day (UTC window overlap)",
+              flush=True)
 
     # SAY SOMETHING EVEN WHEN THERE IS NOTHING.
     #
@@ -726,6 +766,14 @@ def board(sport, date_str=None):
             if _i in seen_ids:
                 continue
             seen_ids.add(_i)
+            # SAME UTC-OVERLAP TRAP AS finals(): asking for today also
+            # returns yesterday evening (its UTC date is today). On the
+            # board that showed last night's finished games mixed into
+            # today's slate - the same matchup twice with different
+            # scores when a series runs. Keep only rows on the
+            # requested Eastern day.
+            if not _on_eastern_day(_r, date_str):
+                continue
             rows.append(_r)
 
     if not rows:

@@ -127,7 +127,9 @@
     <label for="emailInput">Email Address</label>
     <input id="emailInput" type="email" placeholder="you@example.com" autocomplete="email">
 
-    <label for="phoneInput">Mobile Phone</label>
+    <label for="phoneInput">Mobile Phone
+      <span style="font-weight:400; font-size:0.78em; opacity:0.65; letter-spacing:0.2px;">
+        (Optional &mdash; may be required for paid accounts)</span></label>
     <input id="phoneInput" type="tel" placeholder="555-555-5555" autocomplete="tel">
     {# THE SMS DISCLOSURE TWILIO'S REVIEWER LOOKS FOR.
 
@@ -138,6 +140,14 @@
 
        The wording matches the campaign submission exactly. If one
        changes, the other has to change with it. #}
+    {# THE WHOLE SMS BLOCK APPEARS ONLY WHEN A PHONE IS ENTERED.
+       No number, no texts, nothing to consent to - showing an SMS
+       agreement to somebody who left the field blank is noise, and a
+       required-but-irrelevant checkbox was a wall in front of
+       registration. The A2P story stays intact: the moment digits go
+       in, the full disclosure and unchecked consent box are right
+       there beside the field, exactly as the campaign describes. #}
+    <div id="smsBlock" style="display:none;">
     <p class="sms-consent">We'll text you a verification code.
       Msg &amp; data rates may apply. Reply STOP to opt out, HELP for
       help. See our <a href="/terms" target="_blank">Terms</a> and
@@ -157,6 +167,7 @@
       <a href="/terms" target="_blank" rel="noopener">Terms</a> and
       <a href="/terms#privacy" target="_blank" rel="noopener">Privacy Policy</a>.</span>
     </label>
+    </div>
 
     <label for="dobInput">Date of Birth</label>
     <input id="dobInput" type="date" autocomplete="bday">
@@ -178,6 +189,23 @@
   </div>
 </div>
 
+<script>
+// Show the SMS disclosure + consent only once a number is being typed.
+(function () {
+  var phone = document.getElementById('phoneInput');
+  var block = document.getElementById('smsBlock');
+  function sync() {
+    var has = phone.value.replace(/\D/g, '').length > 0;
+    block.style.display = has ? '' : 'none';
+    if (!has) {
+      var c = document.getElementById('smsConsent');
+      if (c) c.checked = false;   // no number, no lingering consent
+    }
+  }
+  phone.addEventListener('input', sync);
+  sync();
+})();
+</script>
 <script>
 function getNextParam() {
   return new URLSearchParams(window.location.search).get('next') || '/';
@@ -214,7 +242,7 @@ async function submitRegistration() {
   // Consent must be given, not assumed - an unchecked box has to block
   // registration, or the checkbox is decoration and the consent record is
   // worthless in an audit.
-  if (!document.getElementById('smsConsent').checked) {
+  if (payload.phone && !document.getElementById('smsConsent').checked) {
     errorEl.textContent = 'Please agree to receive text messages. We use them to verify your account.';
     smkInvalid(document.getElementById('smsConsent'));
     errorEl.style.display = 'block';

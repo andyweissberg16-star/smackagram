@@ -482,12 +482,31 @@ def build(games: list, log=print, streaks=None, league="MLB") -> dict:
     story_pool = max(0, body - opening - player_w)
     story_w = max(30, story_pool // n_stories) if n_stories else 0
 
+    # THE NUMBERS ARE COMPUTED HERE, NOT COUNTED BY THE MODEL.
+    #
+    # The old brief asked "how many games" and never said. The only
+    # explicit count anywhere in the prompt was the sweep's "12 of
+    # them" - the REMAINING games after the featured three - so the
+    # model grabbed the one number it could see and told listeners a
+    # 15-game night had 12 games. Anyone with a scoreboard knew better.
+    #
+    # A model asked to count will guess. Code counts.
+    n_games = len(reads)
+    n_one_run = sum(1 for r in reads if r.get("one_run"))
+    n_extras = sum(1 for r in reads if r.get("extras"))
+    widest_m = max((r.get("margin") or 0) for r in reads) if reads else 0
     slots = [
         {"slot": "opening", "words": opening, "games": [],
-         "brief": "The shape of the night before a single score. How many "
-                  "games, how many one-run finishes, how many went to extras, "
-                  "the widest margin, any streak of three or more. Tease the "
-                  "biggest collapse without naming the score."},
+         "brief": f"The shape of the night before a single score. THERE "
+                  f"WERE {n_games} GAMES - that is the number, do not "
+                  f"count for yourself. "
+                  + (f"{n_one_run} finished within a run. "
+                     if n_one_run else "")
+                  + (f"{n_extras} went to extras. " if n_extras else "")
+                  + (f"The widest margin was {widest_m}. "
+                     if widest_m >= 5 else "")
+                  + "Tease the biggest collapse without naming the "
+                    "score."},
     ]
 
     if headline:

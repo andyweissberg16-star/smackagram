@@ -27,6 +27,18 @@ _CACHE_TTL = 15   # seconds - long enough to matter, short enough to feel instan
 DEFAULTS = {
     "twofactor_customers": os.environ.get("TWO_FACTOR_CUSTOMERS", "0") == "1",
     "twofactor_admins": os.environ.get("TWO_FACTOR_ADMINS", "0") == "1",
+    # SMACK BACK WITHOUT PHONE VERIFICATION - David's call, Aug 6 2026.
+    #
+    # Twilio's A2P review is stuck, so there is no way to text a code.
+    # Until it clears, POSSESSION OF THE NUMBER IS THE AUTHENTICATOR:
+    # type the number, see the smacks sent to it, smack back. The
+    # trade-off is understood - anyone who knows a number can hear
+    # what was sent to it - and accepted for launch. Flip this to True
+    # the day Twilio clears and the code-text flow takes over again;
+    # every path checks this flag at runtime, so re-enabling is one
+    # admin toggle, no deploy.
+    "smackback_requires_verification":
+        os.environ.get("SMACKBACK_REQUIRES_VERIFICATION", "0") == "1",
 }
 
 
