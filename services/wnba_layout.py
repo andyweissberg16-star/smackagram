@@ -301,10 +301,21 @@ def prompt_block(games: list, log=print, streaks=None, league="WNBA") -> str:
     lay = build(games, log=log, streaks=streaks, league=league)
     rows = []
     for sl in lay["slots"]:
+        # Same scoreline rule as the MLB layout, one function, because
+        # this inline copy had TWO faults: it only read home/away scores
+        # (empty on Highlightly-shaped games, so no numbers reach the
+        # writer), and its 0 defaults would print a FAKE 0-0 on a game
+        # with no scoreline - a wrong result on air.
+        def _pair(g):
+            known = [v for v in (g.get("home_score"), g.get("away_score"))
+                     if v is not None]
+            if len(known) == 2:
+                return f"{max(known)}-{min(known)}"
+            ws, ls = g.get("winner_score"), g.get("loser_score")
+            return f"{ws}-{ls}" if ws is not None and ls is not None else ""
         names = "; ".join(
-            f"{r['game'].get('winner')} beat {r['game'].get('loser')} "
-            f"{max(r['game'].get('home_score', 0), r['game'].get('away_score', 0))}-"
-            f"{min(r['game'].get('home_score', 0), r['game'].get('away_score', 0))}"
+            (f"{r['game'].get('winner')} beat {r['game'].get('loser')} "
+             f"{_pair(r['game'])}").strip()
             for r in sl["games"])
         rows.append(f"  [{sl['slot'].upper()}] about {sl['words']} words\n"
                     f"    {sl['brief']}\n"

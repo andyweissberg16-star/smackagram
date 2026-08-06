@@ -219,5 +219,22 @@ def game_pk_for(date_str, home_nick, away_nick):
         _pk_cache[date_str] = m
         if len(_pk_cache) > 8:
             _pk_cache.pop(next(iter(_pk_cache)))
-    return (m.get(((home_nick or "").lower(), (away_nick or "").lower()))
-            or m.get(((away_nick or "").lower(), (home_nick or "").lower())))
+    def _match(h, a):
+        """
+        Exact first, then SUFFIX matching - because the caller's names
+        come from whichever source supplied the game. Highlightly says
+        "Toronto Blue Jays", statsapi's key is "Blue Jays", and an
+        exact compare matched NOTHING - which is why box scores flowed
+        (22 rosters parsed) while every award said "no hitter data".
+        Same disease as the MLB/mlb case bug, one abstraction over.
+        """
+        h, a = (h or "").lower().strip(), (a or "").lower().strip()
+        hit = m.get((h, a)) or m.get((a, h))
+        if hit:
+            return hit
+        for (kh, ka), pk in m.items():
+            if ((h.endswith(kh) and a.endswith(ka))
+                    or (h.endswith(ka) and a.endswith(kh))):
+                return pk
+        return None
+    return _match(home_nick, away_nick)

@@ -75,7 +75,22 @@ def _score_pair(game):
     known = [v for v in (game.get("home_score"), game.get("away_score"))
              if v is not None]
     if len(known) < 2:
-        return ""
+        # FALL BACK TO WINNER/LOSER SCORES.
+        #
+        # Highlightly's normaliser produces winner_score/loser_score and
+        # never sets the home/away pair - so on the first full card it
+        # supplied, this returned "" for every game, the prompt read
+        # "Nationals beat Phillies " with NO NUMBERS, and Smacky spent a
+        # whole episode announcing winners without a single score. The
+        # writer cannot say what it was never shown.
+        #
+        # build_facts hit this same trap earlier and got exactly this
+        # fallback; this copy of the logic did not. Two copies of one
+        # rule is how that happens.
+        ws, ls = game.get("winner_score"), game.get("loser_score")
+        if ws is None or ls is None:
+            return ""
+        return f"{ws}-{ls}"
     return f"{max(known)}-{min(known)}"
 
 
