@@ -49,6 +49,26 @@ if app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgres://"):
 # by other database engines.
 if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite"):
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"connect_args": {"check_same_thread": False}}
+else:
+    # POSTGRES: SURVIVE STALE CONNECTIONS.
+    #
+    # The moment the Render instance type changed, every pooled
+    # connection from the old box went stale mid-SSL, and the first
+    # queries on them threw "decryption failed or bad record mac" -
+    # then the wedged transaction cascaded into "Can't reconnect until
+    # invalid transaction is rolled back". Four workers made it four
+    # times louder.
+    #
+    # pool_pre_ping tests each connection with a no-op before handing
+    # it out, replacing dead ones silently - the standard guard for
+    # managed Postgres, where the server end WILL drop idle
+    # connections during maintenance, restarts and instance moves.
+    # pool_recycle retires anything older than 5 minutes for the same
+    # reason.
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+    }
 # THE SESSION SIGNING KEY.
 #
 # This fell back to "dev-only-change-me" - a value published in the
@@ -91,6 +111,25 @@ app.config["SESSION_COOKIE_SECURE"] = (
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 db.init_app(app)
+
+
+@app.teardown_request
+def _rollback_on_error(exc):
+    """
+    A request that died mid-transaction must not poison the session.
+
+    The instance-swap SSL failures proved the gap: the first error
+    wedged the session, and every later use on that worker thread threw
+    "Can't reconnect until invalid transaction is rolled back" -
+    including the alert recorder, so the failure could not even report
+    itself. One rollback here and each request starts clean.
+    """
+    if exc is not None:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+
 
 
 # When the shadow comparison last ran. The cron that triggers it fires
@@ -6316,6 +6355,44 @@ def cron_daily_show():
     }), 202
 
 
+@app.route("/api/admin/bdl-probe")
+@login_required
+def api_admin_bdl_probe():
+    """
+    Diagnostic: raw balldontlie rows, untouched, so date/time semantics
+    can be read off the real thing instead of guessed.
+
+    The Padres bug: their MLB "date" looks like a UTC day, which puts a
+    Tuesday 9:40pm ET game on Wednesday and Wednesday's late games on
+    Thursday. This shows the actual fields so the fix filters on facts.
+
+    ?league=mlb&date=2026-08-05  (defaults: mlb, yesterday Eastern)
+    """
+    user, err = _require_admin()
+    if err:
+        return err
+    from services import balldontlie as _bdl
+    from zoneinfo import ZoneInfo
+    lg = (request.args.get("league") or "mlb").lower()
+    day = request.args.get("date") or (
+        datetime.now(ZoneInfo("America/New_York"))
+        - timedelta(days=1)).strftime("%Y-%m-%d")
+    d = _bdl._get(lg, "games", {"dates[]": day, "per_page": 50})
+    rows = (d or {}).get("data") if isinstance(d, dict) else None
+    rows = rows or []
+    return jsonify({
+        "league": lg, "date_queried": day, "row_count": len(rows),
+        "matchups": [
+            {"home": (_bdl._team_name(r.get("home_team")) or "?"),
+             "away": _bdl._sides(r)[1],
+             "date": r.get("date"), "time": r.get("time"),
+             "status": r.get("status"),
+             "datetime": r.get("datetime")}
+            for r in rows[:20]],
+        "first_row_raw": rows[0] if rows else None,
+    })
+
+
 @app.route("/api/admin/segment-checklist")
 @login_required
 def api_admin_segment_checklist():
@@ -6359,9 +6436,21 @@ def api_admin_segment_checklist():
     segs = report.get("segments") or []
     out["greeting"] = report.get("greeting")
     out["parallel_writers"] = report.get("parallel")
-    out["segments"] = [{"name": r.get("name"),
-                        "delivered": bool(r.get("hit"))} for r in segs]
-    out["all_delivered"] = all(r.get("hit") for r in segs) if segs else None
+    # Three states, not two: delivered / dropped / not scheduled.
+    # "Not scheduled" means the layout had no material for it tonight
+    # (no qualifying streak, no box score) - correct, not a failure.
+    out["segments"] = []
+    for r in segs:
+        if r.get("allocated") is False:
+            out["segments"].append({"name": r.get("name"),
+                                    "status": "not scheduled tonight"})
+        else:
+            out["segments"].append({"name": r.get("name"),
+                                    "status": "delivered"
+                                    if r.get("hit") else "DROPPED"})
+    _scheduled = [r for r in segs if r.get("allocated") is not False]
+    out["all_delivered"] = (all(r.get("hit") for r in _scheduled)
+                            if _scheduled else None)
     return jsonify(out)
 
 
@@ -7311,52 +7400,43 @@ def api_admin_email_test():
 
     ?to=you@example.com
 
-    Without ?to it only reports whether the settings are present, which is
-    the cheap check - no mail is sent.
+    THIS NOW TESTS THE REAL CHAIN. The first version tested only the
+    old SMTP module, so a working Resend key looked broken: the test
+    said "SMTP rejected the login" while the alert system - which uses
+    the full Resend -> Postmark -> SMTP chain - would have sent fine.
+    A test that exercises a different door than production is worse
+    than no test.
+
+    Also reports WHICH mail keys the running process can actually see,
+    because "is the environment variable really there" was the question
+    nobody could answer from outside.
     """
     user, err = _require_admin()
     if err:
         return err
-    from services import email_service
-    out = email_service.status()
-
-    # A hint when the host looks wrong, because a timeout tells you
-    # nothing and this is the mistake everybody makes with GoDaddy.
-    from services.email_service import KNOWN_HOSTS
-    h = out.get("host")
-    if h in KNOWN_HOSTS:
-        out["host_is"] = KNOWN_HOSTS[h]
-    elif h:
-        out["host_is"] = ("not a host I recognise - GoDaddy is usually "
-                          "smtp.office365.com on port 587 these days")
-
-    to = request.args.get("to")
-    if to:
-        ok, detail = email_service.send(
-            to, "Smackagram email test",
-            "If you are reading this, support replies will reach people.\n\n"
-            "Sent from the admin panel.")
-        out["sent"] = bool(ok)
-        out["detail"] = str(detail)
-        # Translate the errors that mean something specific, because
-        # "Network is unreachable" tells you nothing about what to change.
-        d = str(detail)
-        if "unreachable" in d:
-            out["likely_cause"] = ("the host has no route to that server - "
-                                   "usually IPv6, now handled, or the "
-                                   "provider blocks outbound SMTP")
-        elif "timed out" in d:
-            out["likely_cause"] = ("nothing is listening on that host and "
-                                   "port - the SMTP_HOST is probably wrong")
-        elif "Authentication" in d or "authentication" in d:
-            out["likely_cause"] = ("the connection works. Only the username "
-                                   "or password is wrong - which is real "
-                                   "progress")
-    else:
-        out["note"] = ("Add ?to=your@email.com to actually send one. This "
-                       "only checks the settings exist.")
+    import os as _os
+    out = {
+        "keys_visible_to_this_process": {
+            "RESEND_API_KEY": bool(_os.environ.get("RESEND_API_KEY")),
+            "POSTMARK_API_KEY": bool(_os.environ.get("POSTMARK_API_KEY")),
+            "SMTP_HOST": _os.environ.get("SMTP_HOST") or None,
+            "SMTP_USER": _os.environ.get("SMTP_USER") or None,
+            "SMTP_PASSWORD": bool(_os.environ.get("SMTP_PASSWORD")),
+        },
+    }
+    to = (request.args.get("to") or "").strip()
+    if not to:
+        out["note"] = ("Add ?to=you@example.com to actually send. "
+                       "Without it this only reports the settings.")
+        return jsonify(out)
+    from services import mail
+    ok, detail = mail.send(
+        to, "Smackagram email test",
+        "This is the test message from /api/admin/email-test.\n\n"
+        "If you are reading it, outbound email works.")
+    out["sent"] = bool(ok)
+    out["detail"] = detail
     return jsonify(out)
-
 
 @app.route("/api/admin/balldontlie-probe")
 @login_required
