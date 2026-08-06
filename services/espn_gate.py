@@ -36,6 +36,7 @@ site carries on without that data.
 """
 
 import json
+import os
 import threading
 import time
 from collections import deque
@@ -66,6 +67,22 @@ MAX_PER_MINUTE = 35
 # and the answer is patience rather than a shorter timer. /api/admin/espn-
 # gate?reset=1 clears it by hand when you know it has passed.
 COOLDOWN_SECONDS = 900
+
+# ESPN IS OFF.
+#
+# ESPN returns HTTP 403 to this server's IP range permanently - a
+# block, not an outage, and it does not recover. Leaving the calls in
+# meant every render burned time on guaranteed refusals, printed red
+# gate lines, and SENT AN SMS ALERT for a condition that is always
+# true. Alert noise about a permanent state trains people to ignore
+# alerts about real ones.
+#
+# The call sites stay in the codebase so nothing needs rewiring if
+# ESPN ever becomes reachable again (different host, a proxy): set
+# ESPN_ENABLED=1 in the environment and everything comes back,
+# including the alerts.
+ESPN_OFF = os.environ.get("ESPN_ENABLED", "0") != "1"
+_espn_off_said = {"done": False}
 
 
 # A RESERVE THE COSMETIC STUFF CANNOT TOUCH.
@@ -197,6 +214,15 @@ def _allow(source, critical, label):
 
     Returns True to proceed. Prints its own reason when refusing.
     """
+    # ESPN: refused quietly, noted once per boot, never alerted.
+    if source == "espn" and ESPN_OFF:
+        if not _espn_off_said["done"]:
+            _espn_off_said["done"] = True
+            print("[gate] espn is OFF (permanent 403 from this host). "
+                  "No calls, no alerts. Set ESPN_ENABLED=1 to re-enable.",
+                  flush=True)
+        return False
+
     now = time.time()
     with _lock:
         st = _src(source)
@@ -229,6 +255,8 @@ def _allow(source, critical, label):
 
 def _allow_quiet(source, critical):
     """Would _allow say yes right now? No printing, no counters."""
+    if source == "espn" and ESPN_OFF:
+        return False
     now = time.time()
     with _lock:
         st = _src(source)

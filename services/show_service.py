@@ -1458,7 +1458,12 @@ def write_script(material: dict, only_league: str = None,
         "greeting, NO welcome, NO introducing yourself or the show, NO "
         "signing off as if the show is starting. Your first words land "
         "straight on your first result.\n\n"
-        )) +
+        ))
+        # The opening gate above and the close gate below sit adjacent
+        # in the chain - ONE operator joins them. A "+" from each made
+        # "+ +", and the second one parsed as UNARY plus on a string:
+        # syntactically legal, so it compiled, and it failed only at
+        # runtime, on the first morning the parallel path ever ran.
         + ((
         "THE CLOSE - the last thing you say, WORD FOR WORD, never reworded, "
         "never shortened. Say something of your own first if you want, then "
