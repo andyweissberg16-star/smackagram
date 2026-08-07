@@ -4576,6 +4576,9 @@ def api_wall():
     return jsonify({"count": len(items), "items": items})
 
 
+_DAMAGE_CACHE = {}   # league -> (fetched_at, finals) - see the note inside
+
+
 @app.route("/api/board/<league>")
 def api_board(league):
     """
@@ -4632,18 +4635,31 @@ def api_board(league):
     # smackable ones - vanished at 9pm Pacific, mid-ribbing-window. The
     # finals now stay served until 3PM EASTERN (noon Pacific: everyone's
     # morning survives; by then the evening slate wants the screen).
+    # CACHED HARD (Aug 7, the board-hang fix): the first version called
+    # Highlightly live inside EVERY board request - and the board page
+    # fans out to every league tab on load, so each click paid a fresh
+    # external roundtrip. Yesterday's finals never change; ten minutes
+    # of cache makes the damage section cost one lookup per league per
+    # ten minutes instead of one per click.
     damage = []
     try:
         from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+        import time as _time
         _now_et = _dt.now(_tz.utc) - _td(hours=4)
         if _now_et.hour < 15:
-            from services import highlightly as _hl
-            if _hl.enabled():
-                _yday = (_now_et - _td(days=1)).strftime("%Y-%m-%d")
-                damage = [g for g in (_hl.board(lg, _yday) or [])
-                          if g.get("final")]
+            _c = _DAMAGE_CACHE.get(lg)
+            if _c and (_time.time() - _c[0]) < 600:
+                damage = _c[1]
+            else:
+                from services import highlightly as _hl
+                if _hl.enabled():
+                    _yday = (_now_et - _td(days=1)).strftime("%Y-%m-%d")
+                    damage = [g for g in (_hl.board(lg, _yday) or [])
+                              if g.get("final")]
+                _DAMAGE_CACHE[lg] = (_time.time(), damage)
     except Exception as _e:
         print(f"[board] damage fetch failed for {lg}: {_e}", flush=True)
+        _DAMAGE_CACHE[lg] = (__import__("time").time(), [])
 
     return jsonify({
         "league": lg.upper(),
