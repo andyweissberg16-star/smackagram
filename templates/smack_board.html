@@ -582,9 +582,24 @@ function actions(g){
   const away = g.away.nick || g.away.abbr || "";
 
   if (g.upcoming){
+    // SET UP -> its own themed arming page (like Game Day, but for an
+    // upcoming game). The button carries the whole matchup so the page
+    // auto-populates and the buyer never picks a team (Andy, Aug 7).
+    const _gid = g.id || g.game_id || "";
+    const _start = g.start || g.date || "";
+    const _mk = (target) => {
+      const q = "?target=" + encodeURIComponent(target)
+        + "&home=" + encodeURIComponent(home)
+        + "&away=" + encodeURIComponent(away)
+        + "&sport=" + encodeURIComponent(currentSport())
+        + "&gid=" + encodeURIComponent(_gid)
+        + "&start=" + encodeURIComponent(_start);
+      return `<button class="btn-arm" onclick="location.href='/set-up'+`
+        + "`" + q + "`" + `">SET UP ${esc(target.toUpperCase())}</button>`;
+    };
     return `<div class="actions">
-      <button class="btn-arm" data-team="${esc(home)}" data-sport="${esc(currentSport())}">SET UP ${esc(home.toUpperCase())}</button>
-      <button class="btn-arm" data-team="${esc(away)}" data-sport="${esc(currentSport())}">SET UP ${esc(away.toUpperCase())}</button>
+      ${_mk(home)}
+      ${_mk(away)}
     </div><span class="hint">SET UP →</span>`;
   }
 

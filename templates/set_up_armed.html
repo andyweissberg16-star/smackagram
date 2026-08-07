@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smack Armed</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+ body{background:#0A0A0B;color:#F5F5F3;font-family:'Inter',sans-serif;
+      min-height:100vh;display:flex;align-items:center;justify-content:center;}
+ .box{width:min(560px,92vw);text-align:center;border:2px solid #C3CAD3;
+      border-radius:16px;padding:44px 30px;
+      background:linear-gradient(135deg,rgba(195,202,211,0.14),rgba(0,0,0,0.5));
+      box-shadow:0 0 30px rgba(195,202,211,0.22);}
+ h1{font-family:'Anton',sans-serif;font-size:clamp(28px,6vw,44px);
+    margin:0 0 10px;letter-spacing:1px;}
+ h1 span{color:#E01B24;}
+ p{color:#C9CDD2;font-size:15px;line-height:1.6;margin:0 0 22px;}
+ a{display:inline-block;margin:6px 8px;padding:13px 22px;border-radius:9px;
+   text-decoration:none;font-family:'Anton',sans-serif;letter-spacing:1px;
+   color:#F5F5F3;border:2px solid #E01B24;}
+ a.hot{background:#E01B24;color:#fff;}
+</style></head><body>
+<div class="box">
+  <h1>THE SMACK IS <span>ARMED</span></h1>
+  <p id="msg">It's locked and loaded. The second that game goes final, if
+     they lost, Smacky writes the roast from the box score and the phone
+     rings. If they win, nothing fires and you keep your Smackagram.</p>
+  <a class="hot" href="/smack-board">SET UP ANOTHER</a>
+  <a href="/locker">MY LOCKER</a>
+</div>
+<script>
+ var t=new URLSearchParams(location.search).get('target');
+ if(t){ var d=document.createElement('div'); d.textContent=t;
+   document.getElementById('msg').innerHTML =
+     "It's locked on the <strong>"+d.innerHTML+"</strong>. The second that "
+     +"game goes final, if they lost, Smacky writes the roast from the box "
+     +"score and the phone rings. If they win, nothing fires and you keep "
+     +"your Smackagram."; }
+</script>
+</body></html>

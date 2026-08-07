@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Set Up a Smack</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root{--flare:#E01B24; --chalk:#F5F5F3; --dim:#9A9A96; --silver:#C3CAD3;}
+  *{box-sizing:border-box; margin:0;}
+  body{background:#0A0A0B; color:var(--chalk); font-family:'Inter',sans-serif;
+       min-height:100vh; display:flex; flex-direction:column; align-items:center;}
+  .wrap{width:min(720px, 94vw); padding:34px 0 60px;}
+  .crumb{font-family:'JetBrains Mono',monospace; font-size:12px;
+         letter-spacing:2px; color:var(--flare); margin-bottom:14px;}
+  .crumb a{color:var(--dim); text-decoration:none;}
+  /* HERO = the matchup, armed for later. Blue-steel, not loss-red -
+     this game hasn't happened yet. */
+  .hero{border:2px solid var(--silver); border-radius:16px; padding:26px 26px 22px;
+        background:linear-gradient(135deg, rgba(195,202,211,0.14), rgba(0,0,0,0.5));
+        box-shadow:0 0 30px rgba(195,202,211,0.22);}
+  .hero .kicker{font-family:'Anton',sans-serif; letter-spacing:3px;
+        font-size:14px; color:var(--silver);}
+  .hero h1{font-family:'Anton',sans-serif; font-size:clamp(30px,6.5vw,52px);
+        line-height:1.05; margin:6px 0 6px; text-transform:uppercase;}
+  .hero h1 .target{color:var(--flare);}
+  .hero .sub{color:#C9CDD2; font-size:15px;}
+  .hero .when{font-family:'JetBrains Mono',monospace; font-size:12px;
+        color:var(--silver); margin-top:8px; letter-spacing:1px;}
+  .card{margin-top:22px; border:1px solid #2A2C30; border-radius:14px;
+        padding:22px; background:#121214;}
+  .card label{display:block; font-size:13px; color:var(--dim); margin:14px 0 6px;
+        font-family:'Anton',sans-serif; letter-spacing:0.5px;}
+  .card label:first-child{margin-top:0;}
+  .card input{width:100%; padding:12px 14px; border-radius:8px; font-size:15px;
+        border:1px solid #3A3D42; background:#0E0E10; color:var(--chalk);}
+  .meter{display:flex; gap:8px; margin-top:2px;}
+  .meter button{flex:1; padding:11px 4px; border-radius:8px; cursor:pointer;
+      border:1px solid #3A3D42; background:#0E0E10; color:var(--dim);
+      font-family:'Anton',sans-serif; font-size:13px; letter-spacing:0.5px;}
+  .meter button.on{border-color:var(--flare); color:#fff;
+      background:rgba(224,27,36,0.22); box-shadow:0 0 10px rgba(224,27,36,0.35);}
+  .consent-row{display:flex; gap:11px; align-items:flex-start; margin-top:14px;
+      font-size:13.5px; color:#C9CDD2; cursor:pointer; line-height:1.45;}
+  .consent-row input{width:20px; height:20px; accent-color:var(--flare);
+      flex:none; margin-top:1px;}
+  .arm{margin-top:20px; width:100%; padding:15px; border:none; border-radius:10px;
+        background:var(--flare); color:#fff; font-family:'Anton',sans-serif;
+        font-size:18px; letter-spacing:1.5px; cursor:not-allowed; opacity:0.45;}
+  .arm.ready{cursor:pointer; opacity:1;}
+  .arm.ready:hover{background:#c4101f;}
+  .note{margin-top:14px; font-size:12.5px; color:var(--dim); line-height:1.5;}
+  .out{margin-top:14px; min-height:20px; font-size:14px; color:#DDD;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumb"><a href="/smack-board">&larr; SMACK BOARD</a> &nbsp;/&nbsp; SET UP A SMACK</div>
+
+  <div class="hero">
+    <div class="kicker">ARMED &middot; FIRES WHEN THE GAME ENDS</div>
+    <h1 id="headline">SET IT UP</h1>
+    <p class="sub" id="subline">If they lose, the phone rings. If they win, nothing happens and you're not charged.</p>
+    <div class="when" id="when"></div>
+  </div>
+
+  <div class="card">
+    <label for="who">Who's getting smacked? (their first name)</label>
+    <input id="who" placeholder="e.g. Dave" autocomplete="off">
+
+    <label>How hard should Smacky go?</label>
+    <div id="sensMeter" class="meter"></div>
+
+    <label for="phone">Their phone number</label>
+    <input id="phone" type="tel" inputmode="tel" placeholder="1 (555) 555-5555">
+
+    <label class="consent-row" for="adult" style="font-family:'Inter';font-size:13.5px;text-transform:none;letter-spacing:0;margin-top:16px;">
+      <input type="checkbox" id="adult">
+      <span>I confirm the person receiving this call is <strong>18 or older</strong>.</span>
+    </label>
+    <label class="consent-row" for="know" style="font-family:'Inter';font-size:13.5px;text-transform:none;letter-spacing:0;">
+      <input type="checkbox" id="know">
+      <span>I know this person. This is a prank between friends, and I take responsibility for it.</span>
+    </label>
+    <label class="consent-row" for="terms" style="font-family:'Inter';font-size:13.5px;text-transform:none;letter-spacing:0;">
+      <input type="checkbox" id="terms">
+      <span>I agree to the <a href="/terms" target="_blank" rel="noopener" style="color:var(--flare);">Terms</a>.</span>
+    </label>
+
+    <button class="arm" id="armBtn">ARM THE SMACK</button>
+    <div class="out" id="out"></div>
+    <p class="note">Smacky writes the roast automatically after the final score, grounded in what actually happened in the game. You set it and forget it.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  var p = new URLSearchParams(location.search);
+  var o = { target: p.get('target') || '', home: p.get('home') || '',
+            away: p.get('away') || '', sport: p.get('sport') || '',
+            gid: p.get('gid') || '', start: p.get('start') || '' };
+  if (!o.target || !o.home || !o.away){ location.href='/smack-board'; return; }
+  function esc(t){ var d=document.createElement('div'); d.textContent=t; return d.innerHTML; }
+
+  var an = /^[aeiou]/i.test(o.target) ? 'AN' : 'A';
+  document.title = 'Set up a smack on ' + o.target + ' fan';
+  document.getElementById('headline').innerHTML =
+    'SET UP: <span class="target">' + esc(o.target.toUpperCase()) + '</span>';
+  var opp = (o.target === o.home) ? o.away : o.home;
+  document.getElementById('subline').innerHTML =
+    esc(o.target) + ' vs ' + esc(opp) + '. If the ' + esc(o.target)
+    + ' lose, ' + esc(document.getElementById('who') ? 'they' : 'they')
+    + ' get the call. If they win, nothing fires and you pay nothing.';
+  if (o.start){
+    var d = new Date(o.start);
+    if (!isNaN(d)) document.getElementById('when').textContent =
+      'GAME: ' + d.toLocaleString([], {weekday:'short', month:'short',
+        day:'numeric', hour:'numeric', minute:'2-digit'});
+  }
+
+  // sensitivity meter - same source as every other generator
+  var sensVal = '', meter = document.getElementById('sensMeter');
+  fetch('/api/sensitivity-levels').then(function(r){return r.json();})
+    .then(function(d){
+      (d.levels || d || []).forEach(function(lv){
+        var b=document.createElement('button'); b.type='button';
+        b.textContent=(lv.value||lv.level||'')+' \u00B7 '+(lv.label||lv.name||'');
+        b.onclick=function(){ sensVal=String(lv.value||lv.level);
+          meter.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});
+          b.classList.add('on'); gate(); };
+        meter.appendChild(b);
+      });
+    }).catch(function(){
+      [1,2,3,4].forEach(function(v){
+        var b=document.createElement('button'); b.type='button'; b.textContent=String(v);
+        b.onclick=function(){ sensVal=String(v);
+          meter.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});
+          b.classList.add('on'); gate(); };
+        meter.appendChild(b);
+      });
+    });
+
+  var btn = document.getElementById('armBtn'), out = document.getElementById('out');
+  function gate(){
+    var ok = document.getElementById('who').value.trim()
+      && document.getElementById('phone').value.trim() && sensVal
+      && document.getElementById('adult').checked
+      && document.getElementById('know').checked
+      && document.getElementById('terms').checked;
+    btn.classList.toggle('ready', !!ok);
+    return ok;
+  }
+  ['who','phone','adult','know','terms'].forEach(function(id){
+    document.getElementById(id).addEventListener('input', gate);
+    document.getElementById(id).addEventListener('change', gate);
+  });
+
+  btn.addEventListener('click', function(){
+    if (!gate()){ out.textContent='Fill in everything above first.'; return; }
+    btn.textContent='ARMING\u2026';
+    fetch('/api/arm-smackagram', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        mode:'auto_summary',
+        game_id:o.gid, game_start_time:o.start, sport:o.sport,
+        home_team:o.home, away_team:o.away, target_team:o.target,
+        recipient_name:document.getElementById('who').value.trim(),
+        recipient_phone:document.getElementById('phone').value.trim(),
+        sensitivity:parseInt(sensVal,10)||2,
+        consent_confirmed:true, source:'set_up'
+      })
+    }).then(function(r){
+      if (r.redirected){ location.href='/login?next='
+        + encodeURIComponent('/set-up'+location.search); return null; }
+      return r.json().then(function(d){ return {code:r.status, d:d}; });
+    }).then(function(res){
+      if (!res) return;
+      if (res.code===402 && res.d && res.d.redirect){
+        location.href=res.d.redirect; return;
+      }
+      if (res.code>=200 && res.code<300 && !res.d.error){
+        location.href='/set-up/armed?target='+encodeURIComponent(o.target);
+        return;
+      }
+      btn.textContent='ARM THE SMACK';
+      out.textContent=(res.d && res.d.error) || 'Could not arm - try again.';
+    }).catch(function(){
+      btn.textContent='ARM THE SMACK';
+      out.textContent='Network hiccup - try again.';
+    });
+  });
+})();
+</script>
+</body>
+</html>

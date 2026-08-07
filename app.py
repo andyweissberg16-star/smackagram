@@ -6761,6 +6761,50 @@ def api_admin_pipeline_check():
                     "report": buf.getvalue().split("\n")})
 
 
+@app.route("/set-up")
+def set_up_page():
+    """Themed arming page for an UPCOMING game (like Game Day, but the
+    game hasn't happened). All matchup state rides the query string;
+    the buyer picks nobody - the board button pre-loaded it."""
+    return render_template("set_up.html")
+
+
+@app.route("/set-up/armed")
+def set_up_armed():
+    return render_template("set_up_armed.html")
+
+
+@app.route("/api/arm-smackagram", methods=["POST"])
+@login_required
+def api_arm_smackagram():
+    """
+    Direct arming for the SET UP page. Mirrors the three-doorway
+    money logic of the order path: logged in + balance -> arm now;
+    logged in + broke -> 402 to packs (the page stashes and returns);
+    not logged in -> the @login_required redirect sends them to login
+    with a return to /set-up. Fires automatically after the game via
+    the existing scheduler (check_armed_smackagrams).
+    """
+    user = get_current_user()
+    if not user:
+        return jsonify({"error": "login required"}), 401
+    data = request.json or {}
+    for _f in ("game_start_time", "home_team", "away_team", "target_team",
+               "recipient_name", "recipient_phone"):
+        if not str(data.get(_f, "")).strip():
+            return jsonify({"error": f"missing {_f}"}), 400
+    if not wallet_service.has_sufficient_balance(
+            user, wallet_service.LOCKED_N_LOADED_COST_CENTS):
+        return jsonify({"error": "insufficient_balance",
+                        "redirect": "/get-smackagrams?next=/set-up"}), 402
+    try:
+        result = _execute_arm_smackagram(user, data)
+    except Exception as e:
+        print(f"[set-up] arm failed: {e}", flush=True)
+        return jsonify({"error": str(e)}), 400
+    return jsonify({"ok": True, "redirect": result.get("redirect")})
+
+
 @app.route("/game-day/sent")
 def game_day_sent():
     """The confirmation page - the call is already firing when this
