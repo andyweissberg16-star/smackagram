@@ -267,51 +267,61 @@ def game_pk_for(date_str, home_nick, away_nick):
 def named_facts(detail):
     """
     The box score as ammunition: 2-3 short NAMED lines per game.
-    The award slots always had names injected; the ordinary segments
-    got "Nationals beat Phillies 6-1" and nothing else - so the writer,
-    asked about "the losing pitcher", answered "their pitcher" because
-    it was never told his name. These lines are what the briefs were
-    already demanding.
+    READS THE ESPN SHAPE this module itself emits - keys zipped
+    against stats lists, athlete.displayName - because the first
+    version read dict-shaped stats, hit a silent AttributeError on
+    the first athlete, and the broad except returned nothing. The
+    prompt got zero NAMED lines and the writer confabulated names
+    from training - "Kyle Harrison of the Milwaukee Brewers" was a
+    real Giant blended into a Brewers award. The proof had passed
+    against the same wrong shape the code assumed. Test against the
+    shape the system actually produces, not the one imagined.
     """
     out = []
     try:
         blocks = detail["boxscore"]["players"]
-        loser = (detail.get("loser") or {}).get("team", "")
+        loser = ((detail.get("loser") or {}).get("team") or "")
         for b in blocks:
             team = (b.get("team") or {}).get("name", "")
-            hitters = []
-            pitchers = []
-            for grp in b.get("statistics", []):
-                if grp.get("name") == "batting":
-                    hitters = grp.get("athletes", [])
-                elif grp.get("name") == "pitching":
-                    pitchers = grp.get("athletes", [])
-            # the loudest bat on this side
             best = None
-            for a in hitters:
-                st = a.get("stats") or {}
-                score = (st.get("H") or 0) + 2 * (st.get("HR") or 0)                     + (st.get("RBI") or 0)
-                if best is None or score > best[1]:
-                    best = (a, score)
-            if best and best[1] >= 2:
-                a, _ = best
-                st = a.get("stats") or {}
-                bits = [f"{st.get('H', 0)}-for-{st.get('AB', 0)}"]
-                if st.get("HR"):
-                    bits.append(f"{st['HR']} HR")
-                if st.get("RBI"):
-                    bits.append(f"{st['RBI']} RBI")
-                out.append(f"{a.get('name')} ({team}): "
-                           + ", ".join(bits))
-            # the starter - named, with his line, flagged if he lost
-            if pitchers:
-                a = pitchers[0]
-                st = a.get("stats") or {}
-                tag = " - took the loss" if team == loser else ""
-                out.append(f"{a.get('name')} started for {team}: "
-                           f"{st.get('IP', '?')} IP, "
-                           f"{st.get('ER', 0)} ER, "
-                           f"{st.get('SO', 0)} K{tag}")
-    except Exception:
-        return out
+            for grp in (b.get("statistics") or []):
+                keys = [k.upper() for k in (grp.get("keys") or [])]
+                is_bat = "AB" in keys
+                is_pit = "IP" in keys
+                for idx, a in enumerate(grp.get("athletes") or []):
+                    row = dict(zip(keys, a.get("stats") or []))
+                    name = ((a.get("athlete") or {}).get("displayName")
+                            or a.get("name") or "")
+                    if not name:
+                        continue
+
+                    def _n(k):
+                        try:
+                            return int(float(row.get(k) or 0))
+                        except (TypeError, ValueError):
+                            return 0
+                    if is_bat:
+                        score = _n("H") + 2 * _n("HR") + _n("RBI")
+                        if score >= 2 and (best is None
+                                           or score > best[1]):
+                            bits = [f"{_n('H')}-for-{_n('AB')}"]
+                            if _n("HR"):
+                                bits.append(f"{_n('HR')} HR")
+                            if _n("RBI"):
+                                bits.append(f"{_n('RBI')} RBI")
+                            best = (f"{name} ({team}): "
+                                    + ", ".join(bits), score)
+                    elif is_pit and idx == 0:      # the starter
+                        tag = (" - took the loss"
+                               if team == loser else "")
+                        out.append(
+                            f"{name} started for {team}: "
+                            f"{row.get('IP', '?')} IP, "
+                            f"{_n('ER')} ER, "
+                            f"{_n('SO') or _n('K')} K{tag}")
+            if best:
+                out.insert(0, best[0])
+    except Exception as e:
+        print(f"[named_facts] failed: {type(e).__name__}: {e}",
+              flush=True)
     return out[:4]
