@@ -1381,14 +1381,14 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
         _next_interrupts = (i + 1 < len(segments)
                             and segments[i + 1].get("interruption"))
 
-        sfx = None if _next_interrupts else _pick_random_sfx(seg.get("reaction", "none"))
-        if sfx is not None:
-            # _standardize is nested inside this function, so it is passed
-            # in rather than reached for - a module-level helper cannot see
-            # it, which is exactly how the first version of this failed.
-            spoken = _lay_in_sfx(spoken, sfx, len(spoken), _standardize,
-                                 kind=seg.get("reaction"))
-
+        # ONE DOOR ONLY. The reaction used to enter twice: an overlay
+        # laid onto the tail of the speech HERE, and the same clip
+        # appended 180ms later BELOW - twice in a row on air, with the
+        # overlaid copy clipped at the segment boundary ("played twice,
+        # second one cut short", heard Aug 7). The append below is the
+        # survivor - it standardizes, gaps, and logs - and it inherits
+        # the interruption guard, since a reaction colliding with a
+        # ringing phone was the collision that guard existed to prevent.
         piece = (lead_gap + spoken) if lead_gap is not None else spoken
 
         # The reaction, at last.
@@ -1398,7 +1398,8 @@ def assemble_recap_audio(intro: str, segments: list, outro: str,
         # them, nothing played them. Appended AFTER the speech with a short
         # beat, so it reads as a response to the line rather than talking over
         # it.
-        _rx = _reaction_audio(seg.get("reaction"))
+        _rx = (None if _next_interrupts
+               else _reaction_audio(seg.get("reaction")))
         if _rx is not None:
             piece = piece + AudioSegment.silent(duration=180) + _standardize(_rx) - 3
             print(f"[audio] reaction {seg.get('reaction')!r} after segment {i}",
