@@ -184,21 +184,25 @@ def resolve_audio_url(record, base_url: str, answered_by: str = ""):
         scenario = Scenario.query.get(record.scenario_id)
         message_url = scenario.audio_url
 
-    outro_url = get_outro_url(base_url)
-
-    # THE INVITATION LAST, and only when the audio exists.
-    #
-    # Kept out of the stitched file on purpose: this is the piece most
-    # likely to be rewritten, and one that may need turning off at short
-    # notice. Deleting the file is the off switch.
-    parts = [message_url, outro_url]
     invite = get_invite_url(base_url, answered_by)
+
+    # SEAMLESS INVITE (Andy, Aug 7): when an invite follows, use a
+    # tail-trimmed outro so the tagline flows straight into "you gonna
+    # take that?" like one sentence. Standalone calls keep the normal
+    # outro, whose trailing beat is a fine ending. The invite file is
+    # already trimmed tight at the head.
+    #
+    # The invitation stays a SEPARATE <Play>, kept out of any stitched
+    # file - it is the piece most likely to be rewritten or switched
+    # off, and deleting the file is the off switch.
     if invite:
-        # a short beat BEFORE the invite so it doesn't tread on the
-        # outro tagline - marker consumed in build_twiml (Andy, Aug 7)
-        parts.append("__PAUSE__")
-        parts.append(invite)
-    return parts
+        import os
+        _tight = os.path.join(os.path.dirname(__file__), "..",
+                              "static", "outro-tight.mp3")
+        _outro = (f"{base_url}/static/outro-tight.mp3"
+                  if os.path.exists(_tight) else get_outro_url(base_url))
+        return [message_url, _outro, invite]
+    return [message_url, get_outro_url(base_url)]
 
 
 def stitch_full_call(message_url: str, base_url: str) -> str:
