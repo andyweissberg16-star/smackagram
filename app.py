@@ -5219,9 +5219,12 @@ def api_verify_phone_confirm():
     # Verify owns the answer now; the stored row is only the rate log.
     from services import verify_service
     try:
-        _ok = verify_service.check_verification(
-            "+" + phone_digits if not phone_digits.startswith("+")
-            else phone_digits, code)
+        # SAME NUMBER AS THE SEND (Andy's live test, first try): the
+        # first version hand-built "+" + last-10-digits, which is not
+        # the E.164 the send used - Verify saw a different phone,
+        # found no pending verification, and refused a correct code.
+        # The service normalizes internally; hand it the raw phone.
+        _ok = verify_service.check_verification(raw_phone, code)
     except Exception as _e:
         print(f"[verify-phone] check errored: {_e}", flush=True)
         _ok = False
