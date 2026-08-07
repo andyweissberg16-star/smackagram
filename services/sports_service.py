@@ -366,3 +366,24 @@ def get_all_teams(sport: str) -> list[dict]:
     resp = requests.get(url, params={"key": _api_key()}, timeout=15)
     resp.raise_for_status()
     return resp.json()
+
+
+# THE LEAGUES AUTO-SMACK MAY ACCEPT MONEY FOR.
+#
+# An armed smackagram is a promise: "when this game ends, the call
+# fires." That promise is only keepable for leagues the result
+# resolvers can actually answer for. Soccer/MLS is deliberately
+# absent - SportsDataIO's free tier covers Champions League only,
+# and no other source carries it - so an MLS order would sit armed
+# forever, silently, and turn into a refund and an angry customer.
+# Add a league here ONLY once a result source demonstrably covers it.
+AUTO_SMACK_SPORTS = {
+    "mlb",      # statsapi + highlightly + balldontlie + sportsdataio
+    "wnba",     # balldontlie + highlightly + sportsdataio
+    "nba",      # three sources
+    "nfl",      # three sources
+    "nhl",      # highlightly + sportsdataio
+    "ncaaf",    # highlightly + sportsdataio
+    "ncaab",    # three sources
+    "ncaawb",   # sportsdataio only - single-source, watch it in season
+}

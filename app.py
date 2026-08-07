@@ -5194,7 +5194,13 @@ def locked_n_loaded_success():
 @app.route("/api/games/upcoming")
 def upcoming_games():
     """Powers the game picker — only games within 48h. ?sport=nfl|nba|mlb|nhl|ncaaf&team=yankees"""
-    sport = request.args.get("sport", "nfl")
+    sport = request.args.get("sport", "nfl").lower().strip()
+    # Same allowlist as arming - the picker must not show games the
+    # resolver cannot settle, or the form sells promises it cannot keep.
+    from services.sports_service import AUTO_SMACK_SPORTS
+    if sport not in AUTO_SMACK_SPORTS:
+        return jsonify({"games": [], "error":
+                        "That league is not covered by Auto-Smack yet"}), 400
     team_query = request.args.get("team", "").strip() or None
     resp = jsonify(sports_service.get_upcoming_games(sport=sport, hours_ahead=48, team_query=team_query))
     # Explicitly forbid caching — this powers live scores, and a cached
@@ -5203,6 +5209,26 @@ def upcoming_games():
     # instead of hitting the server again on every auto-refresh.
     resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
     return resp
+
+
+def _validated_sport(sport):
+    """
+    Refuse to arm what the resolvers cannot resolve.
+    The old line read sport=data.get("sport", "nfl") - client-supplied,
+    unvalidated, silently defaulting to NFL. A league outside the
+    covered set (or a typo'd one) produced an order that could NEVER
+    fire: armed forever, no call, no error, no refund. ValueError here
+    rides the existing refusal machinery, so the wallet is re-credited
+    and the customer sees a real sentence instead of silence.
+    """
+    from services.sports_service import AUTO_SMACK_SPORTS
+    s = (sport or "").lower().strip()
+    if s not in AUTO_SMACK_SPORTS:
+        raise ValueError(
+            f"Auto-Smack does not cover that league yet"
+            + (f" ('{s}')" if s else "")
+            + " - supported: " + ", ".join(sorted(AUTO_SMACK_SPORTS)))
+    return s
 
 
 def _execute_arm_smackagram(user, data: dict) -> dict:
@@ -5247,7 +5273,7 @@ def _execute_arm_smackagram(user, data: dict) -> dict:
         share_token=secrets.token_urlsafe(16),
         user_id=user.id,
         game_id=data["game_id"],
-        sport=data.get("sport", "nfl"),
+        sport=_validated_sport(data.get("sport")),
         home_team=data["home_team"],
         away_team=data["away_team"],
         target_team=data["target_team"],

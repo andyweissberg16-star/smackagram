@@ -121,6 +121,30 @@ def check_armed_smackagrams():
     uses) sidesteps that entirely.
     """
     armed = Smackagram.query.filter_by(status="armed").all()
+    # THE STALE-ARMED ALARM. An armed order is a promise with a clock
+    # on it - no game runs 12 hours. Anything armed longer than that
+    # is stuck (unresolvable league, dead game id, resolver outage)
+    # and would otherwise sit silent until an angry customer found it
+    # first. One alert per order per day via the alerts dedup, straight
+    # to owners@ now that email works.
+    try:
+        from datetime import datetime as _dt, timedelta as _td
+        _cutoff = _dt.utcnow() - _td(hours=12)
+        for _s in armed:
+            _made = getattr(_s, "created_at", None)
+            if _made and _made < _cutoff:
+                from services import alerts
+                _age = int((_dt.utcnow() - _made).total_seconds() // 3600)
+                alerts.record(
+                    "delivery", f"stale_armed_{_s.id}",
+                    f"Smackagram #{_s.id} ({_s.sport} game {_s.game_id}, "
+                    f"team {_s.target_team}) armed for {_age}h with no "
+                    f"result - stuck, needs a look",
+                    severity="error")
+                print(f"[locked] STALE: #{_s.id} armed {_age}h "
+                      f"({_s.sport}/{_s.game_id})", flush=True)
+    except Exception as _e:
+        print(f"[locked] stale-armed sweep failed: {_e}", flush=True)
     print(f"[cron] check_armed_smackagrams running — {len(armed)} armed smackagram(s) to check")
     if not armed:
         return
