@@ -1351,6 +1351,46 @@ def generate_trash_talk():
                           f"{_oc.get('loser_score','?')}-"
                           f"{_oc.get('winner_score','?')} "
                           f"to {_oc['winner']}"]
+                # PLAYER STATS INTO THE ROAST (Andy, Aug 7): the same
+                # machinery that feeds the Daily Smack - find last
+                # night's game by the loser's nickname, run the show's
+                # detail enrichment (statsapi for MLB, Highlightly box
+                # scores elsewhere), and hand its per-game facts plus
+                # the box detail's named lines to the writer. Failures
+                # fall back to the score line - a thinner roast beats
+                # a broken generator.
+                try:
+                    from services import show_service as _shs
+                    _sport = (data.get("sport") or "mlb").lower()
+                    _ln = (_oc["loser"] or "").split()[-1].lower()
+                    _cands = [g for g in
+                              _shs.fetch_results(_sport, days_back=1)
+                              if _ln and _ln == (g.get("loser") or ""
+                                  ).split()[-1].lower()]
+                    if _cands:
+                        _g = _cands[0]
+                        # IDS FIRST - the show attaches provider ids in
+                        # a separate step before detail; without them
+                        # enrich finds no box and the roast stays
+                        # score-only (Andy's caps-lock bug report).
+                        try:
+                            _shs._attach_highlightly_ids(
+                                [_g], log=lambda *a, **k: None)
+                        except Exception:
+                            pass
+                        _shs.enrich_with_detail([_g], log=lambda *a, **k: None)
+                        for _f in (_g.get("named_facts") or [])[:6]:
+                            _facts.append(str(_f)[:220])
+                        for _f in (_g.get("facts") or [])[:4]:
+                            _facts.append(str(_f)[:220])
+                        for _f in (_g.get("deep_facts") or [])[:6]:
+                            _facts.append(str(_f)[:220])
+                        print(f"[generate] game-day roast enriched: "
+                              f"{len(_facts)} facts for {_oc['loser']}",
+                              flush=True)
+                except Exception as _ee:
+                    print(f"[generate] stats enrichment failed, "
+                          f"score-only roast: {_ee}", flush=True)
                 candidate = trash_talk_service.generate_game_recap_roast(
                     team=team, recipient_name=recipient_name,
                     key_facts=_facts, sensitivity=sensitivity,
