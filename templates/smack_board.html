@@ -565,7 +565,14 @@ function heat(g){
 function actions(g){
   // Nothing to roast before a ball is thrown, so an upcoming game can only
   // be armed. A live or finished one can be either.
-  const loser = g.losing === "home" ? g.home : (g.losing === "away" ? g.away : null);
+  let loser = g.losing === "home" ? g.home : (g.losing === "away" ? g.away : null);
+  // DAMAGE ROWS (yesterday's finals) don't always carry the losing
+  // marker - derive it from the scores, or every button says the
+  // useless "SMACK SOMEBODY" (Andy, Aug 7).
+  if (!loser && g.final && g.home && g.away
+      && g.home.score != null && g.away.score != null) {
+    loser = Number(g.home.score) < Number(g.away.score) ? g.home : g.away;
+  }
   const name = loser ? (loser.nick || loser.abbr) : null;
 
   // The TEAM is passed on, not the ESPN game id. The arming page searches
@@ -581,9 +588,9 @@ function actions(g){
     </div><span class="hint">SET UP →</span>`;
   }
 
-  const smackLabel = g.final && name
-      ? `SMACK THIS ${esc(name.toUpperCase())} LOSS`
-      : (name ? `SMACK A ${esc(name.toUpperCase())} FAN` : "SMACK SOMEBODY");
+  const smackLabel = name
+      ? `SMACK A${/^[AEIOU]/.test(name) ? "N" : ""} ${esc(name.toUpperCase())} FAN`
+      : "SMACK SOMEBODY";
   // outcome payload for finished games - winner, loser, both scores
   const winner = loser ? (g.losing === "home" ? g.away : g.home) : null;
   const outcome = (g.final && loser && winner)
@@ -766,8 +773,11 @@ document.addEventListener("click", (e) => {
        + "&ws=" + encodeURIComponent(btn.dataset.ws || "");
   }
 
+  // finished games get their own themed page; everything else keeps
+  // the classic destinations
   window.location.href =
-    (btn.classList.contains("btn-arm") ? "/auto-smack" : "/send-a-smack") + q;
+    (btn.classList.contains("btn-arm") ? "/auto-smack"
+     : (btn.dataset.loser ? "/game-day" : "/send-a-smack")) + q;
 });
 
 buildTabs();

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game Day Smack</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root{--flare:#E01B24; --chalk:#F5F5F3; --dim:#9A9A96;}
+  *{box-sizing:border-box; margin:0;}
+  body{background:#0A0A0B; color:var(--chalk); font-family:'Inter',sans-serif;
+       min-height:100vh; display:flex; flex-direction:column; align-items:center;}
+  .wrap{width:min(720px, 94vw); padding:34px 0 60px;}
+  .crumb{font-family:'JetBrains Mono',monospace; font-size:12px;
+         letter-spacing:2px; color:var(--flare); margin-bottom:14px;}
+  .crumb a{color:var(--dim); text-decoration:none;}
+  /* THE HERO IS THE LOSS. The page is themed around one fact. */
+  .hero{border:2px solid var(--flare); border-radius:16px; padding:26px 26px 22px;
+        background:linear-gradient(135deg, rgba(224,27,36,0.18), rgba(0,0,0,0.5));
+        box-shadow:0 0 34px rgba(224,27,36,0.35);}
+  .hero .kicker{font-family:'Anton',sans-serif; letter-spacing:3px;
+        font-size:14px; color:var(--flare);}
+  .hero h1{font-family:'Anton',sans-serif; font-size:clamp(34px,7vw,58px);
+        line-height:1.05; margin:6px 0 4px; text-transform:uppercase;}
+  .hero h1 .score{color:var(--flare);}
+  .hero .sub{color:#C9CDD2; font-size:15px;}
+  .card{margin-top:22px; border:1px solid #2A2C30; border-radius:14px;
+        padding:22px; background:#121214;}
+  .card label{display:block; font-size:13px; color:var(--dim); margin:14px 0 6px;}
+  .card input{width:100%; padding:12px 14px; border-radius:8px; font-size:15px;
+        border:1px solid #3A3D42; background:#0E0E10; color:var(--chalk);}
+  .gen{margin-top:18px; width:100%; padding:15px; border:none; border-radius:10px;
+        background:var(--flare); color:#fff; font-family:'Anton',sans-serif;
+        font-size:18px; letter-spacing:1.5px; cursor:pointer;}
+  .gen:hover{background:#c4101f;}
+  .out{margin-top:16px; min-height:96px; border:1px dashed #3A3D42;
+        border-radius:10px; padding:16px; font-size:15px; line-height:1.55;
+        color:#DDD; white-space:pre-wrap;}
+  .send{display:none; margin-top:14px; width:100%; padding:15px; text-align:center;
+        border:2px solid var(--flare); border-radius:10px; color:var(--chalk);
+        font-family:'Anton',sans-serif; font-size:17px; letter-spacing:1.5px;
+        text-decoration:none;}
+  .send:hover{background:rgba(224,27,36,0.15);}
+  .foot{margin-top:18px; font-size:12px; color:var(--dim); text-align:center;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="crumb"><a href="/smack-board">&larr; SMACK BOARD</a> &nbsp;/&nbsp; GAME DAY SMACK</div>
+
+  <div class="hero">
+    <div class="kicker">FINAL &middot; CERTIFIED LOSS</div>
+    <h1 id="headline">THE GAME IS OVER</h1>
+    <p class="sub" id="subline">Somebody in your life deserves this call.</p>
+  </div>
+
+  <div class="card">
+    <label for="who">Who's getting smacked? (their first name)</label>
+    <input id="who" placeholder="e.g. Dave" autocomplete="off">
+    <button class="gen" id="genBtn">WRITE THE ROAST</button>
+    <div class="out" id="out">Hit the button and Smacky writes a roast about THIS loss &mdash; the score, the pain, the whole thing.</div>
+    <a class="send" id="sendBtn">SEND IT AS A CALL &rarr;</a>
+  </div>
+
+  <p class="foot">The call is anonymous. The loss is not.</p>
+</div>
+
+<script>
+(function(){
+  var p = new URLSearchParams(location.search);
+  var o = { loser: p.get('loser') || p.get('team') || '',
+            winner: p.get('winner') || '',
+            ls: p.get('ls') || '', ws: p.get('ws') || '',
+            sport: p.get('sport') || '' };
+  if (!o.loser){ location.href = '/smack-board'; return; }
+  var an = /^[aeiou]/i.test(o.loser) ? 'AN' : 'A';
+  document.title = 'Smack ' + an.toLowerCase() + ' ' + o.loser + ' fan';
+  var score = (o.ws && o.ls) ? o.ws + '\u2013' + o.ls : '';
+  document.getElementById('headline').innerHTML =
+    'THE ' + esc(o.loser.toUpperCase()) + ' LOST' +
+    (score ? ' <span class="score">' + score + '</span>' : '');
+  document.getElementById('subline').textContent =
+    (o.winner ? 'Fell to the ' + o.winner + '. ' : '') +
+    'Somebody in your life deserves this call.';
+
+  function esc(t){ var d=document.createElement('div');
+                   d.textContent=t; return d.innerHTML; }
+
+  var btn = document.getElementById('genBtn'),
+      out = document.getElementById('out'),
+      send = document.getElementById('sendBtn');
+  btn.addEventListener('click', function(){
+    var who = document.getElementById('who').value.trim();
+    if (!who){ out.textContent = 'Type their name first.'; return; }
+    btn.textContent = 'WRITING\u2026'; btn.disabled = true;
+    fetch('/api/generate-trash-talk', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        team: o.loser, recipient_name: who,
+        game_outcome: { loser: o.loser, winner: o.winner,
+                        loser_score: o.ls, winner_score: o.ws }
+      })
+    }).then(function(r){ return r.json(); })
+      .then(function(d){
+        btn.textContent = 'WRITE ANOTHER'; btn.disabled = false;
+        if (d.message || d.trash_talk){
+          out.textContent = d.message || d.trash_talk;
+          // hand EVERYTHING to the send flow - its Game Day header
+          // and checkout take over from here
+          send.style.display = 'block';
+          send.href = '/send-a-smack?team=' + encodeURIComponent(o.loser)
+            + '&sport=' + encodeURIComponent(o.sport)
+            + '&loser=' + encodeURIComponent(o.loser)
+            + '&winner=' + encodeURIComponent(o.winner)
+            + '&ls=' + encodeURIComponent(o.ls)
+            + '&ws=' + encodeURIComponent(o.ws);
+        } else {
+          out.textContent = d.error || 'Generator hiccuped - try again.';
+        }
+      })
+      .catch(function(){ btn.textContent='WRITE THE ROAST';
+                         btn.disabled=false;
+                         out.textContent='Network hiccup - try again.'; });
+  });
+})();
+</script>
+</body>
+</html>

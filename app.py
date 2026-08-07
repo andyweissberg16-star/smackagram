@@ -6596,6 +6596,13 @@ def api_admin_pipeline_check():
                     "report": buf.getvalue().split("\n")})
 
 
+@app.route("/game-day")
+def game_day_page():
+    """The themed landing for smacking one finished game - see
+    templates/game_day.html. All state rides the query string."""
+    return render_template("game_day.html")
+
+
 @app.route("/api/admin/highlightly-probe")
 @login_required
 def api_admin_highlightly_probe():
