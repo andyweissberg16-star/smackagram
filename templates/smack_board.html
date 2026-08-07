@@ -315,7 +315,18 @@
   }
   /* A live game already glows. Do not stack two shadows on it - the
      card ends up looking blurred rather than lit. */
-  .game.is-live.lg-al, .game.is-live.lg-nl{box-shadow:none;}
+  .game.wc-west{
+    border-color:#1E5AFF;
+    box-shadow:0 0 8px rgba(30,90,255,0.6),
+               inset 0 0 6px rgba(30,90,255,0.2);
+  }
+  .game.wc-east{
+    border-color:#FF1744;
+    box-shadow:0 0 8px rgba(255,23,68,0.55),
+               inset 0 0 6px rgba(255,23,68,0.18);
+  }
+  .game.is-live.lg-al, .game.is-live.lg-nl,
+  .game.is-live.wc-west, .game.is-live.wc-east{box-shadow:none;}
 
   /* The heading takes the same colour as the cards under it, so the two
      halves of the board read as two halves rather than one long list
@@ -506,6 +517,20 @@ function mlbLeague(g) {
   return 'lg-nl';
 }
 
+const WNBA_WEST = [
+  'aces', 'sparks', 'mercury', 'storm', 'lynx', 'wings', 'valkyries'
+];
+function wnbaConference(g) {
+  if (currentSport() !== 'wnba') return '';
+  var h = g.home || {};
+  var name = [h.nick, h.city, h.abbr].filter(Boolean).join(' ').toLowerCase();
+  if (!name) return '';
+  for (var i = 0; i < WNBA_WEST.length; i++) {
+    if (name.indexOf(WNBA_WEST[i]) > -1) return 'wc-west';
+  }
+  return 'wc-east';
+}
+
 // WHEN DOES IT START?
 //
 // "SCHEDULED" tells somebody nothing they can act on. The point of this
@@ -667,6 +692,10 @@ function render(data){
       const lg = mlbLeague(g);
       key = lg === "lg-al" ? "American League"
           : lg === "lg-nl" ? "National League" : key;
+    } else if (currentSport() === "wnba") {
+      const wc = wnbaConference(g);
+      key = wc === "wc-west" ? "Western Conference"
+          : wc === "wc-east" ? "Eastern Conference" : key;
     }
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(g);
@@ -675,7 +704,8 @@ function render(data){
   // American first, then National. Alphabetical would put National on
   // top, which is not the order anybody reads a baseball scoreboard in.
   const ordered = new Map();
-  ["American League", "National League"].forEach(k => {
+  ["American League", "National League",
+   "Western Conference", "Eastern Conference"].forEach(k => {
     if (groups.has(k)) { ordered.set(k, groups.get(k)); groups.delete(k); }
   });
   groups.forEach((v, k) => ordered.set(k, v));
@@ -697,7 +727,7 @@ function render(data){
     // a canyon between them, so a wide screen made the two halves of a game
     // feel unrelated. A card keeps a game as one object and lets the actions
     // run full width across its foot, where they are easy to hit.
-    return `<div class="game ${g.live ? "is-live" : ""} ${mlbLeague(g)}">
+    return `<div class="game ${g.live ? "is-live" : ""} ${mlbLeague(g)} ${wnbaConference(g)}">
       <div class="g-head">
         ${statusCell(g)}
         ${g.venue ? `<span class="g-venue">${esc(g.venue)}</span>` : ""}
@@ -809,6 +839,12 @@ try{
   // back there by default when the game everybody is talking about is
   // baseball. The tabs are one tap away.
   // if (saved && LEAGUES.some(l => l.key === saved)) start = saved;
+}catch(e){}
+// The homepage SMACKBOARD banner deep-links here with ?league=wnba etc.
+// so clicking a league on the banner opens that tab directly.
+try{
+  const q = new URLSearchParams(location.search).get("league");
+  if (q && LEAGUES.some(l => l.key === q)) start = q;
 }catch(e){}
 select(start);
 
