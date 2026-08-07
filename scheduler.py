@@ -372,7 +372,16 @@ def check_armed_smackagrams():
 
         matching = [s for s in armed if s.game_id == game_id and s.sport == sport]
 
-        if result["status"] == "postponed":
+        # .get(), NOT BRACKETS - the Highlightly and stored-result paths
+        # build result dicts WITHOUT a "status" key (they carry
+        # final/winner/loser), and result["status"] raised KeyError here,
+        # which killed the ENTIRE cron pass the moment any one game
+        # resolved through those paths. Every armed order in the batch
+        # then waited forever behind one crash - Andy's MLB call among
+        # them, caught live on Aug 7 with the alert email + SMS firing
+        # exactly as designed. A missing status means "not postponed,
+        # not a tie": the final/winner fields decide from there.
+        if result.get("status") == "postponed":
             # ONE BAD RECORD MUST NOT BLOCK THE BATCH.
             #
             # This ran unguarded: if a refund raised for one smack, the
@@ -400,7 +409,7 @@ def check_armed_smackagrams():
             db.session.commit()
             continue
 
-        if result["status"] == "tie":
+        if result.get("status") == "tie":
             for s in matching:
                 try:
                     _refund_released_smackagram(s)
@@ -420,7 +429,13 @@ def check_armed_smackagrams():
             db.session.commit()
             continue
 
-        loser = result["loser"]
+        loser = result.get("loser")
+        if not loser:
+            # a result with no loser decided nothing - hold this game
+            # for the next pass rather than guessing or crashing
+            print(f"[locked] {game_id}: result carries no loser yet, "
+                  f"holding", flush=True)
+            continue
         base_url = os.environ["BASE_URL"]
 
         # Several people can smack the same person about the same game. Left
