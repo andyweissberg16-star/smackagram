@@ -587,10 +587,24 @@ def generate_trash_talk(team: str, recipient_name: str, sensitivity: int = DEFAU
     # slow - and the line is then written exactly as it is today.
     live_facts = []
     try:
-        from services import team_state
-        live_facts = team_state.facts_for(team)
+        # World Cup national teams first — the 2026 tournament is over, so a
+        # picked nation gets its REAL final result (Argentina lost the final,
+        # Germany lost to Ecuador, Brazil out to Norway...). These are curated
+        # and static; no live feed exists or is needed for a finished event.
+        from services import world_cup_facts
+        wc = world_cup_facts.facts_for(team)
+        if wc:
+            live_facts = wc
+            print(f"[smack] world cup facts for {team}: {len(wc)}", flush=True)
     except Exception as e:
-        print(f"[smack] no live data for {team}: {e}", flush=True)
+        print(f"[smack] no world cup data for {team}: {e}", flush=True)
+
+    if not live_facts:
+        try:
+            from services import team_state
+            live_facts = team_state.facts_for(team)
+        except Exception as e:
+            print(f"[smack] no live data for {team}: {e}", flush=True)
 
     live_block = ""
     if live_facts:
