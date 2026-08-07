@@ -2087,13 +2087,20 @@ def locker_page():
         verification_live = True
         if not verified and user.phone:
             class _P:  # shaped like VerifiedPhone for the code below
-                phone = user.phone
+                phone_digits = "".join(
+                    c for c in user.phone if c.isdigit())[-10:]
             verified = _P()
 
     received = []
     if verified and verification_live:
+        # VerifiedPhone stores phone_digits, not .phone - asking for
+        # .phone 500'd the locker the first time a Verify-verified
+        # user opened it (Aug 7, caught by the alert email+SMS within
+        # seconds). Match on the last-10 digits like every other
+        # phone lookup in the site.
+        _vd = verified.phone_digits
         rows = (Smackagram.query
-                .filter_by(recipient_phone=verified.phone)
+                .filter(Smackagram.recipient_phone.like(f"%{_vd}"))
                 .order_by(Smackagram.id.desc())
                 .limit(30).all())
         for r in rows:
@@ -2108,7 +2115,7 @@ def locker_page():
         smackcast_league=(sub.league_name if sub else None),
         recaps=recaps,
         phone_verified=bool(verified and verification_live),
-        verified_number=(verified.phone if verified else None),
+        verified_number=(verified.phone_digits if verified else None),
         verification_available=verification_live,
         received=received,
     )
