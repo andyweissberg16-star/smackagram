@@ -1868,7 +1868,50 @@ def _call_instructions_handler(record_type, record_id):
     return Response(twiml, mimetype="text/xml")
 
 
+def _twilio_signed(f):
+    """
+    STEP 5a (Twilio handoff): these webhooks were exempt from the
+    site's password gate and validated NOTHING - /recording-ready/
+    took RecordingUrl straight from form data into a customer's row,
+    so anyone who guessed an ID (they run 1-27) could overwrite a
+    recording with an arbitrary URL. Every Twilio webhook now proves
+    it came from Twilio via the X-Twilio-Signature header, computed
+    over the exact public URL and POST params with our auth token.
+    Set TWILIO_VALIDATE_WEBHOOKS=0 to disable in an emergency (e.g.
+    a proxy rewriting the URL breaks signatures) - failures log the
+    URL so that condition is visible.
+    """
+    from functools import wraps
+    @wraps(f)
+    def _w(*args, **kwargs):
+        import os
+        if os.environ.get("TWILIO_VALIDATE_WEBHOOKS", "1") == "0":
+            return f(*args, **kwargs)
+        try:
+            from twilio.request_validator import RequestValidator
+            v = RequestValidator(os.environ["TWILIO_AUTH_TOKEN"])
+            url = request.url
+            # Render terminates TLS at the proxy; Flask may see http.
+            # Twilio signed the https URL, so normalize.
+            if url.startswith("http://"):
+                url = "https://" + url[len("http://"):]
+            ok = v.validate(url, request.form,
+                            request.headers.get("X-Twilio-Signature", ""))
+        except Exception as e:
+            print(f"[twilio] signature check errored ({e}) - refusing",
+                  flush=True)
+            ok = False
+        if not ok:
+            print(f"[twilio] REJECTED unsigned webhook: {request.url}",
+                  flush=True)
+            return ("", 403)
+        return f(*args, **kwargs)
+    return _w
+
+
+
 @app.route("/call-instructions/<record_type>/<int:record_id>", methods=["GET", "POST"])
+@_twilio_signed
 def call_instructions(record_type, record_id):
     """
     Twilio hits this the moment the call connects. Serves pre-resolved audio
@@ -1884,6 +1927,7 @@ def call_instructions(record_type, record_id):
 
 @app.route("/recording-done/<record_type>/<int:record_id>", methods=["GET", "POST"])
 @app.route("/recording-done/<int:record_id>", methods=["GET", "POST"])
+@_twilio_signed
 def recording_done(record_id, record_type=None):
     """
     Where <Record>'s action points once recording finishes. Just hangs up —
@@ -5575,6 +5619,7 @@ def _refund_undeliverable(record, record_type, status):
 
 
 @app.route("/call-status/<record_type>/<int:record_id>", methods=["POST"])
+@_twilio_signed
 def call_status(record_type, record_id):
     # PROVE IT CAME FROM TWILIO.
     #
@@ -5647,6 +5692,7 @@ def call_status(record_type, record_id):
 
 
 @app.route("/recording-ready/<record_type>/<int:record_id>", methods=["POST"])
+@_twilio_signed
 def recording_ready(record_type, record_id):
     # Verified for the same reason as call-status: these are Twilio's
     # endpoints and nobody else's. An unsigned request here could replay
