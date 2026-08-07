@@ -930,49 +930,53 @@
 <style>
 @keyframes sbb_chase{0%,100%{background:#E01B24;box-shadow:0 0 7px #E01B24}50%{background:#3a0508;box-shadow:none}}
 @keyframes sbb_dot{0%,100%{opacity:1}50%{opacity:.25}}
-@keyframes sbb_glow{0%,100%{text-shadow:0 0 18px rgba(224,27,36,.85),0 0 36px rgba(224,27,36,.4)}50%{text-shadow:0 0 30px rgba(224,27,36,1),0 0 60px rgba(224,27,36,.6)}}
+@keyframes sbb_glowW{0%,100%{text-shadow:0 0 10px rgba(255,255,255,.9),0 0 22px rgba(255,255,255,.5)}50%{text-shadow:0 0 16px rgba(255,255,255,1),0 0 34px rgba(255,255,255,.7)}}
+@keyframes sbb_glowR{0%,100%{text-shadow:0 0 12px rgba(224,27,36,.95),0 0 26px rgba(224,27,36,.55)}50%{text-shadow:0 0 20px rgba(224,27,36,1),0 0 44px rgba(224,27,36,.75)}}
 @keyframes sbb_in{0%{opacity:0;transform:translateY(5px)}100%{opacity:1;transform:translateY(0)}}
 #sbbWrap{max-width:1100px;margin:26px auto;padding:0 24px;}
 #sbbWrap *{box-sizing:border-box;}
-.sbb-frame{background:#050506;border-radius:14px;padding:9px;box-shadow:0 0 36px rgba(224,27,36,.22);}
+.sbb-frame{background:#050506;border:2px solid #E01B24;border-radius:16px;padding:10px;box-shadow:0 0 30px rgba(224,27,36,.55),0 0 70px rgba(224,27,36,.25),inset 0 0 30px rgba(224,27,36,.08);}
 .sbb-bulb{width:8px;height:8px;border-radius:50%;background:#E01B24;flex:none;animation:sbb_chase .9s infinite;}
-.sbb-panel{flex:1;border-radius:10px;overflow:hidden;background:#08080a;background-image:radial-gradient(rgba(224,27,36,.13) 1px,transparent 1.4px);background-size:11px 11px;}
-.sbb-title{font-family:'Anton',sans-serif;font-weight:400;font-size:clamp(38px,10vw,88px);letter-spacing:clamp(4px,1.4vw,14px);color:#E01B24;text-transform:uppercase;line-height:1;animation:sbb_glow 2s infinite;white-space:nowrap;}
-.sbb-tab{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:1px;padding:7px 16px;border-radius:5px;cursor:pointer;border:1px solid #2a2a30;background:rgba(10,10,14,.85);color:#9A9A9A;text-transform:uppercase;transition:.15s;text-decoration:none;}
-.sbb-tab:hover{border-color:#E01B24;color:#fff;}
-.sbb-line{display:grid;grid-template-columns:12px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid rgba(30,30,36,.6);animation:sbb_in .5s;}
+.sbb-panel{flex:1;border-radius:11px;overflow:hidden;background:radial-gradient(ellipse at 50% 0%,rgba(224,27,36,.16),#08080a 70%);background-image:radial-gradient(rgba(224,27,36,.10) 1px,transparent 1.4px);background-size:11px 11px;}
+.sbb-title{font-family:'Anton',sans-serif;font-weight:400;font-size:clamp(38px,10vw,88px);letter-spacing:clamp(4px,1.4vw,14px);text-transform:uppercase;line-height:1;white-space:nowrap;}
+.sbb-title .w{color:#FFFFFF;animation:sbb_glowW 2s infinite;}
+.sbb-title .r{color:#E01B24;animation:sbb_glowR 2s infinite;}
+.sbb-tab{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:1px;padding:7px 16px;border-radius:6px;cursor:pointer;border:1px solid #E01B24;background:rgba(224,27,36,.08);color:#ff5a63;text-transform:uppercase;transition:.15s;text-decoration:none;box-shadow:0 0 8px rgba(224,27,36,.25);}
+.sbb-tab:hover{background:#E01B24;color:#fff;box-shadow:0 0 14px rgba(224,27,36,.6);}
+.sbb-col{border:1.5px solid #E01B24;border-radius:11px;overflow:hidden;background:rgba(6,6,8,.55);box-shadow:0 0 12px rgba(224,27,36,.3),inset 0 0 14px rgba(224,27,36,.06);}
+.sbb-colhead{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:2px;text-transform:uppercase;text-align:center;padding:8px;border-bottom:1.5px solid rgba(224,27,36,.5);}
+.sbb-line{display:grid;grid-template-columns:11px minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid rgba(224,27,36,.14);animation:sbb_in .5s;}
 .sbb-line:last-child{border-bottom:none;}
-.sbb-team{font-family:'Anton',sans-serif;font-size:16px;letter-spacing:.5px;color:#e8e8e2;text-transform:uppercase;white-space:nowrap;}
-.sbb-score{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;letter-spacing:1px;min-width:60px;text-align:right;white-space:nowrap;}
-.sbb-smack{background:#E01B24;color:#fff;border:none;border-radius:4px;padding:6px 13px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:1px;cursor:pointer;text-transform:uppercase;box-shadow:0 0 8px rgba(224,27,36,.45);text-decoration:none;}
-.sbb-smack:hover{background:#ff2130;box-shadow:0 0 14px rgba(224,27,36,.8);}
-.sbb-empty{padding:22px;text-align:center;color:#6A6A6A;font-family:'JetBrains Mono',monospace;font-size:12px;}
+.sbb-team{font-family:'Anton',sans-serif;font-size:15px;letter-spacing:.4px;color:#e8e8e2;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sbb-score{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.5px;min-width:44px;text-align:right;white-space:nowrap;}
+.sbb-smack{border:none;border-radius:4px;padding:6px 11px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;letter-spacing:.5px;cursor:pointer;text-transform:uppercase;text-decoration:none;white-space:nowrap;}
+.sbb-empty{padding:26px 12px;text-align:center;color:#7a7a7a;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;}
 </style>
 
 <div id="sbbWrap">
   <div class="sbb-frame">
-    <div style="display:flex;justify-content:space-between;padding:0 3px 7px;" id="sbbT"></div>
+    <div style="display:flex;justify-content:space-between;padding:0 3px 8px;" id="sbbT"></div>
     <div style="display:flex;gap:8px;">
       <div style="display:flex;flex-direction:column;justify-content:space-between;" id="sbbL"></div>
       <div class="sbb-panel">
         <div style="text-align:center;padding:16px 12px 12px;">
           <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;letter-spacing:3px;color:#F5A623;margin-bottom:8px;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#F5A623;animation:sbb_dot 1.1s infinite;vertical-align:1px;margin-right:5px;"></span><span id="sbbStatus">LOADING THE BOARD…</span></div>
-          <div class="sbb-title">SMACKBOARD</div>
+          <div class="sbb-title"><span class="w">SMACK</span><span class="r">BOARD</span></div>
           <div style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:1px;color:#c9c9c4;margin-top:8px;text-transform:uppercase;">Smack teams in real time <span style="color:#8A8A8A;">— or arm it for the final score.</span></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:12px;" id="sbbTabs"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:0 12px 12px;">
-          <div style="background:rgba(6,6,8,.72);border:1px solid #16161a;border-radius:9px;overflow:hidden;" id="sbbColL"></div>
-          <div style="background:rgba(6,6,8,.72);border:1px solid #16161a;border-radius:9px;overflow:hidden;" id="sbbColM"></div>
-          <div style="background:rgba(6,6,8,.72);border:1px solid #16161a;border-radius:9px;overflow:hidden;" id="sbbColR"></div>
+          <div class="sbb-col"><div class="sbb-colhead" style="color:#F5A623;background:rgba(245,166,35,.08);border-bottom-color:rgba(245,166,35,.5);"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#F5A623;animation:sbb_dot 1.1s infinite;vertical-align:1px;margin-right:5px;"></span>LIVE</div><div id="sbbColLive"></div></div>
+          <div class="sbb-col"><div class="sbb-colhead" style="color:#ff5a63;">FINAL</div><div id="sbbColFinal"></div></div>
+          <div class="sbb-col" style="border-color:#C3CAD3;box-shadow:0 0 12px rgba(195,202,211,.28),inset 0 0 14px rgba(195,202,211,.05);"><div class="sbb-colhead" style="color:#C3CAD3;background:rgba(195,202,211,.07);border-bottom-color:rgba(195,202,211,.4);">UPCOMING</div><div id="sbbColUp"></div></div>
         </div>
-        <div style="text-align:center;padding:10px;background:rgba(10,10,12,.85);border-top:1px solid #16161a;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;letter-spacing:1.5px;color:#6A6A6A;">
+        <div style="text-align:center;padding:10px;background:rgba(10,10,12,.7);border-top:1px solid rgba(224,27,36,.3);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;letter-spacing:1.5px;color:#6A6A6A;">
           EVERY LOSS = A $1 CALL &nbsp;·&nbsp; <a href="/smack-board" style="color:#E01B24;text-decoration:none;">OPEN FULL BOARD →</a>
         </div>
       </div>
       <div style="display:flex;flex-direction:column;justify-content:space-between;" id="sbbR"></div>
     </div>
-    <div style="display:flex;justify-content:space-between;padding:7px 3px 0;" id="sbbB"></div>
+    <div style="display:flex;justify-content:space-between;padding:8px 3px 0;" id="sbbB"></div>
   </div>
 </div>
 
@@ -984,6 +988,9 @@
   var LEAGUES=['mlb','wnba','nfl','nhl','nba'];
   var WNBA_WEST=['aces','sparks','mercury','storm','lynx','wings','valkyries'];
 
+  function ab(t){ return (t && (t.abbr || t.nick || '')) || ''; }
+  function nk(t){ return (t && (t.nick || t.abbr || '')) || ''; }
+
   function loserOf(g){
     if(!g||!g.home||!g.away)return null;
     var loser=g.losing==='home'?g.home:(g.losing==='away'?g.away:null);
@@ -992,113 +999,89 @@
     }
     return loser;
   }
-  function color(lg,loser){
+  function confColor(lg,loser){
     if(lg==='wnba'&&loser){
-      var nm=((loser.nick||loser.abbr||'')+'').toLowerCase();
+      var nm=(nk(loser)+'').toLowerCase();
       for(var i=0;i<WNBA_WEST.length;i++)if(nm.indexOf(WNBA_WEST[i])>-1)return '#1E5AFF';
       return '#FF1744';
     }
-    return '#8A8A8A';
+    return '#e8e8e2';
   }
 
-  var ALL=[];
+  var LIVE=[],FINAL=[],UP=[];
   function collect(lg,data){
-    var out=[];
     (data.games||[]).forEach(function(g){
       if(g.live){
         var l=loserOf(g);
-        if(l)out.push({lg:lg,state:'live',team:(l.nick||l.abbr||''),note:'LIVE',c:'#F5A623'});
+        if(l)LIVE.push({team:ab(l),full:nk(l),note:'LIVE',c:'#F5A623'});
       } else if(g.upcoming){
-        // An upcoming game has no loser yet - you can only ARM it. Show
-        // both teams so the buyer knows who's playing; target is picked
-        // on the Set Up page. Use the away team as the display anchor.
-        var au=g.away||{}, ho=g.home||{};
-        var mt=(au.nick||au.abbr||'')+' @ '+(ho.nick||ho.abbr||'');
-        out.push({lg:lg,state:'upcoming',team:(ho.nick||ho.abbr||au.nick||au.abbr||''),
-          matchup:mt, note:(g.start_label||'UPCOMING'), c:'#C3CAD3'});
+        var mt=ab(g.away)+' @ '+ab(g.home);
+        UP.push({team:mt, target:nk(g.home)||nk(g.away), note:(g.start_label||g.start||''), c:'#C3CAD3'});
       }
     });
     (data.damage||[]).forEach(function(g){
       var l=loserOf(g);if(!l)return;
       var w=(l===g.home)?g.away:g.home;
-      var sc='L '+(l.score)+'\u2014'+(w?w.score:'');
-      out.push({lg:lg,state:'final',team:(l.nick||l.abbr||''),note:sc,c:color(lg,l)});
+      FINAL.push({team:ab(l),full:nk(l),note:(l.score)+'\u2014'+(w?w.score:''),c:confColor(lg,l)});
     });
-    return out;
   }
 
-  function line(r,idx){
-    var col=(r.c==='#8A8A8A')?'#e8e8e2':r.c;
-    var isLive=(r.state==='live');
-    var dot='<span style="width:10px;height:10px;border-radius:50%;background:'+r.c+';'+(isLive?'animation:sbb_dot 1.1s infinite;':'')+'box-shadow:0 0 7px '+r.c+';flex:none;"></span>';
-    // The button says what the game state actually lets you do:
-    //   live     -> SMACK LIVE  (fires now, mid-game)  -> /game-day
-    //   final    -> SMACK       (fires now)            -> /game-day
-    //   upcoming -> ARM IT      (fires if they lose)   -> /set-up
-    var label, url, btnBg;
-    if(r.state==='upcoming'){
-      label='ARM IT';
-      url='/set-up?target='+encodeURIComponent(r.team);
-      btnBg='background:transparent;border:1px solid #C3CAD3;color:#C3CAD3;box-shadow:none;';
-    } else if(r.state==='live'){
-      label='SMACK LIVE';
-      url='/game-day?target='+encodeURIComponent(r.team);
-      btnBg='background:#F5A623;color:#1A1206;box-shadow:0 0 8px rgba(245,166,35,.5);';
+  function line(r,state,idx){
+    var isLive=(state==='live');
+    var dotc=isLive?'#F5A623':(state==='upcoming'?'#C3CAD3':r.c);
+    var dot='<span style="width:10px;height:10px;border-radius:50%;background:'+dotc+';'+(isLive?'animation:sbb_dot 1.1s infinite;':'')+'box-shadow:0 0 7px '+dotc+';flex:none;"></span>';
+    var label,url,bg;
+    if(state==='upcoming'){
+      label='ARM IT'; url='/set-up?target='+encodeURIComponent(r.target||r.team);
+      bg='background:transparent;border:1px solid #C3CAD3;color:#C3CAD3;';
+    } else if(state==='live'){
+      label='SMACK LIVE'; url='/game-day?target='+encodeURIComponent(r.full||r.team);
+      bg='background:#F5A623;color:#1A1206;box-shadow:0 0 8px rgba(245,166,35,.5);';
     } else {
-      label='SMACK';
-      url='/game-day?target='+encodeURIComponent(r.team);
-      btnBg='';
+      label='SMACK'; url='/game-day?target='+encodeURIComponent(r.full||r.team);
+      bg='background:#E01B24;color:#fff;box-shadow:0 0 6px rgba(224,27,36,.5);';
     }
-    var teamText=(r.state==='upcoming'&&r.matchup)?r.matchup:r.team;
     return '<div class="sbb-line" style="animation-delay:'+(idx*0.05).toFixed(2)+'s">'
       +'<span>'+dot+'</span>'
-      +'<span class="sbb-team">'+teamText+'</span>'
-      +'<span class="sbb-score" style="color:'+col+';">'+r.note+'</span>'
-      +'<a class="sbb-smack" style="'+btnBg+'" href="'+url+'">'+label+'</a></div>';
+      +'<span class="sbb-team">'+r.team+'</span>'
+      +'<span class="sbb-score" style="color:'+(state==='upcoming'?'#C3CAD3':(r.c==='#e8e8e2'?'#e8e8e2':r.c))+';">'+r.note+'</span>'
+      +'<a class="sbb-smack" style="'+bg+'" href="'+url+'">'+label+'</a></div>';
   }
 
-  var off=0;
-  var ROWS=4, COLS=3, SHOWN=ROWS*COLS;
+  var ROWS=4;
+  var offLive=0,offFinal=0,offUp=0;
+  function fillCol(id,list,state,off,empty){
+    var el=document.getElementById(id);
+    if(!list.length){ el.innerHTML='<div class="sbb-empty">'+empty+'</div>'; return; }
+    var rows=[],n=list.length,take=Math.min(ROWS,n);
+    for(var i=0;i<take;i++)rows.push(line(list[(off+i)%n],state,i));
+    el.innerHTML=rows.join('');
+  }
   function fluctuate(){
-    if(!ALL.length){
-      document.getElementById('sbbColL').innerHTML='<div class="sbb-empty">No losses on the board right now.<br>Check back after tonight\u2019s games.</div>';
-      document.getElementById('sbbColM').innerHTML='<div class="sbb-empty">Pick a league above to set one up.</div>';
-      document.getElementById('sbbColR').innerHTML='';
-      return;
-    }
-    // Fill three columns of four (twelve games shown), wrapping through
-    // the whole slate so the board always reads full. Each refresh
-    // advances the window by one, so the games rotate around every cycle.
-    var n=ALL.length, cols=[[],[],[]];
-    for(var i=0;i<SHOWN;i++){
-      cols[Math.floor(i/ROWS)].push(ALL[(off+i)%n]);
-    }
-    document.getElementById('sbbColL').innerHTML=cols[0].map(line).join('');
-    document.getElementById('sbbColM').innerHTML=cols[1].map(line).join('');
-    document.getElementById('sbbColR').innerHTML=cols[2].map(line).join('');
-    off=(off+SHOWN)%n;
+    fillCol('sbbColLive',LIVE,'live',offLive,'No live games right now.<br>Check back at game time.');
+    fillCol('sbbColFinal',FINAL,'final',offFinal,'No finals yet tonight.<br>First results drop soon.');
+    fillCol('sbbColUp',UP,'upcoming',offUp,'That\u2019s the full slate.<br>More games tomorrow.');
+    if(LIVE.length>ROWS)offLive=(offLive+ROWS)%LIVE.length;
+    if(FINAL.length>ROWS)offFinal=(offFinal+ROWS)%FINAL.length;
+    if(UP.length>ROWS)offUp=(offUp+ROWS)%UP.length;
   }
 
-  // League tabs deep-link into the full board for that league.
   var tabsHtml='<a class="sbb-tab" href="/smack-board">ALL</a>';
   LEAGUES.forEach(function(lg){
     tabsHtml+='<a class="sbb-tab" href="/smack-board?league='+lg+'">'+lg.toUpperCase()+'</a>';
   });
   document.getElementById('sbbTabs').innerHTML=tabsHtml;
 
-  // Pull every league's board once, aggregate the losses.
-  var done=0,liveCount=0;
+  var done=0;
   LEAGUES.forEach(function(lg){
     fetch('/api/board/'+lg).then(function(r){return r.json();}).then(function(d){
-      var rows=collect(lg,d);
-      liveCount+=rows.filter(function(x){return x.live;}).length;
-      ALL=ALL.concat(rows);
+      collect(lg,d);
     }).catch(function(){}).finally(function(){
       done++;
       if(done===LEAGUES.length){
-        var total=ALL.length;
+        var tot=LIVE.length+FINAL.length+UP.length;
         document.getElementById('sbbStatus').textContent=
-          (liveCount?('LIVE NOW · '):('')) + total + ' LOSS' + (total===1?'':'ES') + ' TONIGHT';
+          (LIVE.length?('LIVE NOW · '):'') + tot + ' GAME'+(tot===1?'':'S')+' ON THE BOARD';
         fluctuate();
         setInterval(fluctuate,4500);
       }
