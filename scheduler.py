@@ -106,6 +106,30 @@ def _sample_for(armed, game_id, sport):
                  if x.game_id == game_id and x.sport == sport), None)
 
 
+def _team_is(target, official):
+    """
+    Does the user's target_team mean this official team name?
+    THE FIFTH NAME BUG OF AUG 7: firing used exact string equality
+    between a USER-TYPED team ("mets", lowercase, from the pulse's own
+    data) and the FEED'S official loser ("New York Mets"). Any mismatch
+    fell into the else at the bottom - silently refunded as "target
+    won", no log line, on a game the target LOST. Both of Andy's live
+    tests took that door.
+    Tolerant on purpose, asymmetric on purpose: the short form the
+    person typed should live inside the official name.
+    """
+    t = (target or "").lower().strip()
+    o = (official or "").lower().strip()
+    if not t or not o:
+        return False
+    if t == o:
+        return True
+    # "mets" in "new york mets"; "blue jays" endswith; word membership
+    if o.endswith(t) or t.endswith(o):
+        return True
+    return t in o.split() or t in o
+
+
 def check_armed_smackagrams():
     """
     Called via the /api/cron/check-smackagrams route, which an external
@@ -443,7 +467,7 @@ def check_armed_smackagrams():
         # one connects, the rest go to voicemail, and the recipient works out
         # it is a script. So they are grouped by phone number, numbered, and
         # spaced out.
-        firing = [s for s in matching if s.target_team == loser]
+        firing = [s for s in matching if _team_is(s.target_team, loser)]
         by_phone = {}
         for s in firing:
             by_phone.setdefault(s.recipient_phone, []).append(s)
@@ -471,7 +495,7 @@ def check_armed_smackagrams():
         used_facts = {}
 
         for s in matching:
-            if s.target_team == loser:
+            if _team_is(s.target_team, loser):
                 # condition met — target team lost, fire the smackagram
                 try:
                     # Already written on an earlier sweep while this call
@@ -649,9 +673,15 @@ def check_armed_smackagrams():
                     except Exception:
                         pass
             else:
-                # target team won — refund the $1 back to the wallet
+                # target team won — refund the $1 back to the wallet.
+                # AND SAY SO - this branch released two live test
+                # orders in total silence on Aug 7. A door money walks
+                # through must never be quiet.
                 _refund_released_smackagram(s)
                 s.status = "released"
+                print(f"[locked] {s.id} RELEASED - target "
+                      f"'{s.target_team}' did not match loser "
+                      f"'{loser}' - refunded", flush=True)
             s.resolved_at = datetime.utcnow()
 
         db.session.commit()
