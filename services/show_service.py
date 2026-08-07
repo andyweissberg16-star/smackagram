@@ -98,6 +98,29 @@ def fetch_results(league: str, days_back: int = 1) -> list[dict]:
     """
     from services import espn_scores
     games = espn_scores.fetch_finals(league, days_back=days_back)
+    # THE MANUAL DOOR (David, Aug 7): a HUMAN-VERIFIED game handed to
+    # the show through a Setting row, for games no automated source
+    # carries honestly - the Hall of Fame Game being the founding
+    # case (ESPN blocks this host, Highlightly returned baseball
+    # imposters, SDIO free tier scrambles scores). Rows are injected
+    # via /api/admin/inject-game, live under the "manual_games" key,
+    # and are consumed only for their own league.
+    try:
+        import json as _json
+        from models import Setting as _Set
+        _row = _Set.query.filter_by(key="manual_games").first()
+        if _row and _row.value:
+            for _m in _json.loads(_row.value):
+                if (_m.get("league") or "").upper() == league.upper():
+                    _m.setdefault("label", league.upper())
+                    _m.setdefault("id", f"manual-{_m.get('winner','')}-"
+                                        f"{_m.get('loser','')}")
+                    games.append(_m)
+                    print(f"[show] manual game included: "
+                          f"{_m.get('winner')} over {_m.get('loser')} "
+                          f"({league})", flush=True)
+    except Exception as _e:
+        print(f"[show] manual games unavailable: {_e}", flush=True)
 
     # Hits and errors aren't in ESPN's scoreboard payload; facts derived from
     # them simply won't fire, which is correct - better a shorter fact list
@@ -1848,6 +1871,43 @@ def write_script_per_league(material: dict, log=None) -> dict:
     # shared call every run - the per-league system never fired once.
     # The proof: "writing N league scripts in parallel" has never
     # appeared in a log.
+    # THE CROSS-SPORT GATE (David's review, Aug 7): the NFL feed came
+    # back carrying MLB GAMES mislabeled as NFL - so the NFL writer ran
+    # and honestly wrote "Thursday night baseball" under a football
+    # header, and the show teased a league it never had. A game only
+    # counts for a league if its teams actually BELONG to that league
+    # (checked against the alias tables); imposters are dropped loudly
+    # and, if that empties a league, its writer never runs.
+    def _belongs(team, lg_key):
+        try:
+            from services.team_aliases import TEAM_ALIASES
+            table = TEAM_ALIASES.get(lg_key.lower())
+            if not table:
+                return True          # no table for this league: trust it
+            t = (team or "").lower().strip()
+            last = t.split()[-1] if t else ""
+            # FULL NAME or NICKNAME equality only - substring matching
+            # let "Baltimore Orioles" pass as NFL because "baltimore"
+            # is a Ravens alias. Cities collide across leagues;
+            # nicknames almost never do.
+            return any(t == a or last == a
+                       for names in table.values() for a in names)
+        except Exception:
+            return True
+    _kept = []
+    for g in material["games"]:
+        _lg = (g.get("league") or "").lower()
+        if _lg in ("mlb", "nfl", "nba", "nhl", "wnba") and not (
+                _belongs(g.get("winner"), _lg)
+                and _belongs(g.get("loser"), _lg)):
+            print(f"[show] DROPPED cross-sport imposter: "
+                  f"{g.get('winner')} vs {g.get('loser')} arrived "
+                  f"labeled {_lg.upper()} but those are not "
+                  f"{_lg.upper()} teams", flush=True)
+            continue
+        _kept.append(g)
+    material["games"] = _kept
+
     present = []
     for lg in LEAGUE_ORDER:
         if any((g.get("league") or "").upper() == lg.upper()
@@ -2062,6 +2122,29 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
         segments.append({"text": sanitize_for_speech(body),
                          "display_text": sanitize_for_display(body),
                          "reaction": reaction, "league": league})
+
+    # AWARD DEDUPE (David's review, Aug 7): the dry run carried TWO
+    # "Crown of the Night" segments back to back, both about the same
+    # team. One award name appears once per episode - the second
+    # instance is dropped loudly, keeping whichever came first.
+    try:
+        import re as _re2
+        _seen_awards = set()
+        _deduped = []
+        for _seg in segments:
+            _m = _re2.search(r"(Smackagram's [A-Z][\w' ]{2,40}?) (?:goes|gets|we are giving)",
+                             _seg.get("text") or "")
+            if _m:
+                _aw = _m.group(1).lower().strip()
+                if _aw in _seen_awards:
+                    print(f"[show] DROPPED duplicate award segment: "
+                          f"{_m.group(1)}", flush=True)
+                    continue
+                _seen_awards.add(_aw)
+            _deduped.append(_seg)
+        segments = _deduped
+    except Exception as _e:
+        print(f"[show] award dedupe failed: {_e}", flush=True)
 
     # THE SAVAGE METER (Andy, Aug 7): the profanity level drifted soft
     # after the API switch and nobody could see it happening. Now it is

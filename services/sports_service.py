@@ -95,6 +95,37 @@ def get_upcoming_games(sport: str = "nfl", hours_ahead: int = 48, team_query: st
     today = _today_us_eastern()
     dates_to_check = [today, today + timedelta(days=1), today + timedelta(days=2)]
 
+    # WNBA GOES TO BALLDONTLIE (Aug 7). SportsDataIO returned nothing
+    # usable for WNBA here, so the picker's search came up empty while
+    # the Smack Board - fed by Highlightly - showed the same night's
+    # games. balldontlie is the house WNBA source (Aug 5 decision);
+    # the picker asks it directly and filters by the same aliases.
+    if sport == "wnba":
+        try:
+            from services import balldontlie
+            raw = balldontlie.upcoming_games(
+                "wnba", [d.strftime("%Y-%m-%d") for d in dates_to_check])
+            out = []
+            for g in raw:
+                st = g.get("start_time")
+                if st:
+                    try:
+                        _t = datetime.fromisoformat(st.replace("Z", "+00:00"))
+                        if _t > cutoff:
+                            continue
+                    except ValueError:
+                        pass
+                if team_query:
+                    q = team_query.strip().lower()
+                    hay = f"{g['home_team']} {g['away_team']}".lower()
+                    if q.replace(" ", "") not in hay.replace(" ", ""):
+                        continue
+                out.append(g)
+            return out
+        except Exception as e:
+            print(f"[games] balldontlie wnba upcoming failed: {e} - "
+                  f"falling through to sportsdataio", flush=True)
+
     games = []
     seen_ids = set()
 

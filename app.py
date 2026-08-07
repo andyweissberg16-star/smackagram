@@ -6596,6 +6596,110 @@ def api_admin_pipeline_check():
                     "report": buf.getvalue().split("\n")})
 
 
+@app.route("/api/admin/highlightly-probe")
+@login_required
+def api_admin_highlightly_probe():
+    """
+    HIGHLIGHTLY DEBUGGING FROM A BROWSER (David, Aug 7). The key rides
+    in a request header, so raw browser testing is impossible - this
+    endpoint asks Highlightly on your behalf and shows the truth:
+      ?sport=nfl&date=2026-08-06            filtered, as the show asks
+      ?sport=nfl&date=2026-08-06&raw=1      NO league filter - see
+                                            EVERYTHING their endpoint
+                                            returns for that segment/day
+    Reports: the exact params sent, row count, and each row's OWN
+    league name + teams - which is how a mislabeling (baseball rows
+    under the football segment) becomes visible in one screen.
+    """
+    user = get_current_user()
+    if not user or not user.is_admin:
+        return jsonify({"error": "admin only"}), 403
+    from services import highlightly as hl
+    sport = (request.args.get("sport") or "nfl").lower()
+    date = request.args.get("date") or ""
+    if not hl.enabled():
+        return jsonify({"error": "highlightly disabled (no key set)"})
+    seg = hl.PATHS.get(sport)
+    league_name, league_param = (hl.LEAGUES.get(sport) or (None, None))
+    params = {"date": date} if date else {}
+    if not request.args.get("raw") and league_name:
+        params[league_param] = league_name
+    try:
+        data = hl._get(sport, "matches", params=params, ttl=0)
+    except Exception as e:
+        return jsonify({"error": f"highlightly call failed: {e}",
+                        "params_sent": params})
+    rows = (data or {}).get("data") or (data if isinstance(data, list) else [])
+    def _teamname(r, side):
+        t = (r.get(side) or {})
+        return t.get("displayName") or t.get("name") or "?"
+    report = [{
+        "their_league": ((r.get("league") or {}).get("name")
+                         if isinstance(r.get("league"), dict)
+                         else r.get("league") or r.get("leagueName")),
+        "home": _teamname(r, "homeTeam") or _teamname(r, "home"),
+        "away": _teamname(r, "awayTeam") or _teamname(r, "away"),
+        "state": (r.get("state") or {}).get("description")
+                 if isinstance(r.get("state"), dict) else r.get("state"),
+    } for r in rows[:25]]
+    return jsonify({
+        "asked": {"sport": sport, "segment_used": seg,
+                  "params_sent": params, "filtered": "raw" not in request.args},
+        "row_count": len(rows),
+        "rows": report,
+    })
+
+
+@app.route("/api/admin/inject-game", methods=["POST", "GET"])
+@login_required
+def api_admin_inject_game():
+    """
+    Hand the show a HUMAN-VERIFIED game (see the manual door in
+    show_service.fetch_results). GET shows what's staged; POST with
+    JSON stages a game; POST {"clear": true} empties the list.
+    Required: league, winner, loser, winner_score, loser_score.
+    Optional: facts (list of strings the writer may use verbatim).
+    """
+    import json as _json
+    user = get_current_user()
+    if not user or not user.is_admin:
+        return jsonify({"error": "admin only"}), 403
+    from models import Setting
+    row = Setting.query.filter_by(key="manual_games").first()
+    staged = _json.loads(row.value) if row and row.value else []
+    # GET with query params stages too - so a verified game can be
+    # handed over from a phone browser's address bar, no tooling.
+    if request.method == "GET" and not request.args.get("winner"):
+        return jsonify({"staged": staged})
+    data = (request.json or {}) if request.method == "POST" \
+        else {k: v for k, v in request.args.items()}
+    if isinstance(data.get("facts"), str):
+        data["facts"] = [f.strip() for f in data["facts"].split("|") if f.strip()]
+    if data.get("clear"):
+        if row:
+            row.value = "[]"
+            db.session.commit()
+        return jsonify({"cleared": True})
+    need = ("league", "winner", "loser", "winner_score", "loser_score")
+    missing = [k for k in need if not str(data.get(k, "")).strip()]
+    if missing:
+        return jsonify({"error": f"missing: {', '.join(missing)}"}), 400
+    game = {k: data[k] for k in need}
+    game["winner_score"] = int(game["winner_score"])
+    game["loser_score"] = int(game["loser_score"])
+    if isinstance(data.get("facts"), list):
+        game["facts"] = [str(f)[:300] for f in data["facts"]][:12]
+    staged.append(game)
+    if row is None:
+        row = Setting(key="manual_games")
+        db.session.add(row)
+    row.value = _json.dumps(staged)
+    db.session.commit()
+    print(f"[show] manual game staged by {user.email}: "
+          f"{game['winner']} over {game['loser']}", flush=True)
+    return jsonify({"staged": staged})
+
+
 @app.route("/api/admin/dry-run")
 @login_required
 def api_admin_dry_run():
