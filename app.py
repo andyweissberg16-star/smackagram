@@ -4656,6 +4656,26 @@ def api_board(league):
                     _yday = (_now_et - _td(days=1)).strftime("%Y-%m-%d")
                     damage = [g for g in (_hl.board(lg, _yday) or [])
                               if g.get("final")]
+                if not damage:
+                    # EVERY LEAGUE (Andy, Aug 7): Highlightly has no
+                    # WNBA and can gap elsewhere - fall back to the
+                    # SHOW'S finals path (it fed this morning's
+                    # episode), adapted into card shape.
+                    try:
+                        from services import espn_scores as _es
+                        for _g in (_es.fetch_finals(lg, days_back=1)
+                                   or []):
+                            damage.append({
+                                "final": True, "live": False,
+                                "upcoming": False, "losing": "away",
+                                "home": {"nick": _g.get("winner"),
+                                         "score": _g.get("winner_score")},
+                                "away": {"nick": _g.get("loser"),
+                                         "score": _g.get("loser_score")},
+                            })
+                    except Exception as _fe:
+                        print(f"[board] damage fallback failed "
+                              f"{lg}: {_fe}", flush=True)
                 _DAMAGE_CACHE[lg] = (_time.time(), damage)
     except Exception as _e:
         print(f"[board] damage fetch failed for {lg}: {_e}", flush=True)
