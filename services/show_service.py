@@ -353,6 +353,14 @@ def enrich_with_detail(games, log=print, workers=6):
                                   for b in detail["boxscore"]["players"])
                         print(f"[detail] {g.get('away')}@{g.get('home')}: "
                               f"pk={_pk} box OK, {_nh} hitters", flush=True)
+                        # NAMES INTO THE PROMPT. The detail attached
+                        # but only award slots ever read it - ordinary
+                        # segments got a bare scoreline, so the writer
+                        # said "their pitcher" for want of a name.
+                        _nf = mlb_statsapi.named_facts(detail)
+                        if _nf:
+                            facts = facts + [f for f in _nf
+                                             if f not in facts]
             except Exception as e:
                 import traceback as _tb
                 print(f"[detail] {g.get('away')}@{g.get('home')}: "

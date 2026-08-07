@@ -526,15 +526,22 @@ def build(games: list, log=print, streaks=None, league="MLB") -> dict:
 
     if headline:
         slots.append({"slot": "headline", "words": story_w, "games": [headline],
-                      "brief": "The game of the night. Score, whether it went "
-                               "to extras, the losing pitcher, who did the "
-                               "damage, and ONE reason they lost."})
+                      "brief": "The game of the night. Score, extras or "
+                               "not, the losing pitcher BY NAME, who did "
+                               "the damage BY NAME - the NAMED lines are "
+                               "your ammunition, and 'their pitcher' is a "
+                               "BANNED PHRASE. Every stat is a setup: the "
+                               "joke it detonates is why the segment "
+                               "exists."})
     if blowout:
         slots.append({"slot": "blowout", "words": story_w, "games": [blowout],
-                      "brief": "The heaviest defeat. Go hardest here. Score, "
-                               "margin, whether it was at home, the starter's "
-                               "line, hits, strikeouts, errors, the record "
-                               "after it."})
+                      "brief": "The heaviest defeat. Go hardest here. "
+                               "Score, margin, home or away, the starter "
+                               "BY NAME with his line from the NAMED "
+                               "ammunition. The numbers are kindling - "
+                               "the roast is the fire. Never three stats "
+                               "in a row without a joke landing between "
+                               "them."})
     if close and close is not headline:
         slots.append({"slot": "close", "words": story_w, "games": [close],
                       "brief": "The painful one. LOWER volume, more tension. "
@@ -770,9 +777,20 @@ def prompt_block(games: list, log=print, streaks=None,
             f"{r['game'].get('winner')} beat {r['game'].get('loser')} "
             f"{_score_pair(r['game'])}"
             for r in sl["games"])
+        # THE AMMUNITION LINES. A brief that demands "the losing
+        # pitcher" while the prompt carries only a scoreline gets
+        # "their pitcher" back. Two named lines per featured game is
+        # the difference between reciting and roasting. The sweep
+        # stays lean - one line per game is its whole idea.
+        ammo = ""
+        if sl["slot"] not in ("sweep", "winners_and_whiners", "opening"):
+            for r in sl["games"]:
+                for f in (r["game"].get("deep_facts") or [])[:2]:
+                    ammo += f"    NAMED: {f}\n"
         rows.append(f"  [{sl['slot'].upper()}] about {sl['words']} words\n"
                     f"    {sl['brief']}\n"
-                    + (f"    THE GAME: {names}\n" if names else ""))
+                    + (f"    THE GAME: {names}\n" if names else "")
+                    + ammo)
 
     total = sum(sl["words"] for sl in lay["slots"])
     n = len(lay["slots"])

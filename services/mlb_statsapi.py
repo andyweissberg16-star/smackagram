@@ -262,3 +262,56 @@ def game_pk_for(date_str, home_nick, away_nick):
                 return pk
         return None
     return _match(home_nick, away_nick)
+
+
+def named_facts(detail):
+    """
+    The box score as ammunition: 2-3 short NAMED lines per game.
+    The award slots always had names injected; the ordinary segments
+    got "Nationals beat Phillies 6-1" and nothing else - so the writer,
+    asked about "the losing pitcher", answered "their pitcher" because
+    it was never told his name. These lines are what the briefs were
+    already demanding.
+    """
+    out = []
+    try:
+        blocks = detail["boxscore"]["players"]
+        loser = (detail.get("loser") or {}).get("team", "")
+        for b in blocks:
+            team = (b.get("team") or {}).get("name", "")
+            hitters = []
+            pitchers = []
+            for grp in b.get("statistics", []):
+                if grp.get("name") == "batting":
+                    hitters = grp.get("athletes", [])
+                elif grp.get("name") == "pitching":
+                    pitchers = grp.get("athletes", [])
+            # the loudest bat on this side
+            best = None
+            for a in hitters:
+                st = a.get("stats") or {}
+                score = (st.get("H") or 0) + 2 * (st.get("HR") or 0)                     + (st.get("RBI") or 0)
+                if best is None or score > best[1]:
+                    best = (a, score)
+            if best and best[1] >= 2:
+                a, _ = best
+                st = a.get("stats") or {}
+                bits = [f"{st.get('H', 0)}-for-{st.get('AB', 0)}"]
+                if st.get("HR"):
+                    bits.append(f"{st['HR']} HR")
+                if st.get("RBI"):
+                    bits.append(f"{st['RBI']} RBI")
+                out.append(f"{a.get('name')} ({team}): "
+                           + ", ".join(bits))
+            # the starter - named, with his line, flagged if he lost
+            if pitchers:
+                a = pitchers[0]
+                st = a.get("stats") or {}
+                tag = " - took the loss" if team == loser else ""
+                out.append(f"{a.get('name')} started for {team}: "
+                           f"{st.get('IP', '?')} IP, "
+                           f"{st.get('ER', 0)} ER, "
+                           f"{st.get('SO', 0)} K{tag}")
+    except Exception:
+        return out
+    return out[:4]
