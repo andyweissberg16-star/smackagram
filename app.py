@@ -6656,6 +6656,13 @@ def api_admin_pipeline_check():
                     "report": buf.getvalue().split("\n")})
 
 
+@app.route("/game-day/sent")
+def game_day_sent():
+    """The confirmation page - the call is already firing when this
+    renders (the order posted and debited before the redirect)."""
+    return render_template("game_day_sent.html")
+
+
 @app.route("/game-day")
 def game_day_page():
     """The themed landing for smacking one finished game - see

@@ -91,7 +91,7 @@
     <button class="gen" id="genBtn" disabled
             style="opacity:0.45;cursor:not-allowed;">WRITE THE ROAST</button>
     <div class="out" id="out">Hit the button and Smacky writes a roast about THIS loss &mdash; the score, the pain, the whole thing.</div>
-    <a class="send" id="sendBtn">SEND IT AS A CALL &rarr;</a>
+    <a class="send" id="sendBtn" style="cursor:pointer;">SEND IT AS A CALL &rarr;</a>
   </div>
 
   <p class="foot">The call is anonymous. The loss is not.</p>
@@ -168,6 +168,70 @@
       document.getElementById(id).addEventListener(ev, gate);
     });
   });
+  // THE THREE DOORWAYS (Andy, Aug 7). SEND fires a REAL order:
+  //   logged in + balance  -> debit, call fires, confirmation page
+  //   logged in + broke    -> packs page, come back, state restored
+  //   stranger             -> login/signup, come back, state restored
+  // The staged smack survives every detour via sessionStorage.
+  function stash(){
+    try{ sessionStorage.setItem('gameday_staged', JSON.stringify({
+      who: document.getElementById('who').value,
+      phone: document.getElementById('phone').value,
+      sens: sensVal, roast: lastRoast, url: location.search
+    })); }catch(e){}
+  }
+  send.addEventListener('click', function(){
+    if (!lastRoast) return;
+    var ph = document.getElementById('phone').value.trim();
+    if (!ph){ out.textContent = 'Type their phone number first.'; return; }
+    send.textContent = 'SENDING\u2026';
+    fetch('/api/orders', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        mode: 'custom', custom_message: lastRoast,
+        recipient_name: document.getElementById('who').value.trim(),
+        recipient_phone: ph,
+        sensitivity: parseInt(sensVal, 10) || 2,
+        consent_confirmed: true,
+        source: 'game_day'
+      })
+    }).then(function(r){
+      if (r.redirected){ stash(); location.href =
+        '/login?next=' + encodeURIComponent('/game-day' + location.search);
+        return null; }
+      return r.json().then(function(d){ return {code:r.status, d:d}; });
+    }).then(function(res){
+      if (!res) return;
+      if (res.code === 402 && res.d && res.d.error === 'insufficient_balance'){
+        stash();
+        location.href = res.d.redirect || '/get-smackagrams';
+        return;
+      }
+      if (res.code >= 200 && res.code < 300 && !res.d.error){
+        try{ sessionStorage.removeItem('gameday_staged'); }catch(e){}
+        location.href = '/game-day/sent';
+        return;
+      }
+      send.textContent = 'SEND IT AS A CALL \u2192';
+      out.textContent = (res.d && res.d.error) || 'Could not send - try again.';
+    }).catch(function(){
+      send.textContent = 'SEND IT AS A CALL \u2192';
+      out.textContent = 'Network hiccup - try again.';
+    });
+  });
+  // RESTORE after any detour - signup or top-up lands back here with
+  // everything intact; nobody re-types a roast they already paid for.
+  try{
+    var st = JSON.parse(sessionStorage.getItem('gameday_staged') || 'null');
+    if (st && st.roast){
+      document.getElementById('who').value = st.who || '';
+      document.getElementById('phone').value = st.phone || '';
+      sensVal = st.sens || '';
+      lastRoast = st.roast;
+      out.textContent = st.roast;
+      send.style.display = 'block';
+    }
+  }catch(e){}
   btn.addEventListener('click', function(){
     var who = document.getElementById('who').value.trim();
     if (!who){ out.textContent = 'Type their name first.'; return; }
@@ -189,16 +253,6 @@
           // hand EVERYTHING to the send flow - its Game Day header
           // and checkout take over from here
           send.style.display = 'block';
-          send.href = '/send-a-smack?gameday=1'
-            + '&msg=' + encodeURIComponent(lastRoast)
-            + '&sens=' + encodeURIComponent(sensVal)
-            + '&phone=' + encodeURIComponent(document.getElementById('phone').value)
-            + '&team=' + encodeURIComponent(o.loser)
-            + '&sport=' + encodeURIComponent(o.sport)
-            + '&loser=' + encodeURIComponent(o.loser)
-            + '&winner=' + encodeURIComponent(o.winner)
-            + '&ls=' + encodeURIComponent(o.ls)
-            + '&ws=' + encodeURIComponent(o.ws);
         } else {
           out.textContent = d.error || 'Generator hiccuped - try again.';
           console.log('generate response', d);
