@@ -1437,15 +1437,30 @@ document.addEventListener('DOMContentLoaded', () => {
       var o = window.SMACK_OUTCOME;
       var gen = document.getElementById('generateBtn');
       if (gen && o.winner) {
+        // THE GAME DAY SKIN - same page, same flow, its own identity.
+        // A full-width header in Locked & Loaded energy: GAME DAY
+        // SMACK in Anton, the final score huge and red, the loser
+        // named. Ten lines of chrome instead of a forked page.
+        document.title = 'Game Day Smack - ' + o.loser + ' lost';
         var b = document.createElement('div');
-        b.style.cssText = 'margin:0 0 12px;padding:10px 14px;'
-          + 'border:1px solid #E01B24;border-radius:8px;'
-          + 'font-family:Inter,sans-serif;font-size:13px;color:#F5F5F3;'
-          + 'background:rgba(224,27,36,0.08)';
-        b.textContent = 'Roasting a fresh loss: ' + o.loser + ' fell '
-          + (o.winner_score && o.loser_score
-             ? o.winner_score + '-' + o.loser_score + ' ' : '')
-          + 'to ' + o.winner + '.';
+        b.style.cssText = 'margin:0 0 18px;padding:18px 20px;'
+          + 'border:2px solid #E01B24;border-radius:12px;'
+          + 'background:linear-gradient(135deg,rgba(224,27,36,0.16),rgba(0,0,0,0.4));'
+          + 'box-shadow:0 0 24px rgba(224,27,36,0.3)';
+        var score = (o.winner_score && o.loser_score)
+          ? o.winner_score + '\u2013' + o.loser_score : '';
+        b.innerHTML =
+          '<div style="font-family:Anton,sans-serif;font-size:14px;'
+          + 'letter-spacing:2.5px;color:#E01B24;">GAME DAY SMACK</div>'
+          + '<div style="font-family:Anton,sans-serif;font-size:clamp(22px,4vw,34px);'
+          + 'color:#F5F5F3;line-height:1.15;margin-top:4px;">'
+          + 'THE ' + o.loser.toUpperCase().replace(/</g,'&lt;') + ' JUST LOST'
+          + (score ? ' <span style="color:#E01B24;">' + score + '</span>' : '')
+          + '</div>'
+          + '<div style="font-family:Inter,sans-serif;font-size:13px;'
+          + 'color:#B9BDC2;margin-top:6px;">Fell to '
+          + o.winner.replace(/</g,'&lt;')
+          + '. Somebody in your life deserves this call.</div>';
         var form = gen.closest('div');
         if (form && form.parentNode) form.parentNode.insertBefore(b, form);
       }
