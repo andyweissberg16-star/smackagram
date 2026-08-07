@@ -97,6 +97,21 @@ def fetch_finals(league: str, days_back: int = 1) -> list[dict]:
         """
         win_is_home = r.get("winner") == r.get("home")
         hs, aws = r.get("home_score"), r.get("away_score")
+        # SOME SOURCES SPEAK THE OTHER CONVENTION.
+        #
+        # Highlightly's normaliser produces winner_score/loser_score and
+        # never home/away - so this derived None from None, and the
+        # shaped game ended up with ALL FOUR score fields empty. Every
+        # downstream reader - build_facts, the layout's scoreline, the
+        # margin - inherited the hole, which is why a whole episode
+        # announced winners without one number: even the fallbacks read
+        # shaped fields that were just as empty. Reconstruct home/away
+        # from winner/loser + who was home, ONCE, here at the source.
+        if hs is None and aws is None:
+            _wsc, _lsc = r.get("winner_score"), r.get("loser_score")
+            if _wsc is not None and _lsc is not None:
+                hs = _wsc if win_is_home else _lsc
+                aws = _lsc if win_is_home else _wsc
         w_score = hs if win_is_home else aws
         l_score = aws if win_is_home else hs
 

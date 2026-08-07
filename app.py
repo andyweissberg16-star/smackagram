@@ -6587,7 +6587,11 @@ def api_current_show():
     show = DailyShow.query.filter_by(is_live=True).order_by(DailyShow.id.desc()).first()
     if not show:
         return jsonify({"live": False})
-    return jsonify({
+    # NO-STORE, because the browser cached this JSON and served a
+    # newly-published episode minutes late - refresh after refresh
+    # showed the old one while the new file sat live on S3. The page
+    # must always ask fresh; the payload is 300 bytes.
+    resp = jsonify({
         "live": True,
         "audio_url": show.audio_url,
         "date_label": show.date_label,
@@ -6596,6 +6600,8 @@ def api_current_show():
         "leagues": show.leagues,
         "best_line": show.best_line,
     })
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @app.route("/api/cron/generate-smackcasts", methods=["GET", "POST"])

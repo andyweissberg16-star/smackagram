@@ -327,18 +327,37 @@ def enrich_with_detail(games, log=print, workers=6):
         # matchup through the day's schedule. Emitted in the ESPN shape
         # the layout already parses, so the awards work unchanged.
         if (g.get("league") or "").lower() == "mlb":
+            # LOUD ON PURPOSE, one line per game. Two consecutive runs
+            # said "deep detail on 0/19" with NOTHING else in the log -
+            # no fetch, no refusal, no exception. A silent zero cannot
+            # be debugged; this names the exact step each game dies at.
             try:
                 from services import mlb_statsapi
                 _pk = (g.get("id") if g.get("source") == "mlb_statsapi"
                        else mlb_statsapi.game_pk_for(
                            _detail_day(g), g.get("home") or "",
                            g.get("away") or ""))
-                if _pk:
+                if not _pk:
+                    print(f"[detail] {g.get('away')}@{g.get('home')}: "
+                          f"NO gamePk (day={_detail_day(g)}, "
+                          f"source={g.get('source')})", flush=True)
+                else:
                     detail = mlb_statsapi.game_detail(
                         _pk, g.get("winner") or "", g.get("loser") or "")
+                    if detail is None:
+                        print(f"[detail] {g.get('away')}@{g.get('home')}: "
+                              f"pk={_pk} but game_detail returned None "
+                              f"(fetch refused or empty)", flush=True)
+                    else:
+                        _nh = sum(len(b["statistics"][0]["athletes"])
+                                  for b in detail["boxscore"]["players"])
+                        print(f"[detail] {g.get('away')}@{g.get('home')}: "
+                              f"pk={_pk} box OK, {_nh} hitters", flush=True)
             except Exception as e:
-                print(f"[show] statsapi detail unavailable: {e}",
-                      flush=True)
+                import traceback as _tb
+                print(f"[detail] {g.get('away')}@{g.get('home')}: "
+                      f"EXCEPTION {type(e).__name__}: {e}", flush=True)
+                _tb.print_exc()
 
         try:
             from services import highlightly

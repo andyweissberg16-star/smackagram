@@ -70,6 +70,11 @@ def finals(date_str):
     two-UTC-day window, no neighbour-day spillover to filter.
     """
     d = _get("schedule", {"sportId": 1, "date": date_str})
+    if d is None:
+        # the gate refused or the request failed - say so, because a
+        # silent None here becomes "NO gamePk" fifteen times downstream
+        print(f"[statsapi] schedule {date_str}: no response "
+              f"(gate refusal or network)", flush=True)
     out = {}
     for day in ((d or {}).get("dates") or []):
         for g in (day.get("games") or []):
