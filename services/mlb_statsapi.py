@@ -200,11 +200,30 @@ def game_detail(game_pk, winner_nick, loser_nick, wait=True):
             ],
         })
 
+    # THE DETAIL MUST SPEAK ITS OWN BLOCKS' LANGUAGE.
+    #
+    # The award pickers match winner/loser against the block team
+    # names. The caller passes the GAME's names - full, "Washington
+    # Nationals" - while the blocks carry statsapi nicknames -
+    # "Nationals". Exact compare, no match, and every award said "no
+    # hitter data" while fifteen perfect box scores sat attached.
+    # Third appearance of the full-vs-nickname disease; this one is
+    # killed by translating at the boundary: whatever names arrive,
+    # the detail stores the BLOCK nicks.
+    _nicks = [b["team"]["name"] for b in blocks]
+
+    def _to_block(name):
+        n = (name or "").lower().strip()
+        for k in _nicks:
+            if n == k.lower() or n.endswith(k.lower()):
+                return k
+        return name
+
     return {
         "league": "mlb",
         "event_id": str(game_pk),
-        "winner": {"team": winner_nick},
-        "loser": {"team": loser_nick},
+        "winner": {"team": _to_block(winner_nick)},
+        "loser": {"team": _to_block(loser_nick)},
         "boxscore": {"players": blocks},
     }
 

@@ -391,7 +391,12 @@ def enrich_with_detail(games, log=print, workers=6):
     with ThreadPoolExecutor(max_workers=workers) as pool:
         games = list(pool.map(_one, games))
 
-    got = sum(1 for g in games if g.get("deep_facts"))
+    # Count ATTACHED DETAIL too - statsapi attaches a full box score
+    # without the old-style fact strings, and this counter reported
+    # "0/19" over fifteen perfect box scores, sending the debugging
+    # hunt in the wrong direction for an hour.
+    got = sum(1 for g in games
+              if g.get("deep_facts") or g.get("_detail"))
     log(f"deep detail on {got}/{len(games)} games")
     return games
 
