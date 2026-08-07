@@ -247,11 +247,17 @@ def _send_2fa_code(user):
     expiration, and texts it via Twilio. Shared by registration and
     login so both go through the exact same path.
     """
-    code = f"{secrets.randbelow(1000000):06d}"
-    user.two_factor_code = code
-    user.two_factor_expires_at = datetime.utcnow() + timedelta(minutes=10)
+    # STEP 4 (Twilio handoff): Twilio VERIFY now owns the code -
+    # generation, delivery via Twilio's registered pool (no A2P
+    # dependency), expiry, retry caps, Fraud Guard. Nothing secret is
+    # stored on our side anymore; the legacy columns stay for schema
+    # compatibility but hold nothing.
+    from services import verify_service
+    verify_service.start_verification(user.phone)
+    user.two_factor_code = None
+    user.two_factor_expires_at = None
     db.session.commit()
-    twilio_service.send_sms(user.phone, f"Your Smackagram verification code is {code}. It expires in 10 minutes.")
+    return
 
 
 @app.route("/api/register", methods=["POST"])
@@ -597,11 +603,17 @@ def api_verify_2fa():
     code = (request.json or {}).get("code", "").strip()
     if not code:
         return jsonify({"error": "Enter the code we texted you."}), 400
-    if not user.two_factor_code or not user.two_factor_expires_at:
-        return jsonify({"error": "No active code — request a new one."}), 400
-    if datetime.utcnow() > user.two_factor_expires_at:
-        return jsonify({"error": "That code expired — request a new one."}), 400
-    if code != user.two_factor_code:
+    # Verify owns expiry and attempt limits - one question, one
+    # answer. A wrong, expired, or replayed code is simply not
+    # approved. Errors (network, bad SID) read as failure, never as
+    # a free pass.
+    from services import verify_service
+    try:
+        _approved = verify_service.check_verification(user.phone, code)
+    except Exception as _ve:
+        print(f"[2fa] verify check errored: {_ve}", flush=True)
+        _approved = False
+    if not _approved:
         # Count it. Without this the guard above never trips, because
         # nothing tells it an attempt failed.
         login_guard.record_failure(_key, _ip)
