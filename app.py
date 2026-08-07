@@ -1822,7 +1822,12 @@ def _call_instructions_handler(record_type, record_id):
     # machine_end_beep, machine_end_silence, machine_end_other, fax,
     # unknown. Anything that isn't confidently "human" should NOT record.
     is_live = (answered_by == "human")
-    should_record = getattr(order, "includes_recording", True) and is_live
+    # RECORDING RETIRED (Andy + David's decision, Aug 7). No <Record>
+    # means no disclosure - the weld holds in both directions - and
+    # Smacky opens the SECOND a human is confirmed. The recording
+    # machinery (webhooks, columns, build_twiml's record path) stays
+    # intact and welded for any future return of the feature.
+    should_record = False  # was: getattr(order, "includes_recording", True) and is_live
     if not is_live and getattr(order, "includes_recording", True):
         print(f"[twilio] record {record_type or 'legacy'}:{record_id} answered_by={answered_by!r} (not confirmed human) — recording skipped even though it was purchased")
 
