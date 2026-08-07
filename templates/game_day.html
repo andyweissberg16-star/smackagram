@@ -27,6 +27,18 @@
   .card{margin-top:22px; border:1px solid #2A2C30; border-radius:14px;
         padding:22px; background:#121214;}
   .card label{display:block; font-size:13px; color:var(--dim); margin:14px 0 6px;}
+  .meter{display:flex; gap:8px; margin-top:4px;}
+  .meter button{flex:1; padding:11px 4px; border-radius:8px; cursor:pointer;
+      border:1px solid #3A3D42; background:#0E0E10; color:var(--dim);
+      font-family:'Anton',sans-serif; font-size:13px; letter-spacing:0.5px;}
+  .meter button.on{border-color:var(--flare); color:#fff;
+      background:rgba(224,27,36,0.22);
+      box-shadow:0 0 10px rgba(224,27,36,0.35);}
+  .consent-row{display:flex; gap:11px; align-items:flex-start;
+      margin-top:14px; font-size:13.5px; color:#C9CDD2; cursor:pointer;
+      line-height:1.45;}
+  .consent-row input{width:20px; height:20px; accent-color:var(--flare);
+      flex:none; margin-top:1px;}
   .card select{width:100%; padding:12px 14px; border-radius:8px;
         font-size:15px; border:1px solid #3A3D42; background:#0E0E10;
         color:var(--chalk); margin-top:2px;}
@@ -60,18 +72,21 @@
   <div class="card">
     <label for="who">Who's getting smacked? (their first name)</label>
     <input id="who" placeholder="e.g. Dave" autocomplete="off">
-    <label for="sens">How hard should Smacky go?</label>
-    <select id="sens">
-      <option value="">Pick a sensitivity...</option>
-      <option value="1">1 - Family friendly</option>
-      <option value="2">2 - Standard smack</option>
-      <option value="3">3 - Spicy</option>
-      <option value="4">4 - Full savage (uncensored)</option>
-    </select>
-    <label style="display:flex;align-items:center;gap:10px;margin-top:16px;
-                  color:#C9CDD2;font-size:14px;cursor:pointer;">
-      <input type="checkbox" id="adult" style="width:auto;transform:scale(1.4);">
-      I'm 18 or older
+    <label>How hard should Smacky go?</label>
+    <div id="sensMeter" class="meter"></div>
+    <label for="phone" style="margin-top:16px;">Their phone number</label>
+    <input id="phone" type="tel" inputmode="tel" placeholder="1 (555) 555-5555">
+    <label class="consent-row" for="adult">
+      <input type="checkbox" id="adult">
+      <span>I confirm the person receiving this call is <strong>18 or older</strong>.</span>
+    </label>
+    <label class="consent-row" for="know">
+      <input type="checkbox" id="know">
+      <span>I know this person. This is a prank between friends, and the call is recorded.</span>
+    </label>
+    <label class="consent-row" for="terms">
+      <input type="checkbox" id="terms">
+      <span>I agree to the <a href="/terms" target="_blank" rel="noopener" style="color:var(--flare);">Terms</a>.</span>
     </label>
     <button class="gen" id="genBtn" disabled
             style="opacity:0.45;cursor:not-allowed;">WRITE THE ROAST</button>
@@ -106,22 +121,52 @@
   var btn = document.getElementById('genBtn'),
       out = document.getElementById('out'),
       send = document.getElementById('sendBtn'),
-      sens = document.getElementById('sens'),
       adult = document.getElementById('adult'),
-      lastRoast = '';
+      lastRoast = '', sensVal = '';
+  // THE METER - same levels the Smackagram generator uses, same
+  // red-on-black pills, built from /api/sensitivity-levels.
+  var meter = document.getElementById('sensMeter');
+  fetch('/api/sensitivity-levels').then(function(r){return r.json();})
+    .then(function(d){
+      (d.levels || d || []).forEach(function(lv){
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = (lv.value || lv.level || '') + ' \u00B7 '
+                        + (lv.label || lv.name || '');
+        b.addEventListener('click', function(){
+          sensVal = String(lv.value || lv.level);
+          meter.querySelectorAll('button').forEach(function(x){
+            x.classList.remove('on');});
+          b.classList.add('on'); gate();
+        });
+        meter.appendChild(b);
+      });
+    }).catch(function(){
+      [1,2,3,4].forEach(function(v){
+        var b=document.createElement('button'); b.type='button';
+        b.textContent=String(v);
+        b.addEventListener('click',function(){ sensVal=String(v);
+          meter.querySelectorAll('button').forEach(function(x){
+            x.classList.remove('on');});
+          b.classList.add('on'); gate(); });
+        meter.appendChild(b);
+      });
+    });
   // GENERATE UNLOCKS only with name + sensitivity + 18-plus - the
   // full gate on page one, per Andy's spec.
   function gate(){
     var ok = document.getElementById('who').value.trim()
-             && sens.value && adult.checked;
+             && sensVal && adult.checked
+             && document.getElementById('know').checked
+             && document.getElementById('terms').checked;
     btn.disabled = !ok;
     btn.style.opacity = ok ? '1' : '0.45';
     btn.style.cursor = ok ? 'pointer' : 'not-allowed';
   }
   ['input','change'].forEach(function(ev){
-    document.getElementById('who').addEventListener(ev, gate);
-    sens.addEventListener(ev, gate);
-    adult.addEventListener(ev, gate);
+    ['who','adult','know','terms','phone'].forEach(function(id){
+      document.getElementById(id).addEventListener(ev, gate);
+    });
   });
   btn.addEventListener('click', function(){
     var who = document.getElementById('who').value.trim();
@@ -131,7 +176,7 @@
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         team: o.loser, recipient_name: who,
-        sensitivity: parseInt(sens.value, 10),
+        sensitivity: parseInt(sensVal, 10),
         game_outcome: { loser: o.loser, winner: o.winner,
                         loser_score: o.ls, winner_score: o.ws }
       })
@@ -146,7 +191,8 @@
           send.style.display = 'block';
           send.href = '/send-a-smack?gameday=1'
             + '&msg=' + encodeURIComponent(lastRoast)
-            + '&sens=' + encodeURIComponent(sens.value)
+            + '&sens=' + encodeURIComponent(sensVal)
+            + '&phone=' + encodeURIComponent(document.getElementById('phone').value)
             + '&team=' + encodeURIComponent(o.loser)
             + '&sport=' + encodeURIComponent(o.sport)
             + '&loser=' + encodeURIComponent(o.loser)
