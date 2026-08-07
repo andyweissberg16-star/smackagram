@@ -1773,6 +1773,11 @@ def _call_instructions_handler(record_type, record_id):
     # (e.g. "machine_end_beep" means we're being asked to speak right
     # after the voicemail's greeting ended, exactly when we want to).
     answered_by = request.values.get("AnsweredBy")
+    try:
+        record.answered_by = (answered_by or "")[:32]
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
     print(f"[twilio] call-instructions hit for {record_type or 'legacy'}:{record_id} — AnsweredBy={answered_by!r}")
 
     # fall back to live resolution only if somehow nothing was pre-cached
@@ -7018,6 +7023,13 @@ with app.app_context():
     if app.config["SQLALCHEMY_DATABASE_URI"].startswith("postgresql"):
         with db.engine.connect() as conn:
             conn.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS balance_cents INTEGER DEFAULT 0 NOT NULL"))
+            # STEP 3f (Twilio handoff): AnsweredBy was printed and
+            # discarded - now stored, so the Locker can say "human
+            # answered, reaction recorded" vs "hit voicemail", and so
+            # the share of 'unknown' results tells us whether the AMD
+            # timeout is set right.
+            conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS answered_by VARCHAR(32)"))
+            conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS answered_by VARCHAR(32)"))
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS user_id INTEGER"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id INTEGER"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS team VARCHAR(80)"))
