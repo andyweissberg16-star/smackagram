@@ -27,6 +27,9 @@
   .card{margin-top:22px; border:1px solid #2A2C30; border-radius:14px;
         padding:22px; background:#121214;}
   .card label{display:block; font-size:13px; color:var(--dim); margin:14px 0 6px;}
+  .card select{width:100%; padding:12px 14px; border-radius:8px;
+        font-size:15px; border:1px solid #3A3D42; background:#0E0E10;
+        color:var(--chalk); margin-top:2px;}
   .card input{width:100%; padding:12px 14px; border-radius:8px; font-size:15px;
         border:1px solid #3A3D42; background:#0E0E10; color:var(--chalk);}
   .gen{margin-top:18px; width:100%; padding:15px; border:none; border-radius:10px;
@@ -57,7 +60,21 @@
   <div class="card">
     <label for="who">Who's getting smacked? (their first name)</label>
     <input id="who" placeholder="e.g. Dave" autocomplete="off">
-    <button class="gen" id="genBtn">WRITE THE ROAST</button>
+    <label for="sens">How hard should Smacky go?</label>
+    <select id="sens">
+      <option value="">Pick a sensitivity...</option>
+      <option value="1">1 - Family friendly</option>
+      <option value="2">2 - Standard smack</option>
+      <option value="3">3 - Spicy</option>
+      <option value="4">4 - Full savage (uncensored)</option>
+    </select>
+    <label style="display:flex;align-items:center;gap:10px;margin-top:16px;
+                  color:#C9CDD2;font-size:14px;cursor:pointer;">
+      <input type="checkbox" id="adult" style="width:auto;transform:scale(1.4);">
+      I'm 18 or older
+    </label>
+    <button class="gen" id="genBtn" disabled
+            style="opacity:0.45;cursor:not-allowed;">WRITE THE ROAST</button>
     <div class="out" id="out">Hit the button and Smacky writes a roast about THIS loss &mdash; the score, the pain, the whole thing.</div>
     <a class="send" id="sendBtn">SEND IT AS A CALL &rarr;</a>
   </div>
@@ -88,7 +105,24 @@
 
   var btn = document.getElementById('genBtn'),
       out = document.getElementById('out'),
-      send = document.getElementById('sendBtn');
+      send = document.getElementById('sendBtn'),
+      sens = document.getElementById('sens'),
+      adult = document.getElementById('adult'),
+      lastRoast = '';
+  // GENERATE UNLOCKS only with name + sensitivity + 18-plus - the
+  // full gate on page one, per Andy's spec.
+  function gate(){
+    var ok = document.getElementById('who').value.trim()
+             && sens.value && adult.checked;
+    btn.disabled = !ok;
+    btn.style.opacity = ok ? '1' : '0.45';
+    btn.style.cursor = ok ? 'pointer' : 'not-allowed';
+  }
+  ['input','change'].forEach(function(ev){
+    document.getElementById('who').addEventListener(ev, gate);
+    sens.addEventListener(ev, gate);
+    adult.addEventListener(ev, gate);
+  });
   btn.addEventListener('click', function(){
     var who = document.getElementById('who').value.trim();
     if (!who){ out.textContent = 'Type their name first.'; return; }
@@ -97,6 +131,7 @@
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
         team: o.loser, recipient_name: who,
+        sensitivity: parseInt(sens.value, 10),
         game_outcome: { loser: o.loser, winner: o.winner,
                         loser_score: o.ls, winner_score: o.ws }
       })
@@ -105,10 +140,14 @@
         btn.textContent = 'WRITE ANOTHER'; btn.disabled = false;
         if (d.generated_text){
           out.textContent = d.generated_text;
+          lastRoast = d.generated_text;
           // hand EVERYTHING to the send flow - its Game Day header
           // and checkout take over from here
           send.style.display = 'block';
-          send.href = '/send-a-smack?team=' + encodeURIComponent(o.loser)
+          send.href = '/send-a-smack?gameday=1'
+            + '&msg=' + encodeURIComponent(lastRoast)
+            + '&sens=' + encodeURIComponent(sens.value)
+            + '&team=' + encodeURIComponent(o.loser)
             + '&sport=' + encodeURIComponent(o.sport)
             + '&loser=' + encodeURIComponent(o.loser)
             + '&winner=' + encodeURIComponent(o.winner)

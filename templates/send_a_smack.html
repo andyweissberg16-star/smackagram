@@ -1429,6 +1429,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // scores. Stashed globally for the generate call, and announced
     // in a banner so the sender sees the roast will be about THIS
     // game, not the team in general.
+    // GAME DAY HANDOFF COMPLETE (Andy, Aug 7): the roast was written
+    // and approved on /game-day - this page's only remaining jobs are
+    // phone, consent and payment. The roast prefills, the generator
+    // card hides, and the view lands on the send section. Nothing
+    // reverts to the generic Smackagram generator.
+    if (_p.get('gameday') && _p.get('msg')) {
+      var outEl = document.getElementById('trashTalkOutput');
+      if (outEl) {
+        outEl.value = _p.get('msg');
+        outEl.dispatchEvent(new Event('input', {bubbles: true}));
+      }
+      var genB = document.getElementById('generateBtn');
+      if (genB) {
+        var genCard = genB.closest('.card') || genB.parentElement;
+        if (genCard) genCard.style.display = 'none';
+      }
+      setTimeout(function(){
+        var ph = document.getElementById('recipientPhone')
+                 || document.querySelector('input[type="tel"]');
+        if (ph) ph.scrollIntoView({behavior:'smooth', block:'center'});
+      }, 350);
+    }
     if (_p.get('loser')) {
       window.SMACK_OUTCOME = {
         loser: _p.get('loser'), winner: _p.get('winner') || '',
