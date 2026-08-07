@@ -1,0 +1,70 @@
+<style>
+  .fader{padding:4px 0 0;}
+  .fader-scale{display:flex; justify-content:space-between; margin-bottom:10px;}
+  .fader-tick{font-family:'JetBrains Mono',monospace; font-size:10px;
+    font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
+    color:#5F5E5A; cursor:pointer; transition:color .15s ease;}
+  .fader-tick.on{color:var(--heat, #E01B24);}
+  .fader-input{-webkit-appearance:none; appearance:none; width:100%;
+    height:8px; border-radius:4px; margin:0 0 14px; cursor:pointer;
+    background:linear-gradient(to right,#E01B24 0%,#F03A18 22%,#FF6B14 45%,#FF9F0A 72%,#FFD400 100%);}
+  .fader-input::-webkit-slider-thumb{-webkit-appearance:none; appearance:none;
+    width:18px; height:30px; border-radius:4px; background:#F5F5F3;
+    border:3px solid var(--heat, #E01B24); cursor:grab;
+    box-shadow:0 0 14px var(--heat-glow, rgba(224,27,36,0.5));}
+  .fader-input::-moz-range-thumb{width:18px; height:30px; border-radius:4px;
+    background:#F5F5F3; border:3px solid var(--heat, #E01B24); cursor:grab;
+    box-shadow:0 0 14px var(--heat-glow, rgba(224,27,36,0.5));}
+  .fader-input:focus-visible{outline:2px solid #E01B24; outline-offset:4px;}
+  .fader-readout{background:#0E0E10; border:1px solid #2A2C30;
+    border-radius:8px; padding:12px 14px;}
+  .fader-level{display:block; font-family:'Anton',sans-serif; font-size:19px;
+    text-transform:uppercase; color:var(--heat, #E01B24); line-height:1;}
+  .fader-desc{display:block; font-size:13px; color:#9A9A96; line-height:1.5; margin-top:5px;}
+</style>
+<div id="sensFader"></div>
+<script>
+(function(){
+  window.SmackFader = function(onChange){
+    var container = document.getElementById('sensFader');
+    var selected = 4;
+    fetch('/api/sensitivity-levels').then(function(r){return r.json();})
+      .then(function(levels){
+        var keys = Object.keys(levels).map(Number).sort(function(a,b){return a-b;});
+        var display = keys.slice().reverse();
+        var ticks = display.map(function(k){
+          return '<span class="fader-tick" data-level="'+k+'">'+levels[k].label+'</span>';
+        }).join('');
+        container.innerHTML =
+          '<div class="fader"><div class="fader-scale">'+ticks+'</div>'+
+          '<input type="range" id="intensityRange" class="fader-input" min="'+keys[0]+
+          '" max="'+keys[keys.length-1]+'" step="1" style="direction:rtl;" value="'+selected+
+          '" aria-label="How hard should Smacky go"><div class="fader-readout">'+
+          '<span class="fader-level" id="faderLevel"></span>'+
+          '<span class="fader-desc" id="faderDesc"></span></div></div>';
+        var range=document.getElementById('intensityRange');
+        var levelEl=document.getElementById('faderLevel');
+        var descEl=document.getElementById('faderDesc');
+        var tickEls=Array.prototype.slice.call(container.querySelectorAll('.fader-tick'));
+        var HEAT={4:'#E8142C',3:'#FF6B14',2:'#FF9F0A',1:'#FFD400'};
+        var GLOW={4:'rgba(232,20,44,0.55)',3:'rgba(255,107,20,0.5)',
+                  2:'rgba(255,159,10,0.45)',1:'rgba(255,212,0,0.4)'};
+        function apply(v){
+          selected=parseInt(v,10);
+          levelEl.textContent=levels[selected].label;
+          descEl.textContent=levels[selected].description;
+          tickEls.forEach(function(t){
+            t.classList.toggle('on',parseInt(t.dataset.level,10)===selected);});
+          var f=range.closest('.fader');
+          f.style.setProperty('--heat',HEAT[selected]||'#E8142C');
+          f.style.setProperty('--heat-glow',GLOW[selected]||'rgba(224,27,36,0.55)');
+          range.style.setProperty('--heat',HEAT[selected]||'#E8142C');
+          if(onChange) onChange(selected);
+        }
+        range.addEventListener('input',function(){apply(range.value);});
+        apply(selected);
+      });
+    return function(){return selected;};
+  };
+})();
+</script>

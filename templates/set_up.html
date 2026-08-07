@@ -27,7 +27,7 @@
   .hero .sub{color:#C9CDD2; font-size:15px;}
   .hero .when{font-family:'JetBrains Mono',monospace; font-size:12px;
         color:var(--silver); margin-top:8px; letter-spacing:1px;}
-  .card{margin-top:22px; border:1px solid #2A2C30; border-radius:14px;
+  .card{margin-top:22px; border:2px solid var(--silver); border-radius:14px;
         padding:22px; background:#121214;}
   .card label{display:block; font-size:13px; color:var(--dim); margin:14px 0 6px;
         font-family:'Anton',sans-serif; letter-spacing:0.5px;}
@@ -69,7 +69,7 @@
     <input id="who" placeholder="e.g. Dave" autocomplete="off">
 
     <label>How hard should Smacky go?</label>
-    <div id="sensMeter" class="meter"></div>
+    {% include "_fader.html" %}
 
     <label for="phone">Their phone number</label>
     <input id="phone" type="tel" inputmode="tel" placeholder="1 (555) 555-5555">
@@ -118,27 +118,9 @@
         day:'numeric', hour:'numeric', minute:'2-digit'});
   }
 
-  // sensitivity meter - same source as every other generator
-  var sensVal = '', meter = document.getElementById('sensMeter');
-  fetch('/api/sensitivity-levels').then(function(r){return r.json();})
-    .then(function(d){
-      (d.levels || d || []).forEach(function(lv){
-        var b=document.createElement('button'); b.type='button';
-        b.textContent=(lv.value||lv.level||'')+' \u00B7 '+(lv.label||lv.name||'');
-        b.onclick=function(){ sensVal=String(lv.value||lv.level);
-          meter.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});
-          b.classList.add('on'); gate(); };
-        meter.appendChild(b);
-      });
-    }).catch(function(){
-      [1,2,3,4].forEach(function(v){
-        var b=document.createElement('button'); b.type='button'; b.textContent=String(v);
-        b.onclick=function(){ sensVal=String(v);
-          meter.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});
-          b.classList.add('on'); gate(); };
-        meter.appendChild(b);
-      });
-    });
+  // SHARED FADER - identical to the Smackagram generator
+  var sensVal = '4';
+  window.SmackFader(function(v){ sensVal = String(v); gate(); });
 
   var btn = document.getElementById('armBtn'), out = document.getElementById('out');
   function gate(){

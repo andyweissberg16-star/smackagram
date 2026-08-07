@@ -24,7 +24,7 @@
         line-height:1.05; margin:6px 0 4px; text-transform:uppercase;}
   .hero h1 .score{color:var(--flare);}
   .hero .sub{color:#C9CDD2; font-size:15px;}
-  .card{margin-top:22px; border:1px solid #2A2C30; border-radius:14px;
+  .card{margin-top:22px; border:2px solid var(--flare); border-radius:14px;
         padding:22px; background:#121214;}
   .card label{display:block; font-size:13px; color:var(--dim); margin:14px 0 6px;}
   .meter{display:flex; gap:8px; margin-top:4px;}
@@ -73,7 +73,7 @@
     <label for="who">Who's getting smacked? (their first name)</label>
     <input id="who" placeholder="e.g. Dave" autocomplete="off">
     <label>How hard should Smacky go?</label>
-    <div id="sensMeter" class="meter"></div>
+    {% include "_fader.html" %}
     <label for="phone" style="margin-top:16px;">Their phone number</label>
     <input id="phone" type="tel" inputmode="tel" placeholder="1 (555) 555-5555">
     <label class="consent-row" for="adult">
@@ -82,7 +82,7 @@
     </label>
     <label class="consent-row" for="know">
       <input type="checkbox" id="know">
-      <span>I know this person. This is a prank between friends, and the call is recorded.</span>
+      <span>I know this person, and this is a prank between friends.</span>
     </label>
     <label class="consent-row" for="terms">
       <input type="checkbox" id="terms">
@@ -122,36 +122,11 @@
       out = document.getElementById('out'),
       send = document.getElementById('sendBtn'),
       adult = document.getElementById('adult'),
-      lastRoast = '', sensVal = '';
-  // THE METER - same levels the Smackagram generator uses, same
-  // red-on-black pills, built from /api/sensitivity-levels.
-  var meter = document.getElementById('sensMeter');
-  fetch('/api/sensitivity-levels').then(function(r){return r.json();})
-    .then(function(d){
-      (d.levels || d || []).forEach(function(lv){
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.textContent = (lv.value || lv.level || '') + ' \u00B7 '
-                        + (lv.label || lv.name || '');
-        b.addEventListener('click', function(){
-          sensVal = String(lv.value || lv.level);
-          meter.querySelectorAll('button').forEach(function(x){
-            x.classList.remove('on');});
-          b.classList.add('on'); gate();
-        });
-        meter.appendChild(b);
-      });
-    }).catch(function(){
-      [1,2,3,4].forEach(function(v){
-        var b=document.createElement('button'); b.type='button';
-        b.textContent=String(v);
-        b.addEventListener('click',function(){ sensVal=String(v);
-          meter.querySelectorAll('button').forEach(function(x){
-            x.classList.remove('on');});
-          b.classList.add('on'); gate(); });
-        meter.appendChild(b);
-      });
-    });
+      lastRoast = '';
+  // SHARED FADER - identical control to the Smackagram generator
+  // (Brutal/Ruthless/Cocky/Friendly, savage-on-left, heat gradient).
+  var sensVal = '4';
+  window.SmackFader(function(v){ sensVal = String(v); gate(); });
   // GENERATE UNLOCKS only with name + sensitivity + 18-plus - the
   // full gate on page one, per Andy's spec.
   function gate(){
