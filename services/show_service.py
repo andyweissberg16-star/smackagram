@@ -918,13 +918,24 @@ def write_script(material: dict, only_league: str = None,
     # each game with the depth it earned.
     by_league = {}
     for g in material["games"]:
-        by_league.setdefault(g["league"], []).append(g)
+        # KEY NORMALIZED TO UPPER (Aug 7, David's second dry run): keys
+        # here were the feeds' raw labels while the blocks loop below
+        # checks LEAGUE_ORDER's uppercase - a lowercase "nfl" key meant
+        # the NFL writer's prompt carried ZERO games, and a writer with
+        # an empty slate improvised baseball from surrounding material.
+        by_league.setdefault((g.get("league") or "").upper(), []).append(g)
 
     if only_league:
         # Case-insensitive - an exact compare left this EMPTY: a league
         # writer with no games in its prompt.
         by_league = {k: v for k, v in by_league.items()
                      if k.upper() == only_league.upper()}
+        if not any(by_league.values()):
+            # NO GAMES, NO WRITER. An empty prompt is an invitation to
+            # invent - the exact failure of the fake-NFL segments.
+            print(f"[show] {only_league}: zero games after filtering - "
+                  f"writer skipped entirely", flush=True)
+            return {"segments": []}
 
     # THE LAYOUT decides which games go where, in code, before the writer
     # sees anything. Structure decided by the model is structure that cannot
