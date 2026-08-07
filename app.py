@@ -6593,6 +6593,9 @@ def api_current_show():
     # must always ask fresh; the payload is 300 bytes.
     resp = jsonify({
         "live": True,
+        # The episode number the show already announces in its logs
+        # ("published #37") - the player wants it on the front too.
+        "episode": show.id,
         "audio_url": show.audio_url,
         "date_label": show.date_label,
         "minutes": show.minutes,

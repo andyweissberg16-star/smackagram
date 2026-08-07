@@ -41,101 +41,188 @@
 
   /* ---- Player ---- */
   #onAirBar{
-    position:relative; overflow:hidden;
-    background:linear-gradient(165deg,#1C0A0B 0%,#0D0D0D 58%);
-    border:2px solid var(--flare); border-radius:12px;
-    box-shadow:0 0 34px rgba(224,27,36,0.3); margin-bottom:16px;
+    /* PURE BLACK DECK, NEON BLINKING FRAME - Andy's spec. The grey
+       gradient and scanline texture are gone: the console is black,
+       and the box itself is the neon - a red border that breathes
+       between hot and dim like a sign, with the glow pulsing in step.
+       Steady burn for reduced-motion users. */
+    position:relative; margin:26px 0 8px; border-radius:16px;
+    background:#0A0A0B;
+    border:3px solid var(--flare);
+    box-shadow:0 0 18px rgba(232,20,44,0.55),
+               0 0 46px rgba(232,20,44,0.3),
+               inset 0 0 22px rgba(232,20,44,0.12);
+    animation:ds-frame 2.4s ease-in-out infinite;
+    overflow:hidden;
   }
-  #onAirBar[hidden]{display:none;}
-  #onAirBar::after{
-    content:''; position:absolute; left:0; right:0; bottom:0; height:55%;
-    background:radial-gradient(ellipse at 50% 125%, rgba(224,27,36,0.28), transparent 62%);
-    pointer-events:none;
+  @keyframes ds-frame{
+    0%,100%{
+      border-color:var(--flare);
+      box-shadow:0 0 18px rgba(232,20,44,0.55),
+                 0 0 46px rgba(232,20,44,0.3),
+                 inset 0 0 22px rgba(232,20,44,0.12);
+    }
+    50%{
+      border-color:#FF4A5E;
+      box-shadow:0 0 30px rgba(232,20,44,0.9),
+                 0 0 70px rgba(232,20,44,0.5),
+                 inset 0 0 30px rgba(232,20,44,0.2);
+    }
   }
-  #onAirBar > *{position:relative; z-index:1;}
-
+  @media (prefers-reduced-motion:reduce){
+    #onAirBar{animation:none;}
+  }
+  /* THE NEON SIGN - restored after the black-deck edit swallowed it
+     (the sign's CSS lived between the two anchors that edit replaced;
+     the markup survived unstyled, which the ship-check caught). */
+  .ds-marquee{
+    display:flex; justify-content:center; padding:22px 20px 4px;
+  }
+  .ds-neon{
+    font-family:'Anton',sans-serif;
+    font-size:clamp(30px,4.2vw,54px);
+    letter-spacing:3px; text-transform:uppercase;
+    color:#FF4A5E; text-align:center; line-height:1;
+    padding:10px 26px;
+    border:3px solid rgba(232,20,44,0.85); border-radius:14px;
+    text-shadow:
+      0 0 6px rgba(232,20,44,0.9),
+      0 0 18px rgba(232,20,44,0.7),
+      0 0 42px rgba(232,20,44,0.45);
+    box-shadow:
+      0 0 12px rgba(232,20,44,0.5),
+      inset 0 0 14px rgba(232,20,44,0.28);
+    animation:ds-flicker 7s linear infinite;
+  }
+  @keyframes ds-flicker{
+    0%,100%{opacity:1;}
+    3%{opacity:0.6;} 3.6%{opacity:1;}
+    4.1%{opacity:0.4;} 4.5%{opacity:1;}
+    47%{opacity:1;} 47.4%{opacity:0.75;} 47.9%{opacity:1;}
+    81%{opacity:1;} 81.3%{opacity:0.5;} 81.8%{opacity:1;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    
+  }
   .ds-head{
-    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
-    padding:11px 20px; background:rgba(224,27,36,0.09);
-    border-bottom:1px solid rgba(224,27,36,0.26);
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    padding:14px 20px 10px;
+    border-bottom:1px solid rgba(245,245,243,0.07);
   }
-  /* Two blinks, then a rest. A steady on/off reads as broken and nags; this
-     reads as a signal being sent. */
-  .ds-sign{display:inline-flex; align-items:center; gap:9px; animation:dsBlink 2.4s ease-in-out infinite;}
-  @keyframes dsBlink{
-    0%,8%{opacity:1} 9%,17%{opacity:.2} 18%,26%{opacity:1}
-    27%,35%{opacity:.2} 36%,100%{opacity:1}
+  .ds-sign{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:6px 13px; border-radius:999px;
+    border:1px solid var(--flare);
+    box-shadow:0 0 14px rgba(232,20,44,0.55),
+               inset 0 0 8px rgba(232,20,44,0.28);
   }
-  .ds-sign-dot{width:9px; height:9px; border-radius:50%; background:var(--flare); box-shadow:0 0 12px var(--flare);}
-  .ds-sign-txt{font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:800; letter-spacing:3px; color:var(--flare);}
-  .ds-meta{margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:1.6px; color:var(--chalk-dim);}
-
-  .ds-body{padding:22px 24px 16px;}
-  .ds-top{display:flex; align-items:center; gap:18px; margin-bottom:18px;}
+  .ds-sign-dot{
+    width:9px; height:9px; border-radius:50%;
+    background:var(--flare);
+    box-shadow:0 0 8px var(--flare);
+    animation:ds-blink 1.5s ease-in-out infinite;
+  }
+  @keyframes ds-blink{0%,100%{opacity:1;}50%{opacity:0.35;}}
+  .ds-sign-txt{
+    font-family:'Anton',sans-serif; font-size:13px;
+    letter-spacing:2.5px; color:var(--chalk);
+  }
+  .ds-wordmark{
+    font-family:'Anton',sans-serif; font-size:15px;
+    letter-spacing:1.6px; color:var(--chalk);
+  }
+  .ds-wordmark b{color:var(--flare); font-weight:400;}
+  .ds-meta{
+    margin-left:auto; display:flex; align-items:center; gap:8px;
+    flex-wrap:wrap;
+  }
+  .ds-chip{
+    font-family:'JetBrains Mono',monospace; font-size:11px;
+    letter-spacing:0.8px; color:var(--chalk-dim);
+    border:1px solid rgba(245,245,243,0.16); border-radius:6px;
+    padding:4px 9px; text-transform:uppercase; white-space:nowrap;
+  }
+  .ds-chip.hot{
+    color:#fff; border-color:var(--flare);
+    background:rgba(232,20,44,0.16);
+    box-shadow:0 0 10px rgba(232,20,44,0.25);
+  }
+  .ds-body{padding:18px 20px 6px;}
+  .ds-top{display:flex; align-items:center; gap:18px;}
   .ds-play{
-    width:64px; height:64px; border-radius:50%; flex-shrink:0;
-    background:var(--flare); border:none; color:#fff; cursor:pointer;
-    font-size:20px; display:grid; place-items:center;
-    box-shadow:0 0 26px rgba(224,27,36,0.5);
+    width:74px; height:74px; min-width:74px; border-radius:50%;
+    border:none; cursor:pointer; position:relative;
+    background:radial-gradient(circle at 32% 30%, #FF4A5E, var(--flare) 62%);
+    color:#fff; font-size:26px; display:flex; align-items:center;
+    justify-content:center;
+    box-shadow:0 0 22px rgba(232,20,44,0.65),
+               0 6px 16px rgba(0,0,0,0.5);
+    transition:transform 0.12s ease;
   }
-  .ds-play:hover{transform:scale(1.05);}
-  .ds-eyebrow{font-family:'JetBrains Mono',monospace; font-size:9.5px; letter-spacing:3px; color:var(--muted-2); text-transform:uppercase; margin:0 0 6px;}
-  .ds-quote{font-size:18px; line-height:1.45; color:var(--chalk); font-weight:500; margin:0;}
-
-  .ds-canvas{display:block; width:100%; height:70px; margin-bottom:14px;}
-  .ds-controls{display:flex; align-items:center; gap:12px;}
-  .ds-track{flex:1; height:5px; border-radius:3px; background:rgba(255,255,255,0.1); cursor:pointer; overflow:hidden;}
-  .ds-fill{height:100%; width:0; background:var(--flare); border-radius:3px;}
-  .ds-time{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--chalk-dim); min-width:38px;}
+  .ds-play:hover{transform:scale(1.06);}
+  .ds-play::after{ /* idle pulse ring, stops once playing */
+    content:""; position:absolute; inset:-6px; border-radius:50%;
+    border:2px solid rgba(232,20,44,0.5);
+    animation:ds-ring 2.2s ease-out infinite;
+  }
+  .ds-play.playing::after{animation:none; opacity:0;}
+  @keyframes ds-ring{
+    0%{transform:scale(0.9); opacity:0.9;}
+    100%{transform:scale(1.35); opacity:0;}
+  }
+  #oaIcon{transform:translateX(2px);}
+  .ds-play.playing #oaIcon{transform:none;}
+  .ds-eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:11px;
+    letter-spacing:2px; text-transform:uppercase;
+    color:var(--flare); margin:0 0 5px;
+  }
+  .ds-quote{
+    font-family:'Anton',sans-serif; font-size:clamp(19px,2.1vw,27px);
+    line-height:1.2; color:var(--chalk); margin:0;
+    text-shadow:0 2px 12px rgba(0,0,0,0.6);
+  }
+  .ds-canvas{
+    display:block; width:100%; height:96px; margin:16px 0 4px;
+    cursor:pointer;      /* the waveform IS the scrubber */
+  }
+  .ds-controls{
+    display:flex; align-items:center; gap:14px; padding-bottom:14px;
+  }
+  .ds-time{
+    font-family:'JetBrains Mono',monospace; font-size:13px;
+    color:var(--chalk); min-width:44px; letter-spacing:0.5px;
+  }
+  .ds-track{
+    flex:1; height:6px; border-radius:3px; cursor:pointer;
+    background:rgba(245,245,243,0.12); position:relative;
+  }
+  .ds-fill{
+    height:100%; width:0%; border-radius:3px;
+    background:linear-gradient(90deg, #8E0E1C, var(--flare));
+    box-shadow:0 0 10px rgba(232,20,44,0.55);
+    position:relative;
+  }
+  .ds-fill::after{ /* playhead dot */
+    content:""; position:absolute; right:-6px; top:50%;
+    transform:translateY(-50%);
+    width:14px; height:14px; border-radius:50%;
+    background:#fff;
+    box-shadow:0 0 10px rgba(232,20,44,0.9);
+  }
+  .ds-speed{
+    font-family:'JetBrains Mono',monospace; font-size:12px;
+    color:var(--chalk-dim); background:transparent;
+    border:1px solid rgba(245,245,243,0.2); border-radius:6px;
+    padding:5px 11px; cursor:pointer; letter-spacing:0.5px;
+    min-width:52px;
+  }
+  .ds-speed:hover{color:#fff; border-color:var(--flare);}
   .ds-foot{
-    font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.8px;
-    text-transform:uppercase; color:#5A5555; padding:11px 24px;
-    border-top:1px solid rgba(255,255,255,0.07);
+    padding:11px 20px; font-size:12px; color:var(--chalk-dim);
+    border-top:1px solid rgba(245,245,243,0.07);
+    font-family:'Inter',sans-serif;
   }
-
-  .explicit-note{
-    display:flex; align-items:center; gap:9px; flex-wrap:wrap;
-    margin:14px 0 0; font-size:12.5px; color:var(--chalk-dim); line-height:1.4;
-  }
-  .explicit-tag{
-    flex:0 0 auto; font-family:'JetBrains Mono',monospace; font-size:10px;
-    font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
-    color:var(--chalk); background:var(--ink-2);
-    border:1px solid var(--line-strong); border-radius:4px; padding:3px 7px;
-  }
-  @media(max-width:420px){ .explicit-note{font-size:11.5px; gap:7px;} }
-
-  #noShow{
-    border:1px dashed var(--line); border-radius:12px; padding:36px 24px;
-    text-align:center; color:var(--muted-2); font-size:14px;
-  }
-
-  /* ---- Explainer ---- */
-  .how{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:30px 0;}
-  .how div{background:var(--ink-2); border:1px solid var(--line); border-radius:10px; padding:18px;}
-  .how p:first-child{
-    font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2px;
-    color:var(--flare); text-transform:uppercase; margin:0 0 8px;
-  }
-  .how p:last-child{font-size:13.5px; color:var(--chalk-dim); line-height:1.55; margin:0;}
-  @media(max-width:680px){ .how{grid-template-columns:1fr;} }
-
-  h2{
-    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:2.5px;
-    text-transform:uppercase; color:var(--muted-2); margin:34px 0 12px;
-  }
-  .ep{
-    background:var(--ink-2); border:1px solid var(--line); border-radius:10px;
-    padding:14px 16px; margin-bottom:8px; display:flex; align-items:center;
-    gap:14px; flex-wrap:wrap; cursor:pointer;
-  }
-  .ep:hover{border-color:var(--flare);}
-  .ep-play{color:var(--flare); font-size:14px; flex-shrink:0;}
-  .ep-main{flex:1; min-width:200px;}
-  .ep-date{font-size:14px; font-weight:600; color:var(--chalk);}
-  .ep-line{font-size:12.5px; color:var(--muted-2); margin-top:3px; line-height:1.45;}
-  .ep-meta{font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted-2); white-space:nowrap;}
-  @media(prefers-reduced-motion:reduce){ .ds-sign{animation:none;} }
 </style>
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 </head>
@@ -170,11 +257,15 @@
   </div>
 
   <div id="onAirBar" hidden>
+    <div class="ds-marquee">
+      <span class="ds-neon">The Daily Smack</span>
+    </div>
     <div class="ds-head">
       <span class="ds-sign">
         <span class="ds-sign-dot"></span>
         <span class="ds-sign-txt">ON AIR</span>
       </span>
+      <span class="ds-wordmark">SMACK<b>AGRAM</b> STUDIOS</span>
       <span class="ds-meta" id="dsMeta"></span>
     </div>
 
@@ -184,7 +275,7 @@
           <span id="oaIcon">&#9654;</span>
         </button>
         <div>
-          <p class="ds-eyebrow">Today&rsquo;s episode</p>
+          <p class="ds-eyebrow">Fresh out of the studio</p>
           <p class="ds-quote" id="dsQuote">Last night&rsquo;s scores. Roasted.</p>
         </div>
       </div>
@@ -197,6 +288,8 @@
         <span class="ds-time" id="oaTime">&mdash;</span>
         <div class="ds-track" id="oaTrack"><div class="ds-fill" id="oaFill"></div></div>
         <span class="ds-time" id="oaDur">&mdash;</span>
+        <button type="button" class="ds-speed" id="oaSpeed"
+                aria-label="Playback speed">1x</button>
       </div>
     </div>
 
@@ -264,14 +357,48 @@
       if (!d.live || !d.audio_url) { noShow.hidden = false; return; }
       audio.src = d.audio_url;
       if (d.best_line) quote.textContent = '\u201C' + d.best_line + '\u201D';
-      var bits = [];
-      if (d.date_label) bits.push(d.date_label);
-      if (d.leagues) bits.push(d.leagues);
-      if (d.game_count) bits.push(d.game_count + ' games');
-      meta.textContent = bits.join(' \u00B7 ');
+      // Chips, not a sentence - EP number hot in red, the leagues
+      // as their own badges, the coverage numbers in mono.
+      meta.innerHTML = '';
+      function chip(txt, hot) {
+        var el = document.createElement('span');
+        el.className = 'ds-chip' + (hot ? ' hot' : '');
+        el.textContent = txt;
+        meta.appendChild(el);
+      }
+      if (d.episode) chip('EP ' + d.episode, true);
+      if (d.date_label) chip(d.date_label);
+      (d.leagues || '').split(',').forEach(function (lg) {
+        lg = lg.trim();
+        if (lg) chip(lg.toUpperCase());
+      });
+      if (d.game_count) chip(d.game_count + ' GAMES');
+      if (d.minutes) chip(d.minutes + ' MIN');
       bar.hidden = false;
       sizeCanvas();
       drawFlat();
+      // Speed: 1x -> 1.5x -> 2x -> back. A 7.9-minute show at 2x is
+      // four minutes with coffee.
+      var speeds = [1, 1.5, 2], spIx = 0;
+      var spBtn = document.getElementById('oaSpeed');
+      if (spBtn) spBtn.addEventListener('click', function () {
+        spIx = (spIx + 1) % speeds.length;
+        audio.playbackRate = speeds[spIx];
+        spBtn.textContent = speeds[spIx] + 'x';
+      });
+      // The waveform is the scrubber too - click anywhere on it.
+      canvas.addEventListener('click', function (ev) {
+        if (!audio.duration) return;
+        var r = canvas.getBoundingClientRect();
+        audio.currentTime = ((ev.clientX - r.left) / r.width)
+                            * audio.duration;
+      });
+      audio.addEventListener('play', function () {
+        btn.classList.add('playing');
+      });
+      audio.addEventListener('pause', function () {
+        btn.classList.remove('playing');
+      });
 
       var sb = document.getElementById('shareShow');
       if (sb) {
@@ -369,38 +496,56 @@
 
   var raf = null, t = 0;
   function drawFlat() {
-    var w = canvas.offsetWidth, h = 70;
+    var w = canvas.offsetWidth, h = canvas.offsetHeight || 96;
+    canvas.width = w; canvas.height = h;
     ctx.clearRect(0, 0, w, h);
-    ctx.strokeStyle = 'rgba(224,27,36,0.25)';
+    ctx.strokeStyle = 'rgba(232,20,44,0.3)';
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke();
   }
   function draw() {
-    var w = canvas.offsetWidth, h = 70, mid = h/2;
+    // MIRRORED BARS - the broadcast look. Each bar reads the real
+    // spectrum when the analyser is allowed (same-origin audio), and
+    // rides a layered sine "voice" when S3's cross-origin rules say
+    // no - either way the deck never sits dead while Smacky talks.
+    var w = canvas.offsetWidth, h = canvas.offsetHeight || 96;
+    if (canvas.width !== w) { canvas.width = w; canvas.height = h; }
+    var mid = h / 2;
     ctx.clearRect(0, 0, w, h);
-    var g = ctx.createLinearGradient(0, 0, w, 0);
-    g.addColorStop(0, 'rgba(224,27,36,0)');
-    g.addColorStop(0.06, 'rgba(224,27,36,1)');
-    g.addColorStop(0.94, 'rgba(224,27,36,1)');
-    g.addColorStop(1, 'rgba(224,27,36,0)');
-    ctx.strokeStyle = g; ctx.lineWidth = 2; ctx.lineJoin = 'round';
-    ctx.beginPath();
-    if (useReal && analyser) {
-      analyser.getByteTimeDomainData(data);
-      var step = data.length / w;
-      for (var x = 0; x < w; x++) {
-        var v = (data[Math.floor(x * step)] - 128) / 128;
-        var y = mid + v * (mid - 3) * 1.9;
-        x ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    var BAR = 4, GAP = 3, n = Math.floor(w / (BAR + GAP));
+    var played = (audio.duration
+                  ? audio.currentTime / audio.duration : 0) * n;
+    if (useReal && analyser) analyser.getByteTimeDomainData(data);
+    t += 0.13;
+    for (var b = 0; b < n; b++) {
+      var amp;
+      if (useReal && analyser) {
+        var ix = Math.floor(b * data.length / n);
+        amp = Math.abs((data[ix] - 128) / 128);
+      } else {
+        amp = Math.abs(
+          Math.sin(b * 0.31 + t) * 0.55
+          + Math.sin(b * 0.087 + t * 1.7) * 0.3
+          + Math.sin(t * 3.1 + b) * 0.15);
       }
-    } else {
-      t += 0.11;
-      for (var x2 = 0; x2 <= w; x2 += 2) {
-        var a = Math.sin(x2*0.05 + t) * Math.sin(x2*0.011 + t*0.6) * (mid - 6);
-        x2 ? ctx.lineTo(x2, mid + a) : ctx.moveTo(x2, mid + a);
+      var bh = Math.max(3, amp * (mid - 4) * 1.9);
+      var x = b * (BAR + GAP);
+      var isPlayed = b < played;
+      // played bars burn red with glow; the road ahead is silver
+      ctx.shadowBlur = isPlayed ? 8 : 0;
+      ctx.shadowColor = 'rgba(232,20,44,0.8)';
+      ctx.fillStyle = isPlayed
+        ? 'rgba(232,20,44,0.95)'
+        : 'rgba(195,202,211,0.28)';
+      ctx.fillRect(x, mid - bh, BAR, bh * 2);
+      // white peak cap on the loud played bars
+      if (isPlayed && bh > mid * 0.55) {
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.fillRect(x, mid - bh - 2, BAR, 2);
       }
     }
-    ctx.stroke();
+    ctx.shadowBlur = 0;
     raf = requestAnimationFrame(draw);
   }
 
