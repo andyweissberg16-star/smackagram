@@ -5086,7 +5086,11 @@ def check_if_smacked():
 
     all_matches = [r for r in (delivered_orders + fired_smackagrams) if matches(r.recipient_phone)]
     if not all_matches:
-        return jsonify({"found": False, "items": []})
+        # NEUTRAL (handoff 4c-b): the no-match answer is IDENTICAL to
+        # the unverified-match answer, so this form cannot be used to
+        # discover who got smacked. Verification is where truth lives:
+        # a verified no-match user simply sees an empty locker.
+        return jsonify({"found": True, "verified": False})
 
     all_matches.sort(key=lambda r: r.created_at, reverse=True)
 
@@ -5105,7 +5109,7 @@ def check_if_smacked():
     if not is_verified:
         # Teaser only - enough for the frontend to show something
         # enticing is there, without exposing any actual content.
-        return jsonify({"found": True, "verified": False, "count": len(all_matches)})
+        return jsonify({"found": True, "verified": False})
 
     items = []
     for record in all_matches:
@@ -5157,22 +5161,36 @@ def api_verify_phone_send():
     if recent and recent.created_at > datetime.utcnow() - timedelta(seconds=60):
         return jsonify({"error": "Please wait a moment before requesting another code."}), 429
 
-    code = f"{secrets.randbelow(1000000):06d}"
-    verification = PhoneVerificationCode(
-        user_id=user.id,
-        phone_digits=phone_digits,
-        code=code,
-        expires_at=datetime.utcnow() + timedelta(minutes=10),
-    )
-    db.session.add(verification)
-
-    try:
-        twilio_service.send_sms(raw_phone, f"Your Smackagram verification code is {code}. It expires in 10 minutes.")
-    except Exception as e:
-        db.session.rollback()
-        print(f"[verify-phone] failed to send code: {e}")
-        return jsonify({"error": "Couldn't send a verification text to that number — please double-check it and try again."}), 400
-
+# PHASE 2 OF THE HANDOFF - three fixes in one block:
+    # DB GATE: an OTP goes out ONLY if this number actually received
+    # a smack (recipient_phone on either table). Without this the
+    # form is an open "text any number on earth" endpoint - the
+    # primary fraud control. NEUTRAL: match or not, the response is
+    # identical, so the form cannot be used to discover who got
+    # smacked. VERIFY: Twilio Verify sends the code (registered pool,
+    # Fraud Guard, no A2P dependency) - no homegrown codes, no raw
+    # send_sms to user-typed numbers, ever. channel="voice" reads
+    # the code aloud for landline/VoIP recipients.
+    _last10 = phone_digits[-10:]
+    _match = (Order.query.filter(
+                  Order.recipient_phone.like(f"%{_last10}")).first()
+              or Smackagram.query.filter(
+                  Smackagram.recipient_phone.like(f"%{_last10}")).first())
+    _channel = "voice" if (data.get("channel") == "voice") else "sms"
+    if _match:
+        try:
+            from services import verify_service
+            verify_service.start_verification(raw_phone, channel=_channel)
+        except Exception as e:
+            print(f"[verify-phone] verify send failed: {e}", flush=True)
+    else:
+        print(f"[verify-phone] no smack on record for that number - "
+              f"neutral response, nothing sent", flush=True)
+    # the row doubles as the rate-limit log either way
+    db.session.add(PhoneVerificationCode(
+        user_id=user.id, phone_digits=phone_digits,
+        code="VERIFY",
+        expires_at=datetime.utcnow() + timedelta(minutes=10)))
     db.session.commit()
     return jsonify({"ok": True})
 
@@ -5198,7 +5216,16 @@ def api_verify_phone_confirm():
     verification = PhoneVerificationCode.query.filter_by(user_id=user.id, phone_digits=phone_digits).order_by(PhoneVerificationCode.created_at.desc()).first()
     if not verification or verification.expires_at < datetime.utcnow():
         return jsonify({"error": "That code has expired — request a new one."}), 400
-    if verification.code != code:
+    # Verify owns the answer now; the stored row is only the rate log.
+    from services import verify_service
+    try:
+        _ok = verify_service.check_verification(
+            "+" + phone_digits if not phone_digits.startswith("+")
+            else phone_digits, code)
+    except Exception as _e:
+        print(f"[verify-phone] check errored: {_e}", flush=True)
+        _ok = False
+    if not _ok:
         return jsonify({"error": "That code doesn't match — double-check it and try again."}), 400
 
     already_verified = VerifiedPhone.query.filter_by(user_id=user.id, phone_digits=phone_digits).first()
