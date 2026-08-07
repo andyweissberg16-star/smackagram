@@ -1340,27 +1340,11 @@ def generate_trash_talk():
     last_reason = None
     for attempt in range(3):
         try:
-            # THE OUTCOME HANDOFF: a SMACK THIS LOSS click on the board
-            # arrives carrying the finished game - so the roast is
-            # grounded in THAT loss via the same recap generator that
-            # powers Locked & Loaded fire-time calls, rather than a
-            # generic team roast.
-            _oc = data.get("game_outcome") or {}
-            if _oc.get("loser") and _oc.get("winner"):
-                _facts = [f"Final score: {_oc['loser']} lost "
-                          f"{_oc.get('loser_score','?')}-"
-                          f"{_oc.get('winner_score','?')} "
-                          f"to {_oc['winner']}"]
-                candidate = trash_talk_service.generate_game_recap_roast(
-                    team=team, recipient_name=recipient_name,
-                    key_facts=_facts, sensitivity=sensitivity,
-                )
-            else:
-                candidate = trash_talk_service.generate_trash_talk(
-                    team=team, recipient_name=recipient_name,
-                    sensitivity=sensitivity, roast_topics=roast_topics,
-                    from_team=from_team,
-                )
+            candidate = trash_talk_service.generate_trash_talk(
+                team=team, recipient_name=recipient_name,
+                sensitivity=sensitivity, roast_topics=roast_topics,
+                from_team=from_team,
+            )
         except Exception as e:
             print(f"[generate] generation failed (attempt {attempt + 1}): {e}")
             continue
@@ -4627,30 +4611,10 @@ def api_board(league):
         g["conference"] = chat_team_colors.conference_for_abbr(
             lg, (g.get("home") or {}).get("abbr"))
 
-    # LAST NIGHT'S DAMAGE (Andy, Aug 7): after the midnight-ET flip the
-    # board showed only the new slate, and yesterday's losers - the
-    # smackable ones - vanished at 9pm Pacific, mid-ribbing-window. The
-    # finals now stay served until 3PM EASTERN (noon Pacific: everyone's
-    # morning survives; by then the evening slate wants the screen).
-    damage = []
-    try:
-        from datetime import datetime as _dt, timedelta as _td, timezone as _tz
-        _now_et = _dt.now(_tz.utc) - _td(hours=4)
-        if _now_et.hour < 15:
-            from services import highlightly as _hl
-            if _hl.enabled():
-                _yday = (_now_et - _td(days=1)).strftime("%Y-%m-%d")
-                damage = [g for g in (_hl.board(lg, _yday) or [])
-                          if g.get("final")]
-    except Exception as _e:
-        print(f"[board] damage fetch failed for {lg}: {_e}", flush=True)
-
     return jsonify({
         "league": lg.upper(),
         "count": len(games),
         "live": sum(1 for g in games if g.get("live")),
-        "damage": damage,
-        "damage": damage,
         "games": games,
     })
 
