@@ -29,10 +29,11 @@ _NEEDS_CITY = ("nfl", "nba", "mlb", "nhl", "wnba")
 # conference keys and ncaab/ncaawb are deliberately absent: they're now built
 # from ncaa_d1 instead, which covers every Division I school rather than 67.
 _FROM_CHAT = ("nfl", "nba", "mlb", "nhl", "wnba",
-              "mls", "epl", "laliga", "bundesliga", "seriea")
+              "mls", "epl", "laliga", "bundesliga", "seriea", "world_cup")
 
 LEAGUE_LABELS = {
     "nfl": "NFL", "nba": "NBA", "mlb": "MLB", "nhl": "NHL", "wnba": "WNBA",
+    "world_cup": "World Cup",
     "mls": "MLS", "epl": "Premier League", "laliga": "La Liga",
     "bundesliga": "Bundesliga", "seriea": "Serie A",
 }

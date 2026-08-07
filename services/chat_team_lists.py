@@ -11,6 +11,20 @@
 # WNBA is complete (only ~13 teams).
 
 CHAT_LEAGUES = {
+    "world_cup": {
+        "ARG": "Argentina", "BRA": "Brazil", "FRA": "France",
+        "ENG": "England", "ESP": "Spain", "GER": "Germany",
+        "POR": "Portugal", "NED": "Netherlands", "ITA": "Italy",
+        "BEL": "Belgium", "CRO": "Croatia", "URU": "Uruguay",
+        "USA": "USA", "MEX": "Mexico", "CAN": "Canada",
+        "COL": "Colombia", "MAR": "Morocco", "JPN": "Japan",
+        "KOR": "South Korea", "SEN": "Senegal", "SUI": "Switzerland",
+        "DEN": "Denmark", "POL": "Poland", "SRB": "Serbia",
+        "WAL": "Wales", "AUS": "Australia", "GHA": "Ghana",
+        "CMR": "Cameroon", "ECU": "Ecuador", "NGA": "Nigeria",
+        "EGY": "Egypt", "SCO": "Scotland", "IRL": "Ireland",
+        "SWE": "Sweden", "NOR": "Norway", "AUT": "Austria",
+    },
     "nfl": {
         "ARI": "Cardinals", "ATL": "Falcons", "BAL": "Ravens", "BUF": "Bills",
         "CAR": "Panthers", "CHI": "Bears", "CIN": "Bengals", "CLE": "Browns",
