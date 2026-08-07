@@ -223,6 +223,11 @@
     border:1px solid var(--silver); cursor:pointer; white-space:nowrap;
     font-family:'Inter',sans-serif;}
   .btn-smack:hover{background:#c4101f;}
+  .damage-head{font-family:'Anton',sans-serif; font-size:17px;
+    letter-spacing:1.5px; color:var(--flare); margin:6px 0 10px;
+    display:flex; align-items:baseline; gap:12px;}
+  .damage-sub{font-family:'JetBrains Mono',monospace; font-size:11px;
+    color:#8A8F96; letter-spacing:0.5px; text-transform:uppercase;}
   .btn-arm:hover{background:rgba(195,202,211,0.1);}
 
   /* The buttons live inside a nested .actions div, so making THAT fill the
@@ -576,12 +581,22 @@ function actions(g){
     </div><span class="hint">SET UP →</span>`;
   }
 
-  const smackLabel = name ? `SMACK A ${esc(name.toUpperCase())} FAN` : "SMACK SOMEBODY";
+  const smackLabel = g.final && name
+      ? `SMACK THIS ${esc(name.toUpperCase())} LOSS`
+      : (name ? `SMACK A ${esc(name.toUpperCase())} FAN` : "SMACK SOMEBODY");
+  // outcome payload for finished games - winner, loser, both scores
+  const winner = loser ? (g.losing === "home" ? g.away : g.home) : null;
+  const outcome = (g.final && loser && winner)
+      ? ` data-loser="${esc(loser.nick || loser.abbr)}"`
+        + ` data-winner="${esc(winner.nick || winner.abbr)}"`
+        + ` data-ls="${esc(String(loser.score ?? ""))}"`
+        + ` data-ws="${esc(String(winner.score ?? ""))}"`
+      : "";
   const armBtn = (g.final || !loser) ? "" :
     `<button class="btn-arm" data-team="${esc(loser.nick || loser.abbr)}" data-sport="${esc(currentSport())}">SET UP THE FINAL</button>`;
 
   return `<div class="actions">
-      <button class="btn-smack" data-team="${esc(name || home)}" data-sport="${esc(currentSport())}">${smackLabel}</button>
+      <button class="btn-smack"${outcome} data-team="${esc(name || home)}" data-sport="${esc(currentSport())}">${smackLabel}</button>
       ${armBtn}
     </div><span class="hint">SMACK →</span>`;
 }
@@ -589,8 +604,22 @@ function actions(g){
 function render(data){
   const board = document.getElementById("board");
   const games = data.games || [];
+  // LAST NIGHT'S DAMAGE - yesterday's finals, served by the API until
+  // 3pm Eastern. Every one is a finished loss somebody deserves a call
+  // about; they render through the same card pipeline with a header,
+  // ABOVE today's slate so the freshest wounds sit on top.
+  const damage = data.damage || [];
 
   if (!games.length){
+  let damageHtml = "";
+  if (damage.length){
+    const cards = `<div class="board-grid">${damage.map(g => card(g)).join("")}</div>`;
+    damageHtml = `<div class="damage-head">LAST NIGHT'S DAMAGE
+        <span class="damage-sub">still smackable &middot; clears 3pm ET</span></div>
+      ${cards}
+      <div class="damage-head" style="margin-top:18px;">TODAY'S SLATE</div>`;
+  }
+
     board.innerHTML = `<div class="empty">
       <p>Nothing on today.</p>
       <p class="sub">No ${esc(data.league)} games scheduled. Try another league.</p>
@@ -666,7 +695,7 @@ function render(data){
     </div>`;
   };
 
-  board.innerHTML = [...groups.entries()].map(([name, list]) => {
+  board.innerHTML = damageHtml + [...groups.entries()].map(([name, list]) => {
     const head = name
       ? `<div class="div-head ${
           name === "American League" ? "dh-al"
@@ -724,8 +753,16 @@ document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-team]");
   if (!btn) return;
 
-  const q = "?team=" + encodeURIComponent(btn.dataset.team)
+  let q = "?team=" + encodeURIComponent(btn.dataset.team)
           + "&sport=" + encodeURIComponent(btn.dataset.sport || "");
+  // A finished game hands the WHOLE OUTCOME to the generator - the
+  // roast should be about THIS loss, not the team in general.
+  if (btn.dataset.loser){
+    q += "&loser=" + encodeURIComponent(btn.dataset.loser)
+       + "&winner=" + encodeURIComponent(btn.dataset.winner || "")
+       + "&ls=" + encodeURIComponent(btn.dataset.ls || "")
+       + "&ws=" + encodeURIComponent(btn.dataset.ws || "");
+  }
 
   window.location.href =
     (btn.classList.contains("btn-arm") ? "/auto-smack" : "/send-a-smack") + q;

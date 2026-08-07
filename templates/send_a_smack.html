@@ -1422,7 +1422,34 @@ document.addEventListener('DOMContentLoaded', () => {
   // knows who is losing, so it hands over that name and this page starts a
   // step further along.
   (function () {
-    var team = new URLSearchParams(window.location.search).get('team');
+    var _p = new URLSearchParams(window.location.search);
+    var team = _p.get('team');
+    // THE OUTCOME HANDOFF (Andy, Aug 7): a finished game's SMACK THIS
+    // LOSS button carries the loss itself - loser, winner, both
+    // scores. Stashed globally for the generate call, and announced
+    // in a banner so the sender sees the roast will be about THIS
+    // game, not the team in general.
+    if (_p.get('loser')) {
+      window.SMACK_OUTCOME = {
+        loser: _p.get('loser'), winner: _p.get('winner') || '',
+        loser_score: _p.get('ls') || '', winner_score: _p.get('ws') || ''
+      };
+      var o = window.SMACK_OUTCOME;
+      var gen = document.getElementById('generateBtn');
+      if (gen && o.winner) {
+        var b = document.createElement('div');
+        b.style.cssText = 'margin:0 0 12px;padding:10px 14px;'
+          + 'border:1px solid #E01B24;border-radius:8px;'
+          + 'font-family:Inter,sans-serif;font-size:13px;color:#F5F5F3;'
+          + 'background:rgba(224,27,36,0.08)';
+        b.textContent = 'Roasting a fresh loss: ' + o.loser + ' fell '
+          + (o.winner_score && o.loser_score
+             ? o.winner_score + '-' + o.loser_score + ' ' : '')
+          + 'to ' + o.winner + '.';
+        var form = gen.closest('div');
+        if (form && form.parentNode) form.parentNode.insertBefore(b, form);
+      }
+    }
     if (!team) return;
     var el = document.getElementById('teamInput');
     if (!el) return;
@@ -1856,7 +1883,7 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
     const resp = await fetch('/api/generate-trash-talk', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({team: team, recipient_name: recipientName, sensitivity: selectedSensitivity, roast_topics: roastTopics, from_team: (document.getElementById('fromTeamInput') || {}).value || ''})
+      body: JSON.stringify({team: team, game_outcome: window.SMACK_OUTCOME || null, recipient_name: recipientName, sensitivity: selectedSensitivity, roast_topics: roastTopics, from_team: (document.getElementById('fromTeamInput') || {}).value || ''})
     });
     const data = await resp.json();
     // Free line spent. The account link goes right here rather than a dead
