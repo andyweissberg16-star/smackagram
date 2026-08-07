@@ -933,7 +933,7 @@
 @keyframes sbb_glowW{0%,100%{text-shadow:0 0 10px rgba(255,255,255,.9),0 0 22px rgba(255,255,255,.5)}50%{text-shadow:0 0 16px rgba(255,255,255,1),0 0 34px rgba(255,255,255,.7)}}
 @keyframes sbb_glowR{0%,100%{text-shadow:0 0 12px rgba(224,27,36,.95),0 0 26px rgba(224,27,36,.55)}50%{text-shadow:0 0 20px rgba(224,27,36,1),0 0 44px rgba(224,27,36,.75)}}
 @keyframes sbb_in{0%{opacity:0;transform:translateY(5px)}100%{opacity:1;transform:translateY(0)}}
-#sbbWrap{max-width:1100px;margin:26px auto;padding:0 24px;}
+#sbbWrap{max-width:1240px;margin:26px auto;padding:0 24px;}
 #sbbWrap *{box-sizing:border-box;}
 .sbb-frame{background:#050506;border:2px solid #E01B24;border-radius:16px;padding:10px;box-shadow:0 0 30px rgba(224,27,36,.55),0 0 70px rgba(224,27,36,.25),inset 0 0 30px rgba(224,27,36,.08);}
 .sbb-bulb{width:8px;height:8px;border-radius:50%;background:#E01B24;flex:none;animation:sbb_chase .9s infinite;}
@@ -945,12 +945,13 @@
 .sbb-tab:hover{background:#E01B24;color:#fff;box-shadow:0 0 14px rgba(224,27,36,.6);}
 .sbb-col{border:1.5px solid #E01B24;border-radius:11px;overflow:hidden;background:rgba(6,6,8,.55);box-shadow:0 0 12px rgba(224,27,36,.3),inset 0 0 14px rgba(224,27,36,.06);}
 .sbb-colhead{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:2px;text-transform:uppercase;text-align:center;padding:8px;border-bottom:1.5px solid rgba(224,27,36,.5);}
-.sbb-line{display:grid;grid-template-columns:11px minmax(0,1fr) auto auto;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid rgba(224,27,36,.14);animation:sbb_in .5s;}
+.sbb-line{display:grid;grid-template-columns:11px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid rgba(224,27,36,.14);animation:sbb_in .5s;}
 .sbb-line:last-child{border-bottom:none;}
-.sbb-team{font-family:'Anton',sans-serif;font-size:15px;letter-spacing:.4px;color:#e8e8e2;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.sbb-score{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;letter-spacing:.5px;min-width:44px;text-align:right;white-space:nowrap;}
-.sbb-smack{border:none;border-radius:4px;padding:6px 11px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;letter-spacing:.5px;cursor:pointer;text-transform:uppercase;text-decoration:none;white-space:nowrap;}
-.sbb-empty{padding:26px 12px;text-align:center;color:#7a7a7a;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.6;}
+.sbb-teambox{min-width:0;}
+.sbb-team{font-family:'Anton',sans-serif;font-size:19px;letter-spacing:.4px;color:#f2f2ee;text-transform:uppercase;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sbb-ctx{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.5px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sbb-smack{border:none;border-radius:5px;padding:8px 13px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.5px;cursor:pointer;text-transform:uppercase;text-decoration:none;white-space:nowrap;flex:none;}
+.sbb-empty{padding:30px 12px;text-align:center;color:#7a7a7a;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.7;}
 </style>
 
 <div id="sbbWrap">
@@ -966,9 +967,9 @@
           <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:12px;" id="sbbTabs"></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;padding:0 12px 12px;">
-          <div class="sbb-col"><div class="sbb-colhead" style="color:#F5A623;background:rgba(245,166,35,.08);border-bottom-color:rgba(245,166,35,.5);"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#F5A623;animation:sbb_dot 1.1s infinite;vertical-align:1px;margin-right:5px;"></span>LIVE</div><div id="sbbColLive"></div></div>
-          <div class="sbb-col"><div class="sbb-colhead" style="color:#ff5a63;">FINAL</div><div id="sbbColFinal"></div></div>
-          <div class="sbb-col" style="border-color:#C3CAD3;box-shadow:0 0 12px rgba(195,202,211,.28),inset 0 0 14px rgba(195,202,211,.05);"><div class="sbb-colhead" style="color:#C3CAD3;background:rgba(195,202,211,.07);border-bottom-color:rgba(195,202,211,.4);">UPCOMING</div><div id="sbbColUp"></div></div>
+          <div class="sbb-col"><div class="sbb-colhead" style="color:#F5A623;background:rgba(245,166,35,.08);border-bottom-color:rgba(245,166,35,.5);"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#F5A623;animation:sbb_dot 1.1s infinite;vertical-align:1px;margin-right:5px;"></span>LIVE — LOSING NOW</div><div id="sbbColLive"></div></div>
+          <div class="sbb-col"><div class="sbb-colhead" style="color:#ff5a63;">FINAL — THEY LOST</div><div id="sbbColFinal"></div></div>
+          <div class="sbb-col" style="border-color:#C3CAD3;box-shadow:0 0 12px rgba(195,202,211,.28),inset 0 0 14px rgba(195,202,211,.05);"><div class="sbb-colhead" style="color:#C3CAD3;background:rgba(195,202,211,.07);border-bottom-color:rgba(195,202,211,.4);">UPCOMING — ARM IT</div><div id="sbbColUp"></div></div>
         </div>
         <div style="text-align:center;padding:10px;background:rgba(10,10,12,.7);border-top:1px solid rgba(224,27,36,.3);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;letter-spacing:1.5px;color:#6A6A6A;">
           EVERY LOSS = A $1 CALL &nbsp;·&nbsp; <a href="/smack-board" style="color:#E01B24;text-decoration:none;">OPEN FULL BOARD →</a>
@@ -983,12 +984,11 @@
 <script>
 (function(){
   function bulbs(n,id){var s='';for(var i=0;i<n;i++)s+='<span class="sbb-bulb" style="animation-delay:'+(i*0.08).toFixed(2)+'s"></span>';var el=document.getElementById(id);if(el)el.innerHTML=s;}
-  bulbs(32,'sbbT');bulbs(32,'sbbB');bulbs(6,'sbbL');bulbs(6,'sbbR');
+  bulbs(36,'sbbT');bulbs(36,'sbbB');bulbs(6,'sbbL');bulbs(6,'sbbR');
 
   var LEAGUES=['mlb','wnba','nfl','nhl','nba'];
   var WNBA_WEST=['aces','sparks','mercury','storm','lynx','wings','valkyries'];
 
-  function ab(t){ return (t && (t.abbr || t.nick || '')) || ''; }
   function nk(t){ return (t && (t.nick || t.abbr || '')) || ''; }
 
   function loserOf(g){
@@ -1013,16 +1013,27 @@
     (data.games||[]).forEach(function(g){
       if(g.live){
         var l=loserOf(g);
-        if(l)LIVE.push({team:ab(l),full:nk(l),note:'LIVE',c:'#F5A623'});
+        if(!l)return;
+        var w=(l===g.home)?g.away:g.home;
+        // How much they're down + the period if we have one.
+        var diff='';
+        if(l.score!=null&&w&&w.score!=null){
+          var d=Number(w.score)-Number(l.score);
+          diff=(d>0?('DOWN '+d):'TIED');
+        } else { diff='LOSING'; }
+        var per=g.period||g.inning||g.status||'';
+        LIVE.push({team:nk(l), ctx:(per?(diff+' · '+per):diff), c:'#F5A623'});
       } else if(g.upcoming){
-        var mt=ab(g.away)+' @ '+ab(g.home);
-        UP.push({team:mt, target:nk(g.home)||nk(g.away), note:(g.start_label||g.start||''), c:'#C3CAD3'});
+        // Name ONE team big (the home side), opponent + time underneath.
+        var home=nk(g.home)||nk(g.away), away=(home===nk(g.home))?nk(g.away):nk(g.home);
+        var when=g.start_label||g.start||'';
+        UP.push({team:home, ctx:('vs '+away+(when?(' · '+when):'')), target:home, c:'#C3CAD3'});
       }
     });
     (data.damage||[]).forEach(function(g){
       var l=loserOf(g);if(!l)return;
       var w=(l===g.home)?g.away:g.home;
-      FINAL.push({team:ab(l),full:nk(l),note:(l.score)+'\u2014'+(w?w.score:''),c:confColor(lg,l)});
+      FINAL.push({team:nk(l), ctx:('LOST '+(l.score)+'\u2013'+(w?w.score:'')), c:confColor(lg,l)});
     });
   }
 
@@ -1030,25 +1041,26 @@
     var isLive=(state==='live');
     var dotc=isLive?'#F5A623':(state==='upcoming'?'#C3CAD3':r.c);
     var dot='<span style="width:10px;height:10px;border-radius:50%;background:'+dotc+';'+(isLive?'animation:sbb_dot 1.1s infinite;':'')+'box-shadow:0 0 7px '+dotc+';flex:none;"></span>';
-    var label,url,bg;
+    var label,url,bg,ctxColor;
     if(state==='upcoming'){
       label='ARM IT'; url='/set-up?target='+encodeURIComponent(r.target||r.team);
-      bg='background:transparent;border:1px solid #C3CAD3;color:#C3CAD3;';
+      bg='background:transparent;border:1px solid #C3CAD3;color:#C3CAD3;'; ctxColor='#C3CAD3';
     } else if(state==='live'){
-      label='SMACK LIVE'; url='/game-day?target='+encodeURIComponent(r.full||r.team);
-      bg='background:#F5A623;color:#1A1206;box-shadow:0 0 8px rgba(245,166,35,.5);';
+      label='SMACK LIVE'; url='/game-day?target='+encodeURIComponent(r.team);
+      bg='background:#F5A623;color:#1A1206;box-shadow:0 0 8px rgba(245,166,35,.5);'; ctxColor='#F5A623';
     } else {
-      label='SMACK'; url='/game-day?target='+encodeURIComponent(r.full||r.team);
+      label='SMACK'; url='/game-day?target='+encodeURIComponent(r.team);
       bg='background:#E01B24;color:#fff;box-shadow:0 0 6px rgba(224,27,36,.5);';
+      ctxColor=(r.c==='#e8e8e2')?'#9A9A9A':r.c;
     }
     return '<div class="sbb-line" style="animation-delay:'+(idx*0.05).toFixed(2)+'s">'
       +'<span>'+dot+'</span>'
-      +'<span class="sbb-team">'+r.team+'</span>'
-      +'<span class="sbb-score" style="color:'+(state==='upcoming'?'#C3CAD3':(r.c==='#e8e8e2'?'#e8e8e2':r.c))+';">'+r.note+'</span>'
+      +'<span class="sbb-teambox"><span class="sbb-team">'+r.team+'</span>'
+      +'<span class="sbb-ctx" style="color:'+ctxColor+';">'+r.ctx+'</span></span>'
       +'<a class="sbb-smack" style="'+bg+'" href="'+url+'">'+label+'</a></div>';
   }
 
-  var ROWS=4;
+  var ROWS=3;
   var offLive=0,offFinal=0,offUp=0;
   function fillCol(id,list,state,off,empty){
     var el=document.getElementById(id);
