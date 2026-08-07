@@ -836,6 +836,43 @@ def pick_audience_name(day=None):
     return order[d.toordinal() % len(order)]
 
 
+_TIMELESS_EXITS = [
+    "We'll be right back.", "Back shortly.", "Don't go anywhere.",
+    "Sit tight.", "Stay right there.", "Be right back.",
+    "One second.", "Hold that thought.", "Right back at it in a moment.",
+    "Don't touch that dial.",
+]
+
+
+def _strip_time_promises(text):
+    """
+    A ~30-second break must never be introduced with 'back in sixty'.
+    IN CODE, not just the prompt, because prompt caps have been ignored
+    before (the that's-not-a cap, twice). Any duration promise in the
+    break line is replaced with a timeless exit from the pool.
+    """
+    import re as _re, random as _rand
+    pat = _re.compile(
+        r"(?:i(?:'| a)?m |we(?:'| a)?re |be |right )?back in "
+        r"(?:about |like |under )?"
+        r"(?:a few|a couple(?: of)?|forty[- ]five|thirty|sixty|ninety|"
+        r"twenty|\d+|one |a )"
+        r"\s*(?:seconds?|secs?|minutes?|mins?)?",
+        _re.IGNORECASE)
+    if not text or not pat.search(text):
+        return text
+    out = pat.sub("", text)
+    out = _re.sub(r"\s{2,}", " ", out)
+    out = _re.sub(r"\s+([,.!?])", r"\1", out)      # ' , unfortunately' -> ', unfortunately'
+    out = _re.sub(r"(?:^|(?<=[.!?]))\s*[,;]\s*", " ", out)  # orphan leading commas
+    out = out.strip(" .,-")
+    exit_line = _rand.choice(_TIMELESS_EXITS)
+    out = (out + ". " if out else "") + exit_line
+    print(f"[show] break line promised a duration - scrubbed to "
+          f"'{exit_line}'", flush=True)
+    return out
+
+
 def write_script(material: dict, only_league: str = None,
                  leagues_after: list = None, mood: tuple = None,
                  opens_show: bool = None) -> dict:
@@ -1048,7 +1085,10 @@ def write_script(material: dict, only_league: str = None,
     # "crap"s and nothing else.
     system += (
         "\n\nSWEARING. This is an uncensored show for adults and you are "
-        "not being careful. Most segments should contain real profanity - "
+        "not being careful. This is NOT optional and NOT a good-days "
+        "thing: EVERY episode runs at full savage, tonight included. "
+        "If you notice the script reading clean, that is a fault - fix "
+        "it before you hand it in. Most segments MUST contain real profanity - "
         "fuck, shit, goddamn, bullshit - used naturally, the way somebody "
         "talks when nobody is stopping them.\n\n"
         "  It is PUNCTUATION, not decoration. 'They fucking collapsed' lands; "
@@ -1599,7 +1639,13 @@ def write_script(material: dict, only_league: str = None,
         "THE COMMERCIAL BREAK. The show goes to an ad once, straight after "
         "baseball. You resent this. Write two short lines for it:\n\n"
 
-        "  \"break_in\" - you announcing the break, bitterly. The joke is "
+        "  \"break_in\" - you announcing the break, bitterly. NEVER "
+        "PROMISE A DURATION - no 'back in thirty', no 'back in sixty', "
+        "no seconds or minutes of any kind: the break is shorter than "
+        "any number you would say and the lie is audible. End on a "
+        "TIMELESS exit instead - 'we'll be right back', 'back shortly', "
+        "'don't go anywhere', 'sit tight', 'stay right there', 'one "
+        "second' style - vary which one daily. The joke is "
         "NOT that ads are annoying, it is that YOU have obligations: a "
         "mortgage, a contract, a boss, a thing you signed without reading. "
         "A man complaining is tedious; a man who is trapped is funny. "
@@ -2017,6 +2063,28 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
                          "display_text": sanitize_for_display(body),
                          "reaction": reaction, "league": league})
 
+    # THE SAVAGE METER (Andy, Aug 7): the profanity level drifted soft
+    # after the API switch and nobody could see it happening. Now it is
+    # a NUMBER in every render log - counted in code, because prompt
+    # mandates have been ignored before. Floor: one real swear per two
+    # segments. Below floor logs a warning; the episode still ships
+    # (a warning beats a blocked show at 5:55am with nobody awake).
+    try:
+        import re as _re
+        _swears = _re.compile(
+            r"\b(fuck\w*|shit\w*|goddamn\w*|damn\w*|bullshit|ass(?:hole)?s?\b"
+            r"|bastard\w*|hell\b)", _re.IGNORECASE)
+        _n = sum(len(_swears.findall(x.get("text") or "")) for x in segments)
+        _floor = max(1, len(segments) // 2)
+        print(f"[show] savage meter: {_n} swears across {len(segments)} "
+              f"segments (floor {_floor})", flush=True)
+        if _n < _floor:
+            print(f"[show] SAVAGE WARNING: below floor - the script came "
+                  f"back too clean, the mandate is being ignored again",
+                  flush=True)
+    except Exception as _e:
+        print(f"[show] savage meter failed: {_e}", flush=True)
+
     if not segments:
         print(f"[show] script had no usable segments. Keys returned: "
               f"{[list(x.keys()) if isinstance(x, dict) else type(x).__name__ for x in script.get('segments', [])][:3]}")
@@ -2026,7 +2094,8 @@ def produce_daily_show(days_back: int = 1, dry_run: bool = False) -> dict:
     # the league tags rather than a fixed index - the number of MLB segments
     # changes nightly with the slate, so any hardcoded position would land
     # mid-baseball the first time the schedule was light.
-    break_in = sanitize_for_speech((script.get("break_in") or "").strip())
+    break_in = _strip_time_promises(
+        sanitize_for_speech((script.get("break_in") or "").strip()))
     break_out = sanitize_for_speech((script.get("break_out") or "").strip())
 
     if break_in:
@@ -2574,7 +2643,8 @@ AD_FUMBLES = [
     ("", " I've read that four hundred times and I still don't know who wrote it."),
 
     # can't believe the price
-    ("", " One dollar. A whole phone call for a dollar. We are being robbed."),
+    ("", " Less than a dollar a call. A whole phone call for POCKET "
+      "CHANGE. We are being robbed."),
 
     # sincerely means it
     ("", " And that one's actually true, by the way. All of it."),
@@ -2671,7 +2741,7 @@ AD_COPY = (
     "You write the smack. We make the call. A real phone, ringing in their "
     "pocket, saying everything you could never say to their face. And they "
     "never find out it was you. "
-    "You watch the games. We talk the talk. One dollar a call. "
+    "You watch the games. We talk the talk. Less than a dollar a call. "
     "Smackagram dot com. Ring. Roast. Repeat."
 )
 

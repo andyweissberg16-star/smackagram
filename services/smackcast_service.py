@@ -1047,6 +1047,16 @@ def sanitize_for_speech(text: str) -> str:
         text = re.sub(rf"\b{re.escape(acronym)}\b", spoken, text)
 
     text = re.sub(r"\s{2,}", " ", text)
+    # BASEBALL SAYS "OH", NOT "ZERO" - David/Andy's spec, Aug 7.
+    # A hitless line is spoken "oh for five", never "zero for five".
+    # SCOPED PRECISELY to the X-for-Y batting construction: game
+    # scores keep their zeros ("six to zero" stays), because "six to
+    # oh" is not a thing anyone says. Applied here in the TTS layer so
+    # the DISPLAY text keeps the standard "0-for-5" form.
+    import re as _re
+    text = _re.sub(r'\b(?:0|zero)([\s-]+for[\s-]+)',
+                   r'oh\1', text, flags=_re.IGNORECASE)
+
     return text.strip()
 
 
