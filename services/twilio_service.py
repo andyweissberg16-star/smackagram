@@ -209,6 +209,11 @@ def build_twiml(audio_urls, record: bool = True, record_callback_url: str = None
             voice="Polly.Matthew",
         )
     for url in audio_urls:
+        # "__PAUSE__" is a half-second breath, used before the Smack
+        # Back invite so it doesn't run into the outro tagline.
+        if url == "__PAUSE__":
+            response.pause(length=1)
+            continue
         response.play(url)
 
     if record:

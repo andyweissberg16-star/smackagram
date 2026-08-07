@@ -194,6 +194,9 @@ def resolve_audio_url(record, base_url: str, answered_by: str = ""):
     parts = [message_url, outro_url]
     invite = get_invite_url(base_url, answered_by)
     if invite:
+        # a short beat BEFORE the invite so it doesn't tread on the
+        # outro tagline - marker consumed in build_twiml (Andy, Aug 7)
+        parts.append("__PAUSE__")
         parts.append(invite)
     return parts
 
