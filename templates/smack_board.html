@@ -592,7 +592,11 @@ function actions(g){
       ? `SMACK A${/^[AEIOU]/.test(name) ? "N" : ""} ${esc(name.toUpperCase())} FAN`
       : "SMACK SOMEBODY";
   // outcome payload for finished games - winner, loser, both scores
-  const winner = loser ? (g.losing === "home" ? g.away : g.home) : null;
+  // THE OTHER SIDE OF THE DERIVED LOSER - v1 still keyed this on the
+  // absent losing marker, so when home lost, winner === loser and the
+  // page announced "the Orioles lost 1 to 1" (both scores read off the
+  // same team). Andy caught it live against a real 4-1 Angels win.
+  const winner = loser ? (loser === g.home ? g.away : g.home) : null;
   const outcome = (g.final && loser && winner)
       ? ` data-loser="${esc(loser.nick || loser.abbr)}"`
         + ` data-winner="${esc(winner.nick || winner.abbr)}"`

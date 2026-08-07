@@ -103,8 +103,8 @@
     }).then(function(r){ return r.json(); })
       .then(function(d){
         btn.textContent = 'WRITE ANOTHER'; btn.disabled = false;
-        if (d.message || d.trash_talk){
-          out.textContent = d.message || d.trash_talk;
+        if (d.generated_text){
+          out.textContent = d.generated_text;
           // hand EVERYTHING to the send flow - its Game Day header
           // and checkout take over from here
           send.style.display = 'block';
@@ -116,6 +116,7 @@
             + '&ws=' + encodeURIComponent(o.ws);
         } else {
           out.textContent = d.error || 'Generator hiccuped - try again.';
+          console.log('generate response', d);
         }
       })
       .catch(function(){ btn.textContent='WRITE THE ROAST';
