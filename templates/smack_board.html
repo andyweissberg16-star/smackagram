@@ -611,15 +611,6 @@ function render(data){
   const damage = data.damage || [];
 
   if (!games.length){
-  let damageHtml = "";
-  if (damage.length){
-    const cards = `<div class="board-grid">${damage.map(g => card(g)).join("")}</div>`;
-    damageHtml = `<div class="damage-head">LAST NIGHT'S DAMAGE
-        <span class="damage-sub">still smackable &middot; clears 3pm ET</span></div>
-      ${cards}
-      <div class="damage-head" style="margin-top:18px;">TODAY'S SLATE</div>`;
-  }
-
     board.innerHTML = `<div class="empty">
       <p>Nothing on today.</p>
       <p class="sub">No ${esc(data.league)} games scheduled. Try another league.</p>
@@ -695,6 +686,17 @@ function render(data){
     </div>`;
   };
 
+  // Built HERE, after card's const definition - v1 built this above
+  // it, and const does not hoist: the first league with damage threw
+  // ReferenceError and the whole board read "could not load scores".
+  let damageHtml = "";
+  if (damage.length){
+    const dcards = `<div class="board-grid">${damage.map(g => card(g)).join("")}</div>`;
+    damageHtml = `<div class="damage-head">LAST NIGHT'S DAMAGE
+        <span class="damage-sub">still smackable &middot; clears 3pm ET</span></div>
+      ${dcards}
+      <div class="damage-head" style="margin-top:18px;">TODAY'S SLATE</div>`;
+  }
   board.innerHTML = damageHtml + [...groups.entries()].map(([name, list]) => {
     const head = name
       ? `<div class="div-head ${
