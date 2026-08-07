@@ -106,6 +106,32 @@ def _sample_for(armed, game_id, sport):
                  if x.game_id == game_id and x.sport == sport), None)
 
 
+def _order_game_day(sample):
+    """
+    The ONLY date this order's result may come from: the EASTERN date
+    the game started. THE FALSE-CALL BUG OF AUG 7, 3:30AM: resolution
+    walked (today, yesterday) and matched teams by last word - so in
+    a SERIES, yesterday's Red Sox final was accepted for tonight's
+    LIVE Red Sox game, remembered in the store under the walked date,
+    and FIRED: a call announcing a final score for a game still in the
+    12th inning. The wrong-day disease, one layer deeper than the
+    Padres bug and worse - this one dialled a phone. A game that
+    started tonight can only ever finish tonight (UTC spillover is
+    already handled inside the finals() day filter), so the date walk
+    is deleted and every lookup binds here.
+    """
+    from datetime import timedelta, timezone as _tz
+    st = getattr(sample, "game_start_time", None)
+    if st is None:
+        from datetime import datetime as _dtx
+        st = _dtx.utcnow()
+    if st.tzinfo is None:
+        st = st.replace(tzinfo=_tz.utc)
+    # Eastern = UTC-4 (EDT); a 1h DST drift cannot move a date across
+    # midnight for any real game start
+    return (st - timedelta(hours=4)).strftime("%Y-%m-%d")
+
+
 def _team_is(target, official):
     """
     Does the user's target_team mean this official team name?
@@ -191,9 +217,7 @@ def check_armed_smackagrams():
             _sample = next((x for x in armed
                             if x.game_id == game_id and x.sport == sport), None)
             if _sample and _sample.home_team and _sample.away_team:
-                for _off in (0, 1):
-                    from services import highlightly as _hl2
-                    _day = _hl2.sport_day(_off)
+                for _day in (_order_game_day(_sample),):
                     _hit = results_store.lookup(sport, _day,
                                                 _sample.home_team,
                                                 _sample.away_team)
@@ -230,9 +254,7 @@ def check_armed_smackagrams():
                 from services import highlightly, results_store
                 from datetime import datetime as _dt2, timedelta as _td2
                 if highlightly.enabled():
-                    for _off in (0, 1):
-                        _d = (_dt2.utcnow()
-                              - _td2(days=_off)).strftime("%Y-%m-%d")
+                    for _d in (_order_game_day(_s),):
                         # BALLDONTLIE WHEN HIGHLIGHTLY CANNOT ANSWER.
                         #
                         # Two cases. WNBA, which Highlightly does not
@@ -272,7 +294,7 @@ def check_armed_smackagrams():
                         # That is the moment somebody needs telling, and
                         # it is different in kind from a single source
                         # having a bad minute.
-                        if not _fin and _off == 1:
+                        if not _fin:
                             try:
                                 from services import alerts
                                 alerts.record(
