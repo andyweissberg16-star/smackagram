@@ -991,7 +991,7 @@ def _execute_send_smack(user, data: dict) -> dict:
 
     try:
         audio_urls = call_audio_service.resolve_audio_url(order, os.environ["BASE_URL"])
-        call_audio_service.pending_call_audio[("order", order.id)] = audio_urls
+        call_audio_service.stash_call_audio("order", order.id, audio_urls)
         order.message_audio_url = audio_urls[0]  # persist for reply-flow "hear it again" replay
         # Straight onto the wall. A reply is a Smack Back; anything else is a
         # standard Smackagram.
@@ -1240,7 +1240,7 @@ def stripe_webhook():
             # already safely recorded either way.
             try:
                 audio_urls = call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")))
-                call_audio_service.pending_call_audio[("order", order.id)] = audio_urls
+                call_audio_service.stash_call_audio("order", order.id, audio_urls)
                 order.message_audio_url = audio_urls[0]  # persist for reply-flow "hear it again" replay
                 # Onto the wall, same as the wallet path above.
                 publish_to_wall(order,
@@ -1725,7 +1725,10 @@ def _call_instructions_handler(record_type, record_id):
     # were cached under (record_type, record_id), legacy in-flight calls
     # under the bare record_id.
     cache_key = (record_type, record_id) if record_type else record_id
-    cached = call_audio_service.pending_call_audio.pop(cache_key, None)
+    # take() checks this worker's memory, then the SHARED DB - the
+    # dead-air fix. The dict-only pop lost ~75% of answered calls to
+    # cross-worker misses on a 4-worker box.
+    cached = call_audio_service.take_call_audio(record_type, record_id)
     if cached is None:
         print(f"[twilio] CACHE MISS {record_type or 'legacy'}:{record_id} — generating audio live inside the webhook, expect dead air")
         audio_urls = call_audio_service.resolve_audio_url(order, os.environ.get("BASE_URL", request.url_root.rstrip("/")), answered_by)

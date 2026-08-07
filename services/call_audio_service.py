@@ -16,6 +16,92 @@ from services import voice_options, elevenlabs_service
 pending_call_audio = {}
 
 
+# THE DEAD-AIR BUG, FIXED AT ITS ROOT (Aug 7, caught live at 3:22am):
+# this dict is PER-WORKER MEMORY. The cron pass cached the audio in
+# one gunicorn worker; Twilio's webhook landed on another of the four;
+# miss - "generating audio live inside the webhook, expect dead air" -
+# and the person who answered got silence while ElevenLabs ran
+# mid-call. On a 4-worker box that is ~75% of answered calls.
+#
+# The fix: the DB is the shared memory. stash() writes a Setting row
+# (key/value - "rows are cheaper than migrations", per that model's
+# own docstring) and commits IMMEDIATELY so any worker can see it;
+# take() checks this worker's dict first (free when the same worker
+# answers), then the DB, deleting on read. Rows older than a day are
+# swept on stash - an unanswered call's audio should not live forever.
+
+def _kv_key(record_type, record_id):
+    return f"callaudio:{record_type or 'legacy'}:{record_id}"
+
+
+def stash_call_audio(record_type, record_id, audio_urls):
+    """Make the audio visible to EVERY worker before the call places."""
+    key = (record_type, record_id) if record_type else record_id
+    pending_call_audio[key] = audio_urls          # same-worker fast path
+    try:
+        import json
+        from datetime import datetime, timedelta
+        from models import db, Setting
+        kv = _kv_key(record_type, record_id)
+        row = Setting.query.filter_by(key=kv).first()
+        if row is None:
+            row = Setting(key=kv)
+            db.session.add(row)
+        row.value = json.dumps({
+            "urls": list(audio_urls),
+            "at": datetime.utcnow().isoformat(),
+        })
+        # opportunistic sweep: yesterday's unanswered calls
+        cutoff = (datetime.utcnow() - timedelta(hours=24)).isoformat()
+        for old in Setting.query.filter(
+                Setting.key.like("callaudio:%")).all():
+            try:
+                if json.loads(old.value).get("at", "") < cutoff:
+                    db.session.delete(old)
+            except Exception:
+                db.session.delete(old)
+        db.session.commit()
+    except Exception as e:
+        try:
+            from models import db as _db
+            _db.session.rollback()
+        except Exception:
+            pass
+        print(f"[audio-stash] DB stash failed for "
+              f"{record_type}:{record_id}: {e} - same-worker cache "
+              f"only, cross-worker answer will regenerate", flush=True)
+
+
+def take_call_audio(record_type, record_id):
+    """This worker's dict first, then the shared DB. None on miss."""
+    key = (record_type, record_id) if record_type else record_id
+    hit = pending_call_audio.pop(key, None)
+    if hit is not None:
+        return hit
+    try:
+        import json
+        from models import db, Setting
+        row = Setting.query.filter_by(
+            key=_kv_key(record_type, record_id)).first()
+        if row is None:
+            return None
+        urls = json.loads(row.value).get("urls")
+        db.session.delete(row)
+        db.session.commit()
+        print(f"[audio-stash] cross-worker hit for "
+              f"{record_type or 'legacy'}:{record_id} - no dead air",
+              flush=True)
+        return urls
+    except Exception as e:
+        try:
+            from models import db as _db
+            _db.session.rollback()
+        except Exception:
+            pass
+        print(f"[audio-stash] DB take failed: {e}", flush=True)
+        return None
+
+
 def get_invite_url(base_url: str, answered_by: str = "") -> str:
     """
     The invitation that plays AFTER the outro, or "" for silence.

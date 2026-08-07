@@ -670,7 +670,7 @@ def check_armed_smackagrams():
                         continue
 
                     audio_urls = call_audio_service.resolve_audio_url(s, base_url)
-                    call_audio_service.pending_call_audio[("smackagram", s.id)] = audio_urls
+                    call_audio_service.stash_call_audio("smackagram", s.id, audio_urls)
                     s.message_audio_url = audio_urls[0]  # persist for reply-flow "hear it again" replay
                     # Onto the wall as it fires, same as a standard smack.
                     try:
