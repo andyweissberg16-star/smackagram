@@ -209,6 +209,22 @@ def stitch_full_call(message_url: str, base_url: str) -> str:
     """
     Message + slap + tagline as ONE file, for listening on the site.
 
+    ============================ INVARIANT =============================
+    THE INVITE NEVER GOES IN THIS FILE.
+
+    This stitched audio is what plays PUBLICLY - the wall, the Smack
+    Feed, anywhere on the site. It is message + outro (slap + "You've
+    been smacked by Smackagram" tagline) and NOTHING ELSE.
+
+    The Smack Back invitation (invite-live.mp3 / invite-voicemail.mp3)
+    is a solicitation aimed at a CALL RECIPIENT and exists only as a
+    separate <Play> verb on the phone call itself (get_invite_url).
+    It must never be stitched into public audio: the feed audience was
+    not called, the pitch makes no sense to them, and every public clip
+    would end in an ad. If you are editing this function and thinking
+    about adding a third file to the tuple below - don't.
+    ====================================================================
+
     The phone call plays the message and the outro as two separate clips
     back to back, which Twilio handles fine. A browser cannot - the wall
     player is given one URL, so it played the message and stopped dead
@@ -249,6 +265,16 @@ def stitch_full_call(message_url: str, base_url: str) -> str:
             pass
 
         outro_url = get_outro_url(base_url)
+
+        # ENFORCED, not just documented: if an invite file ever finds its
+        # way into the stitch sources, refuse and ship the plain message.
+        # A feed clip without the slap is a small loss; a feed full of
+        # solicitations is a brand problem.
+        for src in (message_url, outro_url):
+            if "invite" in str(src).lower():
+                print("[stitch] REFUSED: invite file in public stitch "
+                      f"sources ({src}) - shipping message only", flush=True)
+                return message_url
 
         with tempfile.TemporaryDirectory() as tmp:
             paths = []
