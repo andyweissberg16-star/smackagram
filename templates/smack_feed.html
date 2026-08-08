@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Smack Feed &middot; Smackagram</title>
+<meta name="description" content="Every smack as it goes out. Real teams, real losses, roasted by Smacky. React and hear them all.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0D0D0D; --ink-2:#1A1A1A; --chalk:#F5F5F3; --chalk-dim:#9A9A96;
+    --flare:#E8142C; --silver:#C3CAD3; --silver-deep:#98A0AA;
+    --line:rgba(245,245,243,0.10);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#060607;color:var(--chalk);
+    font-family:'Inter',system-ui,sans-serif;}
+  .wrap{max-width:640px;margin:0 auto;padding:0 16px 90px;}
+
+  @keyframes ld{0%,100%{opacity:1}50%{opacity:.3}}
+  @keyframes cardIn{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
+  @keyframes flash{0%{box-shadow:0 0 0 0 rgba(232,20,44,.5)}100%{box-shadow:0 0 0 14px rgba(232,20,44,0)}}
+
+  /* header */
+  .fh{text-align:center;margin:34px 0 8px;}
+  .fh h1{font-family:'Anton',sans-serif;font-size:clamp(38px,9vw,60px);
+    line-height:.95;margin:0;text-transform:none;}
+  .fh h1 .r{color:var(--flare);text-shadow:0 0 26px rgba(232,20,44,.5);}
+  .fh p{color:var(--silver);font-size:14px;margin:10px 0 0;text-transform:uppercase;
+    font-family:'JetBrains Mono',monospace;font-weight:700;letter-spacing:1px;font-size:11px;}
+  .live-strip{display:flex;align-items:center;justify-content:center;gap:6px;
+    margin:14px 0 22px;font-family:'JetBrains Mono',monospace;font-weight:700;
+    font-size:10px;letter-spacing:1.5px;color:var(--flare);text-transform:uppercase;}
+  .live-dot{width:7px;height:7px;border-radius:50%;background:var(--flare);animation:ld 1.1s infinite;}
+
+  /* card */
+  .sc{border-radius:13px;margin-bottom:12px;overflow:hidden;display:flex;
+    background:#101013;border:1px solid #232328;animation:cardIn .45s ease;}
+  .sc.fresh{border-color:var(--flare);animation:cardIn .45s ease, flash 1.4s ease 1;}
+  .spine{width:6px;flex:none;}
+  .sbody{flex:1;min-width:0;padding:13px 15px;}
+  .stop{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .slogo{width:34px;height:34px;border-radius:8px;flex:none;display:flex;
+    align-items:center;justify-content:center;font-family:'Anton';font-size:12px;
+    color:#fff;letter-spacing:.3px;}
+  .steam{font-family:'Anton';font-size:17px;color:var(--chalk);
+    text-transform:uppercase;letter-spacing:.4px;line-height:1;}
+  .sctx{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;
+    color:var(--chalk-dim);letter-spacing:.3px;margin-top:3px;}
+  .stag{margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:700;
+    font-size:8px;letter-spacing:.8px;padding:4px 8px;border-radius:4px;flex:none;
+    text-transform:uppercase;}
+  .sbody-line{color:#c9c9c4;font-size:13.5px;line-height:1.45;margin:4px 0 11px;}
+  .splay{display:flex;align-items:center;gap:11px;}
+  .spbtn{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;font-size:12px;color:#fff;flex:none;cursor:pointer;
+    border:none;transition:transform .1s;}
+  .spbtn:active{transform:scale(.92);}
+  .swave{flex:1;height:20px;display:flex;align-items:center;gap:2.5px;overflow:hidden;}
+  .swave i{width:2.5px;border-radius:2px;background:#3a3a40;flex:none;transition:background .2s;}
+  .sdur{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;
+    color:var(--chalk-dim);flex:none;}
+  .no-audio{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;
+    color:#5a5a5f;letter-spacing:.5px;padding:8px 0;}
+
+  .sreact{display:flex;gap:7px;margin-top:11px;padding-top:11px;
+    border-top:1px solid #1e1e22;flex-wrap:wrap;}
+  .rb{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;
+    letter-spacing:.3px;padding:5px 9px;border-radius:6px;border:1px solid #2a2a30;
+    color:var(--chalk-dim);display:flex;gap:5px;align-items:center;cursor:pointer;
+    background:transparent;transition:.12s;user-select:none;}
+  .rb:hover{border-color:#3a3a42;color:#c9c9c4;}
+  .rb.on{border-color:var(--flare);color:#ff5a63;background:rgba(232,20,44,.08);}
+  .rb b{color:var(--chalk);}
+  .rb.on b{color:#ff5a63;}
+
+  .feed-end{text-align:center;color:#5a5a5f;font-family:'JetBrains Mono',monospace;
+    font-weight:700;font-size:11px;letter-spacing:1px;padding:30px 0;text-transform:uppercase;}
+  .feed-empty{text-align:center;color:var(--chalk-dim);padding:50px 20px;line-height:1.7;}
+  .feed-empty .big{font-family:'Anton';font-size:24px;color:var(--chalk);
+    text-transform:uppercase;margin-bottom:10px;}
+  .cta{display:inline-block;margin-top:16px;background:var(--flare);color:#fff;
+    font-family:'Anton';font-size:15px;letter-spacing:.5px;text-transform:uppercase;
+    text-decoration:none;padding:11px 26px;border-radius:8px;
+    box-shadow:0 0 18px rgba(232,20,44,.5);}
+</style>
+</head>
+<body>
+
+{% include '_nav.html' %}
+
+<div class="wrap">
+
+  <div class="fh">
+    <h1>The Smack <span class="r">Feed</span></h1>
+    <p>Every roast, as it goes out.</p>
+  </div>
+  <div class="live-strip">
+    <span class="live-dot"></span><span id="liveCount">Loading the feed&hellip;</span>
+  </div>
+
+  <div id="feed"></div>
+  <div class="feed-end" id="feedEnd" hidden>&mdash; that&rsquo;s the board &mdash;</div>
+
+</div>
+
+<audio id="feedAudio" preload="none"></audio>
+
+<script>
+(function(){
+  var REACTIONS = [
+    {key:'SMACK', label:'SMACK', emoji:'\uD83D\uDD25'},
+    {key:'COOKED', label:'COOKED', emoji:'\uD83D\uDC80'},
+    {key:'FACTS', label:'FACTS', emoji:'\uD83D\uDCAF'},
+    {key:'HOLD_THIS_L', label:'HOLD THIS L', emoji:'\u270B'},
+    {key:'WEAK', label:'WEAK', emoji:'\uD83E\uDDE2'}
+  ];
+
+  // Anonymous per-browser reactor id, so counts persist and you can't
+  // spam the same reaction. No login needed - the feed is public.
+  var reactor = null;
+  try {
+    reactor = localStorage.getItem('smack-reactor');
+    if(!reactor){ reactor = 'r'+Math.random().toString(36).slice(2)+Date.now().toString(36);
+      localStorage.setItem('smack-reactor', reactor); }
+  } catch(e){ reactor = 'r'+Math.random().toString(36).slice(2); }
+
+  var mine = {};  // post_id -> {reaction: true}
+  try { mine = JSON.parse(localStorage.getItem('smack-mine') || '{}'); } catch(e){ mine = {}; }
+  function saveMine(){ try{ localStorage.setItem('smack-mine', JSON.stringify(mine)); }catch(e){} }
+
+  var audio = document.getElementById('feedAudio');
+  var nowPlaying = null;
+
+  function esc(t){ var d=document.createElement('div'); d.textContent=(t==null?'':t); return d.innerHTML; }
+
+  function abbr(team){
+    if(!team) return '?';
+    var w = team.trim().split(/\s+/);
+    if(w.length===1) return team.slice(0,3).toUpperCase();
+    return (w[0][0]+w[1][0]+(w[2]?w[2][0]:'')).toUpperCase();
+  }
+
+  function waveBars(color){
+    var s='';
+    for(var i=0;i<20;i++){
+      var h = 5 + Math.round(Math.abs(Math.sin(i*1.7))*13);
+      s += '<i style="height:'+h+'px"></i>';
+    }
+    return s;
+  }
+
+  function reactionRow(item){
+    var counts = item.reactions || {};
+    var mineForPost = mine[item.id] || {};
+    return REACTIONS.map(function(rx){
+      var n = counts[rx.key] || 0;
+      var on = mineForPost[rx.key] ? ' on' : '';
+      return '<button class="rb'+on+'" data-post="'+item.id+'" data-rx="'+rx.key+'">'
+        + rx.emoji + ' ' + rx.label + (n ? ' <b>'+n+'</b>' : '') + '</button>';
+    }).join('');
+  }
+
+  function card(item, isFresh){
+    var color = item.team_color || '#E8142C';
+    var line = item.body || item.headline || '';
+    var when = (item.when || '').toString().toUpperCase();
+    var ctx = (item.headline ? esc(item.headline).toUpperCase() : 'GOT SMACKED')
+              + (when ? ' \u00b7 ' + esc(when) : '');
+    var tag = isFresh
+      ? '<span class="stag" style="background:rgba(232,20,44,.14);color:#ff5a63;">JUST SMACKED</span>'
+      : '<span class="stag" style="background:rgba(154,154,154,.1);color:#9A9A9A;">SMACK</span>';
+
+    var player = item.audio_url
+      ? '<div class="splay">'
+        + '<button class="spbtn" style="background:'+color+';" data-audio="'+esc(item.audio_url)+'">\u25B6</button>'
+        + '<div class="swave">'+waveBars(color)+'</div>'
+        + '<div class="sdur">TAP TO HEAR</div></div>'
+      : '<div class="no-audio">\u25CB Line only &mdash; no audio on this one</div>';
+
+    return '<div class="sc'+(isFresh?' fresh':'')+'" data-id="'+item.id+'">'
+      + '<div class="spine" style="background:'+color+';"></div>'
+      + '<div class="sbody">'
+        + '<div class="stop">'
+          + '<div class="slogo" style="background:'+color+';">'+esc(abbr(item.team))+'</div>'
+          + '<div><div class="steam">'+esc(item.team || 'A Mystery Fan')+'</div>'
+          + '<div class="sctx">'+ctx+'</div></div>'
+          + tag
+        + '</div>'
+        + '<div class="sbody-line">'+esc(line)+'</div>'
+        + player
+        + '<div class="sreact">'+reactionRow(item)+'</div>'
+      + '</div></div>';
+  }
+
+  var seenTop = null;   // highest id we've rendered, to flag new arrivals
+
+  function render(items, markFreshAboveId){
+    var feed = document.getElementById('feed');
+    feed.innerHTML = items.map(function(it){
+      var fresh = (markFreshAboveId!=null && it.id > markFreshAboveId);
+      return card(it, fresh);
+    }).join('');
+    wire();
+  }
+
+  function wire(){
+    // play buttons
+    document.querySelectorAll('.spbtn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var url = btn.dataset.audio;
+        if(nowPlaying === btn && !audio.paused){ audio.pause(); btn.textContent='\u25B6'; return; }
+        if(nowPlaying){ nowPlaying.textContent='\u25B6'; }
+        audio.src = url; audio.play();
+        btn.textContent='\u275A\u275A'; nowPlaying = btn;
+      });
+    });
+    // reaction buttons
+    document.querySelectorAll('.rb').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var pid = btn.dataset.post, rx = btn.dataset.rx;
+        fetch('/api/smack-feed/react', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({post_id:Number(pid), reaction:rx, reactor:reactor})
+        }).then(function(r){return r.json();}).then(function(d){
+          if(!d || d.error) return;
+          mine[pid] = mine[pid] || {};
+          if(d.mine){ mine[pid][rx] = true; } else { delete mine[pid][rx]; }
+          saveMine();
+          // repaint this card's reaction row
+          var row = btn.closest('.sreact');
+          var counts = d.reactions || {};
+          row.querySelectorAll('.rb').forEach(function(b){
+            var k=b.dataset.rx, n=counts[k]||0;
+            var meta = REACTIONS.find(function(x){return x.key===k;});
+            var on = (mine[pid] && mine[pid][k]);
+            b.className = 'rb'+(on?' on':'');
+            b.innerHTML = meta.emoji+' '+meta.label+(n?' <b>'+n+'</b>':'');
+          });
+        }).catch(function(){});
+      });
+    });
+  }
+
+  audio.addEventListener('ended', function(){ if(nowPlaying){ nowPlaying.textContent='\u25B6'; nowPlaying=null; } });
+
+  function load(first){
+    fetch('/api/smack-feed?limit=60')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var items = (d && d.items) || [];
+        var lc = document.getElementById('liveCount');
+        if(!items.length){
+          document.getElementById('feed').innerHTML =
+            '<div class="feed-empty"><div class="big">No smacks yet today</div>'
+            + 'The feed fills up as calls go out. Be the first to put a fan on it.'
+            + '<br><a class="cta" href="/send-a-smack">Send a Smack \u2192</a></div>';
+          lc.textContent = 'THE FEED IS QUIET \u2014 FOR NOW';
+          return;
+        }
+        lc.textContent = items.length + (items.length===1?' SMACK':' SMACKS') + ' ON THE BOARD';
+        // On refreshes, flag anything newer than what we'd already seen.
+        var markAbove = first ? null : seenTop;
+        render(items, markAbove);
+        seenTop = items[0].id;
+        document.getElementById('feedEnd').hidden = items.length < 12;
+      })
+      .catch(function(){
+        document.getElementById('liveCount').textContent = 'COULD NOT LOAD THE FEED';
+      });
+  }
+
+  load(true);
+  // Poll for new smacks as they go out - only while the tab is visible.
+  setInterval(function(){ if(!document.hidden) load(false); }, 25000);
+})();
+</script>
+
+</body>
+</html>

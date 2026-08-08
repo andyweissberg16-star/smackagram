@@ -14,7 +14,7 @@ import requests
 from dotenv import load_dotenv
 
 from models import SmackcastWeeklyNote
-from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode, WallPost, OptOut, FamousMoment, CallTiming, PageStat, SafetyEvent
+from models import db, DailyShow, Setting, Scenario, Order, Smackagram, ChatPost, ChatRating, Battle, BattleLine, BattleVote, BattleViewer, BattleRoundResult, BattleLineReaction, User, SmackcastSubscription, SmackcastPurchase, SmackcastRecap, WalletTransaction, PendingAction, VerifiedPhone, PhoneVerificationCode, WallPost, SmackFeedReaction, OptOut, FamousMoment, CallTiming, PageStat, SafetyEvent
 from services import news_service, show_service, admin_service, settings_service, show_service
 from services import twilio_service, stripe_service, sports_service, elevenlabs_service, trash_talk_service, rate_limiter, voice_options, generator_constants, call_audio_service, content_moderation, team_aliases, chat_team_lists, chat_team_colors, team_display, sleeper_service, smackcast_service, espn_service, wallet_service, revenge_service, analytics_service, safety_service
 from scheduler import check_armed_smackagrams, generate_weekly_smackcasts
@@ -4687,6 +4687,106 @@ def api_wall():
             })
 
     return jsonify({"count": len(items), "items": items})
+
+
+@app.route("/api/smack-feed")
+def api_smack_feed():
+    """
+    THE SMACK FEED - every real smack as it goes out, newest first.
+
+    Same WallPost source as the Smacks-of-the-Week wall and the homepage
+    live-sends box, but NOT filtered to approved/curated: this is the live
+    stream of calls as they're placed. Anonymized by design - no sender
+    name beyond the public handle, no recipient number ever - so the card
+    is about the TEAM that got roasted, not who sent it to whom.
+    """
+    try:
+        limit = min(int(request.args.get("limit", 60)), 100)
+    except Exception:
+        limit = 60
+
+    rows = (WallPost.query
+            .filter_by(is_sample=False)
+            .order_by(WallPost.id.desc())
+            .limit(limit).all())
+
+    # Tally reactions for these posts in one query rather than N.
+    post_ids = [r.id for r in rows]
+    counts = {}
+    if post_ids:
+        from sqlalchemy import func as _func
+        for pid, rx, n in (db.session.query(
+                SmackFeedReaction.post_id,
+                SmackFeedReaction.reaction,
+                _func.count(SmackFeedReaction.id))
+                .filter(SmackFeedReaction.post_id.in_(post_ids))
+                .group_by(SmackFeedReaction.post_id,
+                          SmackFeedReaction.reaction).all()):
+            counts.setdefault(pid, {})[rx] = n
+
+    items = [{
+        "id": r.id,
+        "handle": r.handle,
+        "product": r.product,
+        "headline": r.headline,
+        "body": r.body,
+        "team": _nickname_only(r.team_name or r.team),
+        "team_color": chat_team_colors.readable_color_for_name(
+            r.team_name or r.team),
+        "when": wall_when(r.created_at),
+        "audio_url": r.audio_url,
+        "reactions": counts.get(r.id, {}),
+    } for r in rows]
+
+    resp = jsonify({"count": len(items), "items": items})
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.route("/smack-feed")
+def smack_feed_page():
+    """The Smack Feed - a scrolling wall of smacks as they go out."""
+    return render_template("smack_feed.html")
+
+
+@app.route("/api/smack-feed/react", methods=["POST"])
+def api_smack_feed_react():
+    """
+    Toggle a reaction on a feed card. Body: {post_id, reaction, reactor}.
+    reactor is an anonymous browser-stored id. Returns the fresh counts
+    for that post so the card updates immediately.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        post_id = int(data.get("post_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "bad post_id"}), 400
+    reaction = str(data.get("reaction", ""))[:16]
+    reactor = str(data.get("reactor", ""))[:64]
+    ALLOWED = {"SMACK", "COOKED", "FACTS", "WEAK", "HOLD_THIS_L"}
+    if reaction not in ALLOWED or not reactor:
+        return jsonify({"error": "bad reaction"}), 400
+
+    existing = SmackFeedReaction.query.filter_by(
+        post_id=post_id, reactor_id=reactor, reaction=reaction).first()
+    if existing:
+        db.session.delete(existing)          # tapping again removes it
+        mine = False
+    else:
+        db.session.add(SmackFeedReaction(
+            post_id=post_id, reactor_id=reactor, reaction=reaction))
+        mine = True
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+    from sqlalchemy import func as _func
+    counts = {rx: n for rx, n in (db.session.query(
+        SmackFeedReaction.reaction, _func.count(SmackFeedReaction.id))
+        .filter_by(post_id=post_id)
+        .group_by(SmackFeedReaction.reaction).all())}
+    return jsonify({"post_id": post_id, "reactions": counts, "mine": mine})
 
 
 _DAMAGE_CACHE = {}   # league -> (fetched_at, finals) - see the note inside

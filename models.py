@@ -472,6 +472,25 @@ class BattleLineReaction(db.Model):
     )
 
 
+class SmackFeedReaction(db.Model):
+    """
+    A reaction on a Smack Feed card (SMACK / COOKED / FACTS / WEAK /
+    HOLD THIS L). Keyed by the wall post plus an anonymous reactor id
+    stored in the browser, so counts persist and one viewer can't spam
+    the same reaction. No login required - the feed is public.
+    """
+    __tablename__ = "smack_feed_reactions"
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, index=True, nullable=False)
+    reactor_id = db.Column(db.String(64), nullable=False)
+    reaction = db.Column(db.String(16), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (
+        db.UniqueConstraint("post_id", "reactor_id", "reaction",
+                            name="uq_feed_reaction"),
+    )
+
+
 class BattleViewer(db.Model):
     """
     Live viewer presence for a battle - one row per distinct browser
