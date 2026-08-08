@@ -4225,6 +4225,13 @@ def publish_to_wall(record, product, audio_url=None):
         # unexplained gap.
         handle = "anonymous"
 
+        _team_for_league = ((getattr(record, "target_team", None)
+                             or getattr(record, "team", None) or "").strip())
+        try:
+            from services.team_league import league_for_team
+            _post_league = league_for_team(_team_for_league)
+        except Exception:
+            _post_league = None
         post = WallPost(
             user_id=getattr(record, "user_id", None),
             handle=handle,
@@ -4236,6 +4243,7 @@ def publish_to_wall(record, product, audio_url=None):
                 or getattr(record, "team", None)),
             team=((getattr(record, "target_team", None)
                    or getattr(record, "team", None) or "").strip() or None),
+            league=_post_league,
             # Goes up with the plain message immediately; the stitched
             # version replaces it a few seconds later - see below.
             audio_url=audio_url,
@@ -4704,11 +4712,23 @@ def api_smack_feed():
         limit = min(int(request.args.get("limit", 60)), 100)
     except Exception:
         limit = 60
+    league_filter = (request.args.get("league") or "").strip().lower()
 
+    from services.team_league import league_for_team
+
+    # Pull a generous window, then league-filter in Python so old rows
+    # (no stored league) still filter via the team-name lookup.
     rows = (WallPost.query
             .filter_by(is_sample=False)
             .order_by(WallPost.id.desc())
-            .limit(limit).all())
+            .limit(200).all())
+
+    def league_of(r):
+        return (r.league or league_for_team(r.team_name or r.team) or "")
+
+    if league_filter and league_filter != "all":
+        rows = [r for r in rows if league_of(r) == league_filter]
+    rows = rows[:limit]
 
     # Tally reactions for these posts in one query rather than N.
     post_ids = [r.id for r in rows]
@@ -4733,6 +4753,7 @@ def api_smack_feed():
         "team": _nickname_only(r.team_name or r.team),
         "team_color": chat_team_colors.readable_color_for_name(
             r.team_name or r.team),
+        "league": league_of(r).upper(),
         "when": wall_when(r.created_at),
         "audio_url": r.audio_url,
         "reactions": counts.get(r.id, {}),
@@ -4747,6 +4768,29 @@ def api_smack_feed():
 def smack_feed_page():
     """The Smack Feed - a scrolling wall of smacks as they go out."""
     return render_template("smack_feed.html")
+
+
+@app.route("/api/smack-feed/stats")
+def api_smack_feed_stats():
+    """Ticker numbers for the feed header: smacks sent today + teams roasted."""
+    from datetime import datetime, timezone as _tz
+    try:
+        try:
+            from zoneinfo import ZoneInfo
+            now = datetime.now(ZoneInfo("America/New_York"))
+        except Exception:
+            now = datetime.now(_tz.utc)
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today = (WallPost.query
+                 .filter(WallPost.is_sample == False)  # noqa: E712
+                 .filter(WallPost.created_at >= start).all())
+        teams = {(p.team_name or p.team) for p in today if (p.team_name or p.team)}
+        return jsonify({
+            "sent_today": len(today),
+            "teams_roasted": len(teams),
+        })
+    except Exception:
+        return jsonify({"sent_today": 0, "teams_roasted": 0})
 
 
 @app.route("/api/smack-feed/react", methods=["POST"])
@@ -7312,6 +7356,10 @@ with app.app_context():
             conn.execute(db.text("ALTER TABLE smackagrams ADD COLUMN IF NOT EXISTS user_id INTEGER"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS user_id INTEGER"))
             conn.execute(db.text("ALTER TABLE orders ADD COLUMN IF NOT EXISTS team VARCHAR(80)"))
+            # Smack Feed league tab - which league each smack belongs to.
+            conn.execute(db.text(
+                "ALTER TABLE wall_posts ADD COLUMN IF NOT EXISTS "
+                "league VARCHAR(16)"))
             # Refund tracking. Twilio retries webhooks, so without a flag
             # a retried failure notification refunds twice - and that is
             # money leaving with nothing to show for it.

@@ -61,6 +61,12 @@ class WallPost(db.Model):
 
     audio_url = db.Column(db.String(500), nullable=True)
 
+    # Which league this smack belongs to (mlb/nfl/nba/nhl/wnba/ncaa...),
+    # so the Smack Feed can filter by league tab like the Smack Board.
+    # Derived from the team when written; backfilled for old rows by the
+    # feed endpoint via a team-name lookup.
+    league = db.Column(db.String(16), nullable=True)
+
     # Nothing appears until somebody has looked at it.
     approved = db.Column(db.Boolean, default=False, nullable=False)
     # Marks the seeded examples, so they can be told apart from real posts
