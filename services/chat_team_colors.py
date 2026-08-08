@@ -277,30 +277,44 @@ def color_for_name(name):
 
 def readable_color_for_name(name, on_dark=True):
     """
-    The team's colour, lightened if it would disappear.
+    The team's true colour, nudged ONLY if it's so dark it would vanish.
 
-    Plenty of real team colours are nearly black - Chicago's navy is #0B162A,
-    Cleveland's brown is #311D00 - and those are invisible on a dark card.
-    Anything too dark is lifted until it can be read, keeping the hue so it
-    is still recognisably the team.
+    The cards are dark, but navy (#003087), deep red (#97233F), forest green
+    and the like read fine on them and must be shown TRUE - lifting them turns
+    navy into light blue and deep red into pink, which is wrong. So this only
+    touches colours that are genuinely near-black (a real invisibility risk),
+    and even then blends toward gray by a small fixed amount rather than
+    scaling channels (scaling blows out the dominant channel and shifts hue).
     """
     hexv = color_for_name(name)
     if not hexv:
         return None
+    if not on_dark:
+        return hexv
     try:
         h = hexv.lstrip("#")
         r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-        # Perceived brightness, not a plain average - the eye weights green
-        # far more heavily than blue.
+        # Perceived brightness (green-weighted, matching the eye).
         lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-        floor = 0.42 if on_dark else 0.0
-        if lum <= 0:
-            # Pure black (e.g. Germany, LA Kings) - no hue to preserve, so
-            # lift to a readable neutral gray instead of staying invisible.
-            return "#8A8A8A" if on_dark else hexv
-        if lum < floor:
-            scale = floor / lum
-            r, g, b = (min(255, int(c * scale)) for c in (r, g, b))
+
+        # Only near-black colours are a problem. Navy/maroon/forest (lum
+        # roughly 0.08-0.30) are fine on a dark card and pass through TRUE.
+        DARK = 0.10
+        if lum >= DARK:
+            return hexv
+
+        if lum <= 0.01:
+            # Effectively pure black (Germany, Raiders, LA Kings) - no hue to
+            # keep, so show a readable neutral gray instead of invisible black.
+            return "#8A8A8A"
+
+        # Very dark but not black: lift toward gray just enough to be seen,
+        # blending a fixed amount so the hue stays put instead of one channel
+        # blowing out to max.
+        target = 0.34
+        t = min(1.0, (target - lum) / max(target, 0.001))  # 0..1 blend
+        lift = int(70 * t)                                   # add up to ~70/255
+        r, g, b = (min(255, c + lift) for c in (r, g, b))
         return f"#{r:02X}{g:02X}{b:02X}"
     except Exception:
         return hexv

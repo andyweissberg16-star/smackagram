@@ -65,8 +65,7 @@
   .feed-box .sc:last-child{margin-bottom:0;}
 
   .sc{border-radius:12px;overflow:hidden;background:linear-gradient(160deg,#12151f,#0c0a0e);
-    border:1px solid #2a1a20;margin-bottom:12px;box-shadow:inset 0 0 30px rgba(0,0,0,.5);
-    animation:cardIn .45s ease;}
+    border:1px solid #2a1a20;margin-bottom:12px;box-shadow:inset 0 0 30px rgba(0,0,0,.5);}
   .sc.fresh{border-color:var(--flare);box-shadow:0 0 16px rgba(232,20,44,.3),inset 0 0 30px rgba(0,0,0,.5);
     animation:cardIn .45s ease, flash 1.5s ease 1;}
   .sc-banner{padding:9px 13px;display:flex;align-items:center;gap:8px;
@@ -525,6 +524,13 @@
   }
 
   function load(first){
+    // Never rebuild the feed while a clip is playing - re-rendering would
+    // destroy the playing card's DOM (cutting the audio) and replay every
+    // card's fade-in animation (the "flashing"). Skip the refresh; the next
+    // poll after playback ends will pick up anything new.
+    if(!first && nowPlaying && audio && !audio.paused){
+      return;
+    }
     var url = '/api/smack-feed?limit=60' + (curLeague!=='all' ? '&league='+curLeague : '');
     fetch(url).then(function(r){return r.json();}).then(function(d){
       cache = (d && d.items) || [];
