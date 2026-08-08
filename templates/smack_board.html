@@ -644,7 +644,7 @@ function actions(g){
         + ` data-ws="${esc(String(winner.score ?? ""))}"`
       : "";
   const armBtn = (g.final || !loser) ? "" :
-    `<button class="btn-arm" data-team="${esc(loser.nick || loser.abbr)}" data-sport="${esc(currentSport())}">SET UP THE FINAL</button>`;
+    `<button class="btn-arm" data-team="${esc(loser.nick || loser.abbr)}" data-sport="${esc(currentSport())}" data-home="${esc(home)}" data-away="${esc(away)}" data-gid="${esc(String(g.id || g.gid || ""))}" data-start="${esc(String(g.start || ""))}">SET UP THE FINAL</button>`;
 
   return `<div class="actions">
       <button class="btn-smack"${outcome} data-team="${esc(name || home)}" data-sport="${esc(currentSport())}">${smackLabel}</button>
@@ -811,7 +811,22 @@ document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-team]");
   if (!btn) return;
 
-  let q = "?team=" + encodeURIComponent(btn.dataset.team)
+  const isArm = btn.classList.contains("btn-arm");
+  let q;
+  if (isArm){
+    // Upcoming game -> the new Set Up page, which wants
+    // target, home, away, sport, gid, start.
+    q = "?target=" + encodeURIComponent(btn.dataset.team)
+      + "&home=" + encodeURIComponent(btn.dataset.home || "")
+      + "&away=" + encodeURIComponent(btn.dataset.away || "")
+      + "&sport=" + encodeURIComponent(btn.dataset.sport || "")
+      + "&gid=" + encodeURIComponent(btn.dataset.gid || "")
+      + "&start=" + encodeURIComponent(btn.dataset.start || "");
+    window.location.href = "/set-up" + q;
+    return;
+  }
+
+  q = "?team=" + encodeURIComponent(btn.dataset.team)
           + "&sport=" + encodeURIComponent(btn.dataset.sport || "");
   // A finished game hands the WHOLE OUTCOME to the generator - the
   // roast should be about THIS loss, not the team in general.
@@ -825,8 +840,7 @@ document.addEventListener("click", (e) => {
   // finished games get their own themed page; everything else keeps
   // the classic destinations
   window.location.href =
-    (btn.classList.contains("btn-arm") ? "/auto-smack"
-     : (btn.dataset.loser ? "/game-day" : "/send-a-smack")) + q;
+    (btn.dataset.loser ? "/game-day" : "/send-a-smack") + q;
 });
 
 buildTabs();

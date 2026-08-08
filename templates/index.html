@@ -1022,7 +1022,8 @@
           diff=(d>0?('DOWN '+d):'TIED');
         } else { diff='LOSING'; }
         var per=g.period||g.inning||g.status||'';
-        LIVE.push({team:nk(l), ctx:(per?(diff+' · '+per):diff), c:'#F5A623'});
+        LIVE.push({team:nk(l), ctx:(per?(diff+' · '+per):diff), c:'#F5A623',
+          loser:nk(l), winner:nk(w), ls:(l.score!=null?l.score:''), ws:(w&&w.score!=null?w.score:''), sport:lg});
       } else if(g.upcoming){
         // Name ONE team big (the home side), opponent + time underneath.
         var home=nk(g.home)||nk(g.away), away=(home===nk(g.home))?nk(g.away):nk(g.home);
@@ -1041,13 +1042,15 @@
           }
           // else: an unparseable ISO-looking stamp -> drop it, show no time
         }
-        UP.push({team:home, ctx:('vs '+away+(when?(' · '+when):'')), target:home, c:'#C3CAD3'});
+        UP.push({team:home, ctx:('vs '+away+(when?(' · '+when):'')), target:home, c:'#C3CAD3',
+          home:nk(g.home), away:nk(g.away), sport:lg, gid:(g.id||g.gid||''), start:(g.start||g.start_iso||'')});
       }
     });
     (data.damage||[]).forEach(function(g){
       var l=loserOf(g);if(!l)return;
       var w=(l===g.home)?g.away:g.home;
-      FINAL.push({team:nk(l), ctx:('LOST '+(l.score)+'\u2013'+(w?w.score:'')), c:confColor(lg,l)});
+      FINAL.push({team:nk(l), ctx:('LOST '+(l.score)+'\u2013'+(w?w.score:'')), c:confColor(lg,l),
+        loser:nk(l), winner:nk(w), ls:(l.score!=null?l.score:''), ws:(w&&w.score!=null?w.score:''), sport:lg});
     });
   }
 
@@ -1056,16 +1059,16 @@
     var dotc=isLive?'#F5A623':(state==='upcoming'?'#C3CAD3':r.c);
     var dot='<span style="width:10px;height:10px;border-radius:50%;background:'+dotc+';'+(isLive?'animation:sbb_dot 1.1s infinite;':'')+'box-shadow:0 0 7px '+dotc+';flex:none;"></span>';
     var label,url,bg,ctxColor;
+    function q(o){var s=[];for(var k in o){if(o[k]!==''&&o[k]!=null)s.push(k+'='+encodeURIComponent(o[k]));}return s.join('&');}
     if(state==='upcoming'){
-      label='ARM IT'; url='/set-up?target='+encodeURIComponent(r.target||r.team);
+      label='ARM IT';
+      url='/set-up?'+q({target:r.target||r.team, home:r.home, away:r.away, sport:r.sport, gid:r.gid, start:r.start});
       bg='background:transparent;border:1px solid #C3CAD3;color:#C3CAD3;'; ctxColor='#C3CAD3';
-    } else if(state==='live'){
-      label='SMACK LIVE'; url='/game-day?target='+encodeURIComponent(r.team);
-      bg='background:#F5A623;color:#1A1206;box-shadow:0 0 8px rgba(245,166,35,.5);'; ctxColor='#F5A623';
     } else {
-      label='SMACK'; url='/game-day?target='+encodeURIComponent(r.team);
-      bg='background:#E01B24;color:#fff;box-shadow:0 0 6px rgba(224,27,36,.5);';
-      ctxColor=(r.c==='#e8e8e2')?'#9A9A9A':r.c;
+      label=isLive?'SMACK LIVE':'SMACK';
+      url='/game-day?'+q({loser:r.loser||r.team, winner:r.winner, ls:r.ls, ws:r.ws, sport:r.sport});
+      if(isLive){ bg='background:#F5A623;color:#1A1206;box-shadow:0 0 8px rgba(245,166,35,.5);'; ctxColor='#F5A623'; }
+      else { bg='background:#E01B24;color:#fff;box-shadow:0 0 6px rgba(224,27,36,.5);'; ctxColor=(r.c==='#e8e8e2')?'#9A9A9A':r.c; }
     }
     return '<div class="sbb-line" style="animation-delay:'+(idx*0.05).toFixed(2)+'s">'
       +'<span>'+dot+'</span>'
