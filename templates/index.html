@@ -181,7 +181,7 @@
 
 
   .eyebrow{color:var(--cyan); font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; letter-spacing:1px; margin-bottom:16px; text-transform:uppercase; text-shadow:0 0 10px rgba(47,155,255,0.6);}
-  h1{font-size:var(--h1-hero); line-height:0.98; margin-bottom:20px;}
+  h1{font-size:clamp(30px,5.5vw,46px); line-height:1.0; margin-bottom:20px;}
   h1 .flare{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.6);}
   .sub{color:var(--chalk-dim); font-size:17px; max-width:440px; margin-bottom:32px;}
   .hero-ctas{display:flex; gap:12px;}
@@ -814,8 +814,8 @@
          does the same job and is true. #}
       {% include '_smacks_today.html' %}
       <p class="league-strip">NFL &middot; NBA &middot; MLB &middot; NHL &middot; WNBA &middot; COLLEGE &middot; ANY TEAM</p>
-      <h1>Their team lost.<br><span class="flare">Their phone rings.</span></h1>
-      <p class="sub" style="max-width:760px; margin-left:auto; margin-right:auto; text-align:center;">I'm Smacky. You tell me who choked &mdash; the team, the quarterback, the guy who bricked two free throws &mdash; and I'll call your buddy and read him the news in my own voice. I already know the score, the record and the losing streak, so I'll use all of it. He never finds out it was you.</p>
+      <h1>Sports trash talk.<br><span class="flare">Delivered one call at a time.</span></h1>
+      <p class="sub" style="max-width:640px; margin-left:auto; margin-right:auto; text-align:center;">Smackagram turns real sports into personalized trash talk about your friends&rsquo; teams and players. Send live-game smack, auto-call them when their team loses, and get weekly fantasy recaps for your league. Smacky says what everyone&rsquo;s thinking &mdash; and no one else will.</p>
       {# The homepage version is the headline claim, not a footnote - hence
          its own bigger size. The shared stamp stays as it is everywhere
          else, where it sits under a heading rather than carrying one. #}
