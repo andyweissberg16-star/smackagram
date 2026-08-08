@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ article.headline }} &middot; The Smacky Report</title>
+<meta name="description" content="{{ article.headline }}">
+<meta property="og:title" content="{{ article.headline }} &middot; The Smacky Report">
+<meta property="og:description" content="{{ article.body[:160] }}">
+<meta property="og:type" content="article">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
+<style>
+  :root{
+    --ink:#0a0608; --chalk:#F5F5F3; --chalk-dim:#9A8A90;
+    --flare:#E8142C; --silver:#C3CAD3; --amber:#F5A623;
+  }
+  .na-page{background:radial-gradient(ellipse at 50% -5%,rgba(232,20,44,.13),#0a0608 55%),#0a0608;min-height:100vh;}
+  .na-page *{box-sizing:border-box;}
+  .nawrap{max-width:700px;margin:0 auto;padding:0 16px 90px;}
+
+  .na-back{display:inline-block;margin:26px 0 18px;font-family:'JetBrains Mono',monospace;
+    font-size:11px;letter-spacing:1px;color:#ff5a63;text-decoration:none;}
+  .na-back:hover{text-decoration:underline;}
+
+  .na-article{background:linear-gradient(160deg,#141018,#0c0a0e);border:1px solid #2a1a20;
+    border-radius:14px;overflow:hidden;}
+  .na-topbar{height:6px;background:{{ team_color }};}
+  .na-body-pad{padding:28px 30px 32px;}
+  .na-meta{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+  .na-league{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;
+    letter-spacing:1.2px;color:#0D0D0D;background:var(--amber);padding:4px 9px;border-radius:4px;}
+  .na-byline{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--chalk-dim);letter-spacing:.4px;}
+  .na-when{font-family:'JetBrains Mono',monospace;font-size:10px;color:#5a4a50;margin-left:auto;}
+  .na-headline{font-family:'Anton',sans-serif;font-size:clamp(24px,5vw,34px);line-height:1.2;
+    color:#fff;text-transform:uppercase;margin:0 0 16px;letter-spacing:.3px;}
+  .na-score{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--silver);
+    background:rgba(195,202,211,.06);border:1px solid rgba(195,202,211,.2);
+    display:inline-block;padding:7px 14px;border-radius:6px;margin-bottom:22px;letter-spacing:.3px;}
+  .na-text{font-family:'Inter',sans-serif;font-size:16px;line-height:1.75;color:#e0d8dc;
+    white-space:pre-line;}
+
+  .na-more{margin-top:32px;}
+  .na-more h3{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:2px;
+    color:var(--chalk-dim);text-transform:uppercase;margin:0 0 12px;text-align:center;}
+  .na-more-list{display:flex;flex-direction:column;gap:8px;}
+  .na-more-item{display:block;text-decoration:none;background:#100d12;border:1px solid #2a1a20;
+    border-radius:8px;padding:12px 16px;font-family:'Anton',sans-serif;color:#d8ccd0;
+    font-size:13px;line-height:1.3;text-transform:uppercase;transition:.15s;}
+  .na-more-item:hover{border-color:var(--flare);color:#fff;}
+</style>
+</head>
+<body class="na-page">
+
+{% include '_nav.html' %}
+
+<div class="nawrap">
+  <a class="na-back" href="/news">&larr; BACK TO THE REPORT</a>
+
+  <div class="na-article">
+    <div class="na-topbar"></div>
+    <div class="na-body-pad">
+      <div class="na-meta">
+        <span class="na-league">{{ article.league|upper }}</span>
+        <span class="na-byline">By Smacky &middot; News Desk</span>
+        {% if when %}<span class="na-when">{{ when }}</span>{% endif %}
+      </div>
+      <h1 class="na-headline">{{ article.headline }}</h1>
+      {% if article.away_team and article.home_team and article.away_score is not none and article.home_score is not none %}
+      <div class="na-score">FINAL &middot; {{ article.away_team }} {{ article.away_score }} @ {{ article.home_team }} {{ article.home_score }}</div>
+      {% endif %}
+      <div class="na-text">{{ article.body }}</div>
+    </div>
+  </div>
+
+  {% if others %}
+  <div class="na-more">
+    <h3>More From The Desk</h3>
+    <div class="na-more-list">
+      {% for o in others %}
+      <a class="na-more-item" href="/news/{{ o.id }}">{{ o.headline }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+</body>
+</html>

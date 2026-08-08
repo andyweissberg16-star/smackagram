@@ -15,51 +15,59 @@
   }
   .nd-page{background:radial-gradient(ellipse at 50% -5%,rgba(232,20,44,.13),#0a0608 55%),#0a0608;min-height:100vh;}
   .nd-page *{box-sizing:border-box;}
-  .ndwrap{max-width:900px;margin:0 auto;padding:0 16px 90px;}
+  .ndwrap{max-width:1080px;margin:0 auto;padding:0 16px 90px;}
 
-  @keyframes ndPulse{0%,100%{opacity:1}50%{opacity:.35}}
-  @keyframes ndGlow{0%,100%{text-shadow:0 0 8px rgba(232,20,44,.9),0 0 20px rgba(232,20,44,.6),0 0 34px rgba(232,20,44,.35)}50%{text-shadow:0 0 12px rgba(232,20,44,1),0 0 28px rgba(232,20,44,.75),0 0 48px rgba(232,20,44,.5)}}
+  @keyframes ndDot{0%,100%{opacity:1;box-shadow:0 0 4px #E01B24}50%{opacity:.35;box-shadow:0 0 12px #E01B24}}
+  @keyframes ndChase{0%,100%{background:#E01B24;box-shadow:0 0 7px #E01B24}50%{background:#3a0508;box-shadow:none}}
+  @keyframes ndGlowW{0%,100%{text-shadow:0 0 10px rgba(255,255,255,.9),0 0 22px rgba(255,255,255,.4)}50%{text-shadow:0 0 6px rgba(255,255,255,.6)}}
+  @keyframes ndGlowR{0%,100%{text-shadow:0 0 12px rgba(224,27,36,.95),0 0 26px rgba(224,27,36,.5)}50%{text-shadow:0 0 8px rgba(224,27,36,.7)}}
   @keyframes ndIn{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
 
-  .ndsign{text-align:center;padding:30px 0 18px;border-bottom:1px solid #2a1a20;margin-bottom:22px;}
-  .ndsign h1{font-family:'Anton',sans-serif;font-size:clamp(34px,7.5vw,54px);
-    text-transform:uppercase;letter-spacing:1px;margin:0;line-height:1;color:#fff;
-    animation:ndGlow 2.6s infinite;}
-  .ndsign p{font-family:'JetBrains Mono',monospace;color:var(--chalk-dim);
-    font-size:12.5px;letter-spacing:.5px;margin:10px 0 0;}
-  .ndsign .live{display:inline-flex;align-items:center;gap:6px;margin-top:12px;
-    font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;
-    color:var(--flare);font-weight:700;}
-  .ndsign .live i{width:7px;height:7px;border-radius:50%;background:var(--flare);
-    animation:ndPulse 1.5s ease-in-out infinite;}
+  .nd-mast{margin:26px 0 28px;}
+  .nd-frame{background:#050506;border:2px solid var(--flare);border-radius:16px;padding:16px 18px 20px;
+    box-shadow:0 0 30px rgba(224,27,36,.5),0 0 60px rgba(224,27,36,.2),inset 0 0 24px rgba(224,27,36,.06);}
+  .nd-bulbrow{display:flex;justify-content:space-between;padding:0 2px 12px;}
+  .nd-bulb{width:7px;height:7px;border-radius:50%;background:var(--flare);flex:none;animation:ndChase .9s infinite;}
+  .nd-status{text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;
+    letter-spacing:2.5px;color:var(--flare);margin-bottom:8px;}
+  .nd-status i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--flare);
+    animation:ndDot 1.4s ease-in-out infinite;margin-right:6px;vertical-align:1px;}
+  .nd-title{font-family:'Anton',sans-serif;font-size:clamp(30px,7vw,54px);letter-spacing:1px;
+    text-transform:uppercase;text-align:center;line-height:1;}
+  .nd-title .w{color:#fff;animation:ndGlowW 2.4s infinite;}
+  .nd-title .r{color:var(--flare);animation:ndGlowR 2.4s infinite;}
+  .nd-tagline{text-align:center;font-family:'JetBrains Mono',monospace;color:var(--chalk-dim);
+    font-size:12px;letter-spacing:.5px;margin:10px 0 18px;}
 
-  .nd-tabs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:24px;}
-  .nd-tab{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11.5px;
-    letter-spacing:1px;padding:8px 18px;border-radius:7px;cursor:pointer;
-    border:1px solid #3a2228;background:rgba(232,20,44,.05);color:#8A7A80;
-    text-transform:uppercase;transition:.15s;user-select:none;}
-  .nd-tab.active{border-color:var(--flare);background:rgba(232,20,44,.14);
-    color:#ff5a63;box-shadow:0 0 10px rgba(232,20,44,.3);}
-  .nd-tab.soon{opacity:.4;cursor:default;}
+  .nd-tabs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+  .nd-tab{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;
+    letter-spacing:1px;padding:7px 16px;border-radius:6px;cursor:pointer;
+    border:1px solid var(--flare);background:rgba(224,27,36,.08);color:#ff5a63;
+    text-transform:uppercase;transition:.15s;box-shadow:0 0 8px rgba(224,27,36,.25);user-select:none;}
+  .nd-tab:hover{background:rgba(224,27,36,.16);}
+  .nd-tab.active{background:var(--flare);color:#fff;box-shadow:0 0 14px rgba(224,27,36,.6);}
+  .nd-tab.soon{opacity:.35;cursor:default;box-shadow:none;}
+  .nd-tab.soon:hover{background:rgba(224,27,36,.08);}
 
-  .nd-card{background:linear-gradient(160deg,#141018,#0c0a0e);border:1px solid #2a1a20;
-    border-radius:12px;padding:22px 24px;margin-bottom:16px;animation:ndIn .4s ease;}
-  .nd-meta{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
-  .nd-league{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;
-    letter-spacing:1.2px;color:#0D0D0D;background:var(--amber);padding:3px 8px;
-    border-radius:4px;}
-  .nd-byline{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--chalk-dim);
-    letter-spacing:.5px;}
-  .nd-when{font-family:'JetBrains Mono',monospace;font-size:10px;color:#5a4a50;
-    margin-left:auto;}
-  .nd-headline{font-family:'Anton',sans-serif;font-size:22px;line-height:1.15;
-    color:#fff;text-transform:uppercase;margin:0 0 10px;letter-spacing:.3px;}
-  .nd-score{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--silver);
-    background:rgba(195,202,211,.06);border:1px solid rgba(195,202,211,.2);
-    display:inline-block;padding:5px 10px;border-radius:5px;margin-bottom:14px;
-    letter-spacing:.3px;}
-  .nd-body{font-family:'Inter',sans-serif;font-size:15px;line-height:1.65;
-    color:#d8d0d4;white-space:pre-line;}
+  .nd-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:22px;}
+  @media (max-width:760px){ .nd-grid{grid-template-columns:1fr;} }
+  .nd-card{display:flex;flex-direction:column;text-decoration:none;background:linear-gradient(160deg,#141018,#0c0a0e);
+    border:1px solid #2a1a20;border-radius:12px;overflow:hidden;min-height:230px;
+    animation:ndIn .4s ease;transition:transform .15s,box-shadow .15s;}
+  .nd-card:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.4);}
+  .nd-topbar{height:5px;flex:none;}
+  .nd-cardbody{padding:20px 22px 22px;flex:1;display:flex;flex-direction:column;}
+  .nd-meta{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .nd-league{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;
+    letter-spacing:1.2px;color:#0D0D0D;background:var(--amber);padding:3px 8px;border-radius:4px;}
+  .nd-score{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--chalk-dim);letter-spacing:.3px;}
+  .nd-headline{font-family:'Anton',sans-serif;font-size:19px;line-height:1.28;color:#fff;
+    text-transform:uppercase;margin:0 0 12px;min-height:2.6em;letter-spacing:.2px;}
+  .nd-teaser{font-family:'Inter',sans-serif;font-size:13px;line-height:1.6;color:#a89398;
+    flex:1;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+    margin-bottom:14px;}
+  .nd-cta{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;
+    color:#ff5a63;font-weight:700;}
 
   .nd-empty{text-align:center;color:#6a5a60;padding:60px 20px;font-family:'JetBrains Mono',monospace;
     font-size:13px;line-height:1.7;}
@@ -72,64 +80,82 @@
 {% include '_nav.html' %}
 
 <div class="ndwrap">
-  <div class="ndsign">
-    <h1>The Smacky Report</h1>
-    <p>Real games. Real scores. Reported Smacky's way.</p>
-    <div class="live"><i></i>NEWS DESK IS OPEN</div>
+  <div class="nd-mast">
+    <div class="nd-frame">
+      <div class="nd-bulbrow">
+        <span class="nd-bulb" style="animation-delay:0s"></span><span class="nd-bulb" style="animation-delay:.08s"></span><span class="nd-bulb" style="animation-delay:.16s"></span><span class="nd-bulb" style="animation-delay:.24s"></span><span class="nd-bulb" style="animation-delay:.32s"></span><span class="nd-bulb" style="animation-delay:.4s"></span><span class="nd-bulb" style="animation-delay:.48s"></span><span class="nd-bulb" style="animation-delay:.56s"></span><span class="nd-bulb" style="animation-delay:.64s"></span><span class="nd-bulb" style="animation-delay:.72s"></span><span class="nd-bulb" style="animation-delay:.8s"></span><span class="nd-bulb" style="animation-delay:.88s"></span><span class="nd-bulb" style="animation-delay:.96s"></span><span class="nd-bulb" style="animation-delay:1.04s"></span><span class="nd-bulb" style="animation-delay:1.12s"></span><span class="nd-bulb" style="animation-delay:1.2s"></span>
+      </div>
+      <div class="nd-status"><i></i>NEWS DESK IS OPEN</div>
+      <div class="nd-title"><span class="w">THE SMACKY</span> <span class="r">REPORT</span></div>
+      <div class="nd-tagline">Real games. Real scores. Reported Smacky&rsquo;s way.</div>
+      <div class="nd-tabs">
+        <div class="nd-tab active" data-league="mlb">MLB</div>
+        <div class="nd-tab soon">NFL</div>
+        <div class="nd-tab soon">NBA</div>
+        <div class="nd-tab soon">NHL</div>
+        <div class="nd-tab soon">WNBA</div>
+      </div>
+      <div class="nd-bulbrow" style="padding-top:12px;padding-bottom:0;">
+        <span class="nd-bulb" style="animation-delay:.05s"></span><span class="nd-bulb" style="animation-delay:.13s"></span><span class="nd-bulb" style="animation-delay:.21s"></span><span class="nd-bulb" style="animation-delay:.29s"></span><span class="nd-bulb" style="animation-delay:.37s"></span><span class="nd-bulb" style="animation-delay:.45s"></span><span class="nd-bulb" style="animation-delay:.53s"></span><span class="nd-bulb" style="animation-delay:.61s"></span><span class="nd-bulb" style="animation-delay:.69s"></span><span class="nd-bulb" style="animation-delay:.77s"></span><span class="nd-bulb" style="animation-delay:.85s"></span><span class="nd-bulb" style="animation-delay:.93s"></span><span class="nd-bulb" style="animation-delay:1.01s"></span><span class="nd-bulb" style="animation-delay:1.09s"></span><span class="nd-bulb" style="animation-delay:1.17s"></span><span class="nd-bulb" style="animation-delay:1.25s"></span>
+      </div>
+    </div>
   </div>
 
-  <div class="nd-tabs">
-    <div class="nd-tab active" data-league="mlb">MLB</div>
-    <div class="nd-tab soon">NFL</div>
-    <div class="nd-tab soon">NBA</div>
-    <div class="nd-tab soon">NHL</div>
-    <div class="nd-tab soon">WNBA</div>
-  </div>
-
-  <div id="ndList">
+  <div id="ndGrid" class="nd-grid">
     <div class="nd-loading">LOADING TODAY&rsquo;S REPORT&hellip;</div>
   </div>
 </div>
 
 <script>
 (function(){
-  var list = document.getElementById('ndList');
+  var grid = document.getElementById('ndGrid');
   var curLeague = 'mlb';
 
   function esc(s){ return (s||'').replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
   }); }
 
+  function teaser(body){
+    var s = (body || '').split(/\n+/).join(' ').trim();
+    return s.length > 170 ? s.slice(0, 170).replace(/\s+\S*$/, '') + '\u2026' : s;
+  }
+
   function card(item){
+    var color = item.team_color || '#E8142C';
     var scoreLine = '';
     if(item.away_team && item.home_team && item.away_score != null && item.home_score != null){
-      scoreLine = esc(item.away_team)+' '+item.away_score+' @ '+esc(item.home_team)+' '+item.home_score;
+      scoreLine = 'FINAL &middot; ' + esc(item.away_team) + ' ' + item.away_score
+        + ' @ ' + esc(item.home_team) + ' ' + item.home_score;
     }
-    return '<div class="nd-card">'
-      + '<div class="nd-meta">'
-      +   '<span class="nd-league">'+esc(item.league||'')+'</span>'
-      +   '<span class="nd-byline">By Smacky &middot; News Desk</span>'
-      +   (item.when ? '<span class="nd-when">'+esc(item.when)+'</span>' : '')
+    return '<a class="nd-card" href="/news/' + item.id + '">'
+      + '<div class="nd-topbar" style="background:' + color + ';"></div>'
+      + '<div class="nd-cardbody">'
+      +   '<div class="nd-meta">'
+      +     '<span class="nd-league">' + esc(item.league || '') + '</span>'
+      +     (scoreLine ? '<span class="nd-score">' + scoreLine + '</span>' : '')
+      +   '</div>'
+      +   '<div class="nd-headline">' + esc(item.headline || '') + '</div>'
+      +   '<div class="nd-teaser">' + esc(teaser(item.body)) + '</div>'
+      +   '<div class="nd-cta">READ THE FULL STORY &rarr;</div>'
       + '</div>'
-      + '<h2 class="nd-headline">'+esc(item.headline||'')+'</h2>'
-      + (scoreLine ? '<div class="nd-score">FINAL &middot; '+scoreLine+'</div>' : '')
-      + '<div class="nd-body">'+esc(item.body||'')+'</div>'
-      + '</div>';
+      + '</a>';
   }
 
   function load(){
-    fetch('/api/news?league='+encodeURIComponent(curLeague)+'&limit=30')
+    fetch('/api/news?league=' + encodeURIComponent(curLeague) + '&limit=30')
       .then(function(r){ return r.json(); })
       .then(function(d){
         var items = (d && d.items) || [];
         if(!items.length){
-          list.innerHTML = '<div class="nd-empty">Nothing filed yet for '+curLeague.toUpperCase()+'.<br>'
+          grid.innerHTML = '<div class="nd-empty" style="grid-column:1/-1;">'
+            + 'Nothing filed yet for ' + curLeague.toUpperCase() + '.<br>'
             + 'Smacky&rsquo;s desk updates as games finish - check back soon.</div>';
           return;
         }
-        list.innerHTML = items.map(card).join('');
+        grid.innerHTML = items.map(card).join('');
       }).catch(function(){
-        list.innerHTML = '<div class="nd-empty">Couldn&rsquo;t load the report. Try again in a moment.</div>';
+        grid.innerHTML = '<div class="nd-empty" style="grid-column:1/-1;">'
+          + 'Couldn&rsquo;t load the report. Try again in a moment.</div>';
       });
   }
 
@@ -139,7 +165,7 @@
       document.querySelectorAll('.nd-tab').forEach(function(t){ t.classList.remove('active'); });
       tab.classList.add('active');
       curLeague = tab.dataset.league;
-      list.innerHTML = '<div class="nd-loading">LOADING&hellip;</div>';
+      grid.innerHTML = '<div class="nd-loading">LOADING&hellip;</div>';
       load();
     });
   });

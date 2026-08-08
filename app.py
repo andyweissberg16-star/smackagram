@@ -8,7 +8,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone, date
 
-from flask import Flask, render_template, request, jsonify, Response, url_for, session, redirect
+from flask import Flask, render_template, request, jsonify, Response, url_for, session, redirect, abort
 from sqlalchemy import func
 import requests
 from dotenv import load_dotenv
@@ -4878,6 +4878,7 @@ def api_newsdesk():
         "away_score": r.away_score,
         "winner": r.winner,
         "loser": r.loser,
+        "team_color": chat_team_colors.readable_color_for_name(r.loser),
         "headline": r.headline,
         "body": r.body,
         "when": wall_when(r.created_at) if r.created_at else None,
@@ -4886,6 +4887,35 @@ def api_newsdesk():
     resp = jsonify({"count": len(items), "items": items})
     resp.headers["Cache-Control"] = "no-store"
     return resp
+
+
+@app.route("/news/<int:article_id>")
+def newsdesk_article_page(article_id):
+    """
+    One article, on its own page - server-rendered directly from the
+    row rather than fetched client-side, same reasoning as the smack
+    share page: simpler, and real content on load rather than an empty
+    shell for anything that reads the page before JS runs.
+    """
+    from models import NewsArticle
+
+    article = NewsArticle.query.get(article_id)
+    if not article:
+        abort(404)
+
+    team_color = chat_team_colors.readable_color_for_name(article.loser)
+    others = (NewsArticle.query
+              .filter(NewsArticle.id != article.id, NewsArticle.league == article.league)
+              .order_by(NewsArticle.id.desc())
+              .limit(4).all())
+
+    return render_template(
+        "newsdesk_article.html",
+        article=article,
+        team_color=team_color,
+        when=wall_when(article.created_at) if article.created_at else None,
+        others=others,
+    )
 
 
 @app.route("/api/admin/generate-news")
