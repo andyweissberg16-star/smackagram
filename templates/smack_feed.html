@@ -23,10 +23,10 @@
   @keyframes flash{0%{box-shadow:0 0 0 0 rgba(232,20,44,.5),0 0 16px rgba(232,20,44,.3)}100%{box-shadow:0 0 0 12px rgba(232,20,44,0),0 0 16px rgba(232,20,44,.3)}}
 
   .fsign{text-align:center;padding:26px 0 16px;border-bottom:1px solid #2a1a20;margin-bottom:18px;}
-  .fsign h1{font-family:'Anton',sans-serif;font-size:clamp(30px,7vw,44px);
+  .fsign h1{font-family:'Anton',sans-serif;font-size:clamp(40px,9vw,64px);
     text-transform:uppercase;letter-spacing:1px;margin:0;line-height:1;}
   .fsign h1 .w{color:#fff;animation:neonPulse 2.4s infinite;}
-  .fsign h1 .r{color:var(--flare);text-shadow:0 0 10px rgba(232,20,44,1),0 0 26px rgba(232,20,44,.7),0 0 44px rgba(232,20,44,.45);}
+  .fsign h1 .r{color:#fff;animation:neonPulse 2.4s infinite;}
   .ticker{margin-top:10px;font-family:'JetBrains Mono',monospace;font-weight:700;
     font-size:11px;letter-spacing:1px;color:var(--chalk-dim);text-transform:uppercase;}
   .ticker .a{color:var(--flare);} .ticker .b{color:var(--amber);text-shadow:0 0 8px rgba(245,166,35,.5);}
@@ -52,6 +52,16 @@
   .lgtab.on{background:rgba(232,20,44,.15);border-color:var(--flare);color:#ff6b73;
     box-shadow:0 0 14px rgba(232,20,44,.55),inset 0 0 10px rgba(232,20,44,.15);
     text-shadow:0 0 8px rgba(232,20,44,.6);}
+
+  .feed-box{border:2px solid var(--flare);border-radius:14px;
+    box-shadow:0 0 18px rgba(232,20,44,.4),inset 0 0 24px rgba(0,0,0,.5);
+    padding:12px 10px 12px 12px;height:1040px;
+    overflow-y:auto;background:rgba(8,5,7,.5);}
+  .feed-box::-webkit-scrollbar{width:9px;}
+  .feed-box::-webkit-scrollbar-track{background:rgba(20,10,14,.6);border-radius:8px;}
+  .feed-box::-webkit-scrollbar-thumb{background:var(--flare);border-radius:8px;
+    box-shadow:0 0 6px rgba(232,20,44,.6);}
+  .feed-box .sc:last-child{margin-bottom:0;}
 
   .sc{border-radius:12px;overflow:hidden;background:linear-gradient(160deg,#12151f,#0c0a0e);
     border:1px solid #2a1a20;margin-bottom:12px;box-shadow:inset 0 0 30px rgba(0,0,0,.5);
@@ -149,8 +159,10 @@
 
     <div>
       <div class="lgtabs" id="lgtabs"></div>
-      <div id="feed"></div>
-      <div class="feed-end" id="feedEnd" hidden>&mdash; that&rsquo;s the board &mdash;</div>
+      <div class="feed-box">
+        <div id="feed"></div>
+        <div class="feed-end" id="feedEnd" hidden>&mdash; that&rsquo;s the board &mdash;</div>
+      </div>
     </div>
 
     <div class="rail-right">
@@ -182,7 +194,6 @@
     {key:'SMACK', label:'SMACK', emoji:'\uD83D\uDD25'},
     {key:'COOKED', label:'COOKED', emoji:'\uD83D\uDE02'},
     {key:'BRUTAL', label:'BRUTAL', emoji:'\uD83D\uDC80'},
-    {key:'FACTS', label:'FACTS', emoji:'\uD83E\uDDFE'},
     {key:'WEAK', label:'WEAK', emoji:'\uD83D\uDC4E'}
   ];
   var TABS = [
@@ -331,13 +342,15 @@
     document.querySelectorAll('.rb').forEach(function(btn){
       btn.addEventListener('click', function(){
         var pid = btn.dataset.post, rx = btn.dataset.rx;
+        // LOCKED IN: once placed, an emoji can't be removed.
+        if(mine[pid] && mine[pid][rx]) return;
         fetch('/api/smack-feed/react', {
           method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({post_id:Number(pid), reaction:rx, reactor:reactor})
         }).then(function(r){return r.json();}).then(function(d){
           if(!d || d.error) return;
           mine[pid] = mine[pid] || {};
-          if(d.mine){ mine[pid][rx] = true; } else { delete mine[pid][rx]; }
+          mine[pid][rx] = true;   // locked in
           saveMine();
           var row = btn.closest('.sreact');
           var counts = d.reactions || {};

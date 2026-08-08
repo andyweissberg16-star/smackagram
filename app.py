@@ -4807,23 +4807,21 @@ def api_smack_feed_react():
         return jsonify({"error": "bad post_id"}), 400
     reaction = str(data.get("reaction", ""))[:16]
     reactor = str(data.get("reactor", ""))[:64]
-    ALLOWED = {"SMACK", "COOKED", "FACTS", "WEAK", "HOLD_THIS_L"}
+    ALLOWED = {"SMACK", "COOKED", "BRUTAL", "WEAK"}
     if reaction not in ALLOWED or not reactor:
         return jsonify({"error": "bad reaction"}), 400
 
     existing = SmackFeedReaction.query.filter_by(
         post_id=post_id, reactor_id=reactor, reaction=reaction).first()
-    if existing:
-        db.session.delete(existing)          # tapping again removes it
-        mine = False
-    else:
+    if not existing:
         db.session.add(SmackFeedReaction(
             post_id=post_id, reactor_id=reactor, reaction=reaction))
-        mine = True
-    try:
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+    # Locked in: a repeat tap changes nothing.
+    mine = True
 
     from sqlalchemy import func as _func
     counts = {rx: n for rx, n in (db.session.query(
