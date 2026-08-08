@@ -1127,28 +1127,6 @@
 
 <div style="max-width:1100px; margin:0 auto; padding:0 24px;">
 
-  <div class="home-divh">
-    <h3>Find somebody losing</h3><span class="ln"></span>
-    <span class="sub">LIVE &middot; FREE</span>
-  </div>
-  <div class="home-board">
-    <div class="home-board-top">
-      <div>
-        <h4>The Smack Board</h4>
-        <p>Every game, every league, live. Smack any loser straight off the board.</p>
-      </div>
-      <span class="home-board-live" id="homeBoardLive" hidden>
-        <span class="home-board-dot"></span><span id="homeBoardCount">0</span> LIVE NOW
-      </span>
-    </div>
-    {# Filled from /api/board/mlb, so these are real games rather than a
-       picture of some. Hidden entirely if the fetch fails - a broken preview
-       is worse than none. #}
-    <div class="home-mini" id="homeMini"></div>
-    <div style="padding:0 15px 15px;">
-      <a href="/smack-board" class="prod-cta" style="background:var(--silver,#C3CAD3); color:#0D0D0D; max-width:260px; margin:0 auto;">OPEN THE BOARD &rarr;</a>
-    </div>
-  </div>
 
   <div class="home-divh">
     <h3>Hear one that landed</h3><span class="ln"></span>
@@ -1320,69 +1298,7 @@
 </script>
 <script src="{{ url_for('static', filename='js/share.js') }}"></script>
 
-<script>
-// Three real games in the board preview.
-//
-// Real rather than a picture of some, because a fake scoreboard on a site
-// whose whole promise is live results would be the worst possible first
-// impression. If the fetch fails the section hides itself - a broken preview
-// is worse than none.
-(function () {
-  var box = document.getElementById('homeMini');
-  if (!box) return;
 
-  function esc(t) {
-    return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
-      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
-    });
-  }
-
-  function row(t, losing) {
-    return '<div class="mg-r' + (losing ? ' is-down' : '') + '">'
-      + '<span>' + esc(t.nick || t.abbr || '') + '</span>'
-      + '<b>' + (t.score == null ? '\u2014' : t.score) + '</b></div>';
-  }
-
-  function hide() {
-    var sec = box.closest('.home-board');
-    if (sec) sec.hidden = true;
-    var head = sec && sec.previousElementSibling;
-    if (head && head.classList.contains('home-divh')) head.hidden = true;
-  }
-
-  fetch('/api/board/mlb')
-    .then(function (r) { return r.json(); })
-    .then(function (d) {
-      var games = (d.games || []).filter(function (g) { return !g.upcoming; });
-      if (!games.length) { hide(); return; }
-
-      // Live first - a game in progress is a better prompt than one that
-      // finished hours ago.
-      games.sort(function (a, b) { return (b.live ? 1 : 0) - (a.live ? 1 : 0); });
-
-      box.innerHTML = games.slice(0, 3).map(function (g) {
-        var loser = g.losing === 'home' ? g.home : (g.losing === 'away' ? g.away : null);
-        var name = loser ? (loser.nick || loser.abbr || '') : '';
-        return '<div class="mg">'
-          + row(g.away, g.losing === 'away')
-          + row(g.home, g.losing === 'home')
-          + (g.quip ? '<div class="mg-q">' + esc(g.quip) + '</div>' : '')
-          + (name
-              ? '<a class="mg-go" href="/send-a-smack?team=' + encodeURIComponent(name) + '">'
-                + 'SMACK A ' + esc(name.toUpperCase()) + ' FAN</a>'
-              : '')
-          + '</div>';
-      }).join('');
-
-      var live = d.live || 0;
-      if (live) {
-        document.getElementById('homeBoardCount').textContent = live;
-        document.getElementById('homeBoardLive').hidden = false;
-      }
-    })
-    .catch(hide);
-})();
-</script>
 
 <script>
 // Sample players in the product cards.
