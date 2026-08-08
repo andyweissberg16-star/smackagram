@@ -91,6 +91,10 @@
     padding:80px 24px 60px; display:flex; justify-content:center; text-align:center;
   }
   .hero > div{max-width:640px;}
+  /* The one-line hero title needs more than the 640px column - let the
+     h1 spill wider while staying centered, so "Sports Trash Talk." never
+     wraps to two lines. */
+  .hero h1{max-width:none; width:max-content; margin-left:auto; margin-right:auto;}
   .hero-ctas{justify-content:center;}
   .live-dot{
     width:9px; height:9px; border-radius:50%; background:var(--flare);
@@ -181,8 +185,8 @@
 
 
   .eyebrow{color:var(--cyan); font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; letter-spacing:1px; margin-bottom:16px; text-transform:uppercase; text-shadow:0 0 10px rgba(47,155,255,0.6);}
-  h1{font-size:clamp(26px,4.6vw,37px); line-height:.9; margin-bottom:20px; text-transform:none;}
-  h1 .hero-l1{display:block; font-size:clamp(52px,10vw,88px); line-height:.9; color:#E01B24; text-shadow:0 0 30px rgba(224,27,36,.55);}
+  h1{font-size:clamp(24px,4vw,34px); line-height:1.0; margin-bottom:20px; text-transform:none; white-space:nowrap;}
+  h1 .hero-l1{display:block; font-size:clamp(38px,7.5vw,76px); line-height:.92; color:#E01B24; text-shadow:0 0 30px rgba(224,27,36,.55); white-space:nowrap;}
   h1 .flare{color:var(--flare); text-shadow:0 0 24px rgba(232,20,44,0.6);}
   .sub{color:var(--chalk-dim); font-size:17px; max-width:440px; margin-bottom:32px;}
   .hero-ctas{display:flex; gap:12px;}
