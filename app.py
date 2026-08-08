@@ -7015,6 +7015,41 @@ def api_current_show():
     return resp
 
 
+@app.route("/api/show/recent")
+def api_recent_shows():
+    """
+    The "Recent Episodes" shelf on /daily-smack: up to the last 7
+    published episodes BEFORE the one currently live.
+
+    SHELF_EPOCH is the shelf's launch date - nothing created before it
+    is ever listed, per the decision to clear all history and let the
+    shelf fill naturally one day at a time from here on. Only the
+    newest 7 are returned, so the oldest rolls off automatically as
+    each new episode publishes.
+    """
+    SHELF_EPOCH = datetime(2026, 8, 8)
+
+    live = DailyShow.query.filter_by(is_live=True).order_by(
+        DailyShow.id.desc()).first()
+
+    q = DailyShow.query.filter(DailyShow.created_at >= SHELF_EPOCH)
+    if live:
+        q = q.filter(DailyShow.id != live.id)
+    shows = q.order_by(DailyShow.id.desc()).limit(7).all()
+
+    resp = jsonify({
+        "episodes": [{
+            "episode": s.id,
+            "audio_url": s.audio_url,
+            "date_label": s.date_label,
+            "minutes": s.minutes,
+            "game_count": s.game_count,
+        } for s in shows]
+    })
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
 @app.route("/api/cron/generate-smackcasts", methods=["GET", "POST"])
 def cron_generate_smackcasts():
     """

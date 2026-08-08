@@ -223,6 +223,18 @@
     border-top:1px solid rgba(245,245,243,0.07);
     font-family:'Inter',sans-serif;
   }
+
+  /* Recent Episodes shelf */
+  .shelf{margin-top:34px;background:#0D0D10;border:1.5px solid #E01B24;border-radius:14px;overflow:hidden;box-shadow:0 0 14px rgba(224,27,36,.22);}
+  .shelf-head{font-family:'Anton',sans-serif;font-size:18px;letter-spacing:1px;color:#F5F5F3;text-transform:uppercase;padding:13px 16px;border-bottom:1.5px solid rgba(224,27,36,.4);background:rgba(224,27,36,.06);}
+  .shelf-tag{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;color:#8A8A8A;letter-spacing:1px;margin-left:8px;}
+  .shelf-empty{color:var(--muted-2);font-size:13px;padding:18px 16px;margin:0;}
+  .ep{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 14px;border-bottom:1px solid #1c1c20;cursor:pointer;}
+  .ep:last-child{border-bottom:none;}
+  .ep:hover{background:rgba(224,27,36,.05);}
+  .ep-btn{width:44px;height:44px;border-radius:50%;background:#E01B24;color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 10px rgba(224,27,36,.4);flex:none;}
+  .ep-date{font-family:'Anton',sans-serif;font-size:16px;color:#F0F0EC;text-transform:uppercase;letter-spacing:.4px;}
+  .ep-meta{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;color:#8A8A8A;letter-spacing:.5px;white-space:nowrap;}
 </style>
 <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='img/favicon-32.png') }}">
 </head>
@@ -331,8 +343,10 @@
     </div>
   </div>
 
-  <h2>Past episodes</h2>
-  <div id="episodes"><p style="color:var(--muted-2); font-size:13px;">Loading&hellip;</p></div>
+  <div class="shelf">
+    <div class="shelf-head">Recent Episodes <span class="shelf-tag">LAST 7 DAYS</span></div>
+    <div id="episodes"><p class="shelf-empty">New episodes stack here each morning &mdash; today&rsquo;s show is the first. Check back tomorrow.</p></div>
+  </div>
 </div>
 
 <script>
@@ -415,24 +429,21 @@
     })
     .catch(function () { noShow.hidden = false; });
 
-  // Past episodes, if the viewer is an admin. Public listing needs its own
-  // endpoint - this one is admin-gated and simply returns nothing otherwise.
-  fetch('/api/admin/show-status')
+  // Recent Episodes shelf - the public last-7-days list. Fills one day
+  // at a time from launch; the API self-prunes to 7 so the oldest rolls
+  // off automatically each morning.
+  fetch('/api/show/recent')
     .then(function (r) { return r.ok ? r.json() : null; })
     .then(function (d) {
       var box = document.getElementById('episodes');
-      if (!d || !d.shows || !d.shows.length) {
-        box.innerHTML = '<p style="color:var(--muted-2); font-size:13px;">Nothing archived yet.</p>';
-        return;
-      }
-      box.innerHTML = d.shows.map(function (s) {
+      if (!d || !d.episodes || !d.episodes.length) return;  // keep the empty-state copy
+      box.innerHTML = d.episodes.map(function (s) {
+        var meta = (s.minutes ? (Math.round(s.minutes * 10) / 10) + ' MIN' : '') +
+                   (s.game_count ? ' \u00b7 ' + s.game_count + ' GAMES' : '');
         return '<div class="ep" data-url="' + s.audio_url + '">' +
-          '<span class="ep-play">&#9654;</span>' +
-          '<div class="ep-main"><div class="ep-date">' + (s.date_label || 'Episode ' + s.id) +
-          (s.is_live ? ' <span style="color:var(--flare);font-size:11px;">&middot; ON AIR</span>' : '') +
-          '</div>' + (s.best_line ? '<div class="ep-line">' + s.best_line.slice(0, 110) + '&hellip;</div>' : '') +
-          '</div><span class="ep-meta">' + (s.minutes || '?') + ' min &middot; ' +
-          (s.game_count || '?') + ' games</span></div>';
+          '<div class="ep-btn">\u25B6</div>' +
+          '<div><div class="ep-date">' + (s.date_label || 'Episode ' + s.episode) + '</div></div>' +
+          '<div class="ep-meta">' + meta + '</div></div>';
       }).join('');
       box.querySelectorAll('.ep').forEach(function (el) {
         el.addEventListener('click', function () {
@@ -443,10 +454,7 @@
         });
       });
     })
-    .catch(function () {
-      document.getElementById('episodes').innerHTML =
-        '<p style="color:var(--muted-2); font-size:13px;">Nothing archived yet.</p>';
-    });
+    .catch(function () { /* shelf keeps its empty-state copy */ });
 
   function sizeCanvas() {
     var dpr = window.devicePixelRatio || 1;
