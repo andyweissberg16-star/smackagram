@@ -3991,6 +3991,77 @@ def espn_probe():
     })
 
 
+@app.route("/api/admin/espn-reachable")
+def espn_reachable():
+    """
+    Is ESPN actually blocking this host right now - answered directly,
+    with no dependency on any other part of the pipeline.
+
+    /api/admin/espn-probe needs an espn_id to test with, and nothing in
+    the current pipeline attaches one any more (fetch_finals merges
+    Highlightly + balldontlie only) - so that endpoint can't tell us
+    whether ESPN itself is reachable, only whether we happened to have
+    an id lying around. This hits ESPN's scoreboard directly, which
+    needs no id at all - just a league and a date - so it answers the
+    reachability question on its own.
+
+    Diagnostic only. Read-only, changes nothing.
+    """
+    if not cron_authorised():
+        return jsonify({"error": "nope"}), 403
+
+    from services import espn_scores
+    from urllib.request import Request, urlopen
+    from urllib.error import HTTPError, URLError
+
+    league = (request.args.get("league") or "wnba").lower()
+    paths = espn_scores.LEAGUE_PATHS.get(league)
+    if not paths:
+        return jsonify({"error": f"unknown league {league}"}), 400
+
+    from datetime import datetime as _dt, timedelta as _td
+    try:
+        days_back = max(1, int(request.args.get("days_back", 1)))
+    except (TypeError, ValueError):
+        days_back = 1
+    date_str = (_dt.now(espn_scores.EASTERN) - _td(days=days_back)).strftime("%Y%m%d")
+
+    url = (f"{espn_scores.BASE}/{paths[0]}/{paths[1]}/scoreboard"
+           f"?dates={date_str}")
+    try:
+        req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urlopen(req, timeout=10) as r:
+            import json as _j
+            data = _j.load(r)
+        events = data.get("events") or []
+        return jsonify({
+            "reachable": True,
+            "status": "ESPN answered - not blocked",
+            "url": url,
+            "event_count": len(events),
+            "sample_event_ids": [e.get("id") for e in events[:3]],
+        })
+    except HTTPError as e:
+        return jsonify({
+            "reachable": False,
+            "status": f"ESPN returned HTTP {e.code} - this is the block",
+            "url": url,
+            "http_code": e.code,
+        })
+    except URLError as e:
+        return jsonify({
+            "reachable": False,
+            "status": f"could not connect at all: {e.reason}",
+            "url": url,
+        })
+    except Exception as e:
+        return jsonify({
+            "reachable": None,
+            "status": f"unexpected error, not a clean block signal: {e}",
+            "url": url,
+        })
+
+
 @app.route("/smack-board")
 def smack_board():
     """Live scores across every league, with a smack button on each game."""
