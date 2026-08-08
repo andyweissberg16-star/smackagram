@@ -88,9 +88,9 @@
   .spbtn{width:44px;height:44px;border-radius:50%;color:#fff;border:none;font-size:16px;
     flex:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .1s;}
   .spbtn:active{transform:scale(.92);}
-  .swave{flex:1;height:32px;display:flex;align-items:center;gap:2px;overflow:hidden;}
-  .swave i{width:3px;border-radius:2px;flex:1;min-width:0;max-width:5px;}
-  .swave.playing i{animation:eq 1s ease-in-out infinite;}
+  .swave{flex:1;height:32px;display:flex;align-items:center;gap:1.5px;overflow:hidden;}
+  .swave i{flex:1;min-width:0;border-radius:2px;background:#4a3540;transition:background .08s linear;}
+  .swave i.lit{background:var(--wave-col,#E8142C);box-shadow:0 0 4px var(--wave-col,#E8142C);}
   .sdur{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:#c9b8be;flex:none;min-width:34px;text-align:right;}
   .no-audio{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;
     color:#6a5a60;letter-spacing:.5px;padding:9px 0;text-align:center;}
@@ -137,6 +137,36 @@
     .grid{grid-template-columns:1fr;}
     .rail-left, .rail-right{display:none;}
   }
+
+  .share-overlay{position:fixed;inset:0;background:rgba(4,3,5,.78);z-index:9999;
+    display:flex;align-items:center;justify-content:center;padding:18px;
+    backdrop-filter:blur(3px);}
+  .share-panel{width:100%;max-width:400px;background:linear-gradient(160deg,#16101a,#0a0608);
+    border:1px solid var(--flare);border-radius:16px;padding:18px 18px 16px;
+    box-shadow:0 0 34px rgba(232,20,44,.35),inset 0 0 40px rgba(0,0,0,.5);}
+  .share-head{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+  .share-title{font-family:'Anton',sans-serif;font-size:20px;color:#fff;text-transform:uppercase;
+    letter-spacing:.5px;text-shadow:0 0 12px rgba(232,20,44,.5);}
+  .share-x{margin-left:auto;background:none;border:none;color:#9A8A90;font-size:26px;
+    line-height:1;cursor:pointer;padding:0 4px;}
+  .share-x:hover{color:#fff;}
+  .share-sub{color:#9A8A90;font-size:12px;margin-bottom:16px;}
+  .share-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 6px;margin-bottom:16px;}
+  .share-opt{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;
+    background:none;border:none;padding:4px 2px;border-radius:9px;transition:.12s;}
+  .share-opt:hover{background:rgba(232,20,44,.08);}
+  .share-ic{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;font-size:20px;color:#fff;box-shadow:0 0 10px rgba(0,0,0,.4);}
+  .share-lbl{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:8.5px;
+    letter-spacing:.3px;color:#c9b8be;text-transform:uppercase;text-align:center;line-height:1.2;}
+  .share-link{display:flex;gap:7px;background:rgba(8,5,7,.7);border:1px solid #2a1a20;
+    border-radius:9px;padding:5px 5px 5px 11px;align-items:center;}
+  .share-link input{flex:1;background:none;border:none;color:#c9b8be;font-family:'JetBrains Mono',monospace;
+    font-size:11px;outline:none;min-width:0;}
+  .share-link button{background:var(--flare);color:#fff;border:none;border-radius:6px;
+    padding:8px 14px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;
+    letter-spacing:.5px;text-transform:uppercase;cursor:pointer;flex:none;box-shadow:0 0 10px rgba(232,20,44,.5);}
+  .share-link button:hover{background:#ff2432;}
 </style>
 </head>
 <body class="feed-page">
@@ -198,6 +228,21 @@
 
 <audio id="feedAudio" preload="none"></audio>
 
+<div id="shareOverlay" class="share-overlay" hidden>
+  <div class="share-panel">
+    <div class="share-head">
+      <span class="share-title">Share this smack</span>
+      <button class="share-x" id="shareClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="share-sub" id="shareSub">Send it to somebody who needs to hear it.</div>
+    <div class="share-grid" id="shareGrid"></div>
+    <div class="share-link">
+      <input type="text" id="shareLinkInput" readonly>
+      <button id="shareCopyBtn">Copy</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   var REACTIONS = [
@@ -231,6 +276,31 @@
 
   var audio = document.getElementById('feedAudio');
   var nowPlaying = null;
+  var curWave = null, curDur = null, curTotal = 0;
+
+  function fmtTime(s){
+    if(!isFinite(s) || s < 0) s = 0;
+    var m = Math.floor(s/60), x = Math.floor(s%60);
+    return m+':'+(x<10?'0':'')+x;
+  }
+  function resetWave(wave){
+    if(!wave) return;
+    wave.querySelectorAll('i').forEach(function(bar){ bar.classList.remove('lit'); });
+  }
+  // As the clip plays, light the waveform bars up to the current position
+  // in the team colour - the fill IS the playback progress.
+  var _audioForFill = document.getElementById('feedAudio');
+  _audioForFill.addEventListener('timeupdate', function(){
+    if(!curWave || !curTotal || !isFinite(curTotal)) return;
+    var frac = _audioForFill.currentTime / curTotal;
+    var bars = curWave.querySelectorAll('i');
+    var lit = Math.round(frac * bars.length);
+    for(var i=0;i<bars.length;i++){
+      if(i < lit) bars[i].classList.add('lit'); else bars[i].classList.remove('lit');
+    }
+    if(curDur){ curDur.textContent = fmtTime(_audioForFill.currentTime)+' / '+fmtTime(curTotal); }
+  });
+
   var curLeague = 'all';
   var curMode = 'fresh';
   var seenTop = null;
@@ -260,12 +330,11 @@
 
   function waveBars(color){
     var s='';
-    for(var i=0;i<32;i++){
-      var h = 4 + Math.round(Math.abs(Math.sin(i*1.3))*18);
-      var on = i < 8;
-      var col = on ? color : '#5a3a40';
-      var glow = on ? 'box-shadow:0 0 4px '+color+';' : '';
-      s += '<i style="height:'+h+'px;background:'+col+';'+glow+'animation-delay:'+(i*0.04)+'s"></i>';
+    for(var i=0;i<48;i++){
+      var h = 3 + Math.round(Math.abs(Math.sin(i*0.9))*20);
+      // All bars start dim; JS lights them in the team colour as the clip
+      // plays (progress meter). The team colour rides on the wave element.
+      s += '<i style="height:'+h+'px;"></i>';
     }
     return s;
   }
@@ -308,7 +377,7 @@
     var player = item.audio_url
       ? '<div class="sc-player">'
         + '<button class="spbtn" style="background:'+color+';box-shadow:0 0 14px '+color+'99;" data-audio="'+esc(item.audio_url)+'">\u25B6</button>'
-        + '<div class="swave">'+waveBars(color)+'</div>'
+        + '<div class="swave" data-color="'+color+'">'+waveBars(color)+'</div>'
         + '<div class="sdur" data-dur="'+esc(item.audio_url)+'">&middot;&middot;&middot;</div></div>'
       : '<div class="no-audio">\u25CB Line only &mdash; no audio on this one</div>';
 
@@ -373,41 +442,35 @@
         var durEl = btn.parentNode.querySelector('.sdur');
         if(nowPlaying === btn && !audio.paused){
           audio.pause(); btn.textContent='\u25B6';
-          if(wave) wave.classList.remove('playing');
           return;
         }
-        if(nowPlaying){
+        if(nowPlaying && nowPlaying !== btn){
           nowPlaying.textContent='\u25B6';
-          var pw = nowPlaying.parentNode.querySelector('.swave');
-          if(pw) pw.classList.remove('playing');
+          resetWave(nowPlaying.parentNode.querySelector('.swave'));
+        }
+        // hand the fill machinery this card's wave + duration element
+        curWave = wave;
+        curDur = durEl;
+        curTotal = 0;
+        if(wave){
+          var col = wave.dataset.color || '#E8142C';
+          wave.style.setProperty('--wave-col', col);
+          resetWave(wave);
         }
         audio.src = url; audio.play();
         btn.textContent='\u275A\u275A'; nowPlaying = btn;
-        if(wave) wave.classList.add('playing');
-        // show real duration once known
-        if(durEl){
-          audio.onloadedmetadata = function(){
-            var s = audio.duration;
-            if(isFinite(s)){ var m=Math.floor(s/60),x=Math.floor(s%60);
-              durEl.textContent = m+':'+(x<10?'0':'')+x; }
-          };
-        }
+        audio.onloadedmetadata = function(){
+          curTotal = audio.duration;
+          if(durEl && isFinite(curTotal)){ durEl.textContent = fmtTime(0)+' / '+fmtTime(curTotal); }
+        };
       });
     });
     document.querySelectorAll('.sc-share').forEach(function(btn){
       btn.addEventListener('click', function(){
         var id = btn.dataset.share;
-        var url = location.origin + '/s/' + id;
         var card = btn.closest('.sc');
-        var team = card ? (card.querySelector('.sc-team')||{}).textContent : '';
-        if(navigator.share){
-          navigator.share({title:'Smackagram', text:team||'Got smacked', url:url}).catch(function(){});
-        } else if(navigator.clipboard){
-          navigator.clipboard.writeText(url).then(function(){
-            var old = btn.textContent; btn.textContent='\u2713';
-            setTimeout(function(){ btn.textContent=old; }, 1400);
-          }).catch(function(){ window.open(url,'_blank'); });
-        } else { window.open(url,'_blank'); }
+        var team = card ? (card.querySelector('.sc-team')||{}).textContent.replace(/ Got Smacked$/,'') : '';
+        openShare(id, team);
       });
     });
     document.querySelectorAll('.rb').forEach(function(btn){
@@ -437,7 +500,16 @@
       });
     });
   }
-  audio.addEventListener('ended', function(){ if(nowPlaying){ nowPlaying.textContent='\u25B6'; var w=nowPlaying.parentNode.querySelector('.swave'); if(w) w.classList.remove('playing'); nowPlaying=null; } });
+  audio.addEventListener('ended', function(){
+    if(curWave){
+      curWave.querySelectorAll('i').forEach(function(b){ b.classList.add('lit'); });
+      var w = curWave;
+      setTimeout(function(){ resetWave(w); }, 600);
+    }
+    if(curDur && curTotal){ curDur.textContent = fmtTime(curTotal); }
+    if(nowPlaying){ nowPlaying.textContent='\u25B6'; nowPlaying=null; }
+    curWave = null; curDur = null;
+  });
 
   function reactSum(x){ var c=x.reactions||{}, s=0; for(var k in c) s+=c[k]; return s; }
 
@@ -518,6 +590,76 @@
       el.classList.add('on'); curMode = el.dataset.mode; render(applyMode(cache), null);
     });
   });
+
+  // ---- Custom share panel (all platforms, same on desktop + mobile) ----
+  var shareOverlay = document.getElementById('shareOverlay');
+  var shareGrid = document.getElementById('shareGrid');
+  var shareLinkInput = document.getElementById('shareLinkInput');
+  var shareSub = document.getElementById('shareSub');
+
+  function openShare(id, team){
+    var url = location.origin + '/s/' + id;
+    var caption = (team ? team + ' just got smacked \uD83D\uDD25 hear it:' : 'This just got smacked \uD83D\uDD25 hear it:');
+    var uUrl = encodeURIComponent(url);
+    var uCap = encodeURIComponent(caption);
+    var uBoth = encodeURIComponent(caption + ' ' + url);
+
+    shareSub.textContent = team ? (team + ' \u2014 send it around.') : 'Send it to somebody who needs to hear it.';
+    shareLinkInput.value = url;
+
+    // Each option: label, emoji icon, background, and what tapping does.
+    var opts = [
+      {lbl:'Text', ic:'\uD83D\uDCAC', bg:'#3FA96B', href:'sms:?&body='+uBoth},
+      {lbl:'Text Myself', ic:'\uD83D\uDCF1', bg:'#5B8FE0', href:'sms:?&body='+uBoth},
+      {lbl:'WhatsApp', ic:'\uD83D\uDFE2', bg:'#25D366', href:'https://wa.me/?text='+uBoth},
+      {lbl:'X', ic:'\u2715', bg:'#000000', href:'https://twitter.com/intent/tweet?text='+uCap+'&url='+uUrl},
+      {lbl:'Facebook', ic:'f', bg:'#1877F2', href:'https://www.facebook.com/sharer/sharer.php?u='+uUrl},
+      {lbl:'Reddit', ic:'\uD83D\uDC7D', bg:'#FF4500', href:'https://www.reddit.com/submit?url='+uUrl+'&title='+uCap},
+      {lbl:'Telegram', ic:'\u2708', bg:'#229ED9', href:'https://t.me/share/url?url='+uUrl+'&text='+uCap},
+      {lbl:'Email', ic:'\u2709', bg:'#8A7A80', href:'mailto:?subject='+encodeURIComponent('You got smacked')+'&body='+uBoth},
+      {lbl:'Instagram', ic:'\uD83D\uDCF7', bg:'#E1306C', copy:true, note:'Link copied \u2014 paste in Instagram'},
+      {lbl:'TikTok', ic:'\u266A', bg:'#111111', copy:true, note:'Link copied \u2014 paste in TikTok'},
+      {lbl:'Snapchat', ic:'\uD83D\uDC7B', bg:'#FFFC00', fg:'#111', copy:true, note:'Link copied \u2014 paste in Snapchat'},
+      {lbl:'Copy Link', ic:'\uD83D\uDD17', bg:'#C3CAD3', fg:'#111', copy:true, note:'Link copied'}
+    ];
+
+    shareGrid.innerHTML = opts.map(function(o, i){
+      return '<button class="share-opt" data-i="'+i+'">'
+        + '<span class="share-ic" style="background:'+o.bg+';color:'+(o.fg||'#fff')+';">'+o.ic+'</span>'
+        + '<span class="share-lbl">'+o.lbl+'</span></button>';
+    }).join('');
+
+    shareGrid.querySelectorAll('.share-opt').forEach(function(el){
+      el.addEventListener('click', function(){
+        var o = opts[+el.dataset.i];
+        if(o.copy){
+          copyLink(url, o.note);
+        } else {
+          window.open(o.href, '_blank');
+          closeShare();
+        }
+      });
+    });
+
+    shareOverlay.hidden = false;
+  }
+
+  function copyLink(url, note){
+    function done(){ shareSub.textContent = note || 'Link copied'; }
+    if(navigator.clipboard){
+      navigator.clipboard.writeText(url).then(done).catch(function(){
+        shareLinkInput.select(); document.execCommand('copy'); done();
+      });
+    } else { shareLinkInput.select(); document.execCommand('copy'); done(); }
+  }
+
+  function closeShare(){ shareOverlay.hidden = true; }
+  document.getElementById('shareClose').addEventListener('click', closeShare);
+  document.getElementById('shareCopyBtn').addEventListener('click', function(){
+    copyLink(shareLinkInput.value, 'Link copied');
+  });
+  shareOverlay.addEventListener('click', function(e){ if(e.target === shareOverlay) closeShare(); });
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && !shareOverlay.hidden) closeShare(); });
 
   loadStats();
   load(true);
