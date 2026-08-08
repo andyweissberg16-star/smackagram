@@ -171,6 +171,12 @@
 const isLoggedIn = {{ 'true' if current_user else 'false' }};
 let lastSearchedPhone = '';
 
+(function(){
+  var qp = new URLSearchParams(window.location.search);
+  var pre = qp.get('phone');
+  if (pre) document.getElementById('phoneInput').value = pre;
+})();
+
 document.getElementById('checkBtn').addEventListener('click', async () => {
   const phone = document.getElementById('phoneInput').value.trim();
   const btn = document.getElementById('checkBtn');

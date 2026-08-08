@@ -260,6 +260,42 @@ def _send_2fa_code(user):
     return
 
 
+RECEIVED_LOOKBACK_DAYS = 30  # see _received_window - why 30, not 7
+
+
+def _claim_verified_phone(user, phone_digits):
+    """
+    Records that `user` proved ownership of `phone_digits`, handling a
+    handoff: a fresh successful verification IS the proof ownership
+    passed hands. Closes any other user's open claim, opens/reopens
+    this user's own. Never emails the old holder (David's call).
+    """
+    from models import VerifiedPhone
+    others = (VerifiedPhone.query
+              .filter(VerifiedPhone.phone_digits == phone_digits,
+                      VerifiedPhone.user_id != user.id,
+                      VerifiedPhone.ended_at.is_(None)).all())
+    for o in others:
+        o.ended_at = datetime.utcnow()
+    existing = VerifiedPhone.query.filter_by(
+        user_id=user.id, phone_digits=phone_digits).first()
+    if existing:
+        if existing.ended_at is not None:
+            existing.ended_at = None
+        return existing
+    row = VerifiedPhone(user_id=user.id, phone_digits=phone_digits)
+    db.session.add(row)
+    return row
+
+
+def _received_window(verified_phone):
+    """[start, end) for one verified claim - start = verified_at minus
+    RECEIVED_LOOKBACK_DAYS, end = ended_at (None = open, no upper bound)."""
+    start = verified_phone.verified_at - timedelta(days=RECEIVED_LOOKBACK_DAYS)
+    end = verified_phone.ended_at
+    return start, end
+
+
 @app.route("/api/register", methods=["POST"])
 def api_register():
     data = request.json or {}
@@ -272,14 +308,12 @@ def api_register():
     password = data.get("password") or ""
     terms_accepted = bool(data.get("terms_accepted"))
 
-    # PHONE IS OPTIONAL AT REGISTRATION - David's call, Aug 6 2026.
-    # Twilio's A2P review is dragging, and an account does not need a
-    # verified phone to exist; it will need one when a PAID feature
-    # demands it, which is checkout's job, not signup's. The 2FA
-    # machinery stays intact behind the twofactor_customers toggle for
-    # the day Twilio clears.
-    if not all([first_name, last_name, screen_name, email, dob_str, password]):
-        return jsonify({"error": "All fields except phone are required."}), 400
+    # PHONE + 2FA REQUIRED AT REGISTRATION - David's call, Aug 8 2026,
+    # superseding Aug 6. No real existing users yet, clean cutover.
+    # Deliberately unconditional, not gated behind twofactor_customers
+    # (which separately governs LOGIN's repeat-code behavior only).
+    if not all([first_name, last_name, screen_name, email, phone, dob_str, password]):
+        return jsonify({"error": "All fields are required, including phone."}), 400
     if not terms_accepted:
         return jsonify({"error": "You must agree to the Terms & Conditions."}), 400
     if len(password) < 6:
@@ -328,20 +362,8 @@ def api_register():
     db.session.add(user)
     db.session.commit()
 
-    # Customer 2FA is now a runtime setting, changeable from the admin panel
-    # rather than a constant needing a deploy. The old TWO_FACTOR_ENABLED
-    # constant remains as the seed value only.
-    # No phone means no text can be sent - regardless of the 2FA
-    # toggle, this account registers without a verification step.
-    if not phone or not settings_service.get_bool("twofactor_customers"):
-        session["user_id"] = user.id
-        return jsonify({"ok": True})
-
-    # 2FA right after registration too, not just future logins — this
-    # also confirms the phone number they gave us is real and reachable.
-    # If sending genuinely fails (bad number, Twilio issue), roll back
-    # the account entirely rather than leaving an orphaned, unverifiable
-    # user record and crashing with a generic error.
+    # 2FA right after registration, always. If sending genuinely fails
+    # (bad number, Twilio issue), roll back the account entirely.
     try:
         _send_2fa_code(user)
     except Exception as e:
@@ -622,6 +644,9 @@ def api_verify_2fa():
     # Correct — clear the code so it can't be reused, complete login.
     user.two_factor_code = None
     user.two_factor_expires_at = None
+    phone_digits = "".join(c for c in (user.phone or "") if c.isdigit())[-10:]
+    if phone_digits:
+        _claim_verified_phone(user, phone_digits)
     db.session.commit()
     session.pop("pending_verification_user_id", None)
     session["user_id"] = user.id
@@ -954,6 +979,46 @@ def api_wallet_create_payment_intent():
 
 # ---------- Immediate "send it now" flow ----------
 
+def _save_contact_from_order(user, data):
+    """
+    Upsert the recipient from a successful order as a saved contact -
+    dedupes per user by phone digits, so smacking the same person
+    again just refreshes their name/last_used_at rather than creating
+    a duplicate entry. Pure address-book data; never seen by or
+    affects the recipient.
+    """
+    from models import SavedContact
+
+    name = (data.get("recipient_name") or "").strip()
+    phone = (data.get("recipient_phone") or "").strip()
+    digits = "".join(c for c in phone if c.isdigit())[-10:]
+    if not name or not digits:
+        return
+
+    existing = SavedContact.query.filter_by(
+        user_id=user.id, phone_digits=digits).first()
+    if existing:
+        existing.name = name
+        existing.phone = phone
+        existing.last_used_at = datetime.utcnow()
+    else:
+        db.session.add(SavedContact(
+            user_id=user.id, name=name, phone=phone, phone_digits=digits))
+    db.session.commit()
+
+
+@app.route("/api/contacts")
+@login_required
+def api_contacts():
+    """Saved recipients for the quick-pick chips, most recently used first."""
+    from models import SavedContact
+    rows = (SavedContact.query.filter_by(user_id=get_current_user().id)
+            .order_by(SavedContact.last_used_at.desc()).limit(12).all())
+    return jsonify({"contacts": [
+        {"id": r.id, "name": r.name, "phone": r.phone} for r in rows
+    ]})
+
+
 def _execute_send_smack(user, data: dict) -> dict:
     """
     The actual order-creation + call-firing logic, factored out so both
@@ -1119,6 +1184,18 @@ def create_order():
         except Exception as refund_err:
             print(f"[send] refund after refusal failed: {refund_err}", flush=True)
         return jsonify({"error": str(e)}), 400
+
+    # SAVE AS CONTACT - only after a real, successful send, since that's
+    # the one moment a real logged-in user definitely exists, whether
+    # they'd been registered five months or five seconds. Same path
+    # whether the account is old or brand-new mid-checkout - no
+    # branching needed. Best-effort: never lets a contact-save problem
+    # break an order that already succeeded.
+    if data.get("save_contact"):
+        try:
+            _save_contact_from_order(user, data)
+        except Exception as e:
+            print(f"[contacts] save failed (order still succeeded): {e}", flush=True)
 
     return jsonify(result)
 
@@ -2074,35 +2151,34 @@ def locker_page():
     verification_live = os.getenv("VERIFICATION_LIVE", "").lower() in ("1", "true", "yes")
 
     verified = (VerifiedPhone.query
-                .filter_by(user_id=user.id)
+                .filter_by(user_id=user.id, ended_at=None)
                 .order_by(VerifiedPhone.id.desc())
                 .first())
-    # SAME RULE AS SMACK BACK while verification is off: the phone on
-    # the account counts as the key. A logged-in user who typed their
-    # number at registration should not see an emptier page than a
-    # stranger typing the same number on /did-you-get-smacked. Flips
-    # back to code-verified the moment the admin toggle does.
+    needs_reverify = False
+    if not verified:
+        had_closed = (VerifiedPhone.query.filter_by(user_id=user.id)
+                      .filter(VerifiedPhone.ended_at.isnot(None)).first())
+        needs_reverify = bool(had_closed)
+
     from services import settings_service as _ss2
     if not _ss2.get_bool("smackback_requires_verification"):
         verification_live = True
         if not verified and user.phone:
-            class _P:  # shaped like VerifiedPhone for the code below
+            class _P:
                 phone_digits = "".join(
                     c for c in user.phone if c.isdigit())[-10:]
             verified = _P()
 
     received = []
     if verified and verification_live:
-        # VerifiedPhone stores phone_digits, not .phone - asking for
-        # .phone 500'd the locker the first time a Verify-verified
-        # user opened it (Aug 7, caught by the alert email+SMS within
-        # seconds). Match on the last-10 digits like every other
-        # phone lookup in the site.
         _vd = verified.phone_digits
-        rows = (Smackagram.query
-                .filter(Smackagram.recipient_phone.like(f"%{_vd}"))
-                .order_by(Smackagram.id.desc())
-                .limit(30).all())
+        q = Smackagram.query.filter(Smackagram.recipient_phone.like(f"%{_vd}"))
+        if isinstance(verified, VerifiedPhone):
+            _start, _end = _received_window(verified)
+            q = q.filter(Smackagram.created_at >= _start)
+            if _end:
+                q = q.filter(Smackagram.created_at <= _end)
+        rows = q.order_by(Smackagram.id.desc()).limit(30).all()
         for r in rows:
             received.append({
                 "when": (r.created_at.strftime("%d %B") if getattr(r, "created_at", None) else ""),
@@ -2118,6 +2194,8 @@ def locker_page():
         verified_number=(verified.phone_digits if verified else None),
         verification_available=verification_live,
         received=received,
+        needs_reverify=needs_reverify,
+        account_phone=(user.phone or ""),
     )
 
 
@@ -5460,21 +5538,23 @@ def check_if_smacked():
     all_matches.sort(key=lambda r: r.created_at, reverse=True)
 
     user = get_current_user()
-    # WHILE VERIFICATION IS OFF, the number itself is the key.
-    # David's call, Aug 6 2026 - Twilio cannot text codes until A2P
-    # clears, and a recipient hitting "found: 3 smacks" followed by a
-    # code button that cannot work is a dead end at the exact moment
-    # of highest interest. Flip smackback_requires_verification in the
-    # admin panel and this line stops mattering.
     from services import settings_service as _ss
-    is_verified = not _ss.get_bool("smackback_requires_verification")
+    verification_off = not _ss.get_bool("smackback_requires_verification")
+    is_verified = verification_off
+    verified_row = None
     if user:
-        is_verified = VerifiedPhone.query.filter_by(user_id=user.id, phone_digits=digits[-10:]).first() is not None
+        verified_row = VerifiedPhone.query.filter_by(
+            user_id=user.id, phone_digits=digits[-10:], ended_at=None).first()
+        is_verified = verified_row is not None or verification_off
 
     if not is_verified:
-        # Teaser only - enough for the frontend to show something
-        # enticing is there, without exposing any actual content.
         return jsonify({"found": True, "verified": False})
+
+    if verified_row:
+        _start, _end = _received_window(verified_row)
+        all_matches = [r for r in all_matches
+                       if r.created_at and r.created_at >= _start
+                       and (not _end or r.created_at <= _end)]
 
     items = []
     for record in all_matches:
@@ -5596,9 +5676,7 @@ def api_verify_phone_confirm():
     if not _ok:
         return jsonify({"error": "That code doesn't match — double-check it and try again."}), 400
 
-    already_verified = VerifiedPhone.query.filter_by(user_id=user.id, phone_digits=phone_digits).first()
-    if not already_verified:
-        db.session.add(VerifiedPhone(user_id=user.id, phone_digits=phone_digits))
+    _claim_verified_phone(user, phone_digits)
     db.session.commit()
 
     return jsonify({"ok": True})
@@ -6173,6 +6251,15 @@ def cron_check_smackagrams():
     except Exception as e:
         print(f"[cron] scheduled sends failed: {e}", flush=True)
 
+    # Standing Auto-Smack subscriptions - wrapped separately so a
+    # failure here cannot stop the armed-smackagram check above, which
+    # is holding real money on a stricter clock.
+    auto_smack_swept = {}
+    try:
+        auto_smack_swept = sweep_auto_smack_subscriptions()
+    except Exception as e:
+        print(f"[cron] auto-smack sweep failed: {e}", flush=True)
+
     # SHADOW COMPARISON, at most once an hour.
     #
     # Runs here rather than inside the armed-smackagram loop, because that
@@ -6195,7 +6282,7 @@ def cron_check_smackagrams():
     except Exception as e:
         print(f"[shadow] hourly compare failed: {e}", flush=True)
 
-    return jsonify({"ok": True, "scheduled": scheduled})
+    return jsonify({"ok": True, "scheduled": scheduled, "auto_smack": auto_smack_swept})
 
 
 # Published sample recaps shown on the product page. Empty until real ones
@@ -7158,6 +7245,271 @@ def api_arm_smackagram():
     return jsonify({"ok": True, "redirect": result.get("redirect")})
 
 
+# Rough regular-season end dates, used only as the disclosed default
+# cutoff shown at arm time - not exact for every league, easy to
+# adjust here without touching the arm/cancel logic itself.
+_AUTO_SMACK_SEASON_END = {
+    "nfl": (1, 5), "nba": (4, 15), "mlb": (10, 1),
+    "nhl": (4, 15), "ncaaf": (12, 1), "ncaab": (3, 15),
+}
+
+
+def _default_season_end(sport):
+    from datetime import date as _date
+    month, day = _AUTO_SMACK_SEASON_END.get((sport or "").lower(), (12, 31))
+    today = _date.today()
+    year = today.year if (month, day) >= (today.month, today.day) else today.year + 1
+    return _date(year, month, day)
+
+
+@app.route("/api/auto-smack-subscriptions", methods=["GET"])
+@login_required
+def api_list_auto_smack_subscriptions():
+    """Everything this customer has standing, active or paused, for the manage page."""
+    from models import AutoSmackSubscription
+    rows = (AutoSmackSubscription.query
+            .filter(AutoSmackSubscription.user_id == get_current_user().id,
+                    AutoSmackSubscription.status != "cancelled")
+            .order_by(AutoSmackSubscription.id.desc()).all())
+    return jsonify({"subscriptions": [{
+        "id": r.id, "sport": r.sport, "target_team": r.target_team,
+        "recipient_name": r.recipient_name, "status": r.status,
+        "season_end_date": r.season_end_date.isoformat() if r.season_end_date else None,
+        "created_at": utc_iso(r.created_at),
+        "paused_at": utc_iso(r.paused_at) if r.paused_at else None,
+    } for r in rows]})
+
+
+@app.route("/api/auto-smack-subscriptions", methods=["POST"])
+@login_required
+def api_arm_auto_smack_subscription():
+    """
+    Arms a STANDING rule - not a single game. Disclosure happens on
+    the frontend before this is ever called; this just records the
+    explicit authorization and starts the standing rule. Wallet-funded
+    only - no card touched here or ever for this feature. The first
+    fire happens on the next cron sweep, same as any other arm.
+    """
+    user = get_current_user()
+    data = request.json or {}
+    for f in ("sport", "target_team", "recipient_name", "recipient_phone"):
+        if not str(data.get(f, "")).strip():
+            return jsonify({"error": f"missing {f}"}), 400
+    if not data.get("disclosure_confirmed"):
+        return jsonify({"error": "Please confirm the Auto-Smack details before arming."}), 400
+
+    from models import AutoSmackSubscription
+    sport = _validated_sport(data.get("sport"))
+    sub = AutoSmackSubscription(
+        user_id=user.id,
+        sport=sport,
+        target_team=data["target_team"].strip(),
+        recipient_name=first_name_only(data["recipient_name"]),
+        recipient_phone=data["recipient_phone"].strip(),
+        voice_key=data.get("voice_key", voice_options.DEFAULT_VOICE_KEY),
+        reply_opt_in=bool(data.get("reply_opt_in")),
+        sender_phone=data.get("sender_phone") if data.get("reply_opt_in") else None,
+        season_end_date=_default_season_end(sport),
+        status="active",
+    )
+    db.session.add(sub)
+    db.session.commit()
+    return jsonify({"ok": True, "id": sub.id,
+                     "season_end_date": sub.season_end_date.isoformat()})
+
+
+@app.route("/api/auto-smack-subscriptions/<int:sub_id>/cancel", methods=["POST"])
+@login_required
+def api_cancel_auto_smack_subscription(sub_id):
+    from models import AutoSmackSubscription
+    sub = AutoSmackSubscription.query.filter_by(
+        id=sub_id, user_id=get_current_user().id).first()
+    if not sub:
+        return jsonify({"error": "not found"}), 404
+    sub.status = "cancelled"
+    sub.cancelled_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/auto-smack-subscriptions/<int:sub_id>/reauthorize", methods=["POST"])
+@login_required
+def api_reauthorize_auto_smack_subscription(sub_id):
+    """
+    THE ONLY way a paused_needs_reauth subscription resumes. Never
+    triggered by a wallet top-up, a webhook, or anything automatic -
+    only this explicit, freshly-confirmed customer action. David was
+    firm: no authorization carries forward across a funding gap.
+    """
+    user = get_current_user()
+    data = request.json or {}
+    if not data.get("reauthorize_confirmed"):
+        return jsonify({"error": "Please confirm to resume this Auto-Smack."}), 400
+
+    from models import AutoSmackSubscription
+    sub = AutoSmackSubscription.query.filter_by(
+        id=sub_id, user_id=user.id, status="paused_needs_reauth").first()
+    if not sub:
+        return jsonify({"error": "not found or not paused"}), 404
+    sub.status = "active"
+    sub.paused_at = None
+    sub.pause_notified_at = None
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/auto-smacks")
+@login_required
+def auto_smacks_page():
+    """Manage page - view, cancel, or reauthorize standing Auto-Smacks."""
+    return render_template("auto_smacks.html")
+
+
+def _notify_auto_smack_paused(sub, user):
+    """
+    Best-effort, in-app is guaranteed (the status field itself IS the
+    in-app signal - the locker/manage page reads it directly, no extra
+    plumbing needed). Email is attempted on top but never allowed to
+    break the pause itself if sending fails - confirm /api/admin/
+    email-test is actually working before relying on this half.
+    """
+    try:
+        from services import email_service
+        email_service.send_async(
+            user.email,
+            f"Your {sub.target_team} Auto-Smack is paused",
+            f"Hey {user.first_name},\n\n"
+            f"Your standing Auto-Smack on the {sub.target_team} "
+            f"(going to {sub.recipient_name}) has paused - your wallet "
+            f"balance ran out.\n\n"
+            f"Nothing fires while it's paused, and no card was charged. "
+            f"Add funds and head to smackagram.com/auto-smacks to "
+            f"resume it whenever you're ready - we'll ask you to "
+            f"confirm before it starts firing again.\n\n"
+            f"- Smacky"
+        )
+    except Exception as e:
+        print(f"[auto-smack-sweep] pause email failed (non-fatal): {e}", flush=True)
+
+
+def sweep_auto_smack_subscriptions():
+    """
+    Called from the same 3-minute cron as check_armed_smackagrams.
+    For every ACTIVE standing subscription, checks whether the target
+    team has a game today; if so and this subscription hasn't already
+    armed THIS specific game (last_armed_game_id dedup - stops a team
+    with two cron passes before resolution from getting double-armed),
+    draws the fire cost from the wallet and arms a fresh Smackagram
+    using the exact same single-game machinery a manual arm uses.
+
+    On insufficient balance: pauses rather than touching a card or
+    failing silently. Never auto-resumes on its own - see
+    AutoSmackSubscription's docstring and api_reauthorize_auto_smack_
+    subscription, the only path back to active.
+    """
+    from models import AutoSmackSubscription, User
+    from services import espn_scores, wallet_service
+    from scheduler import _team_is
+
+    subs = AutoSmackSubscription.query.filter_by(status="active").all()
+    if not subs:
+        return {"checked": 0, "armed": 0, "paused": 0}
+
+    by_sport = {}
+    for s in subs:
+        by_sport.setdefault(s.sport, []).append(s)
+
+    armed_count = paused_count = 0
+    for sport, group in by_sport.items():
+        try:
+            board = espn_scores.fetch_board(sport)
+        except Exception as e:
+            print(f"[auto-smack-sweep] board fetch failed for {sport}: {e}", flush=True)
+            continue
+
+        for sub in group:
+            match = None
+            for g in board:
+                h, a = g.get("home") or {}, g.get("away") or {}
+                h_full = f"{h.get('city','')} {h.get('nick','')}".strip()
+                a_full = f"{a.get('city','')} {a.get('nick','')}".strip()
+                if (_team_is(sub.target_team, h_full)
+                        or _team_is(sub.target_team, h.get("nick", ""))):
+                    match = g
+                    break
+                if (_team_is(sub.target_team, a_full)
+                        or _team_is(sub.target_team, a.get("nick", ""))):
+                    match = g
+                    break
+            if not match:
+                continue
+
+            game_id = match.get("highlightly_id") or match.get("espn_id")
+            if not game_id or game_id == sub.last_armed_game_id:
+                continue  # not playing today with a usable id, or already armed for this exact game
+
+            user = User.query.get(sub.user_id)
+            if not user:
+                continue
+
+            if not wallet_service.has_sufficient_balance(
+                    user, wallet_service.LOCKED_N_LOADED_COST_CENTS):
+                sub.status = "paused_needs_reauth"
+                sub.paused_at = datetime.utcnow()
+                db.session.commit()
+                paused_count += 1
+                _notify_auto_smack_paused(sub, user)
+                continue
+
+            txn = wallet_service.debit_wallet(
+                user, wallet_service.LOCKED_N_LOADED_COST_CENTS,
+                "auto_smack", description=f"Auto-Smack: {sub.target_team}")
+            if not txn:
+                sub.status = "paused_needs_reauth"
+                sub.paused_at = datetime.utcnow()
+                db.session.commit()
+                paused_count += 1
+                _notify_auto_smack_paused(sub, user)
+                continue
+
+            h, a = match.get("home") or {}, match.get("away") or {}
+            home_name = f"{h.get('city','')} {h.get('nick','')}".strip()
+            away_name = f"{a.get('city','')} {a.get('nick','')}".strip()
+            try:
+                _execute_arm_smackagram(user, {
+                    "game_id": game_id,
+                    "sport": sub.sport,
+                    "home_team": home_name or h.get("nick", ""),
+                    "away_team": away_name or a.get("nick", ""),
+                    "target_team": sub.target_team,
+                    "game_start_time": match.get("start") or datetime.utcnow().isoformat(),
+                    "mode": "auto_summary",
+                    "voice_key": sub.voice_key,
+                    "recipient_name": sub.recipient_name,
+                    "recipient_phone": sub.recipient_phone,
+                    "reply_opt_in": sub.reply_opt_in,
+                    "sender_phone": sub.sender_phone,
+                })
+            except Exception as e:
+                # Arm failed after the debit succeeded - give the money back
+                # rather than leave the customer charged with nothing armed.
+                wallet_service.credit_wallet(
+                    user, wallet_service.LOCKED_N_LOADED_COST_CENTS,
+                    "auto_smack_refund", description=f"Arm failed: {str(e)[:100]}")
+                db.session.commit()
+                print(f"[auto-smack-sweep] arm failed for sub {sub.id}: {e}", flush=True)
+                continue
+
+            sub.last_armed_game_id = game_id
+            db.session.commit()
+            armed_count += 1
+
+    summary = {"checked": len(subs), "armed": armed_count, "paused": paused_count}
+    if armed_count or paused_count:
+        print(f"[auto-smack-sweep] {summary}", flush=True)
+    return summary
+
+
 @app.route("/game-day/sent")
 def game_day_sent():
     """The confirmation page - the call is already firing when this
@@ -7829,6 +8181,39 @@ with app.app_context():
             conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_news_articles_league ON news_articles (league)"))
             conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_news_articles_date ON news_articles (game_date)"))
             conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_news_articles_created ON news_articles (created_at)"))
+            conn.execute(db.text("ALTER TABLE verified_phones ADD COLUMN IF NOT EXISTS ended_at TIMESTAMP"))
+            conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_verified_phones_digits_open ON verified_phones (phone_digits, ended_at)"))
+            conn.execute(db.text("""CREATE TABLE IF NOT EXISTS saved_contacts (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                name VARCHAR(120) NOT NULL,
+                phone VARCHAR(20) NOT NULL,
+                phone_digits VARCHAR(15) NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW(),
+                last_used_at TIMESTAMP DEFAULT NOW(),
+                CONSTRAINT uq_user_contact_phone UNIQUE (user_id, phone_digits)
+            )"""))
+            conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_saved_contacts_user ON saved_contacts (user_id)"))
+            conn.execute(db.text("""CREATE TABLE IF NOT EXISTS auto_smack_subscriptions (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                sport VARCHAR(20) NOT NULL,
+                target_team VARCHAR(80) NOT NULL,
+                recipient_name VARCHAR(120) NOT NULL,
+                recipient_phone VARCHAR(20) NOT NULL,
+                voice_key VARCHAR(40) DEFAULT 'default',
+                reply_opt_in BOOLEAN DEFAULT FALSE,
+                sender_phone VARCHAR(20),
+                status VARCHAR(24) DEFAULT 'active',
+                season_end_date DATE,
+                last_armed_game_id VARCHAR(64),
+                paused_at TIMESTAMP,
+                pause_notified_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT NOW(),
+                cancelled_at TIMESTAMP
+            )"""))
+            conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_auto_smack_subs_user ON auto_smack_subscriptions (user_id)"))
+            conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_auto_smack_subs_status ON auto_smack_subscriptions (status)"))
             conn.execute(db.text("""CREATE TABLE IF NOT EXISTS settings (
                 id SERIAL PRIMARY KEY,
                 key VARCHAR(60) UNIQUE NOT NULL,

@@ -241,6 +241,75 @@ class Order(db.Model):
     refunded = db.Column(db.Boolean, default=False, index=True)
 
 
+class SavedContact(db.Model):
+    """
+    A recipient a customer has chosen to keep for next time - saved at
+    exactly one moment, right after an order they sent successfully
+    completes, if they had the "save as contact" box checked. Purely
+    the sender's own address book; never seen by or affects the
+    recipient in any way. Dedupes per user by phone digits so smacking
+    the same person twice doesn't create two entries.
+    """
+    __tablename__ = "saved_contacts"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    name = db.Column(db.String(120), nullable=False)
+    phone = db.Column(db.String(20), nullable=False)
+    phone_digits = db.Column(db.String(15), nullable=False)  # last-10 for dedup, same convention as VerifiedPhone
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_used_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "phone_digits", name="uq_user_contact_phone"),)
+
+
+class AutoSmackSubscription(db.Model):
+    """
+    A STANDING rule - "smack this recipient every time this team
+    loses, for the rest of the season" - distinct from the existing
+    single-game Smackagram/Auto-Smack arm below, which fires once
+    against one specific game_id and is done. This is the layer that
+    keeps re-arming a fresh Smackagram (via the existing single-game
+    arm/fire/refund machinery) every time the target team has a new
+    game, until paused or cancelled. Decided with David, 8 Aug 2026.
+
+    Wallet-funded only - never depends on or triggers Auto-Reload. If
+    the wallet can't cover the next arm, status becomes
+    "paused_needs_reauth" rather than touching a card or failing
+    silently, and it stays paused until the customer explicitly
+    re-authorizes it - a wallet top-up alone does NOT resume it.
+    David was explicit: no authorization carries forward across a
+    funding gap, ever.
+    """
+    __tablename__ = "auto_smack_subscriptions"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+
+    sport = db.Column(db.String(20), nullable=False)
+    target_team = db.Column(db.String(80), nullable=False)  # must match the team-lookup convention used elsewhere (board, colors)
+    recipient_name = db.Column(db.String(120), nullable=False)
+    recipient_phone = db.Column(db.String(20), nullable=False)
+    voice_key = db.Column(db.String(40), default="default")
+    reply_opt_in = db.Column(db.Boolean, default=False)
+    sender_phone = db.Column(db.String(20), nullable=True)
+
+    # active, paused_needs_reauth, cancelled
+    status = db.Column(db.String(24), default="active", index=True)
+    season_end_date = db.Column(db.Date, nullable=True)  # disclosed end point at arm time - "through the end of the regular season"
+
+    # Dedup key for the cron sweep - the game_id of the last game this
+    # subscription created a Smackagram for, so a team playing today
+    # doesn't get double-armed on back-to-back cron runs before that
+    # game resolves.
+    last_armed_game_id = db.Column(db.String(64), nullable=True)
+
+    paused_at = db.Column(db.DateTime, nullable=True)
+    pause_notified_at = db.Column(db.DateTime, nullable=True)  # so the pause notice only fires once per pause, not every cron pass
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    cancelled_at = db.Column(db.DateTime, nullable=True)
+
+
 class Smackagram(db.Model):
     """
     A 'locked and loaded' conditional smackagram — armed against a live game,
@@ -1164,24 +1233,21 @@ class OptOut(db.Model):
 
 class VerifiedPhone(db.Model):
     """
-    Proof that a logged-in user actually controls a given phone number -
-    established once by receiving and correctly entering an SMS code
-    sent to that exact number. Powers the Smack Inbox privacy fix:
-    anyone can search whether a number has a Smackagram on record, but
-    only someone who has verified ownership of that specific number can
-    see the message content, rather than any logged-in user being able
-    to read anyone else's messages. A user can hold multiple verified
-    numbers over time (e.g. checked a work phone once, a personal phone
-    another time) - this is intentionally not just the single phone
-    field on the User's own account, since the number someone wants to
-    check might differ from what they registered with.
+    Proof that a logged-in user actually controls a given phone number.
+    ended_at: NULL while this is the CURRENT holder's claim; set when a
+    different user later verifies the same number (a fresh successful
+    verification IS the proof ownership passed hands). Never deleted on
+    handoff - a closed row is deliberate history. Received-smacks
+    lookups scope to [verified_at - lookback, ended_at or now]. See
+    memory: phone verification ownership windows, 8 Aug 2026.
     """
     __tablename__ = "verified_phones"
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    phone_digits = db.Column(db.String(15), nullable=False)  # normalized: digits only, last 10 kept for matching, same convention as check_if_smacked()'s existing matching logic
+    phone_digits = db.Column(db.String(15), nullable=False)
     verified_at = db.Column(db.DateTime, default=datetime.utcnow)
+    ended_at = db.Column(db.DateTime, nullable=True)
 
     __table_args__ = (db.UniqueConstraint("user_id", "phone_digits", name="uq_user_verified_phone"),)
 

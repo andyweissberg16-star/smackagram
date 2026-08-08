@@ -1048,6 +1048,11 @@ window.smkTop = function (url) {
       <li>Add <strong>anything specific worth roasting</strong> if you&rsquo;ve got it. Optional.</li>
     </ol>
 
+    <div id="contactChips" style="display:none; margin-bottom:14px;">
+      <p style="font-size:12px; color:var(--muted,#8a8a8a); margin:0 0 8px; text-transform:uppercase; letter-spacing:.5px;">Smack again</p>
+      <div id="contactChipsList" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+    </div>
+
     <label for="recipientNameInput"><span class="fld-num">1.</span> Their first name</label>
     <input id="recipientNameInput" type="text"
            placeholder="ex - Mike (the friend you want to roast)"
@@ -1217,6 +1222,11 @@ window.smkTop = function (url) {
     <label for="orderRecipientPhone" id="phoneLabel">Their phone number</label>
     <input id="orderRecipientPhone" type="tel" inputmode="tel" placeholder="1 (555) 555-5555" maxlength="17" autocomplete="tel-national">
     <p class="field-hint">We won’t call this number for anything other than delivering your Smackagram.</p>
+
+    <label class="consent-row" for="saveContactCheck" id="saveContactRow" style="margin-top:6px;" hidden>
+      <input type="checkbox" id="saveContactCheck" checked>
+      <span>Save <span id="saveContactName">them</span> as a contact for next time.</span>
+    </label>
 
     <div style="border-top:1px solid var(--hairline); padding-top:16px; margin-top:6px;">
       <label class="consent-row" for="orderReplyOptIn">
@@ -1929,8 +1939,9 @@ document.getElementById('generateBtn').addEventListener('click', async () => {
       output.value = data.error;
       const el = document.getElementById('previewStatus');
       if (el) {
-        el.innerHTML = '<a href="/register" style="color:var(--flare);'
-                     + 'font-weight:600;">Create a free account</a>'
+        if (window.smkSaveDraft) window.smkSaveDraft();
+        el.innerHTML = '<a href="/register?next=' + encodeURIComponent(window.location.pathname)
+                     + '" style="color:var(--flare);font-weight:600;">Create a free account</a>'
                      + ' to keep generating.';
       }
       return;
@@ -2032,9 +2043,10 @@ document.getElementById('previewBtn').addEventListener('click', async () => {
       // end at the exact moment they were interested, so put the account
       // link right there.
       if (data.needs_account) {
+        if (window.smkSaveDraft) window.smkSaveDraft();
         status.innerHTML = data.error
-          + ' <a href="/register" style="color:var(--flare);font-weight:600;">'
-          + 'Create one</a>';
+          + ' <a href="/register?next=' + encodeURIComponent(window.location.pathname)
+          + '" style="color:var(--flare);font-weight:600;">Create one</a>';
       }
     } else if (data.audio_sequence) {
       playSequence(audioEl, data.audio_sequence);
@@ -2209,7 +2221,12 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
         reply_opt_in: document.getElementById('orderReplyOptIn').checked,
         sender_phone: document.getElementById('orderSenderPhone').value.trim(),
         team: document.getElementById('teamInput').value.trim(),
-        sensitivity: selectedSensitivity
+        sensitivity: selectedSensitivity,
+        save_contact: (function(){
+          var row = document.getElementById('saveContactRow');
+          var cb = document.getElementById('saveContactCheck');
+          return !!(row && !row.hidden && cb && cb.checked);
+        })()
       })
     });
     const data = await resp.json();
@@ -2234,7 +2251,14 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       // would refill the form on their next visit with a smack they have
       // already paid for and sent.
       if (window.smkClearDraft) window.smkClearDraft();
-      window.smkTop(data.redirect);
+      var team = document.getElementById('teamInput').value.trim();
+      // No league/sport field exists on this generic checkout - the
+      // success page's Auto-Smack offer asks for it directly rather
+      // than guessing from a free-text team name.
+      var offerParams = '?team=' + encodeURIComponent(team)
+        + '&recipient_name=' + encodeURIComponent(recipientName)
+        + '&recipient_phone=' + encodeURIComponent(recipientPhone);
+      window.smkTop(data.redirect + (data.redirect.indexOf('order-success') !== -1 ? offerParams : ''));
     } else {
       errorEl.textContent = data.error || 'Something went wrong — try again.';
       errorEl.style.display = 'block';
@@ -2264,6 +2288,51 @@ document.getElementById('orderSubmitBtn').addEventListener('click', async () => 
       select.appendChild(opt);
     });
   } catch (err) {}
+})();
+
+// SAVED CONTACTS. Fetching the list doubles as the "is this a logged-in
+// account" check - a 401 just means not logged in yet, which is normal
+// mid-checkout, not an error worth surfacing.
+(async () => {
+  try {
+    const resp = await fetch('/api/contacts');
+    if (!resp.ok) return; // not logged in - checkbox and chips both stay hidden
+    const data = await resp.json();
+    const row = document.getElementById('saveContactRow');
+    if (row) row.hidden = false;
+
+    const contacts = data.contacts || [];
+    if (contacts.length) {
+      const wrap = document.getElementById('contactChips');
+      const list = document.getElementById('contactChipsList');
+      list.innerHTML = contacts.map(function (c) {
+        return '<button type="button" class="contact-chip" data-name="' + c.name.replace(/"/g, '&quot;')
+          + '" data-phone="' + c.phone.replace(/"/g, '&quot;') + '" '
+          + 'style="background:var(--surface-2,#1c1c1c);border:1px solid var(--hairline,#333);border-radius:20px;'
+          + 'padding:7px 14px;font-size:13px;color:inherit;cursor:pointer;">' + c.name + '</button>';
+      }).join('');
+      wrap.style.display = 'block';
+      list.querySelectorAll('.contact-chip').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+          document.getElementById('recipientNameInput').value = chip.dataset.name;
+          var phoneEl = document.getElementById('orderRecipientPhone');
+          if (phoneEl) phoneEl.value = chip.dataset.phone;
+          var nameSpan = document.getElementById('saveContactName');
+          if (nameSpan) nameSpan.textContent = chip.dataset.name;
+        });
+      });
+    }
+  } catch (err) {}
+})();
+
+// Keep the "Save [Name] as a contact" text current with what they typed.
+(function () {
+  var nameInput = document.getElementById('recipientNameInput');
+  var span = document.getElementById('saveContactName');
+  if (!nameInput || !span) return;
+  nameInput.addEventListener('input', function () {
+    span.textContent = nameInput.value.trim() || 'them';
+  });
 })();
 
 });

@@ -70,7 +70,7 @@
     <button id="loginBtn" class="btn btn-flare">Log In</button>
     <p class="switch-link" style="margin-bottom:4px;">
       <a href="/forgot-password">Forgotten your password?</a></p>
-    <p class="switch-link">Need an account? <a href="/register">Register</a></p>
+    <p class="switch-link">Need an account? <a href="/register" id="registerLink">Register</a></p>
   </div>
 </div>
 
@@ -78,6 +78,14 @@
 function getNextParam() {
   return new URLSearchParams(window.location.search).get('next') || '/';
 }
+
+(function(){
+  var next = new URLSearchParams(window.location.search).get('next');
+  if (next) {
+    var link = document.getElementById('registerLink');
+    if (link) link.href = '/register?next=' + encodeURIComponent(next);
+  }
+})();
 
 async function submitLogin() {
   const errorEl = document.getElementById('formError');

@@ -8,9 +8,102 @@
   Payment confirmed and the call is on its way. They never find out it was you.
 {% endblock %}
 
+{% block panel %}
+  <div class="sx-panel" id="autoSmackOffer" style="display:none;">
+    <p style="margin:0 0 10px;"><strong id="asoTitle">Want them smacked every time this team loses?</strong></p>
+    <p style="margin:0 0 14px;">Arm a standing Auto-Smack and we&rsquo;ll send another one automatically, all season, whenever this team loses &mdash; no need to remember or come back.</p>
+
+    <label style="display:block; margin-bottom:10px; font-size:13px;">League
+      <select id="asoSport" style="display:block; width:100%; margin-top:6px; padding:10px; background:var(--surface-2); color:var(--ivory); border:1px solid rgba(195,202,211,0.2); border-radius:8px;">
+        <option value="nfl">NFL</option>
+        <option value="nba">NBA</option>
+        <option value="mlb">MLB</option>
+        <option value="nhl">NHL</option>
+        <option value="ncaaf">NCAA Football</option>
+        <option value="ncaab">NCAA Basketball</option>
+      </select>
+    </label>
+
+    <div id="asoDisclosure" style="font-size:13px; line-height:1.7; background:var(--surface-2); border-radius:8px; padding:12px 14px; margin:12px 0;">
+      <div>Team: <strong id="asoTeam"></strong></div>
+      <div>Sent to: <strong id="asoRecipient"></strong></div>
+      <div>Cost: <strong>$1 per fire</strong>, drawn from your wallet balance only &mdash; never a card</div>
+      <div>Runs: through the end of the regular season, or until you cancel</div>
+      <div>If your wallet runs out, it pauses &mdash; nothing charged, nothing sent &mdash; until you come back and confirm you want it to resume</div>
+    </div>
+
+    <label style="display:flex; gap:8px; align-items:flex-start; font-size:13px; margin-bottom:14px; cursor:pointer;">
+      <input type="checkbox" id="asoConfirm" style="margin-top:2px;">
+      <span>I understand and want this Auto-Smack armed.</span>
+    </label>
+
+    <button type="button" id="asoArmBtn" class="sx-btn" style="width:100%; border:none; cursor:pointer;" disabled>Arm Auto-Smack</button>
+    <p id="asoStatus" style="margin:10px 0 0; font-size:13px; color:var(--muted);"></p>
+  </div>
+{% endblock %}
+
 {% block actions %}
   {# Back to the generator, not the homepage. Somebody who has just sent one
      and clicked "send another" wants the form, not the top of the site. #}
   <a href="/send-a-smack" class="sx-btn">Send another one</a>
   <span class="sx-alt"><a href="/locker">See it in your locker &rarr;</a></span>
 {% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var qp = new URLSearchParams(window.location.search);
+  var team = qp.get('team');
+  var recipientName = qp.get('recipient_name');
+  var recipientPhone = qp.get('recipient_phone');
+  if (!team || !recipientName || !recipientPhone) return; // came from elsewhere - no offer
+
+  var offer = document.getElementById('autoSmackOffer');
+  offer.style.display = 'block';
+  document.getElementById('asoTitle').textContent =
+    'Want ' + recipientName + ' smacked every time the ' + team + ' lose?';
+  document.getElementById('asoTeam').textContent = team;
+  document.getElementById('asoRecipient').textContent = recipientName;
+
+  var confirmBox = document.getElementById('asoConfirm');
+  var armBtn = document.getElementById('asoArmBtn');
+  confirmBox.addEventListener('change', function () {
+    armBtn.disabled = !confirmBox.checked;
+  });
+
+  armBtn.addEventListener('click', async function () {
+    armBtn.disabled = true;
+    armBtn.textContent = 'Arming…';
+    var status = document.getElementById('asoStatus');
+    try {
+      var resp = await fetch('/api/auto-smack-subscriptions', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          sport: document.getElementById('asoSport').value,
+          target_team: team,
+          recipient_name: recipientName,
+          recipient_phone: recipientPhone,
+          disclosure_confirmed: true
+        })
+      });
+      var data = await resp.json();
+      if (data.error) {
+        status.textContent = data.error;
+        armBtn.disabled = false;
+        armBtn.textContent = 'Arm Auto-Smack';
+        return;
+      }
+      status.textContent = 'Armed - runs through ' + data.season_end_date + '. Manage it anytime at /auto-smacks.';
+      armBtn.style.display = 'none';
+      confirmBox.parentElement.style.display = 'none';
+    } catch (err) {
+      status.textContent = 'Something went wrong - try again.';
+      armBtn.disabled = false;
+      armBtn.textContent = 'Arm Auto-Smack';
+    }
+  });
+})();
+</script>
+{% endblock %}
+

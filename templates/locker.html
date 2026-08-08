@@ -256,18 +256,22 @@
 
   <div id="pane-received" hidden>
     {% if not phone_verified %}
-      {# The whole point of putting received smacks here rather than on a
-         public lookup page: you have to prove the number is yours. Anyone
-         being able to type a number and hear what that person received is
-         the exposure this replaces. #}
       <div class="verify-gate">
-        <p class="vg-kick">VERIFY YOUR NUMBER</p>
-        <p class="vg-big">See what people have sent you.</p>
-        <p class="vg-say">Everything anyone has ever smacked you with, in one
-           place. We just need to know the number is actually yours &mdash;
-           we'll send a code and you type it back.</p>
+        {% if needs_reverify %}
+          <p class="vg-kick">NUMBER CHANGED?</p>
+          <p class="vg-big">Let&rsquo;s re-verify your number.</p>
+          <p class="vg-say">The number on your account isn&rsquo;t
+             confirmed as yours anymore. If you got a new number, add it
+             below and we&rsquo;ll text you a fresh code.</p>
+        {% else %}
+          <p class="vg-kick">VERIFY YOUR NUMBER</p>
+          <p class="vg-big">See what people have sent you.</p>
+          <p class="vg-say">Everything anyone has ever smacked you with, in one
+             place. We just need to know the number is actually yours &mdash;
+             we'll send a code and you type it back.</p>
+        {% endif %}
         {% if verification_available %}
-          <a class="vg-btn" href="/verify">Verify my number</a>
+          <a class="vg-btn" href="/did-you-get-smacked?phone={{ account_phone|urlencode }}">Verify my number</a>
         {% else %}
           <p class="vg-soon">Verification is switched off while we finish
              carrier registration. This opens up shortly.</p>
