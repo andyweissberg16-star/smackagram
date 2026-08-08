@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ smack.team }} Got Smacked &middot; Smackagram</title>
+<meta name="description" content="{{ smack.hook }}">
+<meta property="og:title" content="{{ smack.team }} Got Smacked">
+<meta property="og:description" content="{{ smack.hook }} — hear it on Smackagram.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
+<style>
+  :root{--flare:#E8142C;--amber:#F5A623;}
+  *{box-sizing:border-box;}
+  body{margin:0;background:radial-gradient(ellipse at 50% -5%,rgba(232,20,44,.13),#0a0608 55%),#0a0608;
+    color:#F5F5F3;font-family:'Inter',system-ui,sans-serif;min-height:100vh;}
+  .wrap{max-width:600px;margin:0 auto;padding:34px 16px 80px;}
+  @keyframes eq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+  .rb{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;padding:6px 10px;
+    border-radius:6px;border:1px solid #33202a;color:#9A8A90;display:inline-flex;gap:5px;align-items:center;background:rgba(20,10,14,.5);}
+  .wv{display:flex;align-items:center;gap:2.5px;overflow:hidden;}
+  .wv i{width:3px;border-radius:2px;flex:none;}
+  .wv.playing i{animation:eq 1s ease-in-out infinite;}
+  .cust{width:100%;background:var(--flare);color:#fff;border:none;border-radius:9px;padding:14px;
+    font-family:'Anton';font-size:16px;letter-spacing:.5px;text-transform:uppercase;cursor:pointer;
+    box-shadow:0 0 16px rgba(232,20,44,.55);text-decoration:none;display:block;text-align:center;}
+</style>
+</head>
+<body>
+{% include '_nav.html' %}
+<div class="wrap">
+
+  <div style="text-align:center;margin-bottom:22px;">
+    <div style="font-family:'Anton';font-size:26px;text-transform:uppercase;text-shadow:0 0 12px rgba(232,20,44,.5);">Somebody Got Smacked</div>
+    <div style="color:#9A8A90;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;letter-spacing:1px;margin-top:7px;">HEAR IT &mdash; THEN SEND YOUR OWN</div>
+  </div>
+
+  <div style="border-radius:13px;overflow:hidden;background:linear-gradient(160deg,#12151f,#0c0a0e);border:1px solid var(--flare);box-shadow:0 0 20px rgba(232,20,44,.3);">
+    <div style="background:linear-gradient(90deg,{{ smack.team_color }},#0c0a0e);padding:11px 15px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(232,20,44,.2);">
+      <span style="font-family:'Anton';font-size:18px;color:#fff;text-transform:uppercase;text-shadow:0 0 10px rgba(255,255,255,.25);">{{ smack.team }} Got Smacked</span>
+    </div>
+    <div style="padding:15px;">
+      {% if smack.headline or smack.league %}
+      <div style="text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;color:var(--amber);letter-spacing:1.5px;margin-bottom:13px;text-shadow:0 0 8px rgba(245,166,35,.35);">&#9679; {% if smack.headline %}{{ smack.headline|upper }}{% endif %}{% if smack.league %} &middot; {{ smack.league }}{% endif %}</div>
+      {% endif %}
+      {% if smack.hook %}
+      <div style="border-left:3px solid var(--flare);padding:4px 0 4px 13px;margin-bottom:16px;">
+        <div style="font-family:'Anton';font-size:18px;line-height:1.2;color:#fff;">&ldquo;{{ smack.hook }}&rdquo;</div>
+      </div>
+      {% endif %}
+      {% if smack.audio_url %}
+      <div style="display:flex;align-items:center;gap:12px;background:rgba(8,5,7,.6);border:1px solid #2a1a20;border-radius:10px;padding:12px 14px;">
+        <button id="playBtn" style="width:46px;height:46px;border-radius:50%;background:var(--flare);color:#fff;border:none;font-size:16px;flex:none;cursor:pointer;box-shadow:0 0 16px rgba(232,20,44,.7);">&#9654;</button>
+        <div class="wv" id="wave" style="flex:1;height:28px;">
+          <i style="height:11px;background:var(--flare);box-shadow:0 0 4px var(--flare);animation-delay:0s"></i><i style="height:19px;background:var(--flare);box-shadow:0 0 4px var(--flare);animation-delay:.1s"></i><i style="height:9px;background:var(--flare);animation-delay:.2s"></i><i style="height:23px;background:#ff6b73;animation-delay:.3s"></i><i style="height:13px;background:#5a3a40;animation-delay:.15s"></i><i style="height:21px;background:#5a3a40;animation-delay:.25s"></i><i style="height:10px;background:#5a3a40;animation-delay:.35s"></i><i style="height:17px;background:#5a3a40;animation-delay:.05s"></i><i style="height:12px;background:#5a3a40;animation-delay:.2s"></i><i style="height:20px;background:#5a3a40;animation-delay:.3s"></i><i style="height:8px;background:#5a3a40;animation-delay:.1s"></i><i style="height:15px;background:#5a3a40;animation-delay:.25s"></i>
+        </div>
+        <span id="dur" style="font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:#c9b8be;">&middot;&middot;&middot;</span>
+      </div>
+      {% endif %}
+      <a class="cust" href="/game-day?loser={{ smack.team|urlencode }}{% if smack.league %}&sport={{ smack.league|lower }}{% endif %}" style="margin-top:14px;">&#8635; Send Your Own</a>
+      <div style="text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:8px;color:#6a5a60;letter-spacing:1px;margin-top:7px;">SAME ROAST &middot; YOUR FRIEND&rsquo;S NAME</div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:22px;">
+    <a href="/smack-feed" style="color:#9A8A90;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:1px;text-decoration:none;">&larr; SEE THE WHOLE FEED</a>
+  </div>
+
+</div>
+
+{% if smack.audio_url %}
+<audio id="a" preload="metadata" src="{{ smack.audio_url }}"></audio>
+<script>
+(function(){
+  var a=document.getElementById('a'), btn=document.getElementById('playBtn'),
+      wave=document.getElementById('wave'), dur=document.getElementById('dur');
+  function fmt(s){ if(!isFinite(s))return '0:00'; var m=Math.floor(s/60),x=Math.floor(s%60); return m+':'+(x<10?'0':'')+x; }
+  a.addEventListener('loadedmetadata', function(){ dur.textContent=fmt(a.duration); });
+  btn.addEventListener('click', function(){
+    if(a.paused){ a.play(); btn.innerHTML='&#10074;&#10074;'; wave.classList.add('playing'); }
+    else { a.pause(); btn.innerHTML='&#9654;'; wave.classList.remove('playing'); }
+  });
+  a.addEventListener('ended', function(){ btn.innerHTML='&#9654;'; wave.classList.remove('playing'); });
+})();
+</script>
+{% endif %}
+
+</body>
+</html>

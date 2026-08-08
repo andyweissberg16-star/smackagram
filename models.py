@@ -67,6 +67,11 @@ class WallPost(db.Model):
     # feed endpoint via a team-name lookup.
     league = db.Column(db.String(16), nullable=True)
 
+    # The punchline pulled from the smack for the feed - one sharp line
+    # shown above the player so a silent scroller reads the joke and
+    # wants to tap. Picked when the post is written; see extract_hook.
+    hook = db.Column(db.String(240), nullable=True)
+
     # Nothing appears until somebody has looked at it.
     approved = db.Column(db.Boolean, default=False, nullable=False)
     # Marks the seeded examples, so they can be told apart from real posts

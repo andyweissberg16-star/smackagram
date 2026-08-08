@@ -21,6 +21,7 @@
   @keyframes neonPulse{0%,100%{text-shadow:0 0 8px rgba(232,20,44,.9),0 0 20px rgba(232,20,44,.6),0 0 34px rgba(232,20,44,.35)}50%{text-shadow:0 0 12px rgba(232,20,44,1),0 0 28px rgba(232,20,44,.75),0 0 48px rgba(232,20,44,.5)}}
   @keyframes cardIn{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
   @keyframes flash{0%{box-shadow:0 0 0 0 rgba(232,20,44,.5),0 0 16px rgba(232,20,44,.3)}100%{box-shadow:0 0 0 12px rgba(232,20,44,0),0 0 16px rgba(232,20,44,.3)}}
+  @keyframes eq{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
 
   .fsign{text-align:center;padding:26px 0 16px;border-bottom:1px solid #2a1a20;margin-bottom:18px;}
   .fsign h1{font-family:'Anton',sans-serif;font-size:clamp(40px,9vw,64px);
@@ -31,7 +32,7 @@
     font-size:11px;letter-spacing:1px;color:var(--chalk-dim);text-transform:uppercase;}
   .ticker .a{color:var(--flare);} .ticker .b{color:var(--amber);text-shadow:0 0 8px rgba(245,166,35,.5);}
 
-  .grid{display:grid;grid-template-columns:190px 1fr 240px;gap:16px;align-items:start;}
+  .grid{display:grid;grid-template-columns:190px minmax(0,600px) 240px;gap:16px;align-items:start;justify-content:center;}
 
   .rail-box{background:linear-gradient(160deg,rgba(24,14,18,.9),rgba(10,8,10,.9));
     border:1px solid #2a1a20;border-radius:12px;padding:13px;margin-bottom:12px;
@@ -77,32 +78,41 @@
     letter-spacing:1px;padding:3px 8px;border-radius:4px;text-transform:uppercase;flex:none;}
   .sc-body{padding:12px 13px;}
   .sc-score{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:9px;
-    color:var(--amber);letter-spacing:1px;margin-bottom:8px;text-shadow:0 0 8px rgba(245,166,35,.35);}
-  .sc-desc{color:#d5cace;font-size:13px;line-height:1.4;}
-  .sc-desc b{color:#fff;}
-  .sc-desc .when{color:#8a7a80;}
-  .splay{display:flex;align-items:center;gap:10px;margin-top:11px;}
-  .spbtn{width:40px;height:40px;border-radius:50%;color:#fff;border:none;font-size:14px;
+    color:var(--amber);letter-spacing:1px;margin-bottom:11px;text-shadow:0 0 8px rgba(245,166,35,.35);
+    text-align:center;}
+  .sc-hook{border-left:3px solid var(--flare);padding:3px 0 3px 12px;margin-bottom:14px;}
+  .sc-hook-q{font-family:'Anton',sans-serif;font-size:16px;line-height:1.18;color:#fff;}
+  .sc-player{display:flex;align-items:center;gap:12px;background:rgba(8,5,7,.6);
+    border:1px solid #2a1a20;border-radius:10px;padding:10px 13px;}
+  .spbtn{width:42px;height:42px;border-radius:50%;color:#fff;border:none;font-size:15px;
     flex:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .1s;}
   .spbtn:active{transform:scale(.92);}
-  .swave{flex:1;height:22px;display:flex;align-items:center;gap:2.5px;overflow:hidden;}
+  .swave{flex:1;height:26px;display:flex;align-items:center;gap:2.5px;overflow:hidden;}
   .swave i{width:3px;border-radius:2px;flex:none;}
-  .sdur{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:9px;color:#8a7a80;flex:none;}
+  .swave.playing i{animation:eq 1s ease-in-out infinite;}
+  .sdur{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;color:#c9b8be;flex:none;min-width:30px;text-align:right;}
   .no-audio{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;
-    color:#6a5a60;letter-spacing:.5px;padding:9px 0;}
-  .sreact{display:flex;gap:6px;margin-top:11px;align-items:center;flex-wrap:wrap;}
-  .rb{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:10px;letter-spacing:.3px;
-    padding:5px 9px;border-radius:6px;border:1px solid #33202a;color:var(--chalk-dim);
-    display:flex;gap:4px;align-items:center;background:rgba(20,10,14,.5);cursor:pointer;
+    color:#6a5a60;letter-spacing:.5px;padding:9px 0;text-align:center;}
+  .sreact{display:flex;gap:6px;margin-top:13px;align-items:center;}
+  .rb{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;letter-spacing:.3px;
+    padding:6px 10px;border-radius:6px;border:1px solid #33202a;color:var(--chalk-dim);
+    display:flex;gap:5px;align-items:center;background:rgba(20,10,14,.5);cursor:pointer;
     transition:.12s;user-select:none;}
   .rb:hover{border-color:#4a2a32;color:#c9b8be;}
   .rb.on{border-color:var(--flare);color:#ff6b73;background:rgba(232,20,44,.1);box-shadow:0 0 8px rgba(232,20,44,.25);}
   .rb b{color:#fff;}
   .rb.on b{color:#ff6b73;}
-  .send{margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:9px;
-    letter-spacing:.4px;color:#fff;background:var(--flare);padding:7px 12px;border-radius:6px;
-    box-shadow:0 0 12px rgba(232,20,44,.6);text-decoration:none;white-space:nowrap;cursor:pointer;border:none;}
-  .send:hover{background:#ff2432;box-shadow:0 0 18px rgba(232,20,44,.8);}
+  .sc-share{margin-left:auto;width:34px;height:34px;border-radius:8px;border:1px solid #33202a;
+    background:rgba(20,10,14,.5);color:var(--chalk-dim);font-size:15px;cursor:pointer;flex:none;
+    display:flex;align-items:center;justify-content:center;transition:.12s;}
+  .sc-share:hover{border-color:var(--flare);color:#ff6b73;}
+  .sc-cust{display:block;width:100%;margin-top:11px;background:var(--flare);color:#fff;
+    border:none;border-radius:9px;padding:12px;font-family:'Anton',sans-serif;font-size:15px;
+    letter-spacing:.5px;text-transform:uppercase;box-shadow:0 0 16px rgba(232,20,44,.55);
+    cursor:pointer;text-decoration:none;text-align:center;}
+  .sc-cust:hover{background:#ff2432;box-shadow:0 0 22px rgba(232,20,44,.75);}
+  .sc-hint{text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:8px;
+    color:#6a5a60;letter-spacing:1px;margin-top:6px;}
 
   .feed-end{text-align:center;color:#6a5a60;font-family:'JetBrains Mono',monospace;
     font-weight:700;font-size:11px;letter-spacing:1px;padding:30px 0;text-transform:uppercase;}
@@ -250,12 +260,12 @@
 
   function waveBars(color){
     var s='';
-    for(var i=0;i<16;i++){
-      var h = 5 + Math.round(Math.abs(Math.sin(i*1.7))*15);
-      var on = i < 4;
+    for(var i=0;i<18;i++){
+      var h = 5 + Math.round(Math.abs(Math.sin(i*1.7))*16);
+      var on = i < 5;
       var col = on ? color : '#5a3a40';
       var glow = on ? 'box-shadow:0 0 4px '+color+';' : '';
-      s += '<i style="height:'+h+'px;background:'+col+';'+glow+'"></i>';
+      s += '<i style="height:'+h+'px;background:'+col+';'+glow+'animation-delay:'+(i*0.05)+'s"></i>';
     }
     return s;
   }
@@ -288,13 +298,18 @@
     var scoreLine = (item.headline || item.league)
       ? '<div class="sc-score">\u25CF '
         + (item.headline ? esc(item.headline).toUpperCase() : 'FINAL')
-        + (item.league ? ' \u00b7 ' + esc(item.league) : '') + '</div>'
+        + (item.league ? ' \u00b7 ' + esc(item.league) : '')
+        + (item.when ? ' \u00b7 ' + esc((item.when||'').toString().toUpperCase()) : '')
+        + '</div>'
+      : '';
+    var hookLine = item.hook
+      ? '<div class="sc-hook"><div class="sc-hook-q">\u201C'+esc(item.hook)+'\u201D</div></div>'
       : '';
     var player = item.audio_url
-      ? '<div class="splay">'
+      ? '<div class="sc-player">'
         + '<button class="spbtn" style="background:'+color+';box-shadow:0 0 14px '+color+'99;" data-audio="'+esc(item.audio_url)+'">\u25B6</button>'
         + '<div class="swave">'+waveBars(color)+'</div>'
-        + '<div class="sdur">TAP</div></div>'
+        + '<div class="sdur">\u00b7\u00b7\u00b7</div></div>'
       : '<div class="no-audio">\u25CB Line only &mdash; no audio on this one</div>';
 
     return '<div class="sc'+(isFresh?' fresh':'')+'" data-id="'+item.id+'">'
@@ -304,11 +319,13 @@
       + '</div>'
       + '<div class="sc-body">'
         + scoreLine
-        + '<div class="sc-desc">'+describe(item, t)+'</div>'
+        + hookLine
         + player
         + '<div class="sreact">'+reactionRow(item)
-          + '<a class="send" href="'+customizeUrl(item)+'" title="Same roast, your friend\u2019s name">\u2197 CUSTOMIZE THIS SMACK</a>'
+          + '<button class="sc-share" data-share="'+item.id+'" title="Share this smack">\u2197</button>'
         + '</div>'
+        + '<a class="sc-cust" href="'+customizeUrl(item)+'">\u21BB Customize This Smack</a>'
+        + '<div class="sc-hint">SAME ROAST \u00b7 YOUR FRIEND\u2019S NAME</div>'
       + '</div></div>';
   }
 
@@ -333,10 +350,45 @@
     document.querySelectorAll('.spbtn').forEach(function(btn){
       btn.addEventListener('click', function(){
         var url = btn.dataset.audio;
-        if(nowPlaying === btn && !audio.paused){ audio.pause(); btn.textContent='\u25B6'; return; }
-        if(nowPlaying){ nowPlaying.textContent='\u25B6'; }
+        var wave = btn.parentNode.querySelector('.swave');
+        var durEl = btn.parentNode.querySelector('.sdur');
+        if(nowPlaying === btn && !audio.paused){
+          audio.pause(); btn.textContent='\u25B6';
+          if(wave) wave.classList.remove('playing');
+          return;
+        }
+        if(nowPlaying){
+          nowPlaying.textContent='\u25B6';
+          var pw = nowPlaying.parentNode.querySelector('.swave');
+          if(pw) pw.classList.remove('playing');
+        }
         audio.src = url; audio.play();
         btn.textContent='\u275A\u275A'; nowPlaying = btn;
+        if(wave) wave.classList.add('playing');
+        // show real duration once known
+        if(durEl){
+          audio.onloadedmetadata = function(){
+            var s = audio.duration;
+            if(isFinite(s)){ var m=Math.floor(s/60),x=Math.floor(s%60);
+              durEl.textContent = m+':'+(x<10?'0':'')+x; }
+          };
+        }
+      });
+    });
+    document.querySelectorAll('.sc-share').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var id = btn.dataset.share;
+        var url = location.origin + '/s/' + id;
+        var card = btn.closest('.sc');
+        var team = card ? (card.querySelector('.sc-team')||{}).textContent : '';
+        if(navigator.share){
+          navigator.share({title:'Smackagram', text:team||'Got smacked', url:url}).catch(function(){});
+        } else if(navigator.clipboard){
+          navigator.clipboard.writeText(url).then(function(){
+            var old = btn.textContent; btn.textContent='\u2713';
+            setTimeout(function(){ btn.textContent=old; }, 1400);
+          }).catch(function(){ window.open(url,'_blank'); });
+        } else { window.open(url,'_blank'); }
       });
     });
     document.querySelectorAll('.rb').forEach(function(btn){
@@ -366,7 +418,7 @@
       });
     });
   }
-  audio.addEventListener('ended', function(){ if(nowPlaying){ nowPlaying.textContent='\u25B6'; nowPlaying=null; } });
+  audio.addEventListener('ended', function(){ if(nowPlaying){ nowPlaying.textContent='\u25B6'; var w=nowPlaying.parentNode.querySelector('.swave'); if(w) w.classList.remove('playing'); nowPlaying=null; } });
 
   function reactSum(x){ var c=x.reactions||{}, s=0; for(var k in c) s+=c[k]; return s; }
 

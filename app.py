@@ -4232,6 +4232,7 @@ def publish_to_wall(record, product, audio_url=None):
             _post_league = league_for_team(_team_for_league)
         except Exception:
             _post_league = None
+        from services import smack_hook as _smack_hook
         post = WallPost(
             user_id=getattr(record, "user_id", None),
             handle=handle,
@@ -4244,6 +4245,7 @@ def publish_to_wall(record, product, audio_url=None):
             team=((getattr(record, "target_team", None)
                    or getattr(record, "team", None) or "").strip() or None),
             league=_post_league,
+            hook=_smack_hook.extract_hook(body),
             # Goes up with the plain message immediately; the stitched
             # version replaces it a few seconds later - see below.
             audio_url=audio_url,
@@ -4714,6 +4716,8 @@ def api_smack_feed():
         limit = 60
     league_filter = (request.args.get("league") or "").strip().lower()
 
+    from services import smack_hook as _smack_hook_feed
+
     from services.team_league import league_for_team
 
     # Pull a generous window, then league-filter in Python so old rows
@@ -4754,6 +4758,7 @@ def api_smack_feed():
         "team_color": chat_team_colors.readable_color_for_name(
             r.team_name or r.team),
         "league": league_of(r).upper(),
+        "hook": r.hook or _smack_hook_feed.extract_hook(r.body),
         "when": wall_when(r.created_at),
         "audio_url": r.audio_url,
         "reactions": counts.get(r.id, {}),
@@ -4768,6 +4773,36 @@ def api_smack_feed():
 def smack_feed_page():
     """The Smack Feed - a scrolling wall of smacks as they go out."""
     return render_template("smack_feed.html")
+
+
+@app.route("/s/<int:post_id>")
+def smack_share_page(post_id):
+    """
+    A single smack on its own page, for sharing. Someone hears a smack
+    in the feed, taps Share, and sends this link - the recipient lands
+    here, hears that one clip, and (the point) sees CUSTOMIZE THIS SMACK
+    to make their own. Anonymized: team + roast + audio, no sender, no
+    recipient number.
+    """
+    post = WallPost.query.filter_by(id=post_id, is_sample=False).first()
+    if not post:
+        return redirect("/smack-feed")
+    from services.team_league import league_for_team
+    from services import smack_hook as _sh
+    smack = {
+        "id": post.id,
+        "team": _nickname_only(post.team_name or post.team) or "A Mystery Fan",
+        "team_color": chat_team_colors.readable_color_for_name(
+            post.team_name or post.team),
+        "product": post.product,
+        "headline": post.headline,
+        "hook": post.hook or _sh.extract_hook(post.body),
+        "league": (post.league or league_for_team(post.team_name or post.team)
+                   or "").upper(),
+        "audio_url": post.audio_url,
+        "when": wall_when(post.created_at),
+    }
+    return render_template("smack_share.html", smack=smack)
 
 
 @app.route("/api/smack-feed/stats")
@@ -7358,6 +7393,9 @@ with app.app_context():
             conn.execute(db.text(
                 "ALTER TABLE wall_posts ADD COLUMN IF NOT EXISTS "
                 "league VARCHAR(16)"))
+            conn.execute(db.text(
+                "ALTER TABLE wall_posts ADD COLUMN IF NOT EXISTS "
+                "hook VARCHAR(240)"))
             # Refund tracking. Twilio retries webhooks, so without a flag
             # a retried failure notification refunds twice - and that is
             # money leaving with nothing to show for it.
