@@ -4840,6 +4840,80 @@ def api_smack_feed():
     return resp
 
 
+@app.route("/news")
+def newsdesk_page():
+    """The Smacky Report news desk - Smacky's own recap of real games."""
+    return render_template("newsdesk.html")
+
+
+@app.route("/api/news")
+def api_newsdesk():
+    """
+    Recent articles, newest first. ?league= filters (mlb only for now).
+
+    Deliberately no pagination cursor yet - the volume is low enough
+    (one article per game) that a flat limited list covers the page
+    for a good while.
+    """
+    from models import NewsArticle
+
+    try:
+        limit = min(int(request.args.get("limit", 30)), 100)
+    except Exception:
+        limit = 30
+    league = (request.args.get("league") or "").strip().lower()
+
+    q = NewsArticle.query.order_by(NewsArticle.id.desc())
+    if league and league != "all":
+        q = q.filter_by(league=league)
+    rows = q.limit(limit).all()
+
+    items = [{
+        "id": r.id,
+        "league": (r.league or "").upper(),
+        "game_date": r.game_date,
+        "home_team": r.home_team,
+        "away_team": r.away_team,
+        "home_score": r.home_score,
+        "away_score": r.away_score,
+        "winner": r.winner,
+        "loser": r.loser,
+        "headline": r.headline,
+        "body": r.body,
+        "when": wall_when(r.created_at) if r.created_at else None,
+    } for r in rows]
+
+    resp = jsonify({"count": len(items), "items": items})
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.route("/api/admin/generate-news")
+def admin_generate_news():
+    """
+    Manually trigger Smacky's news desk for a given day - MLB only
+    for now. Same auth pattern as the other admin/cron diagnostics:
+    either an admin already logged in, or the scheduler's CRON_SECRET.
+
+    ?date=YYYY-MM-DD (Eastern) defaults to yesterday.
+    ?limit=N caps how many games get written this call, for a cheap
+    smoke test before turning loose on a full slate.
+    """
+    if not cron_authorised():
+        return jsonify({"error": "nope"}), 403
+
+    from services import newsdesk_service
+
+    date_str = (request.args.get("date") or "").strip() or None
+    try:
+        limit = int(request.args.get("limit")) if request.args.get("limit") else None
+    except (TypeError, ValueError):
+        limit = None
+
+    summary = newsdesk_service.generate_mlb_articles(date_str=date_str, limit=limit)
+    return jsonify(summary)
+
+
 @app.route("/smack-feed")
 def smack_feed_page():
     """The Smack Feed - a scrolling wall of smacks as they go out."""
@@ -7705,6 +7779,25 @@ with app.app_context():
                 created_at TIMESTAMP DEFAULT NOW()
             )"""))
             conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_daily_shows_live ON daily_shows (is_live)"))
+            conn.execute(db.text("""CREATE TABLE IF NOT EXISTS news_articles (
+                id SERIAL PRIMARY KEY,
+                league VARCHAR(16) NOT NULL,
+                game_date VARCHAR(10) NOT NULL,
+                home_team VARCHAR(80),
+                away_team VARCHAR(80),
+                home_score INTEGER,
+                away_score INTEGER,
+                winner VARCHAR(80),
+                loser VARCHAR(80),
+                headline VARCHAR(200),
+                body TEXT,
+                source_game_id VARCHAR(40),
+                created_at TIMESTAMP DEFAULT NOW(),
+                CONSTRAINT uq_news_article_game UNIQUE (league, source_game_id)
+            )"""))
+            conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_news_articles_league ON news_articles (league)"))
+            conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_news_articles_date ON news_articles (game_date)"))
+            conn.execute(db.text("CREATE INDEX IF NOT EXISTS ix_news_articles_created ON news_articles (created_at)"))
             conn.execute(db.text("""CREATE TABLE IF NOT EXISTS settings (
                 id SERIAL PRIMARY KEY,
                 key VARCHAR(60) UNIQUE NOT NULL,

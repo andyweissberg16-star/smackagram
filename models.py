@@ -502,6 +502,40 @@ class SmackFeedReaction(db.Model):
     )
 
 
+class NewsArticle(db.Model):
+    """
+    One Smacky-written recap of a single real game - the news desk.
+
+    Deliberately ONE ROW PER GAME, not one row per day's batch, so a
+    single game can be regenerated or removed without touching the rest
+    of that day's slate, and so the page can show "12 stories today"
+    honestly rather than one big daily blob.
+
+    Written entirely from box-score data already on hand (scores, real
+    stat lines) - never from scraped headlines or third-party article
+    text. See services/news_service.py for the generation path and the
+    no-fabrication rules it's built under.
+    """
+    __tablename__ = "news_articles"
+    id = db.Column(db.Integer, primary_key=True)
+    league = db.Column(db.String(16), index=True, nullable=False)
+    game_date = db.Column(db.String(10), index=True, nullable=False)  # YYYY-MM-DD, Eastern
+    home_team = db.Column(db.String(80))
+    away_team = db.Column(db.String(80))
+    home_score = db.Column(db.Integer)
+    away_score = db.Column(db.Integer)
+    winner = db.Column(db.String(80))
+    loser = db.Column(db.String(80))
+    headline = db.Column(db.String(200))
+    body = db.Column(db.Text)
+    source_game_id = db.Column(db.String(40))  # dedupe key, e.g. mlb_statsapi gamePk
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    __table_args__ = (
+        db.UniqueConstraint("league", "source_game_id",
+                            name="uq_news_article_game"),
+    )
+
+
 class BattleViewer(db.Model):
     """
     Live viewer presence for a battle - one row per distinct browser

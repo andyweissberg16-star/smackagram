@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Smacky Report &middot; Smackagram</title>
+<meta name="description" content="Smacky's own news desk - real games, real scores, reported his way. MLB now, more leagues soon.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/smackagram.css') }}">
+<style>
+  :root{
+    --ink:#0a0608; --chalk:#F5F5F3; --chalk-dim:#9A8A90;
+    --flare:#E8142C; --silver:#C3CAD3; --amber:#F5A623;
+  }
+  .nd-page{background:radial-gradient(ellipse at 50% -5%,rgba(232,20,44,.13),#0a0608 55%),#0a0608;min-height:100vh;}
+  .nd-page *{box-sizing:border-box;}
+  .ndwrap{max-width:900px;margin:0 auto;padding:0 16px 90px;}
+
+  @keyframes ndPulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @keyframes ndGlow{0%,100%{text-shadow:0 0 8px rgba(232,20,44,.9),0 0 20px rgba(232,20,44,.6),0 0 34px rgba(232,20,44,.35)}50%{text-shadow:0 0 12px rgba(232,20,44,1),0 0 28px rgba(232,20,44,.75),0 0 48px rgba(232,20,44,.5)}}
+  @keyframes ndIn{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:translateY(0)}}
+
+  .ndsign{text-align:center;padding:30px 0 18px;border-bottom:1px solid #2a1a20;margin-bottom:22px;}
+  .ndsign h1{font-family:'Anton',sans-serif;font-size:clamp(34px,7.5vw,54px);
+    text-transform:uppercase;letter-spacing:1px;margin:0;line-height:1;color:#fff;
+    animation:ndGlow 2.6s infinite;}
+  .ndsign p{font-family:'JetBrains Mono',monospace;color:var(--chalk-dim);
+    font-size:12.5px;letter-spacing:.5px;margin:10px 0 0;}
+  .ndsign .live{display:inline-flex;align-items:center;gap:6px;margin-top:12px;
+    font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;
+    color:var(--flare);font-weight:700;}
+  .ndsign .live i{width:7px;height:7px;border-radius:50%;background:var(--flare);
+    animation:ndPulse 1.5s ease-in-out infinite;}
+
+  .nd-tabs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:24px;}
+  .nd-tab{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11.5px;
+    letter-spacing:1px;padding:8px 18px;border-radius:7px;cursor:pointer;
+    border:1px solid #3a2228;background:rgba(232,20,44,.05);color:#8A7A80;
+    text-transform:uppercase;transition:.15s;user-select:none;}
+  .nd-tab.active{border-color:var(--flare);background:rgba(232,20,44,.14);
+    color:#ff5a63;box-shadow:0 0 10px rgba(232,20,44,.3);}
+  .nd-tab.soon{opacity:.4;cursor:default;}
+
+  .nd-card{background:linear-gradient(160deg,#141018,#0c0a0e);border:1px solid #2a1a20;
+    border-radius:12px;padding:22px 24px;margin-bottom:16px;animation:ndIn .4s ease;}
+  .nd-meta{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+  .nd-league{font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;
+    letter-spacing:1.2px;color:#0D0D0D;background:var(--amber);padding:3px 8px;
+    border-radius:4px;}
+  .nd-byline{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--chalk-dim);
+    letter-spacing:.5px;}
+  .nd-when{font-family:'JetBrains Mono',monospace;font-size:10px;color:#5a4a50;
+    margin-left:auto;}
+  .nd-headline{font-family:'Anton',sans-serif;font-size:22px;line-height:1.15;
+    color:#fff;text-transform:uppercase;margin:0 0 10px;letter-spacing:.3px;}
+  .nd-score{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--silver);
+    background:rgba(195,202,211,.06);border:1px solid rgba(195,202,211,.2);
+    display:inline-block;padding:5px 10px;border-radius:5px;margin-bottom:14px;
+    letter-spacing:.3px;}
+  .nd-body{font-family:'Inter',sans-serif;font-size:15px;line-height:1.65;
+    color:#d8d0d4;white-space:pre-line;}
+
+  .nd-empty{text-align:center;color:#6a5a60;padding:60px 20px;font-family:'JetBrains Mono',monospace;
+    font-size:13px;line-height:1.7;}
+  .nd-loading{text-align:center;color:#5a4a50;padding:40px;font-family:'JetBrains Mono',monospace;
+    font-size:12px;letter-spacing:1px;}
+</style>
+</head>
+<body class="nd-page">
+
+{% include '_nav.html' %}
+
+<div class="ndwrap">
+  <div class="ndsign">
+    <h1>The Smacky Report</h1>
+    <p>Real games. Real scores. Reported Smacky's way.</p>
+    <div class="live"><i></i>NEWS DESK IS OPEN</div>
+  </div>
+
+  <div class="nd-tabs">
+    <div class="nd-tab active" data-league="mlb">MLB</div>
+    <div class="nd-tab soon">NFL</div>
+    <div class="nd-tab soon">NBA</div>
+    <div class="nd-tab soon">NHL</div>
+    <div class="nd-tab soon">WNBA</div>
+  </div>
+
+  <div id="ndList">
+    <div class="nd-loading">LOADING TODAY&rsquo;S REPORT&hellip;</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var list = document.getElementById('ndList');
+  var curLeague = 'mlb';
+
+  function esc(s){ return (s||'').replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  }); }
+
+  function card(item){
+    var scoreLine = '';
+    if(item.away_team && item.home_team && item.away_score != null && item.home_score != null){
+      scoreLine = esc(item.away_team)+' '+item.away_score+' @ '+esc(item.home_team)+' '+item.home_score;
+    }
+    return '<div class="nd-card">'
+      + '<div class="nd-meta">'
+      +   '<span class="nd-league">'+esc(item.league||'')+'</span>'
+      +   '<span class="nd-byline">By Smacky &middot; News Desk</span>'
+      +   (item.when ? '<span class="nd-when">'+esc(item.when)+'</span>' : '')
+      + '</div>'
+      + '<h2 class="nd-headline">'+esc(item.headline||'')+'</h2>'
+      + (scoreLine ? '<div class="nd-score">FINAL &middot; '+scoreLine+'</div>' : '')
+      + '<div class="nd-body">'+esc(item.body||'')+'</div>'
+      + '</div>';
+  }
+
+  function load(){
+    fetch('/api/news?league='+encodeURIComponent(curLeague)+'&limit=30')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var items = (d && d.items) || [];
+        if(!items.length){
+          list.innerHTML = '<div class="nd-empty">Nothing filed yet for '+curLeague.toUpperCase()+'.<br>'
+            + 'Smacky&rsquo;s desk updates as games finish - check back soon.</div>';
+          return;
+        }
+        list.innerHTML = items.map(card).join('');
+      }).catch(function(){
+        list.innerHTML = '<div class="nd-empty">Couldn&rsquo;t load the report. Try again in a moment.</div>';
+      });
+  }
+
+  document.querySelectorAll('.nd-tab').forEach(function(tab){
+    if(tab.classList.contains('soon')) return;
+    tab.addEventListener('click', function(){
+      document.querySelectorAll('.nd-tab').forEach(function(t){ t.classList.remove('active'); });
+      tab.classList.add('active');
+      curLeague = tab.dataset.league;
+      list.innerHTML = '<div class="nd-loading">LOADING&hellip;</div>';
+      load();
+    });
+  });
+
+  load();
+  setInterval(function(){ if(!document.hidden) load(); }, 60000);
+})();
+</script>
+
+</body>
+</html>
