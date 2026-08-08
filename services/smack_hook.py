@@ -45,7 +45,9 @@ def _is_weak(s):
 
 
 def _punch_score(s):
-    """Higher = punchier. Rewards comparisons and vivid constructions."""
+    """Higher = punchier. Rewards comparisons and vivid constructions,
+    and prefers lines short enough to read in a glance (they clamp to
+    two lines on the card, so a tight hook is a better hook)."""
     low = s.lower()
     score = 0
     if " with a " in low or " like a " in low:
@@ -55,9 +57,17 @@ def _punch_score(s):
         score += 2
     if "?" in s or "!" in s:
         score += 1
-    # Middle-length lines land best; very long ones ramble.
-    if 30 <= len(s) <= 130:
-        score += 2
+    # Length: short-and-punchy wins; long ramblers get penalised because
+    # they'll clamp on the card anyway.
+    n = len(s)
+    if n <= 70:
+        score += 3          # fits one-ish line, ideal
+    elif n <= 110:
+        score += 2          # comfortable two lines
+    elif n <= 150:
+        score += 0
+    else:
+        score -= 2          # will get truncated - avoid if anything else fits
     return score
 
 

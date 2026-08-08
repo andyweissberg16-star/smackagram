@@ -107,43 +107,86 @@ DIVISIONS = {
 # brown, navy stays navy, green stays green.
 
 TEAM_NAME_COLORS = {
+    # Real official primary colours. Some are near-black (Yankees navy,
+    # Raiders black) - readable_color_for_name() lifts those to stay legible
+    # on the dark card while keeping the hue. Do NOT pre-lighten here; store
+    # the true colour and let that function do the work.
+
     # --- NFL ---
-    "cardinals": "#E8446B",   "falcons": "#D8232F",   "ravens": "#7B5BD6",
-    "bills": "#3B6FE8",       "panthers": "#0085CA",  "bears": "#F0662C",
-    "bengals": "#FB4F14",     "browns": "#C4761E",    "cowboys": "#8CA5C7",
-    "broncos": "#FB4F14",     "lions": "#4FA3E3",     "packers": "#FFB612",
-    "texans": "#C8102E",      "colts": "#4C8FD6",     "jaguars": "#12A19A",
-    "chiefs": "#E31837",      "raiders": "#C4C9CE",   "chargers": "#0080C6",
-    "rams": "#FFD100",        "dolphins": "#00C4B3",  "vikings": "#9B6FD6",
-    "patriots": "#5C7FA8",    "saints": "#D3BC8D",    "giants": "#4A7FD6",
-    "jets": "#3FA96B",        "eagles": "#3FA88F",    "steelers": "#FFB612",
-    "49ers": "#C8102E",       "niners": "#C8102E",    "seahawks": "#69BE28",
-    "buccaneers": "#D50A0A",  "bucs": "#D50A0A",      "titans": "#4B92DB",
-    "commanders": "#FFB612",
+    "cardinals": "#97233F",   "falcons": "#A71930",   "ravens": "#241773",
+    "bills": "#00338D",       "panthers": "#0085CA",  "bears": "#0B162A",
+    "bengals": "#FB4F14",     "browns": "#311D00",    "cowboys": "#003594",
+    "broncos": "#FB4F14",     "lions": "#0076B6",     "packers": "#203731",
+    "texans": "#03202F",      "colts": "#002C5F",     "jaguars": "#006778",
+    "chiefs": "#E31837",      "raiders": "#A5ACAF",   "chargers": "#0080C6",
+    "rams": "#003594",        "dolphins": "#008E97",  "vikings": "#4F2683",
+    "patriots": "#002244",    "saints": "#D3BC8D",    "giants": "#0B2265",
+    "jets": "#125740",        "eagles": "#004C54",    "steelers": "#FFB612",
+    "49ers": "#AA0000",        "niners": "#AA0000",   "seahawks": "#69BE28",
+    "buccaneers": "#D50A0A",  "bucs": "#D50A0A",      "titans": "#0C2340",
+    "commanders": "#5A1414",
 
     # --- MLB ---
-    "diamondbacks": "#E3574F","braves": "#CE1141",     "orioles": "#DF4601",
-    "red sox": "#BD3039",     "white sox": "#B0B7BC",  "cubs": "#4A7FD6",
-    "reds": "#C6011F",        "guardians": "#E31937",  "rockies": "#9E7FD6",
-    "tigers": "#F26722",      "astros": "#EB6E1F",     "royals": "#5B8FD6",
-    "angels": "#BA0021",      "dodgers": "#4A8FE0",    "marlins": "#00A3E0",
-    "brewers": "#C4A87A",     "twins": "#D31145",      "mets": "#FF5910",
-    "yankees": "#5B8FE0",     "athletics": "#5FA97F",  "phillies": "#E81828",
-    "pirates": "#FDB827",     "padres": "#C4A882",     "mariners": "#4FBFA8",
-    "rangers": "#C0111F",     "blue jays": "#3D8FDB",  "nationals": "#E8404A",
+    "diamondbacks": "#A71930","braves": "#CE1141",     "orioles": "#DF4601",
+    "red sox": "#BD3039",     "white sox": "#C4CED4",  "cubs": "#0E3386",
+    "reds": "#C6011F",        "guardians": "#00385D",  "rockies": "#333366",
+    "tigers": "#0C2340",      "astros": "#EB6E1F",     "royals": "#004687",
+    "angels": "#BA0021",      "dodgers": "#005A9C",    "marlins": "#00A3E0",
+    "brewers": "#12284B",     "twins": "#002B5C",      "mets": "#FF5910",
+    "yankees": "#003087",     "athletics": "#003831",  "phillies": "#E81828",
+    "pirates": "#FDB827",     "padres": "#2F241D",     "mariners": "#0C2C56",
+    "rangers": "#003278",     "blue jays": "#134A8E",  "nationals": "#AB0003",
+    "rays": "#092C5C",
 
     # --- NBA ---
-    "hawks": "#E03A3E",       "celtics": "#3FA96B",    "nets": "#C4C9CE",
-    "hornets": "#4FA3D6",     "bulls": "#CE1141",      "cavaliers": "#B5623C",
-    "mavericks": "#4A8FD6",   "nuggets": "#FEC524",    "pistons": "#E8546B",
-    "warriors": "#FFC72C",    "rockets": "#CE1141",    "pacers": "#FDBB30",
-    "clippers": "#E8546B",    "lakers": "#A96FD6",     "grizzlies": "#6BA3D6",
-    "heat": "#E8506B",        "bucks": "#5FA97F",      "timberwolves": "#5B9FD6",
-    "pelicans": "#C4A882",    "knicks": "#F58426",     "thunder": "#4FA3D6",
-    "magic": "#4A8FD6",       "sixers": "#4A8FD6",     "76ers": "#4A8FD6",
-    "suns": "#E56020",        "trail blazers": "#E8404A", "blazers": "#E8404A",
-    "kings": "#A96FD6",       "spurs": "#C4C9CE",      "raptors": "#CE1141",
-    "jazz": "#5FA97F",        "wizards": "#5B8FD6",
+    "hawks": "#E03A3E",       "celtics": "#007A33",    "nets": "#C4CED4",
+    "hornets": "#1D1160",     "bulls": "#CE1141",      "cavaliers": "#860038",
+    "mavericks": "#00538C",   "nuggets": "#0E2240",    "pistons": "#C8102E",
+    "warriors": "#1D428A",    "rockets": "#CE1141",    "pacers": "#002D62",
+    "clippers": "#C8102E",    "lakers": "#552583",     "grizzlies": "#5D76A9",
+    "heat": "#98002E",        "bucks": "#00471B",      "timberwolves": "#0C2340",
+    "pelicans": "#0C2340",    "knicks": "#F58426",     "thunder": "#007AC1",
+    "magic": "#0077C0",       "sixers": "#006BB6",     "76ers": "#006BB6",
+    "suns": "#E56020",        "trail blazers": "#CE1141", "blazers": "#CE1141",
+    "kings": "#5A2D81",       "spurs": "#C4CED4",      "raptors": "#CE1141",
+    "jazz": "#002B5C",        "wizards": "#002B5C",
+
+    # --- WNBA ---
+    "aces": "#A7A8AA",        "dream": "#E31837",      "sky": "#5091CD",
+    "sun": "#F05023",         "wings": "#0C2340",      "fever": "#002D62",
+    "sparks": "#552583",      "storm": "#2C5234",      "lynx": "#0C2340",
+    "mercury": "#201747",     "mystics": "#002B5C",    "liberty": "#00A9A5",
+    "valkyries": "#552583",   "fire": "#E31837",
+
+    # --- NHL ---
+    "ducks": "#F47A38",       "mammoth": "#5B8AC9",    "bruins": "#FFB81C",
+    "sabres": "#002654",      "flames": "#C8102E",     "hurricanes": "#CC0000",
+    "blackhawks": "#CF0A2C",  "avalanche": "#6F263D",  "blue jackets": "#002654",
+    "stars": "#006847",       "red wings": "#CE1126",  "oilers": "#FF4C00",
+    "kings": "#111111",       "wild": "#154734",
+    "canadiens": "#AF1E2D",   "predators": "#FFB81C",  "devils": "#CE1126",
+    "islanders": "#00539B",   "senators": "#C8102E",
+    "flyers": "#F74902",      "penguins": "#FCB514",   "sharks": "#006D75",
+    "kraken": "#001628",      "blues": "#002F87",      "lightning": "#002868",
+    "maple leafs": "#00205B", "golden knights": "#B4975A", "capitals": "#C8102E",
+    "canucks": "#00205B",
+
+    # --- World Cup countries (real national colours) ---
+    "argentina": "#75AADB",   "brazil": "#FFDF00",     "france": "#002654",
+    "england": "#CF081F",     "spain": "#C60B1E",      "germany": "#000000",
+    "portugal": "#006600",    "netherlands": "#FF6200","belgium": "#FFD100",
+    "croatia": "#FF0000",     "uruguay": "#5CB8E6",    "mexico": "#006847",
+    "usa": "#3C3B6E",         "united states": "#3C3B6E", "colombia": "#FCD116",
+    "japan": "#BC002D",       "south korea": "#003478","morocco": "#C1272D",
+    "senegal": "#00853F",     "switzerland": "#D52B1E","denmark": "#C60C30",
+    "poland": "#DC143C",      "wales": "#C8102E",      "serbia": "#C6363C",
+    "ecuador": "#FFD100",     "ghana": "#006B3F",      "cameroon": "#007A5E",
+    "canada": "#FF0000",      "qatar": "#8A1538",      "saudi arabia": "#006C35",
+    "australia": "#00843D",   "tunisia": "#E70013",    "iran": "#239F40",
+    "costa rica": "#002B7F",  "nigeria": "#008751",    "italy": "#0066CC",
+    "ivory coast": "#FF8200", "cote d'ivoire": "#FF8200",
+    "egypt": "#CE1126",       "scotland": "#0065BF",   "ireland": "#169B62",
+    "sweden": "#006AA7",      "norway": "#BA0C2F",     "austria": "#ED2939",
 }
 
 
@@ -251,7 +294,11 @@ def readable_color_for_name(name, on_dark=True):
         # far more heavily than blue.
         lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
         floor = 0.42 if on_dark else 0.0
-        if lum < floor and lum > 0:
+        if lum <= 0:
+            # Pure black (e.g. Germany, LA Kings) - no hue to preserve, so
+            # lift to a readable neutral gray instead of staying invisible.
+            return "#8A8A8A" if on_dark else hexv
+        if lum < floor:
             scale = floor / lum
             r, g, b = (min(255, int(c * scale)) for c in (r, g, b))
         return f"#{r:02X}{g:02X}{b:02X}"
