@@ -1126,9 +1126,9 @@
 @keyframes ffCtaPulse{0%,100%{box-shadow:0 0 0 rgba(224,27,36,.4)}50%{box-shadow:0 0 16px rgba(224,27,36,.7)}}
 #ffWrap{max-width:1100px;margin:32px auto;padding:0 24px;font-family:'JetBrains Mono',monospace;}
 #ffWrap *{box-sizing:border-box;}
-.ff-box{border:2px solid #E01B24;border-radius:16px;padding:16px;background:#050506;
+.ff-box{border:2px solid #E01B24;border-radius:16px;padding:20px 16px 24px;background:#050506;
   box-shadow:0 0 30px rgba(224,27,36,.5),0 0 60px rgba(224,27,36,.2),inset 0 0 24px rgba(224,27,36,.06);}
-.ff-head{text-align:center;margin-bottom:14px;}
+.ff-head{text-align:center;margin-bottom:18px;}
 .ff-title{font-family:'Anton',sans-serif;color:#fff;font-size:clamp(24px,4.5vw,34px);letter-spacing:1px;
   text-transform:uppercase;text-shadow:0 0 14px rgba(255,255,255,.25);}
 .ff-title span{color:#E01B24;text-shadow:0 0 14px rgba(224,27,36,.6);}
@@ -1136,23 +1136,39 @@
   animation:ffLivePulse 1.6s ease-in-out infinite;}
 .ff-live i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#E01B24;
   animation:ffDotPulse 1.6s ease-in-out infinite;margin-right:6px;vertical-align:1px;}
-.ff-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;}
-@media (max-width:760px){ .ff-grid{grid-template-columns:repeat(2,1fr);} }
-.ff-card{border-radius:10px;text-align:center;padding:16px 6px;background:#0c0a0e;border:2px solid;
-  text-decoration:none;display:block;cursor:pointer;transition:transform .15s;}
-.ff-card:hover{transform:translateY(-2px);}
-.ff-card:hover .ff-playbtn{transform:scale(1.12);}
-.ff-team{font-family:'Anton',sans-serif;font-size:14px;line-height:1.15;text-transform:uppercase;}
-.ff-sub{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;color:#9A9A95;letter-spacing:.3px;
-  text-transform:uppercase;margin-top:2px;margin-bottom:11px;}
-.ff-playbtn{width:40px;height:40px;border-radius:50%;background:#E01B24;border:2px solid #000;display:flex;
-  align-items:center;justify-content:center;font-size:14px;margin:0 auto;color:#fff;
-  box-shadow:0 0 12px rgba(224,27,36,.7);transition:transform .15s;}
-.ff-ctawrap{text-align:center;}
+/* Cards below are an exact clone of the Smacks-of-the-Day card (.sotw-card
+   and friends) - same sizing, same player, same typography. The ONLY
+   difference is the border/glow colour, which is set inline per card to
+   the team's real colour instead of the fixed site red. */
+.ff-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+@media (max-width:900px){ .ff-grid{grid-template-columns:repeat(2,1fr);} }
+.ff-card{min-height:0;background:#141416;border:2px solid #FF2233;transition:border-color .15s,box-shadow .15s;
+  border-radius:9px;padding:15px 16px;display:flex;flex-direction:column;text-align:center;}
+.ff-card:hover{box-shadow:0 0 18px rgba(255,34,51,.35);}
+.ff-prod{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:1.4px;text-transform:uppercase;
+  color:var(--silver,#C3CAD3);border:1px solid var(--silver-hairline,#3A3D42);padding:3px 7px;border-radius:3px;
+  display:inline-block;margin-bottom:11px;}
+.ff-headline{font-family:'Anton',sans-serif;font-size:16px;line-height:1.15;color:var(--chalk,#F5F5F3);
+  margin:0 0 8px;text-transform:uppercase;}
+.ff-when{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:1.2px;
+  color:#7A7575;margin-top:4px;text-transform:none;}
+.ff-stage{padding:16px 0 2px;}
+.ff-play{width:74px;height:74px;border-radius:12px;-webkit-appearance:none;appearance:none;
+  background-color:var(--flare);background-image:none;border:3px solid #0D0D0D;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;padding:0;
+  box-shadow:0 0 20px rgba(245,245,243,.55),0 0 42px rgba(245,245,243,.22);
+  transition:transform .13s,box-shadow .13s;}
+.ff-play:hover{transform:scale(1.06);box-shadow:0 0 26px rgba(245,245,243,.75),0 0 56px rgba(245,245,243,.30);}
+.ff-play svg{display:block;}
+.ff-card audio{display:none;}
+.ff-line{display:flex;align-items:center;gap:9px;margin-top:14px;}
+.ff-t{font-family:'JetBrains Mono',monospace;font-size:9px;color:#7A7575;flex:0 0 auto;}
+.ff-bar{flex:1;height:3px;background:#2A2D32;border-radius:2px;overflow:hidden;}
+.ff-bar i{display:block;height:3px;width:0;background:var(--flare);border-radius:2px;}
+.ff-ctawrap{text-align:center;margin-top:20px;}
 .ff-cta{display:inline-block;text-align:center;background:#E01B24;color:#fff;font-family:'Anton',sans-serif;
   font-size:14px;letter-spacing:1.5px;text-transform:uppercase;text-decoration:none;padding:10px 26px;
-  border-radius:8px;margin-top:16px;box-shadow:0 0 18px rgba(224,27,36,.5);animation:ffCtaPulse 2.4s infinite;}
-.ff-empty{color:#6a5a60;font-size:11px;text-align:center;padding:14px;}
+  border-radius:8px;box-shadow:0 0 18px rgba(224,27,36,.5);animation:ffCtaPulse 2.4s infinite;}
 </style>
 
 <div id="ffWrap" hidden>
@@ -1174,15 +1190,57 @@
   function esc(s){ return (s||'').replace(/[&<>"']/g, function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
   }); }
+  function fmt(sec){
+    if(!isFinite(sec) || sec < 0) sec = 0;
+    var m = Math.floor(sec/60), s2 = Math.floor(sec%60);
+    return m + ':' + (s2<10?'0':'') + s2;
+  }
 
+  var PLAY_ICON = '<svg width="23" height="26" viewBox="0 0 17 19" aria-hidden="true">'
+    + '<path d="M1 1l15 8.5L1 18z" fill="#0D0D0D"/></svg>';
+
+  // Same card shape as Smacks of the Day - identical markup and classes,
+  // just an inline border/glow colour matched to the team.
   function card(item){
-    var color = item.team_color || '#E8142C';
-    var team = esc(item.team || 'A team');
-    return '<a class="ff-card" href="/s/'+item.id+'" style="border-color:'+color+';box-shadow:0 0 10px '+color+'59;">'
-      + '<div class="ff-team" style="color:'+color+';text-shadow:0 0 8px '+color+'99;">A '+team+' FAN</div>'
-      + '<div class="ff-sub">just got smacked</div>'
-      + '<div class="ff-playbtn">&#9658;</div>'
-      + '</a>';
+    var color = item.team_color || '#FF2233';
+    var team = esc(item.team || 'mystery').toUpperCase();
+    var audio = item.audio_url
+      ? '<div class="ff-stage">'
+        + '<button type="button" class="ff-play" aria-label="Play this smack">'+PLAY_ICON+'</button>'
+        + '<audio preload="metadata" src="'+esc(item.audio_url)+'"></audio>'
+        + '</div>'
+        + '<div class="ff-line">'
+        +   '<span class="ff-t ff-now">0:00</span>'
+        +   '<span class="ff-bar"><i></i></span>'
+        +   '<span class="ff-t ff-dur">0:00</span>'
+        + '</div>'
+      : '';
+    return '<div class="ff-card" style="border-color:'+color+';">'
+      + '<span class="ff-prod">Smackagram</span>'
+      + '<p class="ff-headline">SENT TO A <span style="color:'+color+';">'+team+'</span> FAN'
+      +   (item.when ? '<span class="ff-when">'+esc(item.when)+'</span>' : '')
+      + '</p>'
+      + audio
+      + '</div>';
+  }
+
+  function wireAudio(){
+    grid.querySelectorAll('.ff-card').forEach(function(c){
+      var btn = c.querySelector('.ff-play');
+      var a = c.querySelector('audio');
+      if(!btn || !a) return;
+      var fill = c.querySelector('.ff-bar i');
+      var now = c.querySelector('.ff-now');
+      var dur = c.querySelector('.ff-dur');
+      btn.addEventListener('click', function(){
+        if(a.paused){ a.play(); } else { a.pause(); }
+      });
+      a.addEventListener('loadedmetadata', function(){ if(dur) dur.textContent = fmt(a.duration); });
+      a.addEventListener('timeupdate', function(){
+        if(now) now.textContent = fmt(a.currentTime);
+        if(fill && a.duration) fill.style.width = ((a.currentTime/a.duration)*100)+'%';
+      });
+    });
   }
 
   function load(){
@@ -1191,6 +1249,7 @@
       if(!items.length){ wrap.hidden = true; return; }
       wrap.hidden = false;
       grid.innerHTML = items.map(card).join('');
+      wireAudio();
     }).catch(function(){});
   }
 
