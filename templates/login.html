@@ -60,8 +60,8 @@
   </div>
 
   <div class="card">
-    <label for="emailInput">Email Address</label>
-    <input id="emailInput" type="email" placeholder="you@example.com" autocomplete="email">
+    <label for="emailInput">Email Address or Username</label>
+    <input id="emailInput" type="text" placeholder="you@example.com or your username" autocomplete="username">
 
     <label for="passwordInput">Password</label>
     <input id="passwordInput" type="password" placeholder="Your password" autocomplete="current-password">
@@ -87,6 +87,31 @@ function getNextParam() {
   }
 })();
 
+// REMEMBER THE IDENTIFIER, NEVER THE PASSWORD. No existing cookie on
+// this site to extend for this - checked, nothing sets one today - so
+// this is new and deliberately minimal: just whatever email/username
+// was typed, refreshed on every successful login, 365 days. The
+// input's autocomplete="username" already invites the browser's own
+// password manager to offer this too - this cookie is a second,
+// explicit path that still works if a visitor has autofill off.
+function smkSetLoginCookie(identifier) {
+  var days = 365;
+  var expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = 'smk_login_id=' + encodeURIComponent(identifier)
+    + '; expires=' + expires + '; path=/; SameSite=Lax; Secure';
+}
+function smkReadLoginCookie() {
+  var m = document.cookie.match(/(?:^|; )smk_login_id=([^;]*)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+(function () {
+  var remembered = smkReadLoginCookie();
+  if (remembered) {
+    var field = document.getElementById('emailInput');
+    if (field && !field.value) field.value = remembered;
+  }
+})();
+
 async function submitLogin() {
   const errorEl = document.getElementById('formError');
   const btn = document.getElementById('loginBtn');
@@ -96,7 +121,7 @@ async function submitLogin() {
   const password = document.getElementById('passwordInput').value;
 
   if (!email || !password) {
-    errorEl.textContent = 'Enter your email and password.';
+    errorEl.textContent = 'Enter your email/username and password.';
     smkInvalidFirstEmpty('emailInput', 'passwordInput');
     errorEl.style.display = 'block';
     return;
@@ -118,6 +143,9 @@ async function submitLogin() {
       btn.disabled = false;
       btn.textContent = 'Log In';
     } else {
+      // Only ever the identifier they typed - the password never
+      // touches a cookie, here or anywhere else.
+      smkSetLoginCookie(email);
       if (data.requires_verification) {
         window.location.href = `/verify?next=${encodeURIComponent(getNextParam())}`;
       } else {

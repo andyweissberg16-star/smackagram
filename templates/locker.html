@@ -282,7 +282,7 @@
          Who sent them stays between them and Smacky.</p>
       {% for r in received %}
         <div class="recv">
-          <p class="recv-when">{{ r.when }}</p>
+          <p class="recv-when" data-created="{{ r.created_at_iso }}">{{ r.when }}</p>
           {% if r.audio_url %}
             <audio controls preload="none" src="{{ r.audio_url }}"></audio>
           {% else %}
@@ -422,6 +422,17 @@
       : d.toLocaleDateString([], {month:'short', day:'numeric'}) + ', ' +
         d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
   }
+
+  // RECEIVED TAB LOCAL-TIME FIX. The server can't know a visitor's
+  // timezone, so the Jinja-rendered text in each .recv-when is a UTC
+  // fallback for no-JS only. Replace it with the same local-time
+  // formatting the sent-items list already uses.
+  document.querySelectorAll('.recv-when[data-created]').forEach(function (el) {
+    var iso = el.dataset.created;
+    if (!iso) return;
+    var formatted = when(iso);
+    if (formatted) el.textContent = formatted;
+  });
 
   function tagFor(it) {
     if (it.pending) return '<span class="tag tag-armed">Waiting</span>';

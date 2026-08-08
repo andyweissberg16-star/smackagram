@@ -178,6 +178,11 @@ def summary(days=7):
             "home_to_generator_pct": pct(gens, home),
             "generator_to_order_pct": pct(orders, gens),
         },
-        "note": ("Visitors are counted by a daily-rotating hash. Nobody is "
-                 "tracked across days, and no IP or user agent is stored."),
+        "note": ("Unique Visitors = distinct visitors PER DAY, summed across "
+                 "this window - not the same as distinct people over the "
+                 "whole period. Someone who visits on two different days in "
+                 "this window counts twice, since visitors are counted by a "
+                 "daily-rotating hash and nobody is tracked across days (no "
+                 "IP or user agent stored). New-vs-returning visitor tracking "
+                 "would need a longer-lived identifier and isn't built."),
     }

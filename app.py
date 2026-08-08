@@ -455,8 +455,16 @@ def api_forgot_password():
         base = os.environ.get("BASE_URL", request.url_root.rstrip("/"))
         link = f"{base}/reset-password/{raw}"
 
-        from services import email_service
-        ok, detail = email_service.send(
+        # mail.send() tries Resend, then Postmark, then SMTP as a last
+        # resort - calling email_service.send() directly here was a real
+        # bug: it skips straight to bare SMTP with no fallback, so a
+        # broken SMTP credential took down password resets outright even
+        # while Resend/Postmark (used correctly by alerts.py) were fine.
+        # Confirmed 8 Aug 2026 - David got the CRITICAL alert about this
+        # failure (which went out fine, via the chain) but never got the
+        # actual reset link (which didn't, because it wasn't using it).
+        from services import mail
+        ok, detail = mail.send(
             user.email, "Reset your Smackagram password",
             f"Somebody asked to reset the password on your Smackagram "
             f"account.\n\n{link}\n\nThis link works once and expires in an "
@@ -522,11 +530,17 @@ def api_reset_password():
 @app.route("/api/login", methods=["POST"])
 def api_login():
     data = request.json or {}
-    email = (data.get("email") or "").strip().lower()
+    # Andy's call, 8 Aug 2026: accept a screen name too, not just email.
+    # Screen names are already public everywhere on the site (chat,
+    # battles, the feed), so accepting one as a login identifier doesn't
+    # meaningfully widen what's guessable - the password is still what
+    # actually protects the account. rate-limiting below keys on
+    # whatever string was typed, so this needs no separate handling.
+    identifier = (data.get("email") or "").strip()
     password = data.get("password") or ""
 
-    if not email or not password:
-        return jsonify({"error": "Email and password are required."}), 400
+    if not identifier or not password:
+        return jsonify({"error": "Email/username and password are required."}), 400
 
     # BRUTE FORCE PROTECTION.
     #
@@ -536,28 +550,36 @@ def api_login():
     _ip = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip() \
         or request.remote_addr or ""
 
-    allowed, wait = login_guard.check(email, _ip)
+    allowed, wait = login_guard.check(identifier.lower(), _ip)
     if not allowed:
         # DELIBERATELY VAGUE. Saying "you are locked out" confirms the
         # email exists, and saying which limit was hit tells an attacker
         # how to route around it.
         return jsonify({"error": "Too many attempts. Try again shortly."}), 429
 
-    user = User.query.filter_by(email=email).first()
+    # An "@" means they typed an email - look up exactly as before.
+    # Otherwise, treat it as a screen name (case-insensitive, matching
+    # the same convention registration's uniqueness check already uses).
+    if "@" in identifier:
+        user = User.query.filter_by(email=identifier.lower()).first()
+    else:
+        user = User.query.filter(
+            db.func.lower(User.screen_name) == identifier.lower()).first()
+
     if not user or not user.check_password(password):
-        if login_guard.record_failure(email, _ip):
+        if login_guard.record_failure(identifier.lower(), _ip):
             try:
                 from services import alerts
                 alerts.record("auth", "brute_force",
-                              f"repeated failures from {_ip} / {email[:40]}",
+                              f"repeated failures from {_ip} / {identifier[:40]}",
                               severity="warning")
             except Exception:
                 pass
-        # Same message whether the email exists or the password is wrong.
-        # Anything more specific enumerates accounts.
-        return jsonify({"error": "Incorrect email or password."}), 401
+        # Same message whether the account exists or the password is
+        # wrong. Anything more specific enumerates accounts.
+        return jsonify({"error": "Incorrect email/username or password."}), 401
 
-    login_guard.record_success(email, _ip)
+    login_guard.record_success(identifier.lower(), _ip)
 
     # Admins NO LONGER skip 2FA. That exemption was fine when /admin was a
     # couple of diagnostic pages; it is not fine now that the admin panel
@@ -2181,7 +2203,12 @@ def locker_page():
         rows = q.order_by(Smackagram.id.desc()).limit(30).all()
         for r in rows:
             received.append({
+                # strftime here is UTC with no conversion - a no-JS fallback
+                # only. The real display uses created_at_iso below, which
+                # the page's JS converts to the visitor's actual local time
+                # on load.
                 "when": (r.created_at.strftime("%d %B") if getattr(r, "created_at", None) else ""),
+                "created_at_iso": utc_iso(getattr(r, "created_at", None)) or "",
                 "audio_url": getattr(r, "audio_url", None),
             })
 
@@ -2567,7 +2594,20 @@ def api_admin_customer(user_id):
     user, err = _require_admin()
     if err:
         return err
-    detail = admin_service.customer_detail(user_id)
+    # A raw exception here returns Flask's default HTML error page, not
+    # JSON - the panel's fetch().then(r => r.json()) then throws trying
+    # to parse HTML as JSON, with no .catch() to show it, so the panel
+    # just sits on "Loading..." forever with no visible error and
+    # nothing in the browser console pointing at the real cause. Catch
+    # it here, log the real exception, and answer with actual JSON so
+    # the frontend can show something and this is debuggable from logs.
+    try:
+        detail = admin_service.customer_detail(user_id)
+    except Exception as e:
+        import traceback
+        print(f"[admin] customer_detail({user_id}) failed:\n"
+              f"{traceback.format_exc()}", flush=True)
+        return jsonify({"error": f"Couldn't load this customer: {e}"}), 500
     if not detail:
         return jsonify({"error": "No such customer."}), 404
     return jsonify(detail)
@@ -7370,24 +7410,39 @@ def _notify_auto_smack_paused(sub, user):
     Best-effort, in-app is guaranteed (the status field itself IS the
     in-app signal - the locker/manage page reads it directly, no extra
     plumbing needed). Email is attempted on top but never allowed to
-    break the pause itself if sending fails - confirm /api/admin/
-    email-test is actually working before relying on this half.
+    break the pause itself if sending fails.
+
+    Goes through mail.send() (Resend -> Postmark -> SMTP), not
+    email_service directly - same bug/fix as the password-reset email
+    (8 Aug 2026): calling email_service straight goes to bare SMTP with
+    no fallback, so a broken SMTP credential would silently kill this
+    notification even while Resend/Postmark work fine. Backgrounded in
+    a thread the same way email_service.send_async did, so a slow mail
+    server can't hold up the cron sweep that called this.
     """
     try:
-        from services import email_service
-        email_service.send_async(
-            user.email,
-            f"Your {sub.target_team} Auto-Smack is paused",
-            f"Hey {user.first_name},\n\n"
-            f"Your standing Auto-Smack on the {sub.target_team} "
-            f"(going to {sub.recipient_name}) has paused - your wallet "
-            f"balance ran out.\n\n"
-            f"Nothing fires while it's paused, and no card was charged. "
-            f"Add funds and head to smackagram.com/auto-smacks to "
-            f"resume it whenever you're ready - we'll ask you to "
-            f"confirm before it starts firing again.\n\n"
-            f"- Smacky"
-        )
+        import threading
+        from services import mail
+
+        def _go():
+            ok, detail = mail.send(
+                user.email,
+                f"Your {sub.target_team} Auto-Smack is paused",
+                f"Hey {user.first_name},\n\n"
+                f"Your standing Auto-Smack on the {sub.target_team} "
+                f"(going to {sub.recipient_name}) has paused - your wallet "
+                f"balance ran out.\n\n"
+                f"Nothing fires while it's paused, and no card was charged. "
+                f"Add funds and head to smackagram.com/auto-smacks to "
+                f"resume it whenever you're ready - we'll ask you to "
+                f"confirm before it starts firing again.\n\n"
+                f"- Smacky"
+            )
+            if not ok:
+                print(f"[auto-smack-sweep] pause email to {user.email} "
+                      f"failed: {detail}", flush=True)
+
+        threading.Thread(target=_go, daemon=True).start()
     except Exception as e:
         print(f"[auto-smack-sweep] pause email failed (non-fatal): {e}", flush=True)
 

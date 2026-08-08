@@ -315,7 +315,7 @@
   }
 
   // ---- tabs ----
-  var views = {dash:'view-dash', customers:'view-customers', settings:'view-settings', traffic:'view-traffic', safety:'view-safety', tools:'view-tools'};
+  var views = {dash:'view-dash', customers:'view-customers', settings:'view-settings', traffic:'view-traffic', safety:'view-safety', tools:'view-tools', support:'view-support'};
   document.querySelectorAll('.tab').forEach(function (t) {
     t.addEventListener('click', function () {
       document.querySelectorAll('.tab').forEach(function (x) { x.classList.remove('on'); });
@@ -424,6 +424,9 @@
         box.querySelectorAll('tr.row').forEach(function (r) {
           r.addEventListener('click', function () { openCustomer(r.dataset.id); });
         });
+      })
+      .catch(function () {
+        box.innerHTML = '<p class="empty">Could not load customers. Try again.</p>';
       });
   }
   document.getElementById('searchBtn').addEventListener('click', loadCustomers);
@@ -489,6 +492,11 @@
         document.getElementById('gBtn').addEventListener('click', function () {
           grant(this.dataset.id);
         });
+      })
+      .catch(function (e) {
+        box.innerHTML = '<p class="empty">Could not load this customer. '
+          + 'Check the Render logs for the real error (search for '
+          + '"customer_detail" or "[admin]").</p>';
       });
   }
 
@@ -644,7 +652,7 @@
       .then(function (d) {
         var t = d.totals || {};
         document.getElementById('trafCards').innerHTML =
-            card('Visitors', (t.visitors || 0).toLocaleString(), 'last 7 days')
+            card('Unique Visitors', (t.visitors || 0).toLocaleString(), 'last 7 days')
           + card('Page views', (t.views || 0).toLocaleString(), 'last 7 days')
           + card('Views per visitor',
                  t.visitors ? (t.views / t.visitors).toFixed(1) : '0', '');
@@ -662,7 +670,7 @@
                  f.generator_to_order_pct != null
                    ? f.generator_to_order_pct + '% of generator opens' : '');
 
-        var rows = ['<tr><th>Page</th><th>Visitors</th><th>Views</th>'
+        var rows = ['<tr><th>Page</th><th>Unique Visitors</th><th>Views</th>'
                   + '<th>Logged in</th></tr>'];
         (d.pages || []).forEach(function (p) {
           rows.push('<tr><td>' + p.name + '</td><td>' + p.visitors + '</td><td>'
@@ -672,7 +680,7 @@
           (d.pages || []).length ? rows.join('')
             : '<tr><td>Nothing recorded yet - counting starts from this deploy.</td></tr>';
 
-        var drows = ['<tr><th>Day</th><th>Visitors</th><th>Views</th></tr>'];
+        var drows = ['<tr><th>Day</th><th>Unique Visitors</th><th>Views</th></tr>'];
         (d.daily || []).forEach(function (x) {
           drows.push('<tr><td>' + x.day + '</td><td>' + x.visitors + '</td><td>'
                    + x.views + '</td></tr>');

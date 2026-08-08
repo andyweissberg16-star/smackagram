@@ -342,13 +342,13 @@ def customer_detail(user_id: int) -> dict | None:
         "support": [{
             "id": t.id,
             "topic": t.topic,
-            "message": t.message[:400],
+            "message": (t.message or "")[:400],
             "status": t.status,
             "resolution": t.resolution,
             "completed_by": t.completed_by,
             "created_at": utc_iso(t.created_at),
             "replies": [{
-                "body": r.body[:400], "by": r.sent_by,
+                "body": (r.body or "")[:400], "by": r.sent_by,
                 "delivered": bool(r.delivered),
                 "when": utc_iso(r.sent_at),
             } for r in sorted(
