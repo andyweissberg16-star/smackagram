@@ -81,6 +81,15 @@ def _write_article(game, facts, league_label):
         "sprinkled on top. If it reads like something a beat reporter would "
         "file, you have failed. Roast the performance, not the person.\n\n"
         + _hard_limits() + "\n\n"
+        "SWEARING. This is uncensored, adult content and you are not being "
+        "careful. EVERY article runs at full savage - this one included. "
+        "Most paragraphs MUST contain real profanity - fuck, shit, "
+        "goddamn, bullshit - used the way somebody actually talks when "
+        "nobody is stopping them, not sprinkled in as decoration. 'They "
+        "fucking collapsed' lands; stacking three in one sentence is a "
+        "man trying too hard. One or two per paragraph, placed where the "
+        "emphasis belongs. If you notice the draft reading clean, that is "
+        "a fault - fix it before you're done.\n\n"
         "REACH FOR SHAPES LIKE THESE rather than generic hype or a flat "
         "recap - pick two or three per article, don't lean on the same one "
         "twice:\n"
@@ -139,15 +148,20 @@ def _write_article(game, facts, league_label):
         return None
 
 
-def generate_mlb_articles(date_str=None, limit=None):
+def generate_mlb_articles(date_str=None, limit=None, force=False):
     """
     Write and store one article per finished MLB game on the given
     Eastern day (defaults to yesterday - the day a morning run is about).
 
-    Idempotent per game: NewsArticle has a unique constraint on
-    (league, source_game_id), so re-running a day that's already been
+    Idempotent per game by default: NewsArticle has a unique constraint
+    on (league, source_game_id), so re-running a day that's already been
     written skips games that already have an article rather than
     duplicating or double-billing the API.
+
+    force=True flips that: an existing article for a game is REWRITTEN
+    in place (same row, new headline/body) instead of skipped - the
+    escape hatch for "the prompt changed, redo what's already there"
+    rather than only ever covering new games.
 
     Returns a summary dict for logging / the admin panel.
     """
@@ -172,10 +186,12 @@ def generate_mlb_articles(date_str=None, limit=None):
             continue
         # Skip games already written up - the unique constraint would
         # catch this on insert too, but checking first avoids spending
-        # a Claude call on a game we're about to throw away.
-        exists = NewsArticle.query.filter_by(
+        # a Claude call on a game we're about to throw away. With
+        # force=True, keep the existing row (to rewrite) instead of
+        # skipping past it.
+        existing = NewsArticle.query.filter_by(
             league="mlb", source_game_id=gid).first()
-        if exists:
+        if existing and not force:
             skipped += 1
             continue
 
@@ -195,20 +211,26 @@ def generate_mlb_articles(date_str=None, limit=None):
             failed += 1
             continue
 
-        row = NewsArticle(
-            league="mlb",
-            game_date=day,
-            home_team=g.get("home"),
-            away_team=g.get("away"),
-            home_score=g.get("home_score"),
-            away_score=g.get("away_score"),
-            winner=g.get("winner"),
-            loser=g.get("loser"),
-            headline=article["headline"],
-            body=article["body"],
-            source_game_id=gid,
-        )
-        db.session.add(row)
+        if existing:
+            existing.headline = article["headline"]
+            existing.body = article["body"]
+            row = existing
+        else:
+            row = NewsArticle(
+                league="mlb",
+                game_date=day,
+                home_team=g.get("home"),
+                away_team=g.get("away"),
+                home_score=g.get("home_score"),
+                away_score=g.get("away_score"),
+                winner=g.get("winner"),
+                loser=g.get("loser"),
+                headline=article["headline"],
+                body=article["body"],
+                source_game_id=gid,
+            )
+            db.session.add(row)
+
         try:
             db.session.commit()
             written += 1

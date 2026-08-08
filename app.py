@@ -4939,8 +4939,9 @@ def admin_generate_news():
         limit = int(request.args.get("limit")) if request.args.get("limit") else None
     except (TypeError, ValueError):
         limit = None
+    force = (request.args.get("force") or "").strip() == "1"
 
-    summary = newsdesk_service.generate_mlb_articles(date_str=date_str, limit=limit)
+    summary = newsdesk_service.generate_mlb_articles(date_str=date_str, limit=limit, force=force)
     return jsonify(summary)
 
 
