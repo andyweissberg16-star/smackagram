@@ -290,15 +290,28 @@
   // As the clip plays, light the waveform bars up to the current position
   // in the team colour - the fill IS the playback progress.
   var _audioForFill = document.getElementById('feedAudio');
+  // Metadata may arrive before OR after play() is called - this listener
+  // catches it either way and sets the total so the wave can fill.
+  _audioForFill.addEventListener('loadedmetadata', function(){
+    curTotal = _audioForFill.duration;
+    if(curDur && isFinite(curTotal)){ curDur.textContent = fmtTime(0)+' / '+fmtTime(curTotal); }
+  });
+  // Flip to the pause icon only when playback ACTUALLY starts (not
+  // optimistically on click), so the button matches what you hear.
+  _audioForFill.addEventListener('playing', function(){
+    if(nowPlaying) nowPlaying.textContent = '\u275A\u275A';
+  });
   _audioForFill.addEventListener('timeupdate', function(){
-    if(!curWave || !curTotal || !isFinite(curTotal)) return;
-    var frac = _audioForFill.currentTime / curTotal;
+    if(!curWave) return;
+    var total = curTotal || _audioForFill.duration;
+    if(!total || !isFinite(total)) return;
+    var frac = _audioForFill.currentTime / total;
     var bars = curWave.querySelectorAll('i');
     var lit = Math.round(frac * bars.length);
     for(var i=0;i<bars.length;i++){
       if(i < lit) bars[i].classList.add('lit'); else bars[i].classList.remove('lit');
     }
-    if(curDur){ curDur.textContent = fmtTime(_audioForFill.currentTime)+' / '+fmtTime(curTotal); }
+    if(curDur){ curDur.textContent = fmtTime(_audioForFill.currentTime)+' / '+fmtTime(total); }
   });
 
   var curLeague = 'all';
@@ -419,18 +432,39 @@
 
   // Fetch each clip's real length (metadata only - cheap) and show it,
   // so the timestamp is right without needing to hit play first.
+  // Load each clip's length only when its card scrolls into view - never
+  // all at once. Firing 60 metadata downloads on render floods the browser
+  // and the server and makes every player lag (and starves the clip you
+  // actually pressed play on). An observer fetches one card's duration as
+  // it nears the viewport and then stops watching it.
+  var _durObserver = ('IntersectionObserver' in window)
+    ? new IntersectionObserver(function(entries){
+        entries.forEach(function(en){
+          if(!en.isIntersecting) return;
+          var el = en.target;
+          _durObserver.unobserve(el);
+          if(el.dataset.loaded) return;
+          el.dataset.loaded = '1';
+          var a = new Audio();
+          a.preload = 'metadata';
+          a.src = el.dataset.dur;
+          a.addEventListener('loadedmetadata', function(){
+            var s = a.duration;
+            if(isFinite(s) && s > 0){ el.textContent = fmtTime(s); }
+          });
+        });
+      }, {rootMargin: '200px'})
+    : null;
+
   function loadDurations(){
     document.querySelectorAll('.sdur[data-dur]').forEach(function(el){
-      if(el.dataset.loaded) return;
-      el.dataset.loaded = '1';
-      var a = new Audio();
-      a.preload = 'metadata';
-      a.src = el.dataset.dur;
-      a.addEventListener('loadedmetadata', function(){
-        var s = a.duration;
-        if(isFinite(s) && s > 0){ var m=Math.floor(s/60),x=Math.floor(s%60);
-          el.textContent = m+':'+(x<10?'0':'')+x; }
-      });
+      if(el.dataset.loaded || el.dataset.observed) return;
+      if(_durObserver){
+        el.dataset.observed = '1';
+        _durObserver.observe(el);
+      }
+      // No observer support: leave the placeholder; duration still shows
+      // on play. Better a dash than 60 simultaneous downloads.
     });
   }
 
@@ -457,12 +491,18 @@
           wave.style.setProperty('--wave-col', col);
           resetWave(wave);
         }
-        audio.src = url; audio.play();
-        btn.textContent='\u275A\u275A'; nowPlaying = btn;
-        audio.onloadedmetadata = function(){
+        nowPlaying = btn;
+        btn.textContent = '\u2026';          // loading dots until it really starts
+        audio.src = url;
+        audio.load();
+        // If metadata is already available (cached), grab duration now;
+        // otherwise the persistent loadedmetadata listener below catches it.
+        if(isFinite(audio.duration) && audio.duration > 0){
           curTotal = audio.duration;
-          if(durEl && isFinite(curTotal)){ durEl.textContent = fmtTime(0)+' / '+fmtTime(curTotal); }
-        };
+          if(durEl) durEl.textContent = fmtTime(0)+' / '+fmtTime(curTotal);
+        }
+        var p = audio.play();
+        if(p && p.catch){ p.catch(function(){ btn.textContent='\u25B6'; }); }
       });
     });
     document.querySelectorAll('.sc-share').forEach(function(btn){
